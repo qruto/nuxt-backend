@@ -146,15 +146,25 @@ const LLAMA_GUARD_CATEGORIES: Readonly<Record<string, ModerationCategory>> = {
   S12: 'sexual',
 }
 
+/**
+ * A classifier's code as the taxonomy and the policy read it: upper case,
+ * and a Llama Guard code without leading zeros, so `s04` is `S4`. Any
+ * other code comes back upper-cased.
+ */
+export function llamaGuardCode(code: string): string {
+  const padded = /^S0*(\d{1,2})$/i.exec(code.trim())
+  return padded ? `S${Number(padded[1])}` : code.trim().toUpperCase()
+}
+
 /** The shared category a Llama Guard code reads as, if any: `S4` is `minors_sexual`. */
-export const llamaGuardCategory = (code: string): ModerationCategory | undefined => LLAMA_GUARD_CATEGORIES[code.toUpperCase()]
+export const llamaGuardCategory = (code: string): ModerationCategory | undefined => LLAMA_GUARD_CATEGORIES[llamaGuardCode(code)]
 
 /** A classifier's codes (Llama Guard's, or a policy-following classifier answering in them) as a reading. */
 export function classifierReading(provider: string, codes: readonly string[]): ProviderReading {
   const scores: Partial<Record<ModerationCategory, CategoryScore>> = {}
   for (const category of new Set(Object.values(LLAMA_GUARD_CATEGORIES))) scores[category] = { score: 0, supported: true }
   for (const code of codes) {
-    const category = LLAMA_GUARD_CATEGORIES[code.toUpperCase()]
+    const category = llamaGuardCategory(code)
     if (category) scores[category] = { score: 1, supported: true }
   }
   return { provider, scores, codes: [...codes] }

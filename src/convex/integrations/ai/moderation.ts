@@ -8,7 +8,7 @@ import { upstreamErrorOf } from './job-errors.js'
 import { DEFAULT_MODERATION_MODEL } from './model-id.js'
 import { convexGatewayModel, FALLBACK_NAME, loadSdk, meteredModel, modelIdOf, type ModelCall, modelRefusal, type ModelRoute, type ModelRouting, noticeConvexGateway, requireModelId, routeModel } from './models.js'
 import type { KnownAbuseProvider, ModerationImage, ModerationProvider } from './moderation-providers.js'
-import { type CategoryScore, classifierReading, combineReadings, flaggedCategories, inGrayBand, llamaGuardCategory, MODERATION_CATEGORIES, type ModerationCategory, type ProviderReading, requireThresholds, thresholdsFor } from './moderation-taxonomy.js'
+import { type CategoryScore, classifierReading, combineReadings, flaggedCategories, inGrayBand, llamaGuardCategory, llamaGuardCode, MODERATION_CATEGORIES, type ModerationCategory, type ProviderReading, requireThresholds, thresholdsFor } from './moderation-taxonomy.js'
 
 // Content safety's check (`ai.moderate`, `ai.requireSafe`, `moderate` on a
 // metered action, a stream, a chat or a job): a call to a safety classifier
@@ -295,7 +295,7 @@ export function moderationPolicy(config: ModerationConfig | undefined): { judge:
     judge: ({ flagged, categories, codes = [] }) => {
       if (!flagged) return { blocked: false, escalate: false, legalHold: false }
       // A list names shared categories (`sexual`) or Llama Guard's codes (`S4`) alike.
-      const found = [...categories, ...codes.map(code => code.toUpperCase())]
+      const found = [...categories, ...codes.map(llamaGuardCode)]
       const escalated = found.some(entry => escalating.has(entry))
       const blocked = escalated || found.length === 0 || found.some(refuses)
       return { blocked, escalate: escalated, legalHold: escalated || (blocked && found.some(entry => CHILD_EXPLOITATION.has(entry))) }
@@ -365,8 +365,9 @@ const readsImages = (model: AiModel): boolean => typeof model === 'string' ? /ll
 /**
  * Read a classifier's answer: `safe`, or `unsafe` and its codes; `null`
  * for anything else. Every word after `unsafe` is a code (`S` and a number)
- * or the answer is unread: a code beyond `S14` is kept, and the policy
- * refuses it; words such as `child abuse` beside the codes are no verdict
+ * or the answer is unread. A padded code reads as its number (`S04` is
+ * `S4`), so it escalates as `S4` does; a code beyond `S14` is kept, and the
+ * policy refuses it; words such as `child abuse` beside the codes are no verdict
  * this reads, so the content is refused as unchecked rather than judged on
  * the codes alone.
  */
@@ -375,8 +376,8 @@ export function readVerdict(answer: string): { flagged: boolean, categories: str
   const head = lines[0]?.toLowerCase().replace(/[^a-z]/g, '')
   if (head === 'safe') return lines.length === 1 ? { flagged: false, categories: [] } : null
   if (head !== 'unsafe') return null
-  const words = lines.slice(1).join(',').split(/[\s,]+/).filter(Boolean).map(word => word.toUpperCase())
-  if (!words.every(word => /^S\d{1,2}$/.test(word))) return null
+  const words = lines.slice(1).join(',').split(/[\s,]+/).filter(Boolean).map(llamaGuardCode)
+  if (!words.every(word => LLAMA_CODE.test(word))) return null
   return { flagged: true, categories: [...new Set(words)] }
 }
 

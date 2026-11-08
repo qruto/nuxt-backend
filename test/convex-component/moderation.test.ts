@@ -331,6 +331,8 @@ describe('readVerdict', () => {
 
   test('keeps a code beyond S14 for the policy to refuse, and reads no answer with other words beside the codes', () => {
     expect(readVerdict('unsafe\nS15')).toEqual({ flagged: true, categories: ['S15'] })
+    // A padded code is the code it pads: escalated and held as S4 is.
+    expect(readVerdict('unsafe\nS04, s012')).toEqual({ flagged: true, categories: ['S4', 'S12'] })
     expect(readVerdict('unsafe\nS7, child abuse')).toBeNull()
     expect(readVerdict('unsafe\nS1: violent crimes')).toBeNull()
     expect(readVerdict('safe\nS4')).toBeNull()
@@ -501,6 +503,14 @@ describe('the moderation policy', () => {
     expect(vi.mocked(console.error).mock.calls.flat().map(String).join('\n')).toContain(`subject comic-1, at title, flag ${rows[3]!._id as string}`)
     // Kept the policy's 30 days.
     expect(Math.round(((rows[0]!.expiresAt as number) - (rows[0]!._creationTime as number)) / 1000)).toBe(30 * 24 * 60 * 60)
+  })
+
+  test('reads a padded code as the code it pads: S04 is escalated and held as S4', async () => {
+    const t = appUnderTest()
+    const ada = await asUser(t)
+    answer = 'unsafe\nS04'
+    expect(await ada.action(ref.checkPoliced, { text: 'A fox' })).toMatchObject({ flagged: true, categories: ['minors_sexual'], codes: ['S4'], blocked: true, escalate: true })
+    expect(await flagRows(t)).toEqual([expect.objectContaining({ codes: ['S4'], escalate: true, legalHold: true })])
   })
 
   test('refuses a code beyond S14 under any policy: it was never weighed', async () => {
