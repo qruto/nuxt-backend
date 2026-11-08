@@ -266,7 +266,7 @@ describe('CLI', () => {
     expect(commands).toEqual(expect.arrayContaining(['init', 'doctor', 'env', 'billing']))
   })
 
-  it.each(commands.filter(c => !['env', 'billing', 'email', 'push', 'rotate'].includes(c)))('`%s` has a section on the CLI page', (command) => {
+  it.each(commands.filter(c => !['env', 'billing', 'access', 'email', 'push', 'rotate'].includes(c)))('`%s` has a section on the CLI page', (command) => {
     expect(page).toContain(`## \`${command}\``)
   })
 
@@ -274,6 +274,8 @@ describe('CLI', () => {
     expect(page).toContain('## `env push`')
     expect(page).toContain('## `env rotate`')
     expect(page).toContain('## `billing sync`')
+    expect(page).toContain('## `billing resync`')
+    expect(page).toContain('## `access admit`')
   })
 
   it('has no section for a simulator: `simulate` is not a command', () => {
@@ -319,13 +321,26 @@ describe('nuxt-backend upgrade', () => {
   const cli = read(contentFile('/docs/reference/cli'))
   const section = cli.slice(cli.indexOf('## `upgrade`'), cli.indexOf('\n## ', cli.indexOf('## `upgrade`') + 1))
 
+  /** The rows of the table whose first column is headed `heading`. */
+  const tableRows = (heading: string) => {
+    const table = section.slice(section.indexOf(`| \`${heading}\` |`)).split('\n\n')[0]!
+    return [...table.matchAll(/^\| `([a-z-]+)` \| /gm)].map(match => match[1]!)
+  }
+
   it('names every state of the data step, and only those', () => {
     const source = read('src/cli/upgrade/data.ts')
     const union = source.slice(source.indexOf('export type DataState'), source.indexOf('\n', source.indexOf('export type DataState')))
     const states = [...union.matchAll(/'([a-z-]+)'/g)].map(match => match[1]!)
     expect(states.length).toBeGreaterThan(5)
-    const rows = [...section.matchAll(/^\| `([a-z-]+)` \| /gm)].map(match => match[1]!).filter(state => !state.startsWith('-'))
-    expect(rows).toEqual(states)
+    expect(tableRows('data.state')).toEqual(states)
+  })
+
+  it('names every state of the workpool step, and only those', () => {
+    const source = read('src/cli/upgrade/pools.ts')
+    const line = source.slice(source.indexOf('  state: \'started\''), source.indexOf('\n', source.indexOf('  state: \'started\'')))
+    const states = [...line.matchAll(/'([a-z-]+)'/g)].map(match => match[1]!)
+    expect(states).toEqual(['started', 'none', 'pending', 'skipped', 'failed'])
+    expect(tableRows('pools.state')).toEqual(states)
   })
 
   it('lists every package migration, with its release, where the migrations page lists them', () => {

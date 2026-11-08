@@ -172,8 +172,8 @@ describe('the fake provider through the provider SDK', () => {
     expect(raised.log).toContainEqual(expect.objectContaining({ action: 'updated', kind: 'benefit', key: 'pro-quotas' }))
     called.add('benefitsUpdate')
     const organization = await readBillingOrganizationState({ accessToken: 'polar_oat_fake', environment: 'sandbox' })
-    expect(organization).toMatchObject({ memberModel: true, membersReadable: true, preventTrialAbuse: true })
-    for (const name of ['metersList', 'metersCreate', 'benefitsList', 'benefitsCreate', 'productsList', 'productsCreate', 'productsUpdateBenefits', 'customFieldsList', 'customFieldsCreate', 'organizationsListOrganizations', 'webhooksListWebhookEndpoints', 'webhooksCreateWebhookEndpoint', 'membersListMembers']) called.add(name)
+    expect(organization).toMatchObject({ memberModel: true, membersReadable: true, preventTrialAbuse: true, checkoutLinks: [] })
+    for (const name of ['metersList', 'metersCreate', 'benefitsList', 'benefitsCreate', 'productsList', 'productsCreate', 'productsUpdateBenefits', 'customFieldsList', 'customFieldsCreate', 'organizationsListOrganizations', 'webhooksListWebhookEndpoints', 'webhooksCreateWebhookEndpoint', 'membersListMembers', 'checkoutLinksList']) called.add(name)
     // doctor --fix at the provider: the settings turned on, the endpoint back on with every event, then env rotate's reset.
     const fixing = providerClient('polar_oat_fake', 'sandbox')
     const settings = (await readProviderOrganization(fixing))!

@@ -770,6 +770,7 @@ Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-b
 | <a id="stallafter"></a> `stallAfter?` | `number` | **`Experimental`** How long a running job may go without a sign of life before it fails and is refunded, in ms. Default 5 minutes. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="workflow-1"></a> `workflow?` | `WorkflowComponent` | **`Experimental`** The Workflow component the jobs run on. Default `components.workflow`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="guest-1"></a> `guest?` | [`GuestJobs`](#guestjobs) | **`Experimental`** Let a signed-out visitor start jobs of the kinds defined with `guest: true`, after `verifyHuman` in the same mutation: free, under the `aiGlobal` limit, at the guest rank, and claimed by the account that signs up in their browser. Needs setupAi's `rateLimiter`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="onjobend-1"></a> `onJobEnd?` | [`OnJobEnd`](#onjobend) | **`Experimental`** Hear of every job's end: done, failed, stalled, or canceled while it waited or ran, with its id, kind, args, error, run (`retries`) and `endedAt`. Your internal mutation or action, by its reference, taking `vJobEnd`: settle what your own rows say about the job (fail its document, tell its owner) without a sweep of your own. Credits are the queue's: it lets the hold go and schedules the refund as the job ends, or, while a charge is still on its way, once that charge lands. Never settle credits here. **Guarantee** - Runs: as its own function, scheduled by the transaction that ended the job, once it commits - Delivery: once per run of a job, whichever way it ended, except a job erased with its owner's account, which ends unheard; a mutation runs exactly once, an action at most once - Order: after the job's row reads its end; a retried job's runs are heard in turn, `retries` counting up; ends of different jobs run in no set order - When it throws: the failure is the hook's own, in the deployment's logs; the job's end and the queue's handling of its credits stand - Idempotency: an administrator's retry runs a failed job again, and it ends again: compare `retries` with the run you last recorded, and let a later run's end win | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
 ***
 
@@ -788,6 +789,7 @@ What a job's handler gets: its id, and the durable calls it orders.
 | <a id="id-2"></a> `id` | `string` | **`Experimental`** The job's id. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="run"></a> `run` | \<`Step`\>(`step`, `args`) => `Promise`\<[`StepResult`](#stepresult)\<`Step`\[`"_returnType"`\]\>\> | **`Experimental`** Run a step and return what it returned. A step that finds no free turn at its model, or answers `429`, a timeout or a passing provider error, is waited for and run again, up to 4 attempts. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="progress"></a> `progress` | (`progress`) => `Promise`\<`void`\> | **`Experimental`** Report how far the job got: `useJob` shows it, and it tells the queue the job is alive. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="charge-1"></a> `charge` | (`credits`) => `Promise`\<`void`\> | **`Experimental`** Charge what the job made, for a kind defined with `charge: 'output'`: `credits`, at most the `cost` held when it joined; the rest of the hold goes back unbilled. Once: a later call changes nothing. A job that fails after it is refunded what it was charged. Throws in a kind that charges at start; does nothing in a job put in line `{ free: true }`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
 ***
 
@@ -811,10 +813,11 @@ A kind of job: `jobs.define`.
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="meter-5"></a> `meter` | `string` \| `false` | **`Experimental`** The credit meter its price is held from and charged to, or `false` for a free job. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="cost-4"></a> `cost?` | `number` \| ((`args`) => `number`) | **`Experimental`** Its price in credits: a number, or read from the args once when it joins. Default `1`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="cost-4"></a> `cost?` | `number` \| ((`args`) => `number`) | **`Experimental`** Its price in credits: a number, or read from the args once when it joins. Default `1`. With `charge: 'output'`, the most it may cost: what is held while it waits and runs. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="charge-2"></a> `charge?` | `"output"` \| `"start"` | **`Experimental`** When its credits are charged: `'start'` (the default), the whole `cost` as its first step; or `'output'`, what the handler passes to `job.charge(n)` once it knows what it made, the hold taken again as its first step. An `'output'` job that ends without `job.charge`, or fails, or is canceled before it, costs nothing. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="guest-2"></a> `guest?` | `boolean` | **`Experimental`** A signed-out visitor may start it too (`defineJobQueue({ guest })`): free for them, the app pays. A member who starts it pays as for any other kind. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="moderate-4"></a> `moderate?` | (`args`) => [`ModerationInput`](#moderationinput) | **`Experimental`** What to check with the safety classifier (`setupAi({ moderation })`), from the args: as the job's first step, before the charge. A flagged job fails with `invalid_input`, reason `content_blocked`, and its hold is released. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="args-2"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="args-3"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="handler-2"></a> `handler` | (`job`, `args`) => `Promise`\<`Result`\> | **`Experimental`** The steps, in order. Runs as a durable workflow: read data and call models in steps, never here. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
 ***
@@ -863,8 +866,61 @@ A step of a job: `jobs.step`.
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="model-7"></a> `model?` | `LanguageModel` | **`Experimental`** The model its calls go to: the step takes a turn from this model's limit before it runs. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="args-3"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="args-4"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="handler-3"></a> `handler` | (`ctx`, `args`) => `Promise`\<`Result`\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### JobRecord
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+A job as `jobs.get` reads it for your own functions: `getJob`'s view, with who owns it and its args.
+
+#### Extends
+
+- `Omit`\<[`JobView`](/docs/reference/api/use-job#jobview), `"canCancel"`\>
+
+#### Properties
+
+| Property | Type | Description | Inherited from | Defined in |
+| ------ | ------ | ------ | ------ | ------ |
+| <a id="id-3"></a> `id` | `string` | **`Experimental`** | [`JobView`](/docs/reference/api/use-job#jobview).[`id`](/docs/reference/api/use-job#id) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="kind-1"></a> `kind` | `string` | **`Experimental`** | [`JobView`](/docs/reference/api/use-job#jobview).[`kind`](/docs/reference/api/use-job#kind) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="status-2"></a> `status` | `"done"` \| `"queued"` \| `"running"` \| `"failed"` \| `"canceled"` | **`Experimental`** | [`JobView`](/docs/reference/api/use-job#jobview).[`status`](/docs/reference/api/use-job#status) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="waitingon"></a> `waitingOn?` | `"owner"` \| `"line"` \| `"paused"` | **`Experimental`** | [`JobView`](/docs/reference/api/use-job#jobview).[`waitingOn`](/docs/reference/api/use-job#waitingon) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="position"></a> `position?` | `number` \| `null` | **`Experimental`** | [`JobView`](/docs/reference/api/use-job#jobview).[`position`](/docs/reference/api/use-job#position) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="estimatedwait"></a> `estimatedWait?` | `number` | **`Experimental`** | [`JobView`](/docs/reference/api/use-job#jobview).[`estimatedWait`](/docs/reference/api/use-job#estimatedwait) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="progress-1"></a> `progress?` | [`JobProgress`](/docs/reference/api/use-job#jobprogress) | **`Experimental`** | [`JobView`](/docs/reference/api/use-job#jobview).[`progress`](/docs/reference/api/use-job#progress) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="result"></a> `result?` | `unknown` | **`Experimental`** | [`JobView`](/docs/reference/api/use-job#jobview).[`result`](/docs/reference/api/use-job#result) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="error-1"></a> `error?` | `Record`\<`string`, `unknown`\> | **`Experimental`** Why it failed, as a catalog error payload: `{ code, ...fields }`. | [`JobView`](/docs/reference/api/use-job#jobview).[`error`](/docs/reference/api/use-job#error) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="joinedat"></a> `joinedAt` | `number` | **`Experimental`** | [`JobView`](/docs/reference/api/use-job#jobview).[`joinedAt`](/docs/reference/api/use-job#joinedat) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="startedat"></a> `startedAt?` | `number` | **`Experimental`** | [`JobView`](/docs/reference/api/use-job#jobview).[`startedAt`](/docs/reference/api/use-job#startedat) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="endedat-1"></a> `endedAt?` | `number` | **`Experimental`** | [`JobView`](/docs/reference/api/use-job#jobview).[`endedAt`](/docs/reference/api/use-job#endedat) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="provenance-1"></a> `provenance?` | [`JobProvenance`](/docs/reference/api/use-job#jobprovenance) | **`Experimental`** What made its result, once it is `done` and `setupAi({ provenance })` is on: the models its steps called, when it finished, and the ids of the inputs its `ctx.storeImage` calls named. | [`JobView`](/docs/reference/api/use-job#jobview).[`provenance`](/docs/reference/api/use-job#provenance) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="charged-1"></a> `charged` | `number` | **`Experimental`** The credits it was charged so far: its `cost` once charged at start, what `job.charge` charged for a kind charged by output, `0` before a charge. A failed or canceled job's refund may still be on its way. | [`JobView`](/docs/reference/api/use-job#jobview).[`charged`](/docs/reference/api/use-job#charged) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="free-1"></a> `free` | `boolean` | **`Experimental`** Put in line `{ free: true }`: it holds, charges and counts nothing. | [`JobView`](/docs/reference/api/use-job#jobview).[`free`](/docs/reference/api/use-job#free) | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="owner"></a> `owner` | `string` | **`Experimental`** Who pays for it: a billing entity, `guest:<visitor>` or `app`. | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="userid-3"></a> `userId?` | `string` | **`Experimental`** Who put it in line, when somebody signed in did. | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="args-5"></a> `args` | `unknown` | **`Experimental`** The args it was put in line with. | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### CancelOptions
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+What `jobs.cancel` takes.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="refund"></a> `refund?` | `boolean` | **`Experimental`** Give a running job's charged credits back as well. Default `false`: a running job stays charged for what it made so far. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
 ***
 
@@ -880,20 +936,21 @@ A job as the admin console lists it.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="id-3"></a> `id` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="kind"></a> `kind` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="owner"></a> `owner` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="userid-3"></a> `userId?` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="id-4"></a> `id` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="kind-2"></a> `kind` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="owner-1"></a> `owner` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="userid-4"></a> `userId?` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="tier"></a> `tier?` | `string` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="status-1"></a> `status` | `"done"` \| `"queued"` \| `"running"` \| `"failed"` \| `"canceled"` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="status-3"></a> `status` | `"done"` \| `"queued"` \| `"running"` \| `"failed"` \| `"canceled"` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="guest-3"></a> `guest` | `boolean` | **`Experimental`** A job a signed-out visitor started: `owner` is `guest:<visitor>` until a sign-up claims it. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="attempts"></a> `attempts` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="retries"></a> `retries` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="retries-1"></a> `retries` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="cost-5"></a> `cost` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="joinedat"></a> `joinedAt` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="startedat"></a> `startedAt?` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="endedat"></a> `endedAt?` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="error"></a> `error?` | `Record`\<`string`, `unknown`\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="price"></a> `price?` | `number` | **`Experimental`** What `job.charge` charged, for a kind charged by output. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="joinedat-1"></a> `joinedAt` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="startedat-1"></a> `startedAt?` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="endedat-2"></a> `endedAt?` | `number` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="error-2"></a> `error?` | `Record`\<`string`, `unknown`\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="lasterror"></a> `lastError?` | `string` | **`Experimental`** The provider's own text for the last failed attempt, cut to 500 characters. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="deadletter"></a> `deadLetter` | `boolean` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
@@ -946,7 +1003,7 @@ The functions behind `useJob()` and the admin console's Queue tab, to re-export 
 | <a id="retryjob"></a> `retryJob` | `RegisteredMutation`\<`"public"`, \{ `jobId`: `string`; \}, `Promise`\<`null`\>\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="discardjob"></a> `discardJob` | `RegisteredMutation`\<`"public"`, \{ `jobId`: `string`; \}, `Promise`\<`null`\>\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="runqueue"></a> `runQueue` | `RegisteredMutation`\<`"internal"`, `Record`\<`string`, `unknown`\>, `Promise`\<`null`\>\> | **`Experimental`** Internal: the pick, the stall sweep, a job's progress and each job's end. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="billjob"></a> `billJob` | `RegisteredAction`\<`"internal"`, \{ `op`: `"report"` \| `"charge"` \| `"refund"` \| `"moderate"`; `jobId`: `string`; `attempt?`: `number`; `input?`: [`ModerationInput`](#moderationinput); \}, `Promise`\< \| \{ `blocked`: `Record`\<`string`, `unknown`\>; \} \| `null`\>\> | **`Experimental`** Internal: a job's charge, refund and cost report. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="billjob"></a> `billJob` | `RegisteredAction`\<`"internal"`, \{ `op`: `"report"` \| `"charge"` \| `"hold"` \| `"refund"` \| `"moderate"`; `jobId`: `string`; `attempt?`: `number`; `amount?`: `number`; `input?`: [`ModerationInput`](#moderationinput); \}, `Promise`\< \| \{ `blocked`: `Record`\<`string`, `unknown`\>; \} \| `null`\>\> | **`Experimental`** Internal: a job's charge, refund and cost report. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
 ***
 
@@ -963,6 +1020,7 @@ What `jobs.enqueue` takes beside the kind and its args.
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="billto-1"></a> `billTo?` | `"app"` \| `"entity"` | **`Experimental`** Who owns and pays for the job: the caller's billing entity (`'entity'`, the default), or the app itself (`'app'`, a `meter: false` kind). | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="free-2"></a> `free?` | `boolean` | **`Experimental`** Run this one job of a metered kind for nothing: it holds no credits, is never charged and counts in no tier's budget. Your mutation decides who gets it, such as a plan's monthly free generation. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
 ***
 
@@ -981,6 +1039,8 @@ The queue `defineJobQueue` returns.
 | <a id="define"></a> `define` | \<`Args`, `Result`\>(`definition`) => `RegisteredMutation`\<`"internal"`, `Record`\<`string`, `unknown`\>, `Promise`\<`unknown`\>\> | **`Experimental`** Declare a kind of job. Export it: Convex registers it by name. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="step"></a> `step` | \<`Args`, `Result`\>(`definition`) => `RegisteredAction`\<`"internal"`, `ObjectType`\<`Args`\> & \{ `queuedJob?`: \{ `id`: `string`; `attempt`: `number`; \}; \}, `Promise`\< \| `Record`\<`string`, `unknown`\> \| \{ `value`: `Result`; \}\>\> | **`Experimental`** Declare a step a job runs: an internal action whose `ctx.model()` calls its model. Export it. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="enqueue"></a> `enqueue` | \<`Kind`\>(`ctx`, `job`, `args`, `options?`) => `Promise`\<\{ `jobId`: `string`; \}\> | **`Experimental`** Put a job in line from a mutation of yours: checks the caller, the `pause_ai` switch, the model route, the `ai` limit, the tier's budget and the credits, in that order; a refusal throws and rolls the mutation back. Resolves with the job's id. `{ billTo: 'app' }` puts in line a job the app runs for itself, such as content it seeds for everyone: a `meter: false` kind, owned by the app rather than the caller's billing entity, with nobody signed in needed. It checks `pause_ai`, the model route and the `aiGlobal` limit, counts in no budget, and the images its steps store are the app's: in no account's quota, export or erasure, read with `storage.fileUrl` and deleted with `storage.release`. Decide in your mutation who may start it. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="get"></a> `get` | (`ctx`, `jobId`) => `Promise`\<[`JobRecord`](#jobrecord) \| `null`\> | **`Experimental`** Read a job from a query or mutation of yours, whoever owns it: `getJob`'s view, with its owner and args, and its place in line while it waits. `null` for an id that is no job. Decide in your function who may see it. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="cancel"></a> `cancel` | (`ctx`, `jobId`, `options?`) => `Promise`\<`"queued"` \| `"running"` \| `null`\> | **`Experimental`** Cancel a job from a mutation of yours, whoever started it: a waiting job leaves the line and its hold goes back; a running one stops after its current step, charged unless `refund`. Resolves with how it was, or `null` for a job that had already ended or is none. `onJobEnd` hears of the end. Decide in your mutation who may cancel it. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="api-1"></a> `api` | [`JobQueueApi`](#jobqueueapi) | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
 ***
@@ -997,9 +1057,9 @@ A document of a knowledge store, as the page lists it.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="id-4"></a> `id` | `string` | **`Experimental`** | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="id-5"></a> `id` | `string` | **`Experimental`** | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
 | <a id="title-1"></a> `title` | `string` | **`Experimental`** | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
-| <a id="status-2"></a> `status` | `"pending"` \| `"failed"` \| `"ready"` | **`Experimental`** `pending` while its passages are embedded, `ready` once it is found, `failed` when it could not be (nothing was charged). | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
+| <a id="status-4"></a> `status` | `"pending"` \| `"failed"` \| `"ready"` | **`Experimental`** `pending` while its passages are embedded, `ready` once it is found, `failed` when it could not be (nothing was charged). | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
 | <a id="addedby"></a> `addedBy` | `string` | **`Experimental`** The member who added it; empty for the app's own. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
 | <a id="createdat"></a> `createdAt` | `number` | **`Experimental`** When it was added, in ms. | [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/knowledge.ts) |
 
@@ -1384,6 +1444,59 @@ An embedding model: a `provider/model` id from the gateway's list, or an AI SDK 
 
 ***
 
+### JobEnd
+
+```ts
+type JobEnd = {
+  jobId: string;
+  kind: string;
+  status: "done" | "failed" | "canceled";
+  error?: Record<string, unknown>;
+  args: unknown;
+  retries: number;
+  endedAt: number;
+  charged: number;
+  free: boolean;
+};
+```
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+A job's end as `onJobEnd` receives it ([vJobEnd](#vjobend)).
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="jobid"></a> `jobId` | `string` | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="kind"></a> `kind` | `string` | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="status-1"></a> `status` | `"done"` \| `"failed"` \| `"canceled"` | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="error"></a> `error?` | `Record`\<`string`, `unknown`\> | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="args-2"></a> `args` | `unknown` | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="retries"></a> `retries` | `number` | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="endedat"></a> `endedAt` | `number` | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="charged"></a> `charged` | `number` | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="free"></a> `free` | `boolean` | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+
+***
+
+### OnJobEnd
+
+```ts
+type OnJobEnd = FunctionReference<"mutation" | "action", "internal", JobEnd>;
+```
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+Your internal mutation, or action, that hears of every job's end: taking
+`vJobEnd` as its args, passed by its reference (`internal.prints.ended`).
+
+***
+
 ### StepResult
 
 ```ts
@@ -1503,6 +1616,45 @@ Defined in: [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/
 **`Experimental`**
 
 A generated image, as `ctx.storeImage` takes it: the AI SDK's generated file, a `Blob`, or its bytes.
+
+## Variables
+
+### vJobEnd
+
+```ts
+const vJobEnd: {
+  jobId: VString<string, "required">;
+  kind: VString<string, "required">;
+  status: VUnion<"done" | "failed" | "canceled", [VLiteral<"done", "required">, VLiteral<"failed", "required">, VLiteral<"canceled", "required">], "required", never>;
+  error: VAny<any, "optional", string>;
+  args: VAny<any, "required", string>;
+  retries: VFloat64<number, "required">;
+  endedAt: VFloat64<number, "required">;
+  charged: VFloat64<number, "required">;
+  free: VBoolean<boolean, "required">;
+};
+```
+
+Defined in: [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts)
+
+**`Experimental`**
+
+How a job ended, as `onJobEnd` receives it: use these as your function's
+`args` (`internalMutation({ args: vJobEnd, handler })`).
+
+#### Type Declaration
+
+| Name | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="property-jobid"></a> `jobId` | `VString`\<`string`, `"required"`\> | The job's id, as `jobs.enqueue` returned it. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="property-kind"></a> `kind` | `VString`\<`string`, `"required"`\> | Its `jobs.define` export, as `module:name`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="property-status"></a> `status` | `VUnion`\<`"done"` \| `"failed"` \| `"canceled"`, \[`VLiteral`\<`"done"`, `"required"`\>, `VLiteral`\<`"failed"`, `"required"`\>, `VLiteral`\<`"canceled"`, `"required"`\>\], `"required"`, `never`\> | How it ended. A stall is `failed`, its `error` reason `stalled`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="property-error"></a> `error` | `VAny`\<`any`, `"optional"`, `string`\> | Why it failed, as a catalog error payload: `{ code, ...fields }`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="property-args"></a> `args` | `VAny`\<`any`, `"required"`, `string`\> | The args it was put in line with. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="property-retries"></a> `retries` | `VFloat64`\<`number`, `"required"`\> | Which run ended: `0` for the first, one more for each administrator's retry. Every run ends, and is heard, once: a later run's end is the newer news, so a retried job's `done` wins over its earlier `failed`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="property-endedat"></a> `endedAt` | `VFloat64`\<`number`, `"required"`\> | When this run ended, in ms since the epoch. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="property-charged"></a> `charged` | `VFloat64`\<`number`, `"required"`\> | The credits this run was charged: its `cost`, or what `job.charge` charged; `0` for a run charged nothing. A refund may still be on its way for a failed or canceled one: the queue gives it. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="property-free"></a> `free` | `VBoolean`\<`boolean`, `"required"`\> | Put in line `{ free: true }`: it held, charged and counted nothing. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
 ## Functions
 

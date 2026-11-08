@@ -23,6 +23,8 @@ export const BILLING_FINDINGS = {
   'billing-portal': { title: 'Customer portal' },
   'billing-customer-emails': { title: 'Customer emails', fixable: true },
   'billing-team-customers': { title: 'Team customers' },
+  // The provider's own checkout links that sell a catalog product: deleted in its dashboard, never by `doctor --fix`.
+  'billing-checkout-links': { title: 'Provider checkout links' },
   'billing-gift-twins': { title: 'Gift products' },
   'billing-pass-products': { title: 'Plan pass products' },
   'billing-feature-benefits': { title: 'Feature benefits' },

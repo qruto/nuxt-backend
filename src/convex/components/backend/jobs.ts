@@ -201,9 +201,9 @@ async function pastBacklog(ctx: QueryCtx, line: LineFront, from: number): Promis
 const pickWindow = (policy: QueuePolicy, tiers: readonly ResolvedTier[]): number =>
   Math.max(1, policy.perOwner, ...tiers.map(tier => tier.perOwner ?? 0))
 
-/** Whether a job's credits go back as it ends: charged, not refunded, and failed or canceled with a refund. */
+/** Whether a job's credits go back as it ends: charged something, not refunded, and failed or canceled with a refund. */
 const owesRefund = (job: Doc<'jobs'>, status: Doc<'jobs'>['status'], refund: boolean): boolean =>
-  refund && job.charged && !job.refunded && (status === 'failed' || status === 'canceled')
+  refund && job.charged && !job.refunded && (job.price ?? job.cost) > 0 && (status === 'failed' || status === 'canceled')
 
 /** A guest job: one a signed-out visitor started, claimed at sign-up or not. */
 const isGuest = (job: Doc<'jobs'>): boolean => job.visitor !== undefined
@@ -297,6 +297,8 @@ export const join = mutation({
     hold: v.optional(vJobHold),
     budgetWindow: v.optional(v.number()),
     budgetCounted: v.number(),
+    /** Put in line `{ free: true }`. */
+    free: v.optional(v.boolean()),
     policy: vPolicy,
     /** The app's queue, by a handle: what a guest's claim at sign-up wakes. */
     wake: v.optional(v.string()),
@@ -465,7 +467,8 @@ export const pick = mutation({
 
 /**
  * The component's own sweep (crons.ts), every minute: wake the app's queue
- * when a running job's lease ran out, or when jobs wait beside a free slot
+ * when a running job's lease ran out, paused or not, so a stall still ends
+ * and is heard, or when jobs wait beside a free slot in a line that runs
  * (a switch turned back on, a plan that changed). It reads and returns
  * otherwise, and does nothing in an app with no queue.
  */
@@ -474,13 +477,13 @@ export const sweep = internalMutation({
   returns: v.null(),
   handler: async (ctx) => {
     const row = await queueRow(ctx)
-    if (!row?.wake || row.paused) return null
+    if (!row?.wake) return null
     const now = Date.now()
     const running = await runningJobs(ctx)
     const stalled = running.some(job => job.leaseUntil !== undefined && job.leaseUntil < now)
     const waiting = await ctx.db.query('jobs').withIndex('by_status_and_score', q => q.eq('status', 'queued')).first()
     const free = (row.concurrency ?? Number.POSITIVE_INFINITY) > running.length
-    if (stalled || (waiting && free)) await ctx.scheduler.runAfter(0, row.wake as FunctionHandle<'mutation', { op: 'pick' }>, { op: 'pick' })
+    if (stalled || (!row.paused && waiting && free)) await ctx.scheduler.runAfter(0, row.wake as FunctionHandle<'mutation', { op: 'pick' }>, { op: 'pick' })
     return null
   },
 })
@@ -528,14 +531,18 @@ export const touch = mutation({
   },
 })
 
-/** Record why a running job is about to fail, before its workflow does: what the person sees. */
+/**
+ * Record why a running job is about to fail, before its workflow does: what
+ * the person sees. The first reason stands, unless `replace` says this one
+ * is why it ends (a stall).
+ */
 export const recordError = mutation({
-  args: { jobId: v.string(), error: v.any(), lastError: v.optional(v.string()) },
+  args: { jobId: v.string(), error: v.any(), lastError: v.optional(v.string()), replace: v.optional(v.boolean()) },
   returns: v.null(),
-  handler: async (ctx, { jobId, error, lastError }) => {
+  handler: async (ctx, { jobId, error, lastError, replace }) => {
     const id = ctx.db.normalizeId('jobs', jobId)
     const job = id ? await ctx.db.get('jobs', id) : null
-    if (!job || job.error !== undefined) return null
+    if (!job || (job.error !== undefined && replace !== true)) return null
     await ctx.db.patch('jobs', job._id, { error, ...(lastError === undefined ? {} : { lastError: lastError.slice(0, 500) }) })
     return null
   },
@@ -632,16 +639,37 @@ export const claimCharge = mutation({
  * `refund` says so.
  */
 export const mark = mutation({
-  args: { jobId: v.string(), charged: v.literal(true) },
+  args: {
+    jobId: v.string(),
+    charged: v.literal(true),
+    /** What a kind charged by output charged (`job.charge`): what a refund gives back. */
+    price: v.optional(v.number()),
+  },
   returns: v.object({ refund: v.boolean() }),
-  handler: async (ctx, { jobId }) => {
+  handler: async (ctx, { jobId, price }) => {
     const job = await jobOf(ctx, jobId)
     if (!job || job.charged) return { refund: false }
     const now = Date.now()
-    const owed = job.status !== 'running' && owesRefund({ ...job, charged: true }, job.status, job.status === 'failed' || job.cancel?.refund === true)
+    const owed = job.status !== 'running' && owesRefund({ ...job, charged: true, price }, job.status, job.status === 'failed' || job.cancel?.refund === true)
     // A running job's charge landed: the error an earlier try of it recorded is no longer why anything fails.
-    await ctx.db.patch('jobs', job._id, { charged: true, ...(job.status === 'running' ? { error: undefined } : {}), ...(owed ? { refundOwed: 'pending' as const, refundAt: now } : {}) })
+    await ctx.db.patch('jobs', job._id, { charged: true, ...(price === undefined ? {} : { price }), ...(job.status === 'running' ? { error: undefined } : {}), ...(owed ? { refundOwed: 'pending' as const, refundAt: now } : {}) })
     return { refund: owed }
+  },
+})
+
+/**
+ * Keep the hold a job's first step took, for a job that joined on a balance
+ * not read yet. Answers whether the job still runs: a hold taken for a job
+ * that ended meanwhile is the app's to let go.
+ */
+export const holdTaken = mutation({
+  args: { jobId: v.string(), hold: vJobHold },
+  returns: v.boolean(),
+  handler: async (ctx, { jobId, hold }) => {
+    const job = await jobOf(ctx, jobId)
+    if (job?.status !== 'running' || job.charged) return false
+    await ctx.db.patch('jobs', job._id, { hold })
+    return true
   },
 })
 
@@ -660,6 +688,22 @@ export const refundTried = mutation({
     if (outcome === 'refunded') await ctx.db.patch('jobs', job._id, { refunded: true, refundOwed: undefined, refundAt: undefined })
     else if (outcome === 'retry') await ctx.db.patch('jobs', job._id, { refundAt: at ?? Date.now() })
     else await ctx.db.patch('jobs', job._id, { refundOwed: 'given_up' })
+    return true
+  },
+})
+
+/**
+ * Owe a charged job's credits back again, once its refund gave up: what a
+ * retry of a job charged by output waits for, as the rerun takes a fresh
+ * hold instead of the charge it paid. `false` when nothing is owed.
+ */
+export const oweRefund = mutation({
+  args: { jobId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { jobId }) => {
+    const job = await jobOf(ctx, jobId)
+    if (!job?.charged || job.refunded || job.refundOwed === 'pending') return false
+    await ctx.db.patch('jobs', job._id, { refundOwed: 'pending', refundAt: Date.now() })
     return true
   },
 })
@@ -882,6 +926,7 @@ export const requeue = mutation({
       charged: carried,
       refunded: false,
       charging: undefined,
+      price: carried ? job.price : undefined,
       refundOwed: undefined,
       refundAt: undefined,
       error: undefined,

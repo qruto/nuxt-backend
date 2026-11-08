@@ -1,6 +1,7 @@
 import { Benefit$outboundSchema, type Benefit } from '@polar-sh/sdk/models/components/benefit.js'
 import { BenefitGrantWebhook$outboundSchema, type BenefitGrantWebhook } from '@polar-sh/sdk/models/components/benefitgrantwebhook.js'
 import { Checkout$outboundSchema, type Checkout } from '@polar-sh/sdk/models/components/checkout.js'
+import type { CheckoutLink } from '@polar-sh/sdk/models/components/checkoutlink.js'
 import type { CheckoutPublic } from '@polar-sh/sdk/models/components/checkoutpublic.js'
 import type { CheckoutPublicConfirmed } from '@polar-sh/sdk/models/components/checkoutpublicconfirmed.js'
 import { Customer$outboundSchema, type Customer } from '@polar-sh/sdk/models/components/customer.js'
@@ -38,6 +39,7 @@ export interface WireModels {
   'benefit': Benefit
   'benefit-grant': BenefitGrantWebhook
   'checkout': Checkout
+  'checkout-link': CheckoutLink
   'checkout-public': CheckoutPublic
   'checkout-confirmed': CheckoutPublicConfirmed
   'customer': Customer
@@ -57,6 +59,7 @@ export interface WireModels {
   'user-event': UserEvent
   'webhook-endpoint': WebhookEndpoint
   'benefits': Page<Benefit>
+  'checkout-links': Page<CheckoutLink>
   'customers': Page<Customer>
   'custom-fields': Page<CustomField>
   'discounts': Page<Discount>
@@ -93,6 +96,7 @@ const SCHEMAS = {
 /** Each list's item shape. */
 const LISTS = {
   'benefits': 'benefit',
+  'checkout-links': 'checkout-link',
   'customers': 'customer',
   'custom-fields': 'custom-field',
   'discounts': 'discount',

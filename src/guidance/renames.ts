@@ -57,6 +57,7 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const COLD_BALANCE = 'A job joins on a balance never read'
 const TUNNEL = 'Browser error reports go through a tunnel on the app\'s own origin'
 const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
 
@@ -65,6 +66,8 @@ const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from token
  * `const` per section heading above the list, and its entries in it.
  */
 export const RENAMES: readonly Rename[] = [
+  // A job joins on a balance never read, and reads it as it starts.
+  { from: 'jobs.enqueue', to: 'jobs.enqueue', change: 'reshaped', section: COLD_BALANCE, note: 'a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready`' },
   // The managed tunnel needs a newer SDK: the peer range moves.
   { from: '@sentry/nuxt', to: '@sentry/nuxt@^11.10.0', change: 'reshaped', section: TUNNEL, note: 'the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn' },
   // One attribute marks every packaged component, in place of a list of families.

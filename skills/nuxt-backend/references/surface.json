@@ -586,7 +586,8 @@
       "values": [
         "defineJobQueue",
         "priceTokens",
-        "setupAi"
+        "setupAi",
+        "vJobEnd"
       ],
       "types": [
         "AdminJobView",
@@ -602,6 +603,7 @@
         "AiModel",
         "AiRateLimiter",
         "AiSpendLimit",
+        "CancelOptions",
         "Chat",
         "ChatConfig",
         "ChatMessage",
@@ -618,12 +620,14 @@
         "InferenceRegion",
         "JobContext",
         "JobDefinition",
+        "JobEnd",
         "JobModelLimit",
         "JobProgress",
         "JobProvenance",
         "JobQueue",
         "JobQueueApi",
         "JobQueueComponents",
+        "JobRecord",
         "JobStepContext",
         "JobStepDefinition",
         "JobTier",
@@ -646,6 +650,7 @@
         "ModerationCtx",
         "ModerationInput",
         "ModerationVerdict",
+        "OnJobEnd",
         "PersonCost",
         "ProvenanceConfig",
         "QueueChange",
@@ -1113,6 +1118,20 @@
       "--cwd",
       "--json"
     ],
+    "billing resync": [
+      "--cwd",
+      "--prod",
+      "--entity",
+      "--json"
+    ],
+    "access admit": [
+      "<email>",
+      "--cwd",
+      "--prod",
+      "--label",
+      "--days",
+      "--json"
+    ],
     "email sync": [
       "--cwd",
       "--prod",
@@ -1216,6 +1235,7 @@
     "billing-portal": "billing",
     "billing-customer-emails": "billing",
     "billing-team-customers": "billing",
+    "billing-checkout-links": "billing",
     "billing-gift-twins": "billing",
     "billing-pass-products": "billing",
     "billing-feature-benefits": "billing",

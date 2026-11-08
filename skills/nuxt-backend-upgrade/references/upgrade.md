@@ -17,6 +17,12 @@ has the reasons and every step. The core skill's `references/renames.json`, in
 After it, run `npx nuxt-backend doctor`, and `npx nuxt-backend init --agents` to refresh the app's
 agent files and skills.
 
+## [A job joins on a balance never read](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-joins-on-a-balance-never-read)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `jobs.enqueue` | `jobs.enqueue` | reshaped | a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready` |
+
 ## [Browser error reports go through a tunnel on the app's own origin](https://nuxt-backend.dev/docs/ship/releases/upgrade#browser-error-reports-go-through-a-tunnel-on-the-apps-own-origin)
 
 | Was | Now | Change | Note |
