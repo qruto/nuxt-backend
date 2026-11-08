@@ -214,10 +214,12 @@
       "currency": "Moneda",
       "loading": "Cargando planes…",
       "empty": "Todavía no hay planes configurados.",
+      "soon": "Los planes llegan pronto.",
       "credits": {
         "month": "{count} {unit} al mes",
         "year": "{count} {unit} al año"
       },
+      "welcome": "{count} {unit} para empezar",
       "retired": "Ya no se ofrece",
       "packCredits": "{count} {unit}",
       "perCredit": "{price} por {unit}",
@@ -1537,6 +1539,7 @@
       "sentTitle": "Enviados",
       "receivedEmpty": "Todavía no tienes regalos.",
       "sentEmpty": "Todavía no has enviado ningún regalo.",
+      "soon": "Los planes llegan pronto, y con ellos los regalos.",
       "itemPack": "{name}",
       "itemPass": "{count} mes de {plan} | {count} meses de {plan}",
       "from": "De {sender}",
@@ -1818,6 +1821,10 @@
         "billing": {
           "holds": "Los planes, funciones y saldos de créditos en caché de las entidades de facturación de la cuenta, sus cambios de plan programados y claves de cuota, las ofertas de retención que les hizo el proceso de cancelación, y la prueba que usó la cuenta.",
           "kept": "Mientras exista la entidad; una marca de eliminación, 30 días."
+        },
+        "welcomeCredits": {
+          "holds": "Un hash (SHA-256) de la dirección a la que fueron los créditos de bienvenida, su parte local sin etiquetas ni puntos, y la entidad de facturación que los recibió: nunca la dirección.",
+          "kept": "Mientras la app dé créditos de bienvenida, para que sigan siendo una vez por persona."
         },
         "billingProofs": {
           "holds": "Prueba del consentimiento a una suscripción con renovación (el plan, el precio y el intervalo mostrados, la versión de las condiciones, cuándo y quién) y de cada desistimiento en la UE: cuándo y quién.",
@@ -2568,6 +2575,7 @@
       "unavailable_suppressed": "Ahora mismo no podemos enviar correos a esta dirección. Usa otra dirección o contáctanos para obtener ayuda.",
       "unavailable_signups_paused": "Los nuevos registros están en pausa por ahora. Inténtalo más tarde.",
       "unavailable_checkout_paused": "Las compras están en pausa por ahora. Inténtalo más tarde.",
+      "unavailable_not_launched": "Los planes llegan pronto. Todavía no se puede comprar nada.",
       "unavailable_ai_paused": "Las funciones de IA están en pausa por ahora. Inténtalo más tarde.",
       "unavailable_stalled": "Esta tarea dejó de responder. Se te reembolsaron los créditos.",
       "unavailable_job_failed": "Esta tarea falló. Se te reembolsaron los créditos.",

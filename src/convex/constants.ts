@@ -171,6 +171,14 @@ export const LOCAL_LOG_ROUTE = '/api/backend/_monitoring'
  * queue runs it by this name, as every billing function goes by its module.
  */
 export const START_FREE_PLAN_FUNCTION = 'billing:startFreePlan'
+
+/**
+ * How long a credit the entitlement cache added ahead of the provider (a
+ * refund, welcome credits) is kept from a provider read that may not count
+ * its event yet: five minutes, well past the provider's own lag. The welcome
+ * grant reads the balance back once it has passed.
+ */
+export const PENDING_CREDIT_TTL_MS = 5 * 60 * 1000
 /**
  * The scaffold's entitlement resync (`billing.api.resyncEntitlements`), by
  * the module name every billing function goes by: `nuxt-backend billing

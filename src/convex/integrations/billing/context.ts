@@ -1,6 +1,7 @@
 import { Polar } from '@convex-dev/polar'
 import { productsList } from '@polar-sh/sdk/funcs/productsList.js'
 import type { Auth } from 'convex/server'
+import { type BillingLaunch, billingLaunch } from '../../billing-launch.js'
 import { BILLING_MANAGER_ROLES, RECENT_SIGN_IN_SECONDS } from '../../constants.js'
 import { type AdapterFindOne, type CallerRule, callerRefusal, createAccessReads, hasAnyRole, refuseCaller, refuseStaleSignIn, sandboxAdminRefusal } from '../access.js'
 import { createBillingActivity, type RecordBillingEvent } from './activity.js'
@@ -160,6 +161,13 @@ export interface BillingContext {
   providerLib: ProviderLibRefs['lib']
   webhookLog: BillingComponents['backend']['webhooks']
   requireProviderAccess: (operation: string) => void
+  /** Whether billing sells on this deployment yet: read once, at setup. */
+  launch: BillingLaunch
+  /**
+   * Refuse a sale while billing is not launched (`unavailable`, reason
+   * `not_launched`), else while no token is set (`not_configured`).
+   */
+  requireLaunched: (operation: string) => void
   unwrapProvider: <T>(result: { ok: true, value: T } | { ok: false, error: unknown }, operation: string) => T
   /** Reload the products table from the provider, every product as a delivery stores it. */
   syncProducts: (ctx: RunWriteCtx) => Promise<void>
@@ -360,6 +368,26 @@ export function createBillingContext(components: BillingComponents, config: Setu
     )
   }
 
+  const launch = billingLaunch({ environment, accessToken, products })
+  const notLaunchedBecause = { no_access_token: 'no BILLING_ACCESS_TOKEN', no_catalog: 'no production catalog: run `npx nuxt-backend billing sync --env production`' } as const
+
+  /**
+   * A sale (a checkout, a gift checkout, a switch to a paid plan) on a
+   * production deployment whose billing is not launched yet is refused as
+   * `unavailable`, reason `not_launched`, which reads "Plans open soon",
+   * where a missing token anywhere else stays a setup error.
+   */
+  const requireLaunched = (operation: string): void => {
+    if (!launch.launched) {
+      throw backendError(
+        'unavailable',
+        { service: 'billing', reason: 'not_launched' },
+        `[nuxt-backend] Billing ${operation}: billing is not launched on this deployment yet (${notLaunchedBecause[launch.reason]}).`,
+      )
+    }
+    requireProviderAccess(operation)
+  }
+
   /**
    * Unwrap a provider SDK result at the package boundary. Rethrowing the raw
    * SDK error would put the provider's own words — HTTP status, response body,
@@ -473,6 +501,8 @@ export function createBillingContext(components: BillingComponents, config: Setu
     providerLib,
     webhookLog,
     requireProviderAccess,
+    launch,
+    requireLaunched,
     unwrapProvider,
     syncProducts: ctx => syncProviderProducts(ctx, async page => unwrapProvider(await productsList(provider.polar, { page, limit: 100 }), 'product sync'), providerLib.updateProduct),
     throttle,

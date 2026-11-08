@@ -179,6 +179,12 @@ export interface BillingCatalogIds {
    */
   free?: string
   /**
+   * The free plan's welcome credits (`credits: { once: true }` in the
+   * catalog): the meter they land on and how many, granted once per person
+   * as the first billing entity they own first starts on the free plan.
+   */
+  welcome?: { meter: string, units: number }
+  /**
    * The currency a visitor pays in when the catalog does not price theirs,
    * lower-case ISO 4217: written for a catalog that prices more than one.
    */
@@ -455,6 +461,13 @@ export interface PricedPlan {
    * another, and back on it when that one ends. Never checked out.
    */
   free?: true
+  /**
+   * The free plan's welcome credits: what each person gets once, as the
+   * first billing entity they own first starts on it (`credits: { once:
+   * true }` in the catalog).
+   * Only on the catalog's free plan, and only when it grants some.
+   */
+  welcome?: Omit<PricedCredits, 'rollover'>
   /** One entry per interval the plan is priced at. */
   prices: Partial<Record<CatalogInterval, PricedPlanPrice>>
   /**
@@ -480,6 +493,49 @@ export interface PricedPlan {
    * @experimental
    */
   quotas?: Record<string, number | 'unlimited'>
+  /**
+   * The plan as a gift (`gift: { months }` in the catalog): each length a
+   * pass is sold for, at its live price. Absent for a plan that is not
+   * giftable, a retired one, and until `billing sync` has loaded the gift
+   * products. What `useGifts().send(plan, { months })` buys.
+   *
+   * @experimental
+   */
+  gift?: PricedPlanGift
+}
+
+/**
+ * One length a plan is gifted for, as a pass, from its private purchase
+ * product: what it costs, in {@link Pricing.currency} when the product is
+ * priced in it.
+ *
+ * @experimental
+ */
+export interface PricedGiftLength {
+  /** How many months the pass holds the plan: 1, 3 or 12. */
+  months: number
+  /** What the gift costs, in the currency's smallest unit. */
+  amount: number
+  /** Lower-case ISO 4217 code. */
+  currency: string
+  /** The same per month: the amount divided by the months, unrounded. */
+  monthly: number
+  /**
+   * How many percent it saves against as many months at the plan's
+   * monthly price in the same currency, rounded down; absent when it saves
+   * nothing.
+   */
+  savings?: number
+}
+
+/**
+ * A plan's gift as a pass: the lengths it is sold for.
+ *
+ * @experimental
+ */
+export interface PricedPlanGift {
+  /** One entry per length on sale, shortest first. */
+  lengths: PricedGiftLength[]
 }
 
 /** A credit pack as a pricing page shows it, from its live product. */
@@ -546,4 +602,12 @@ export interface Pricing {
    * its `startsAt` and `endsAt`, which the page compares with its own clock.
    */
   promotion?: PricedPromotion
+  /**
+   * Whether billing sells on this deployment yet: `false` on a production
+   * deployment with no provider token or no production catalog, where a
+   * pricing page reads "Plans open soon" and every checkout is refused
+   * (`unavailable`, reason `not_launched`). `getPricing` always answers
+   * it; a backend older than 0.3 leaves it out, which reads as launched.
+   */
+  launched?: boolean
 }

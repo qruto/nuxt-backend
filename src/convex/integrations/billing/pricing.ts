@@ -4,7 +4,7 @@ import { type CatalogInterval, featureKeyOf, grantedQuotas, type MeterUnit, plan
 import type { BillingContext } from './context.js'
 import { type CatalogDiscounts, type KeyedDiscount, offerOf, promotionOf } from './discounts.js'
 import type { ProviderCtx, RunQueryCtx } from './types/base.js'
-import type { PricedCredits, PricedPack, PricedPlan, PricedPlanPrice, PricedTrial, Pricing } from './types/records.js'
+import type { CatalogPassIds, PricedCredits, PricedGiftLength, PricedPack, PricedPlan, PricedPlanPrice, PricedTrial, Pricing } from './types/records.js'
 
 // The catalog as a pricing page shows it: one public query over the products
 // table `billing sync` loads, so `/pricing` renders on the server for anyone,
@@ -47,6 +47,10 @@ export interface PricingSources {
   benefitMetadata?: ReadonlyMap<string, Readonly<Record<string, unknown>>>
   /** The free plan's key, when the catalog has one. */
   free?: string
+  /** Plan key → its gift as a pass: the purchase product per length in months. */
+  passes?: Record<string, CatalogPassIds>
+  /** The free plan's welcome credits, granted once (`credits: { once: true }`). */
+  welcome?: { meter: string, units: number }
   /**
    * The currencies to show a price in, in order: the one asked for, then
    * the catalog's own. A product priced in neither shows its first.
@@ -259,6 +263,36 @@ function finishPlan({ live, rank: _rank, liveKeys, allGrants, liveGrants, ...dra
   return plan
 }
 
+/** The catalog's free plan with its welcome credits, when it grants some; any other plan as it is. */
+function withWelcome(plan: PricedPlan, { free, welcome, meterUnits }: Pick<PricingSources, 'free' | 'welcome' | 'meterUnits'>): PricedPlan {
+  if (!welcome || plan.key !== free || !plan.free) return plan
+  const unit = meterUnits?.get(welcome.meter)
+  return { ...plan, welcome: { meter: welcome.meter, ...(unit ? { unit } : {}), units: welcome.units } }
+}
+
+/** One gift length from its purchase product: its live price, per month, and what it saves against as many months; none without a price to show. */
+function giftLength(months: number, row: ProductRow | undefined, monthly: PricedPlanPrice | undefined, currencies: PricingSources['currencies']): PricedGiftLength | undefined {
+  const price = row && !row.isArchived && Number.isInteger(months) && months > 0 ? priceOf(row, currencies) : undefined
+  if (!price) return undefined
+  const full = monthly && !monthly.archived && monthly.currency === price.currency ? monthly.amount * months : 0
+  const savings = full > 0 ? Math.floor(((full - price.amount) / full) * 100) : 0
+  return { months, ...price, monthly: price.amount / months, ...(savings > 0 ? { savings } : {}) }
+}
+
+/**
+ * A giftable plan with its gift lengths, each at its purchase product's
+ * live price: a length whose product is archived, not loaded or has no
+ * price to show is left out, and so is the gift of a retired plan.
+ */
+function withGift(plan: PricedPlan, byId: Map<string, ProductRow>, { passes, currencies }: Pick<PricingSources, 'passes' | 'currencies'>): PricedPlan {
+  const pass = passes?.[plan.key]
+  if (!pass || plan.retired) return plan
+  const lengths = Object.entries(pass.months)
+    .flatMap(([count, productId]) => giftLength(Number(count), byId.get(productId), plan.prices.month, currencies) ?? [])
+    .sort((a, b) => a.months - b.months)
+  return lengths.length === 0 ? plan : { ...plan, gift: { lengths } }
+}
+
 /**
  * The pricing of an id map against the product rows: plans grouped from
  * their interval products (`<plan>`, `<plan>:year`), packs as they are, in
@@ -293,7 +327,7 @@ export function buildPricing(rows: ProductRow[], given: PricingSources): Pricing
   const offered = [...plans.values()].flatMap(plan => Object.values(plan.prices).map(price => price!.currency)).concat(packs.map(pack => pack.currency))
   const currency = sources.currencies?.find(code => offered.includes(code)) ?? offered[0]
   return {
-    plans: [...plans.values()].map(finishPlan),
+    plans: [...plans.values()].map(finishPlan).map(plan => withGift(withWelcome(plan, sources), byId, sources)),
     packs,
     ...(currency ? { currency } : {}),
     currencies: shared.length === 0 ? catalogCurrencies(rows, sources) : shared,
@@ -336,7 +370,7 @@ function catalogCurrencies(rows: ProductRow[], sources: PricingSources): string[
 }
 
 /** The `getPricing` query of one `setupBilling` call, and the read behind it. */
-export function createPricing({ provider, cache, products, retiredProductIds, catalogIds, creditMeters, meterNameById }: BillingContext, { promotionNamed }: Pick<CatalogDiscounts, 'promotionNamed'>) {
+export function createPricing({ provider, cache, products, retiredProductIds, catalogIds, creditMeters, meterNameById, launch }: BillingContext, { promotionNamed }: Pick<CatalogDiscounts, 'promotionNamed'>) {
   /**
    * The pricing as the products table holds it now: what `getPricing`
    * answers, and where a refusal finds the plans to offer. Each catalog
@@ -352,7 +386,7 @@ export function createPricing({ provider, cache, products, retiredProductIds, ca
     const catalog = new Set(Object.values(products ?? {}))
     const benefitIds = [...new Set(rows.filter(row => catalog.has(row.id)).flatMap(row => (row.benefits ?? []).flatMap(benefit => benefit.id ? [benefit.id] : [])))]
     const snapshots = benefitIds.length > 0 ? await ctx.runQuery(cache.getBenefitMetadata, { benefitIds }) : []
-    return buildPricing(rows, {
+    const pricing = buildPricing(rows, {
       products,
       retired: retiredProductIds,
       hidden: new Set(Object.values(catalogIds?.gifts ?? {})),
@@ -360,10 +394,13 @@ export function createPricing({ provider, cache, products, retiredProductIds, ca
       meterUnits: new Map(Object.entries(creditMeters).flatMap(([key, meter]) => meter.unit ? [[key, meter.unit]] : [])),
       benefitMetadata: new Map(snapshots.map(snapshot => [snapshot.benefitId, snapshot.metadata])),
       ...(catalogIds?.free ? { free: catalogIds.free } : {}),
+      ...(catalogIds?.welcome ? { welcome: catalogIds.welcome } : {}),
+      ...(catalogIds?.passes ? { passes: catalogIds.passes } : {}),
       currencies: [currency?.trim().toLowerCase(), catalogIds?.currency].filter((code): code is string => Boolean(code)),
       ...(catalogIds?.currency ? { catalogCurrency: catalogIds.currency } : {}),
       ...(promotion ? { promotion } : {}),
     })
+    return { ...pricing, launched: launch.launched }
   }
 
   /**
@@ -375,7 +412,8 @@ export function createPricing({ provider, cache, products, retiredProductIds, ca
    * promotion's terms and each price's offer; nothing for a name that is no
    * public promotion. Its dates are the page's to compare with its own
    * clock: the read never depends on the time. Answers empty plans and
-   * packs until `billing sync` has loaded the products.
+   * packs until `billing sync` has loaded the products, and `launched:
+   * false` while billing is not launched on this deployment.
    */
   const getPricing = queryGeneric({
     args: { currency: v.optional(v.string()), discount: v.optional(v.string()) },

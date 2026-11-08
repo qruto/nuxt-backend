@@ -63,7 +63,9 @@ const personMessage = v.optional(v.string())
  *   `reason` say which and why. Only `provider_refused` may pass on a retry;
  *   the others need the deployment fixed, but a kill switch's
  *   (`signups_paused`, `checkout_paused`, `ai_paused`, service `signups`,
- *   `checkout` or `ai`), which an administrator turns off. Nothing throws service `backend`
+ *   `checkout` or `ai`), which an administrator turns off, and billing's
+ *   `not_launched` (a production deployment with no provider token or
+ *   production catalog yet), which launching it ends. Nothing throws service `backend`
  *   with reason `unexpected`: it is how a composable's `error` reads a
  *   failure without a code (a crash, an app's own error), and says nothing
  *   about whether a service is down.

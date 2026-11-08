@@ -261,6 +261,19 @@ export const ERASURE_PARTICIPANTS = {
     return budget.spent
   },
 
+  // A welcome grant keeps the digest of the address it went to, so signing up again does not get it twice; the entity it went to is no longer named.
+  welcomeCredits: async (ctx, erasure) => {
+    let left = ERASURE_BATCH
+    for (const entityId of entitiesOf(erasure)) {
+      for (const row of await ctx.db.query('billingWelcomes').withIndex('entityId', q => q.eq('entityId', entityId)).take(left)) {
+        await ctx.db.patch('billingWelcomes', row._id, { entityId: '' })
+        left--
+      }
+      if (left <= 0) return true
+    }
+    return false
+  },
+
   // A gift is a record of a payment: it stays, with the purchaser's or the
   // recipient's id and address, and the billing entities that went with
   // the account, as the pseudonym, and the purchaser's name and the

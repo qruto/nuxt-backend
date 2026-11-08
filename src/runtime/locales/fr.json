@@ -214,10 +214,12 @@
       "currency": "Devise",
       "loading": "Chargement des forfaits…",
       "empty": "Aucun forfait n’est encore configuré.",
+      "soon": "Les forfaits arrivent bientôt.",
       "credits": {
         "month": "{count} {unit} / mois",
         "year": "{count} {unit} / an"
       },
+      "welcome": "{count} {unit} pour commencer",
       "retired": "Plus proposé",
       "packCredits": "{count} {unit}",
       "perCredit": "{price} par {unit}",
@@ -1537,6 +1539,7 @@
       "sentTitle": "Envoyés",
       "receivedEmpty": "Aucun cadeau pour vous pour l’instant.",
       "sentEmpty": "Vous n’avez encore envoyé aucun cadeau.",
+      "soon": "Les forfaits arrivent bientôt, et les cadeaux avec eux.",
       "itemPack": "{name}",
       "itemPass": "{count} mois de {plan} | {count} mois de {plan}",
       "from": "De la part de {sender}",
@@ -1818,6 +1821,10 @@
         "billing": {
           "holds": "Les forfaits, fonctionnalités et soldes de crédits mis en cache des entités de facturation du compte, leurs changements de forfait programmés et leurs clés de quota, les offres de maintien que le parcours de résiliation leur a faites, et l’essai utilisé par le compte.",
           "kept": "Aussi longtemps que l’entité ; une marque de suppression, 30 jours."
+        },
+        "welcomeCredits": {
+          "holds": "Une empreinte (SHA-256) de l’adresse à laquelle sont allés les crédits de bienvenue, sa partie locale sans étiquettes ni points, et l’entité de facturation qui les a reçus : jamais l’adresse.",
+          "kept": "Tant que l’app accorde des crédits de bienvenue, pour qu’ils restent une fois par personne."
         },
         "billingProofs": {
           "holds": "La preuve du consentement à un abonnement renouvelable (le forfait, le prix et la périodicité affichés, la version des conditions, quand et par qui) et de chaque rétractation dans l’UE : quand et par qui.",
@@ -2568,6 +2575,7 @@
       "unavailable_suppressed": "Nous ne pouvons pas envoyer d’e-mails à cette adresse pour le moment. Utilisez une autre adresse ou contactez-nous pour obtenir de l’aide.",
       "unavailable_signups_paused": "Les nouvelles inscriptions sont suspendues pour le moment. Réessayez plus tard.",
       "unavailable_checkout_paused": "Les achats sont suspendus pour le moment. Réessayez plus tard.",
+      "unavailable_not_launched": "Les forfaits arrivent bientôt. Rien ne peut encore être acheté.",
       "unavailable_ai_paused": "Les fonctionnalités d’IA sont suspendues pour le moment. Réessayez plus tard.",
       "unavailable_stalled": "Cette tâche a cessé de répondre. Vos crédits ont été remboursés.",
       "unavailable_job_failed": "Cette tâche a échoué. Vos crédits ont été remboursés.",

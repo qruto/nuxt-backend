@@ -98,6 +98,7 @@ export interface BillingComponents {
       claimTrial: FunctionReference<'mutation', 'internal', { ownerUserId: string, entityId: string, holdMs: number }, boolean>
       /** Record that a subscription of this entity started its owner's trial. */
       markTrialUsed: FunctionReference<'mutation', 'internal', { ownerUserId: string, entityId: string }, null>
+      claimWelcome: FunctionReference<'mutation', 'internal', { address: string, entityId: string }, boolean>
       /**
        * Count one discount-code attempt for an entity before the provider is
        * asked, in a fixed window of at most `max`: the window's start, or the
@@ -117,7 +118,7 @@ export interface BillingComponents {
       /** {@link settle}, reporting whether a reservation was still there to close. */
       finalize: FunctionReference<'mutation', 'internal', { userId: string, externalId: string, finalAmount?: number }, { settled: boolean, released: number, balance: number, balanceBefore: number, releaseJobId?: string }>
       release: FunctionReference<'mutation', 'internal', { userId: string, externalId: string }, null>
-      credit: FunctionReference<'mutation', 'internal', { userId: string, meterId: string, amount: number }, null>
+      credit: FunctionReference<'mutation', 'internal', { userId: string, meterId: string, amount: number, externalId?: string }, null>
       /**
        * Drop every in-flight spend reservation for one entity, without
        * re-crediting: used after a refund, where the provider's balance is

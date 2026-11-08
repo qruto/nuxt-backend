@@ -135,7 +135,7 @@ export const BACKEND_ENV = {
   },
   BILLING_ACCESS_TOKEN: {
     side: 'deployment',
-    without: 'billing queries return empty and checkout actions fail on invocation',
+    without: 'billing reads answer empty; on production billing is not launched (the pricing reads "Plans open soon" and every sale is refused as not_launched), elsewhere a checkout is refused as not_configured',
     values: 'an organization access token of the billing provider: a sandbox token outside production, a live one on it',
     dotenv: true,
     findings: ['billing-access', 'deployment-billing-access-token', 'billing-organization'],

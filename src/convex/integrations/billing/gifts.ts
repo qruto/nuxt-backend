@@ -86,7 +86,7 @@ export function createGifts(
   { requireTrustedUrl, requirePack, requireGiftProduct, requirePassGift, requireClientMetadata, requireCurrency }: PurchaseRules,
   freePlan: Pick<BillingFreePlan, 'isFreeProduct'>,
 ) {
-  const { components, config, billTo, provider, requireEntity, account, memberRole, requireProviderAccess, unwrapProvider, throttle, recordEvent } = context
+  const { components, config, billTo, provider, requireEntity, account, memberRole, requireProviderAccess, requireLaunched, unwrapProvider, throttle, recordEvent } = context
   const { ensureCustomer, profileOf } = customers
   const passes = createPasses(context, customers, freePlan)
   const gifts = components.backend.gifts
@@ -265,7 +265,7 @@ export function createGifts(
     handler: async (ctx, args) => {
       const purchaser = await giftCaller(ctx, 'giftCheckout', GIFT_ACCESS.buy, account)
       await refusePaused(paused, ctx, 'checkout')
-      requireProviderAccess('gift checkout')
+      requireLaunched('gift checkout')
       const recipientEmail = requireRecipient(args.recipientEmail, purchaser.email)
       const message = giftMessage(args.message)
       const deliverAt = giftDeliverAt(args.deliverAt)

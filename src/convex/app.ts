@@ -47,8 +47,10 @@ import { type BackendEnvironment, parseBackendEnvironment } from './environment.
  * - `EMAIL_DEV_INBOX` — `1` publishes the dev inbox to pages
  *   (`getSandboxInbox`) on a deployment outside production; `nuxt-backend
  *   dev` sets it on dev deployments. Unset, the page reader answers nothing.
- * - `BILLING_ACCESS_TOKEN` — billing queries return empty; checkout and other
- *   billing actions fail on invocation.
+ * - `BILLING_ACCESS_TOKEN` — billing reads answer empty; on production,
+ *   billing is not launched (every sale is refused as `not_launched`),
+ *   elsewhere checkout and the other billing actions are refused as
+ *   `not_configured`.
  * - `BILLING_WEBHOOK_SECRET` — billing events are rejected until set
  *   (`syncEntitlements` remains the on-demand fallback).
  * - `AI_GATEWAY_API_KEY` — the Vercel AI Gateway's own name, read as it is:

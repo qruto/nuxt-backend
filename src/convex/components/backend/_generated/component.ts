@@ -3492,6 +3492,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         boolean,
         Name
       >;
+      claimWelcome: FunctionReference<
+        "mutation",
+        "internal",
+        { address: string; entityId: string },
+        boolean,
+        Name
+      >;
       clear: FunctionReference<"mutation", "internal", {}, null, Name>;
       clearPendingSpends: FunctionReference<
         "mutation",
@@ -3503,7 +3510,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       credit: FunctionReference<
         "mutation",
         "internal",
-        { amount: number; meterId: string; userId: string },
+        {
+          amount: number;
+          externalId?: string;
+          meterId: string;
+          userId: string;
+        },
         null,
         Name
       >;
