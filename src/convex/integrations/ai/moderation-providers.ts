@@ -75,6 +75,7 @@ async function send(provider: string, request: ProviderRequest): Promise<unknown
   const fake = (globalThis as Record<symbol, unknown>)[TEST_MODERATION_PROVIDERS]
   if (typeof fake === 'function') return (fake as (provider: string, request: ProviderRequest) => unknown)(provider, request)
   const raw = request.body instanceof Uint8Array
+  // fallow-ignore-next-line security-sink -- the URL is an adapter's literal, or Azure's built from CONTENT_SAFETY_ENDPOINT, which only the deployment's owner sets; no request input reaches it; verified 2026-11-08
   const response = await fetch(request.url, {
     method: 'POST',
     headers: { ...(raw ? {} : { 'content-type': 'application/json' }), ...request.headers },

@@ -736,8 +736,6 @@ export async function asUser<Schema extends AnySchema>(
  * in text or an image's bytes finds that category at full strength,
  * `TEST_FAINT('violence')` faintly, and `TEST_KNOWN_ABUSE` matches the
  * known-abuse list.
- *
- * @experimental
  */
 export { TEST_FAINT, TEST_KNOWN_ABUSE, TEST_UNSAFE } from './test-moderation.js'
 

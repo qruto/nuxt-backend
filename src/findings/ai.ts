@@ -13,6 +13,12 @@ export const AI_FINDINGS = {
   'ai-spend-limit': { title: 'AI spend limit on a sandbox', prod: 'fail' },
   // The default classifier through the Vercel AI Gateway reads text only: a check with images is refused.
   'ai-moderation-images': { title: 'Image checks and the safety classifier' },
+  // A named moderation provider without its keys, image checks with no known-abuse match, an Azure region outside the EU.
+  'ai-moderation-providers': { title: 'Moderation providers', prod: 'fail' },
+  'deployment-content-safety-endpoint': { title: 'Deployment CONTENT_SAFETY_ENDPOINT', prod: 'fail' },
+  'deployment-content-safety-key': { title: 'Deployment CONTENT_SAFETY_KEY', prod: 'fail' },
+  'deployment-second-opinion-key': { title: 'Deployment SECOND_OPINION_KEY', prod: 'fail' },
+  'deployment-known-abuse-key': { title: 'Deployment KNOWN_ABUSE_KEY', prod: 'fail' },
   'deployment-ai-gateway-api-key': { title: 'Deployment AI_GATEWAY_API_KEY', prod: 'fail', fixable: true },
   'deployment-provenance-private-key': { title: 'Deployment PROVENANCE_PRIVATE_KEY', prod: 'fail', fixable: true },
   'deployment-provenance-certificate': { title: 'Deployment PROVENANCE_CERTIFICATE', prod: 'fail', fixable: true },

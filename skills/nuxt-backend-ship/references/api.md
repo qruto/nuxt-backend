@@ -79,7 +79,7 @@ Types: `FlagValues`, `ExperimentVariantResult`, `ExperimentResult`, `AdminFlag`,
 | `seedCredits()` | Set one meter's credit balance for a billing entity, as a sync from the provider leaves it, keeping its plans, features and other meters. |
 | `seedWorkspace()` | Create a workspace with no members yet, for several `asUser` callers to join: `asUser(t, { workspace: id, workspaceRole: 'admin' })`. |
 | `asUser()` | Create an account in the `backend` component's auth tables and return the instance signed in as it, the way a real sign-in leaves it: the account with the role `'user'`, a personal workspace it owns and has active, and the claims a real token carries. |
-| `TEST_FAINT()` | The marker that finds a category faintly. |
+| `TEST_FAINT()` | The marker that finds a category faintly, just under its threshold. |
 | `TEST_KNOWN_ABUSE` | The marker the known-abuse fake matches. |
 | `TEST_UNSAFE()` | The marker that finds a category at full strength. |
 | `default` | The default export. |

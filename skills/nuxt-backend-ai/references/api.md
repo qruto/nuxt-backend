@@ -56,6 +56,11 @@ Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBala
 | `ai-components` | ai | Chat and knowledge components |
 | `ai-spend-limit` | ai | AI spend limit on a sandbox |
 | `ai-moderation-images` | ai | Image checks and the safety classifier |
+| `ai-moderation-providers` | ai | Moderation providers |
+| `deployment-content-safety-endpoint` | ai | Deployment CONTENT_SAFETY_ENDPOINT |
+| `deployment-content-safety-key` | ai | Deployment CONTENT_SAFETY_KEY |
+| `deployment-second-opinion-key` | ai | Deployment SECOND_OPINION_KEY |
+| `deployment-known-abuse-key` | ai | Deployment KNOWN_ABUSE_KEY |
 | `deployment-ai-gateway-api-key` | ai | Deployment AI_GATEWAY_API_KEY |
 | `deployment-provenance-private-key` | ai | Deployment PROVENANCE_PRIVATE_KEY |
 | `deployment-provenance-certificate` | ai | Deployment PROVENANCE_CERTIFICATE |
@@ -65,5 +70,9 @@ Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBala
 | Name | Capability | Read on | Tier | Without it |
 |---|---|---|---|---|
 | `AI_GATEWAY_API_KEY` | ai | deployment | optional | a provider/model id the backend names goes through the Convex AI Gateway alone, on Convex Cloud with a paid plan and @convex-dev/ai-sdk-provider installed; anywhere else (a free plan, a self-hosted deployment) it is refused when called. Under setupAi({ gateway: 'vercel' }) it is refused everywhere |
+| `CONTENT_SAFETY_ENDPOINT` | ai | deployment | optional | azureContentSafety() refuses every check it is asked for (`unavailable`, reason `not_configured`), so content it would check is refused as unchecked |
+| `CONTENT_SAFETY_KEY` | ai | deployment | optional | as without CONTENT_SAFETY_ENDPOINT: the two call the resource together |
+| `SECOND_OPINION_KEY` | ai | deployment | optional | openaiModeration() refuses every check it is asked for, so a score in the gray band is refused as unchecked |
+| `KNOWN_ABUSE_KEY` | ai | deployment | optional | arachnidShield() refuses every check, so every image the app moderates is refused as unchecked |
 | `PROVENANCE_PRIVATE_KEY` | ai | deployment | optional | generated images are stored with the IPTC source type and no signed C2PA manifest (`ai.provenance_unsigned`); `doctor --prod` fails once the backend turns provenance on |
 | `PROVENANCE_CERTIFICATE` | ai | deployment | optional | as without PROVENANCE_PRIVATE_KEY: the two sign together |

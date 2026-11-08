@@ -45,7 +45,7 @@ import { agentFilesFinding, installedVersion } from './agents'
 import { bundleDuplicatesFindings } from './bundle-duplicates'
 import { nameCollisionFinding } from './name-collisions'
 import { convexConfigFinding } from './convex-config'
-import { aiFeatures, checksImages, chosenGateways, chosenRoutes, mountsComponent, namesModerationModel, type NamedGateway, namedModels, pinnedRegion, usesProvenance } from './named-models'
+import { aiFeatures, checksImages, chosenGateways, chosenRoutes, moderationProviders, mountsComponent, type NamedModerationProvider, namesModerationModel, type NamedGateway, namedModels, pinnedRegion, usesProvenance } from './named-models'
 import { DEFAULT_MODERATION_MODEL, routeKeyFor } from './convex/integrations/ai/model-id'
 import { consentFindings } from './cli/consents'
 import { protectionFindings, type ProtectionDoctorInput } from './cli/protection'
@@ -750,6 +750,7 @@ function deploymentEnvFindings(rootDir: string, deployed: string[] | null, { pro
     ...Object.entries(OPTIONAL_DEPLOYMENT_ENV).filter(([name]) => !name.startsWith('PROTECTION_') && BACKEND_ENV[name as keyof typeof BACKEND_ENV].findings.length > 0 && (name !== 'EMAIL_DEV_INBOX' || deployed.includes(name) || sandboxInbox)).map(([name, degradation]) => {
       if (name === 'AI_GATEWAY_API_KEY') return gatewayKeyFinding(deployed, { models: namedModels(rootDir), local, linked, cloud, provider: convexGatewayProviderInstalled(rootDir), prod, region: pinnedRegion(rootDir), gateways: chosenGateways(rootDir), routes: chosenRoutes(rootDir) })
       if (name === 'PROVENANCE_PRIVATE_KEY' || name === 'PROVENANCE_CERTIFICATE') return provenanceKeyFinding(name, deployed, { on: usesProvenance(rootDir), prod })
+      if (isModerationKey(name)) return moderationKeyFinding(name, moderationProviders(rootDir), deployed, { prod })
       // Unset in dev is the designed state: the local error log stands in.
       if (name === 'MONITORING_DSN') return monitoringDsnFinding(deployed.includes(name), { prod })
       // Opted into outside production; warns only when left set on production.
@@ -761,7 +762,70 @@ function deploymentEnvFindings(rootDir: string, deployed: string[] | null, { pro
     }),
     removedEnvFinding(deployed, { prod }),
     moderationImagesFinding(rootDir, deployed, { cloud, linked, prod }),
+    moderationProvidersFinding(rootDir),
   ]
+}
+
+/** The Azure regions in the EU, where an app that pins its processing there keeps its moderation too. */
+const EU_AZURE_REGIONS = new Set(['austriaeast', 'belgiumcentral', 'denmarkeast', 'francecentral', 'francesouth', 'germanynorth', 'germanywestcentral', 'italynorth', 'northeurope', 'polandcentral', 'spaincentral', 'swedencentral', 'swedensouth', 'westeurope'])
+
+/**
+ * The moderation providers the backend names (`setupAi({ moderation })`):
+ * a known-abuse match beside image checks, and an Azure region in the EU
+ * where the app pins its processing there. Each key has its own finding
+ * ({@link moderationKeyFinding}).
+ */
+function moderationProvidersFinding(rootDir: string): PreflightFinding {
+  const id = 'ai-moderation-providers'
+  const providers = moderationProviders(rootDir)
+  if (providers.length === 0) return finding(id, 'pass', 'The backend names no moderation provider: its safety classifier checks content alone.')
+  const knownAbuse = providers.some(provider => provider.id === 'arachnid-shield' || provider.id === 'photodna')
+  const problems = [unmatchedImages(rootDir, knownAbuse), regionOutsideEu(rootDir, providers)].filter(problem => problem !== undefined)
+  if (problems.length === 0) return finding(id, 'pass', `The backend names ${listed(providers.map(provider => provider.id))}${knownAbuse ? ', a known-abuse match first' : ''}.`)
+  return finding(id, 'warn', problems.map(problem => problem.message).join(' '), problems.map(problem => problem.fix).join(' '))
+}
+
+/** What one check of the moderation providers found wrong, and its fix. */
+interface ProviderProblem { message: string, fix: string }
+
+/** The keys the moderation providers read on the deployment. */
+const MODERATION_KEYS = new Set<string>(['CONTENT_SAFETY_ENDPOINT', 'CONTENT_SAFETY_KEY', 'SECOND_OPINION_KEY', 'KNOWN_ABUSE_KEY'])
+
+/** Whether `name` is a key a moderation provider reads. */
+function isModerationKey(name: string): boolean {
+  return MODERATION_KEYS.has(name)
+}
+
+/**
+ * A moderation provider's key, once the backend names a provider that reads
+ * it: without it, the provider refuses every check, and the content it would
+ * check is refused as unchecked.
+ */
+function moderationKeyFinding(name: string, providers: readonly NamedModerationProvider[], deployed: readonly string[], { prod }: { prod: boolean }): PreflightFinding {
+  const id = deploymentEnvId(name)
+  const readers = providers.filter(provider => provider.env.includes(name)).map(provider => provider.id)
+  if (readers.length === 0) return finding(id, 'pass', `${name} is not needed: no backend file names a moderation provider that reads it.`)
+  if (deployed.includes(name)) return finding(id, 'pass', `${name} is set on the deployment: ${listed(readers)} can check content.`)
+  return finding(
+    id,
+    'warn',
+    `The backend names ${listed(readers)}, but ${name} is not set on the deployment: every check it is asked for is refused, and the content is refused as unchecked.`,
+    `Add ${name} to .env.local and run \`npx nuxt-backend env push${prod ? ' --prod' : ''}\`.`,
+  )
+}
+
+/** Image checks with no known-abuse match before them. */
+function unmatchedImages(rootDir: string, knownAbuse: boolean): ProviderProblem | undefined {
+  if (knownAbuse || !checksImages(rootDir)) return undefined
+  return { message: 'The backend checks images with no known-abuse match: no hash list stands between an upload of known child sexual abuse material and the other providers.', fix: 'Add `knownAbuse: arachnidShield()` to setupAi({ moderation }) (free once your organization is vetted).' }
+}
+
+/** An Azure resource outside the EU, where the app pins its processing to the EU. */
+function regionOutsideEu(rootDir: string, providers: readonly NamedModerationProvider[]): ProviderProblem | undefined {
+  const azure = providers.find(provider => provider.id === 'azure-content-safety')
+  if (pinnedRegion(rootDir) !== 'eu' || azure === undefined || EU_AZURE_REGIONS.has(azure.region ?? '')) return undefined
+  const named = azure.region ? `'${azure.region}'` : 'no region'
+  return { message: `The backend pins its model calls to the EU, but azureContentSafety() names ${named}, which is no EU region: images it checks are processed outside the EU.`, fix: 'Create the Content Safety resource in an EU region, such as francecentral, and name it in azureContentSafety({ region }).' }
 }
 
 /** Which gateway answers first, in an order, on what doctor knows of the deployment: `undefined` when neither can. */

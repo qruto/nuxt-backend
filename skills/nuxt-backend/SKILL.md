@@ -58,10 +58,10 @@ Each feature has a task skill in `node_modules/nuxt-backend/skills/<name>/`, and
 - `nuxt-backend-billing`: the catalog, plans, checkout, the portal, feature gates, plan quotas and credits. 11 tasks; reach for `nuxt-backend/billing`, `usePricing()`, `useBilling()`.
 - `nuxt-backend-growth`: launch phases, offers, referrals, gifts, lifecycle email and the funnel. 14 tasks; reach for `useBilling()`, `useCampaign()`, `useGifts()`.
 - `nuxt-backend-email`: transactional email, templates, delivery tracking, the dev inbox and notifications. 15 tasks; reach for `useSandboxInbox()`, `nuxt-backend/email`, `useEmailStatus()`.
-- `nuxt-backend-ai`: metered AI actions, streams and the job queue. 12 tasks; reach for `nuxt-backend/ai`, `useAiStream()`.
+- `nuxt-backend-ai`: metered AI actions, streams and the job queue. 13 tasks; reach for `nuxt-backend/ai`, `useAiStream()`.
 - `nuxt-backend-data`: the function tiers, queries and mutations, errors, search, workflows, uploads, share links, retention, tokens and the Convex components for counts, queues, cached actions, crons and migrations. 12 tasks; reach for `nuxt-backend/functions`, `nuxt-backend/search`, `nuxt-backend/workflows`.
 - `nuxt-backend-ui`: the packaged pages and components, their parts, theming, labels, translation, slots, the headless composables and eject. 10 tasks; reach for `useLabels()`.
-- `nuxt-backend-ship`: provider setup, tests, deploying, production checks, monitoring, flags and kill switches, webhooks and rate limits. 39 tasks; reach for `nuxt-backend/rate-limit`, `nuxt-backend/http`, `nuxt-backend/monitoring`.
+- `nuxt-backend-ship`: provider setup, tests, deploying, production checks, monitoring, flags and kill switches, webhooks and rate limits. 40 tasks; reach for `nuxt-backend/rate-limit`, `nuxt-backend/http`, `nuxt-backend/monitoring`.
 - `nuxt-backend-upgrade`: moving an app to a new version, and every name a release renamed or removed. 2 tasks.
 <!-- /generated:router -->
 

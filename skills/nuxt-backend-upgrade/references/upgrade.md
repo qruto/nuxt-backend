@@ -52,6 +52,12 @@ agent files and skills.
 | `AuthEmailTemplateOverrides` | `EmailTemplateOverrides` |
 | `CreateBetterAuthOptions` | `SetupAuthOptions` |
 
+## [Moderation verdicts name shared categories](https://nuxt-backend.dev/docs/ship/releases/upgrade#moderation-verdicts-name-shared-categories)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `ai.moderate` | `ai.moderate` | reshaped | `categories` names shared categories (`sexual`, `hate`); the classifier's codes (`S12`) moved to `codes`, beside `scores` and `providers`; `block` and `escalate` take either |
+
 ## [A job step stops its model calls at its timeout](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-step-stops-its-model-calls-at-its-timeout)
 
 | Was | Now | Change | Note |

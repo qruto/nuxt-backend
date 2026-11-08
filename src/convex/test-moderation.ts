@@ -16,11 +16,23 @@ import { TEST_MODERATION_PROVIDERS } from './integrations/ai/moderation-provider
 // A category a provider cannot judge stays unjudged, as the real one leaves
 // it: OpenAI reads no `sexual/minors` in an image.
 
-/** The marker that finds a category at full strength. */
+/**
+ * The marker that finds a category at full strength.
+ *
+ * @experimental
+ */
 export const TEST_UNSAFE = (category: string): string => `[[unsafe:${category}]]`
-/** The marker that finds a category faintly. */
+/**
+ * The marker that finds a category faintly, just under its threshold.
+ *
+ * @experimental
+ */
 export const TEST_FAINT = (category: string): string => `[[faint:${category}]]`
-/** The marker the known-abuse fake matches. */
+/**
+ * The marker the known-abuse fake matches.
+ *
+ * @experimental
+ */
 export const TEST_KNOWN_ABUSE = '[[known-abuse]]'
 
 /** What a marker in some content asks for: the categories found, at full strength or faintly. */

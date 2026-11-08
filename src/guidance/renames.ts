@@ -53,6 +53,7 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const SHARED_CATEGORIES = 'Moderation verdicts name shared categories'
 const STEP_TIMEOUT = 'A job step stops its model calls at its timeout'
 const COLD_BALANCE = 'A job joins on a balance never read'
 const TUNNEL = 'Browser error reports go through a tunnel on the app\'s own origin'
@@ -97,6 +98,8 @@ const SESSIONS = 'Sessions are listed and revoked by id'
 
 /** Every rename, newest section first, as the Upgrade page orders them. */
 export const RENAMES: readonly Rename[] = [
+  // A verdict's categories are the shared ones; the classifier's codes moved to `codes`.
+  { from: 'ai.moderate', to: 'ai.moderate', change: 'reshaped', section: SHARED_CATEGORIES, note: '`categories` names shared categories (`sexual`, `hate`); the classifier\'s codes (`S12`) moved to `codes`, beside `scores` and `providers`; `block` and `escalate` take either' },
   // A job step aborts its model calls at its timeout, 3 minutes by default.
   { from: 'jobs.step', to: 'jobs.step', change: 'reshaped', section: STEP_TIMEOUT, note: 'a step aborts its model calls at `timeout`, by default 3 minutes or 80% of `stallAfter`; set `timeout` for a longer step, below `stallAfter`' },
   // A job joins on a balance never read, and reads it as it starts.

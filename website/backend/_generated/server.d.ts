@@ -36,6 +36,8 @@ type Env = {
     "development" | "preview" | "sandbox" | "production" | undefined;
   readonly BILLING_ACCESS_TOKEN: string | undefined;
   readonly BILLING_WEBHOOK_SECRET: string | undefined;
+  readonly CONTENT_SAFETY_ENDPOINT: string | undefined;
+  readonly CONTENT_SAFETY_KEY: string | undefined;
   readonly EMAIL_API_KEY: string | undefined;
   readonly EMAIL_DEV_INBOX: string | undefined;
   readonly EMAIL_FROM: string | undefined;
@@ -43,6 +45,7 @@ type Env = {
   readonly EMAIL_REGION:
     "us-east-1" | "eu-west-1" | "sa-east-1" | "ap-northeast-1" | undefined;
   readonly EMAIL_WEBHOOK_SECRET: string | undefined;
+  readonly KNOWN_ABUSE_KEY: string | undefined;
   readonly MONITORING_DSN: string | undefined;
   readonly PROTECTION_CHALLENGE_SECRET_KEY: string | undefined;
   readonly PROTECTION_PROOF_SECRET: string | undefined;
@@ -50,6 +53,7 @@ type Env = {
   readonly PROVENANCE_PRIVATE_KEY: string | undefined;
   readonly PUSH_PRIVATE_KEY: string | undefined;
   readonly PUSH_PUBLIC_KEY: string | undefined;
+  readonly SECOND_OPINION_KEY: string | undefined;
   readonly SITE_URL: string;
 };
 

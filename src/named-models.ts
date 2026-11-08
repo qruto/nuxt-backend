@@ -267,6 +267,40 @@ export function chosenRoutes(rootDir: string): Record<string, NamedGateway[]> | 
   return named[0]
 }
 
+/** A moderation provider the backend names, and the Azure region it declares, when it does. */
+export interface NamedModerationProvider {
+  id: 'azure-content-safety' | 'openai-moderation' | 'arachnid-shield' | 'photodna'
+  /** The env names it needs on the deployment. */
+  env: readonly string[]
+  /** `azureContentSafety({ region })` as a literal. */
+  region?: string
+}
+
+/** Each provider's factory, as the backend calls it, and the env it reads. */
+const MODERATION_FACTORIES: ReadonlyArray<[RegExp, NamedModerationProvider]> = [
+  [/\bazureContentSafety\s*\(/, { id: 'azure-content-safety', env: ['CONTENT_SAFETY_ENDPOINT', 'CONTENT_SAFETY_KEY'] }],
+  [/\bopenaiModeration\s*\(/, { id: 'openai-moderation', env: ['SECOND_OPINION_KEY'] }],
+  [/\barachnidShield\s*\(/, { id: 'arachnid-shield', env: ['KNOWN_ABUSE_KEY'] }],
+  [/\bphotodna\s*\(/, { id: 'photodna', env: ['KNOWN_ABUSE_KEY'] }],
+]
+
+/** `region: '…'` in an `azureContentSafety({ … })` call. */
+const AZURE_REGION = /\bazureContentSafety\s*\(\s*\{[^}]*\bregion\s*:\s*(['"`])([\w-]+)\1/
+
+/** The moderation providers the backend in `rootDir` names: what doctor checks the keys and the region of. */
+export function moderationProviders(rootDir: string): NamedModerationProvider[] {
+  const named = new Map<string, NamedModerationProvider>()
+  for (const code of backendSources(rootDir)) {
+    const { plain, bare } = blanked(code)
+    for (const [call, provider] of MODERATION_FACTORIES) {
+      if (!call.test(bare)) continue
+      const region = provider.id === 'azure-content-safety' ? AZURE_REGION.exec(plain)?.[2] : undefined
+      named.set(provider.id, { ...provider, ...(region ? { region } : {}) })
+    }
+  }
+  return [...named.values()]
+}
+
 /** `setupAi({ provenance })` turned on (anything but `false`), or a `ctx.storeImage(…)` call. */
 const PROVENANCE_ON = /\bprovenance\s*:(?!\s*(?:false|undefined)\b)|\.storeImage\s*\(/
 

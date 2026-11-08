@@ -76,7 +76,9 @@ export const ai = setupAi(components, {
 export const { getCosts, listModerationFlags } = ai.api
 ```
 
-- **`block`** lists the categories that refuse content: `requireSafe`, every `moderate` option and a job's check throw on them. Content flagged only in other categories is let through and recorded. Default `'all'`: any flag refuses. A flag that names no category is refused under any policy.
+To check images with a provider made for it, match known abuse material, or give people a statement of reasons, see [Choose moderation providers](/docs/build/ai/content-safety/providers).
+
+- **`block`** lists the categories that refuse content, as the shared categories (`sexual`, `hate`) or a provider's own codes (`S4`), alike: `requireSafe`, every `moderate` option and a job's check throw on them. Content flagged only in other categories is let through and recorded. Default `'all'`: any flag refuses. A flag that names no category is refused under any policy.
 - **`escalate`** lists the categories an administrator looks at. Their flags read `escalate`, stand out in the Moderation tab, and log `ai.content_escalated` as an error, which reaches your [error monitoring](/docs/ship/operate/monitoring).
 - **`log`** keeps a record of every flagged check for `days`, 90 by default: categories, who, what and where, whether it was blocked, never the content. `log: false` keeps none. The maintenance pass prunes a record once its days are over, and an account's erasure deletes the records about it.
 
@@ -107,7 +109,7 @@ export const attach = authed.action({
 })
 ```
 
-`ai.moderate(ctx, { text?, images? })` returns `{ flagged, categories }`, where `categories` are the classifier's own codes, such as Llama Guard's `S1` to `S14`. Both run in an action. Images are file storage ids, up to 8: an upload not yet claimed is read from the component's storage with `storage.bytes(ctx, id)`, and a file of your own storage, such as an image a model made, is read too. A file that is no image is refused `invalid_input` with reason `unsupported_type`, and one that is gone with `upload_gone`. `requireSafe` refuses flagged text on `prompt`, and flagged images sent alone on `images`. Both are refused while `pause_ai` is on (`unavailable`, reason `ai_paused`), and on a `sandbox` deployment without a `spendLimit`, as any model call is.
+`ai.moderate(ctx, { text?, images? })` returns `{ flagged, categories, codes, scores, providers }`: `categories` are the shared categories at or above their threshold, such as `sexual` or `hate`, and `codes` the classifier's own, such as Llama Guard's `S1` to `S14` ([Choose moderation providers](/docs/build/ai/content-safety/providers#read-the-categories)). Both run in an action. Images are file storage ids, up to 8: an upload not yet claimed is read from the component's storage with `storage.bytes(ctx, id)`, and a file of your own storage, such as an image a model made, is read too. A file that is no image is refused `invalid_input` with reason `unsupported_type`, and one that is gone with `upload_gone`. `requireSafe` refuses flagged text on `prompt`, and flagged images sent alone on `images`. Both are refused while `pause_ai` is on (`unavailable`, reason `ai_paused`), and on a `sandbox` deployment without a `spendLimit`, as any model call is.
 
 A classifier that answers anything but a verdict refuses the content as unchecked: `unavailable` with reason `provider_refused`, and the log line `ai.moderation_unreadable`. So does a classifier call that fails, with the log line `ai.moderation_failed` naming the provider's error when the gateway passed one on, and one that gives no answer within 30 seconds: the check stops waiting, so a hung gateway never holds your action until it times out. Both may pass when tried again. Images checked alone go to the classifier with a few neutral words beside them, which Llama Guard on the Convex AI Gateway needs to read them.
 
