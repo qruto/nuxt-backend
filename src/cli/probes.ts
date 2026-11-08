@@ -280,21 +280,51 @@ async function docsFinding(input: SiteProbeInput, fetcher: typeof fetch): Promis
 /** The states a capability can be in, as the health endpoint names them. */
 const STATES = new Set(['live', 'test', 'missing', 'failing'])
 
-/** The health endpoint answers its coarse shape to anyone: the states, never the detail. */
-async function healthFinding(input: SiteProbeInput, fetcher: typeof fetch): Promise<PreflightFinding> {
-  const url = `${input.origin}${HEALTH_ROUTE}`
+/**
+ * The health endpoint answers its coarse shape to anyone: the states, never
+ * the detail. `answers` once it answers that shape at all, so an uptime
+ * monitor has something to ask.
+ */
+async function readHealth(url: string, fetcher: typeof fetch): Promise<{ found: PreflightFinding, answers: boolean }> {
   const response = await probe(url, { headers: { accept: 'application/json' } }, fetcher)
-  if (!response) return finding('monitoring-health', 'warn', `${url} did not answer.`, 'Check the app host\'s logs.')
-  if (response.status === 404) return finding('monitoring-health', 'warn', `${url} is not served (404): an uptime check has nothing to ask.`, 'Check that the app was built with this package.')
+  if (!response) return { found: finding('monitoring-health', 'warn', `${url} did not answer.`, 'Check the app host\'s logs.'), answers: false }
+  if (response.status === 404) return { found: finding('monitoring-health', 'warn', `${url} is not served (404): an uptime check has nothing to ask.`, 'Check that the app was built with this package.'), answers: false }
   const body = response.status === 200 || response.status === 503 ? await jsonOf(response) : null
   const capabilities = body?.capabilities
   const shaped = body && ['ok', 'degraded', 'failing'].includes(body.status as string) && typeof capabilities === 'object' && capabilities !== null
     && Object.values(capabilities).every(state => STATES.has(state as string))
-  if (!shaped) return finding('monitoring-health', 'warn', `${url} answered ${response.status} without the health's shape ({ status, capabilities }).`, 'A route of your own shadows it, or a proxy rewrote the answer.')
+  if (!shaped) return { found: finding('monitoring-health', 'warn', `${url} answered ${response.status} without the health's shape ({ status, capabilities }).`, 'A route of your own shadows it, or a proxy rewrote the answer.'), answers: false }
+  return { found: shapedHealthFinding(url, body, capabilities as Record<string, string>), answers: true }
+}
+
+/** The health endpoint's finding, once it answers its shape: its detail kept from an anonymous caller, and the app's state. */
+function shapedHealthFinding(url: string, body: Record<string, unknown>, capabilities: Record<string, string>): PreflightFinding {
   if ('detail' in body) return finding('monitoring-health', 'fail', `${url} shows the capabilities' detail to an anonymous caller: their env names and findings.`, 'Production names itself development (BACKEND_ENVIRONMENT), which shows the detail to everyone: name it production with npx nuxt-backend env push --prod --force BACKEND_ENVIRONMENT (env push leaves a value already set unless forced).')
-  const failing = Object.entries(capabilities as Record<string, string>).filter(([, state]) => state === 'failing').map(([name]) => name)
+  const failing = Object.entries(capabilities).filter(([, state]) => state === 'failing').map(([name]) => name)
   if (body.status === 'failing') return finding('monitoring-health', 'warn', `${url} answers its public shape, and reports the app failing (${failing.join(', ') || 'the backend unreachable'}).`, 'npx nuxt-backend status --prod says why.')
-  return finding('monitoring-health', 'pass', `${url} answers its public shape: ${body.status as string}, ${Object.keys(capabilities as object).length} capabilities, no detail.`)
+  return finding('monitoring-health', 'pass', `${url} answers its public shape: ${body.status as string}, ${Object.keys(capabilities).length} capabilities, no detail.`)
+}
+
+/**
+ * Whether an uptime monitor asks the health endpoint: not checked, as
+ * doctor reads no monitoring account, so it says where to set one up. Only
+ * once the endpoint answers its shape: until then `monitoring-health` is
+ * the finding to fix, and a monitor would only report the app down.
+ */
+function uptimeFinding(url: string): PreflightFinding {
+  return finding(
+    'monitoring-uptime',
+    'pass',
+    `Not checked: whether an uptime monitor asks ${url}. doctor reads no monitoring account; the endpoint answers its public shape, so a monitor has something to ask.`,
+    `Without one, an outage is heard of when someone reports it. In Sentry: Monitors, Add Monitor, Uptime, at ${url}, every minute; it opens an issue after three failures in a row. Any uptime service that GETs the URL works the same way.`,
+  )
+}
+
+/** The health endpoint's finding, and once it answers, the uptime monitor's. */
+async function healthFindings(input: SiteProbeInput, fetcher: typeof fetch): Promise<PreflightFinding[]> {
+  const url = `${input.origin}${HEALTH_ROUTE}`
+  const { found, answers } = await readHealth(url, fetcher)
+  return answers ? [found, uptimeFinding(url)] : [found]
 }
 
 // --- All of them ---------------------------------------------------------------------
@@ -330,7 +360,7 @@ export async function siteProbeFindings(input: SiteProbeInput, fetcher: typeof f
     input.wants('auth') ? gatedPageFinding(input, fetcher) : [],
     input.wants('auth') ? authProxyFinding(input, fetcher) : [],
     input.wants('site') ? docsFinding(input, fetcher) : [],
-    input.wants('monitoring') ? healthFinding(input, fetcher) : [],
+    input.wants('monitoring') ? healthFindings(input, fetcher) : [],
   ])
   return results.flat()
 }

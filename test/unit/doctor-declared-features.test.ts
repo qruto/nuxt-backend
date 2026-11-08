@@ -109,6 +109,58 @@ describe('ai-spend-limit', () => {
   })
 })
 
+describe('ai-gateway-budget', () => {
+  const posture = (environment: string) => Promise.resolve({ environment, siteOrigin: 'unset', email: 'unset' } as never)
+  /** The finding on production, its env names those given: the gateway key, or not. */
+  const prodFinding = async (environment: string, names: string[] = ['AUTH_SECRET', 'SITE_URL', 'AI_GATEWAY_API_KEY']) =>
+    (await runDoctorChecks(rootDir, { prod: true, only: ['ai'], deployedNames: names, posture: posture(environment) })).find(entry => entry.id === 'ai-gateway-budget')
+  const DRAFT = 'export const draft = ai.action({ model: \'openai/gpt-5-mini\' })\n'
+
+  it('warns a live production whose setupAi sets no spendLimit, naming the gateway its calls take and how to cap it', async () => {
+    // No Convex AI Gateway provider in this project: the key's Vercel AI Gateway answers.
+    app({ 'ai.ts': `export const ai = setupAi(components, { billing })\n${DRAFT}` })
+    const found = await prodFinding('production')
+    expect(found).toMatchObject({ status: 'warn', capability: 'ai' })
+    expect(found!.message).toContain('go through the Vercel AI Gateway')
+    expect(found!.message).toContain('Not checked: the Vercel AI Gateway\'s own cap')
+    expect(found!.message).not.toContain('Convex AI Gateway')
+    expect(found!.fixHint).toContain('spendLimit: { usdPerDay }')
+    expect(found!.fixHint).toContain('vercel ai-gateway budgets set api-key')
+  })
+
+  it('passes once setupAi sets a spendLimit, still naming the gateway\'s own cap as not checked', async () => {
+    app({ 'ai.ts': `export const ai = setupAi(components, { billing, spendLimit: { usdPerDay: 20 } })\n${DRAFT}` })
+    const found = await prodFinding('production')
+    expect(found).toMatchObject({ status: 'pass' })
+    expect(found!.message).toContain('spendLimit pauses AI')
+    expect(found!.message).toContain('Not checked')
+  })
+
+  it('follows setupAi\'s order and routes, and a region pin to the Vercel AI Gateway', async () => {
+    // The Convex AI Gateway alone, with no provider package here: no call answers, so no budget to name.
+    app({ 'ai.ts': `export const ai = setupAi(components, { billing, gateway: 'convex' })\n${DRAFT}` })
+    expect(await prodFinding('production')).toBeUndefined()
+    // A route sends the named model through the Vercel AI Gateway, whose key production holds.
+    app({ 'ai.ts': `export const ai = setupAi(components, { billing, gateway: 'convex', routes: { 'openai/gpt-5-mini': 'vercel' } })\n${DRAFT}` })
+    expect((await prodFinding('production'))!.message).toContain('go through the Vercel AI Gateway')
+    // A region pin goes through the Vercel AI Gateway, whatever answers first otherwise.
+    app({ 'ai.ts': `export const ai = setupAi(components, { billing, inferenceRegion: 'eu' })\n${DRAFT}` })
+    expect((await prodFinding('production', ['AUTH_SECRET', 'SITE_URL']))!.message).toContain('the Vercel AI Gateway')
+  })
+
+  it('says nothing on a sandbox (ai-spend-limit\'s), without setupAi, with no model named, or when no gateway answers', async () => {
+    app({ 'ai.ts': `export const ai = setupAi(components, { billing })\n${DRAFT}` })
+    expect(await prodFinding('sandbox')).toBeUndefined()
+    expect(await prodFinding('production', ['AUTH_SECRET', 'SITE_URL'])).toBeUndefined()
+    rmSync(join(rootDir, 'backend'), { recursive: true, force: true })
+    app({ 'ai.ts': 'export const ai = setupAi(components, { billing })\n' })
+    expect(await prodFinding('production')).toBeUndefined()
+    rmSync(join(rootDir, 'backend'), { recursive: true, force: true })
+    app({ 'draft.ts': DRAFT })
+    expect(await prodFinding('production')).toBeUndefined()
+  })
+})
+
 describe('protection-guest-jobs', () => {
   const GUESTS = `export const jobs = defineJobQueue(ai, { guest: { perVisitor: 1 }, kinds: { card: { guest: true } } })\n`
 

@@ -711,6 +711,10 @@
         {
           "name": "billing-catalog-production",
           "to": "/docs/reference/cli/diagnostics#billing-catalog-production"
+        },
+        {
+          "name": "billing-launch",
+          "to": "/docs/reference/cli/diagnostics#billing-launch"
         }
       ]
     }
@@ -996,6 +1000,10 @@
         {
           "name": "ai-spend-limit",
           "to": "/docs/reference/cli/diagnostics#ai-spend-limit"
+        },
+        {
+          "name": "ai-gateway-budget",
+          "to": "/docs/reference/cli/diagnostics#ai-gateway-budget"
         },
         {
           "name": "ai-moderation-images",
@@ -1545,9 +1553,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "97 in all",
+          "name": "100 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "97 findings in all"
+          "label": "100 findings in all"
         }
       ]
     }

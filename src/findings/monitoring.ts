@@ -3,8 +3,8 @@ import type { FindingEntries } from './types'
 /**
  * Error reports and cron check-ins: the DSN on the deployment, where the app reads a DSN, the source maps
  * a deploy uploads, and the backend's own exception reporting, which only
- * its dashboard turns on; under `--prod`, the live health endpoint and
- * production's usage-limit warnings.
+ * its dashboard turns on; under `--prod`, the live health endpoint, the
+ * uptime monitor that asks it, and production's usage-limit warnings.
  */
 export const MONITORING_FINDINGS = {
   'deployment-monitoring-dsn': { title: 'Deployment MONITORING_DSN', fixable: true },
@@ -13,6 +13,8 @@ export const MONITORING_FINDINGS = {
   'monitoring-backend-exceptions': { title: 'Backend exception reporting' },
   // --prod only: probed on the live site.
   'monitoring-health': { title: 'Health endpoint' },
+  // --prod only: not checked (doctor reads no monitoring account), once the health endpoint answers; says where to set one up.
+  'monitoring-uptime': { title: 'Uptime monitor' },
   // --prod only: production's usage limits, read with the Convex CLI.
   'monitoring-usage-alerts': { title: 'Usage alerts' },
 } as const satisfies FindingEntries

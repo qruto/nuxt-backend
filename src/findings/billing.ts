@@ -33,4 +33,6 @@ export const BILLING_FINDINGS = {
   'billing-provider-sdk': { title: 'Billing provider SDK' },
   // --prod only: the catalog against the production ids billing sync wrote.
   'billing-catalog-production': { title: 'Production catalog' },
+  // --prod only: whether billing sells on production yet (a token and a production catalog); before it does, the findings that only say so warn.
+  'billing-launch': { title: 'Billing launch' },
 } as const satisfies FindingEntries

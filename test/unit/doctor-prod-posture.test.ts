@@ -38,8 +38,8 @@ vi.mock('../../src/convex-cli', () => ({
   }),
 }))
 
-/** Production's site, healthy, unless `open` makes its health endpoint show its detail to anyone. */
-const site = vi.hoisted(() => ({ open: false, asked: [] as string[] }))
+/** Production's site, healthy, unless `open` makes its health endpoint show its detail to anyone, or `health` is off (404). */
+const site = vi.hoisted(() => ({ open: false, health: true, asked: [] as string[] }))
 
 function siteAnswer(url: URL, init: RequestInit | undefined): Response {
   site.asked.push(`${init?.method ?? 'GET'} ${url.pathname}`)
@@ -52,6 +52,7 @@ function siteAnswer(url: URL, init: RequestInit | undefined): Response {
     case '/settings':
       return new Response(null, { status: 302, headers: { location: '/login' } })
     case '/api/backend/health':
+      if (!site.health) return new Response('not found', { status: 404 })
       return json(site.open ? { status: 'ok', capabilities: { auth: 'live' }, detail: { auth: { reason: 'x', missingEnv: [], top: null } } } : { status: 'ok', capabilities: { auth: 'live' } })
     default:
       return new Response('not found', { status: 404 })
@@ -75,6 +76,7 @@ beforeEach(() => {
   deployed.values = { BACKEND_ENVIRONMENT: 'production', SITE_URL: `${PUBLIC}/` }
   deployed.posture = HEALTHY
   site.open = false
+  site.health = true
   site.asked = []
   for (const name of MACHINE_ENV) vi.stubEnv(name, undefined)
   rootDir = mkdtempSync(join(tmpdir(), 'doctor-posture-'))
@@ -100,7 +102,7 @@ afterEach(() => {
 
 async function doctor(args: string[] = []) {
   await runCommand(main, { rawArgs: ['doctor', '--json', '--prod', ...args, '--cwd', rootDir] })
-  const report = JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, capability: string, status: string, message: string }> }
+  const report = JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as { findings: Array<{ id: string, capability: string, status: string, message: string, fixHint: string }> }
   return Object.fromEntries(report.findings.map(finding => [finding.id, finding]))
 }
 
@@ -240,6 +242,19 @@ describe('production\'s site', () => {
     expect(site.asked).toContain('GET /api/backend/health')
   })
 
+  it('says an uptime monitor is not checked once the health endpoint answers, and where to set one up', async () => {
+    const findings = await doctor(['--only', 'monitoring'])
+    expect(findings['monitoring-uptime']).toMatchObject({ status: 'pass', capability: 'monitoring', message: expect.stringContaining('Not checked') })
+    expect(findings['monitoring-uptime']!.message).toContain(`${PUBLIC}/api/backend/health`)
+    expect(findings['monitoring-uptime']!.fixHint).toContain('Add Monitor, Uptime')
+    vi.mocked(console.log).mockClear()
+    // A health endpoint that is not served is monitoring-health's to fix: no uptime finding beside it.
+    site.health = false
+    const unserved = await doctor(['--only', 'monitoring'])
+    expect(unserved['monitoring-health']).toMatchObject({ status: 'warn' })
+    expect(unserved['monitoring-uptime']).toBeUndefined()
+  })
+
   it('asks only what doctor --only wants', async () => {
     await doctor(['--only', 'email'])
     expect(site.asked).toEqual([])
@@ -288,5 +303,81 @@ describe('the catalog against its production ids', () => {
 }
 `)
     expect((await doctor(['--only', 'billing']))['billing-catalog-production']!.status).toBe('pass')
+  })
+})
+
+describe('billing\'s launch on production', () => {
+  /** A catalog whose every product production has an id for, unless `products` says otherwise. */
+  function catalog(products = '{ credits100: \'p3\' }, plans: { pro: { month: \'p1\' } }') {
+    writeFileSync(join(rootDir, 'backend/billing.catalog.ts'), `export default {
+  plans: { pro: { name: 'Pro', prices: { month: 1000 } } },
+  packs: { credits100: { name: '100 credits', price: 500, credits: { meter: 'credits', units: 100 } } },
+}
+`)
+    writeFileSync(join(rootDir, 'backend/billing.generated.ts'), `export const catalog = {
+  production: { products: ${products}, meters: {} },
+}
+`)
+  }
+  const BEFORE_TOKEN = LIVE.filter(name => !['BILLING_ACCESS_TOKEN', 'BILLING_WEBHOOK_SECRET'].includes(name))
+
+  it('reads a production with no token as not launched yet: a warning with the launch steps, and its token and webhook findings warn rather than fail', async () => {
+    catalog()
+    deployed.names = BEFORE_TOKEN
+    const findings = await doctor(['--only', 'billing'])
+    expect(findings['billing-launch']).toMatchObject({ status: 'warn', capability: 'billing', message: expect.stringContaining('holds no BILLING_ACCESS_TOKEN') })
+    expect(findings['billing-launch']!.message).toContain('Plans open soon')
+    expect(findings['billing-launch']!.fixHint).toContain('env push --prod')
+    expect(findings['billing-launch']!.fixHint).toContain('billing sync --env production')
+    expect(findings['billing-launch']!.fixHint).toContain('billing:startFreePlan')
+    for (const id of ['deployment-billing-access-token', 'deployment-billing-webhook-secret', 'billing-access']) {
+      expect(findings[id], id).toMatchObject({ status: 'warn', message: expect.stringContaining('billing is not launched yet') })
+    }
+    expect(Object.values(findings).filter(found => found.status === 'fail')).toEqual([])
+    // It leads the billing findings, where status reads the capability's first.
+    expect(Object.values(findings).find(found => found.capability === 'billing')!.id).toBe('billing-launch')
+  })
+
+  it('reads a token with no production catalog as not launched, and the catalog\'s gap warns', async () => {
+    catalog('{}')
+    const findings = await doctor(['--only', 'billing'])
+    expect(findings['billing-launch']).toMatchObject({ status: 'warn', message: expect.stringContaining('no production products') })
+    expect(findings['billing-launch']!.fixHint).not.toContain('env push --prod')
+    expect(findings['billing-catalog-production']).toMatchObject({ status: 'warn', message: expect.stringContaining('not launched') })
+  })
+
+  it('passes a launched production', async () => {
+    catalog()
+    expect((await doctor(['--only', 'billing']))['billing-launch']).toMatchObject({ status: 'pass' })
+  })
+
+  it('fails a launched production\'s catalog gap as before', async () => {
+    catalog('{ credits100: \'p3\' }')
+    const gap = await doctor(['--only', 'billing'])
+    expect(gap['billing-launch']).toMatchObject({ status: 'pass' })
+    expect(gap['billing-catalog-production']).toMatchObject({ status: 'fail', message: expect.stringContaining('production refuses their checkout') })
+  })
+
+  it('says nothing while production bills in the sandbox, or for an app with no billing catalog', async () => {
+    catalog()
+    deployed.names = BEFORE_TOKEN
+    deployed.values = { ...deployed.values, BACKEND_ENVIRONMENT: 'sandbox' }
+    expect((await doctor(['--only', 'billing']))['billing-launch']).toBeUndefined()
+    vi.mocked(console.log).mockClear()
+    rmSync(join(rootDir, 'backend/billing.catalog.ts'))
+    deployed.values = { ...deployed.values, BACKEND_ENVIRONMENT: 'production' }
+    const bare = await doctor(['--only', 'billing'])
+    expect(bare['billing-launch']).toBeUndefined()
+    expect(bare['deployment-billing-access-token']).toMatchObject({ status: 'fail' })
+  })
+
+  it('shows billing as not launched in status --prod: missing, not failing', async () => {
+    catalog()
+    deployed.names = BEFORE_TOKEN
+    await runCommand(main, { rawArgs: ['status', '--json', '--prod', '--cwd', rootDir] })
+    const report = JSON.parse(vi.mocked(console.log).mock.calls.flat().join('\n')) as StatusReport
+    const billing = report.capabilities.find(capability => capability.name === 'billing')
+    expect(billing).toMatchObject({ state: 'missing', reason: expect.stringContaining('not launched on production yet'), top: { id: 'billing-launch', status: 'warn' } })
+    expect(report.capabilities.find(capability => capability.name === 'ai')!.state).not.toBe('failing')
   })
 })

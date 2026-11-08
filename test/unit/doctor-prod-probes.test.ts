@@ -98,6 +98,8 @@ describe('the live probes', () => {
       'site-auth-proxy': 'pass',
       'agent-docs': 'pass',
       'monitoring-health': 'pass',
+      // Not checked: doctor reads no monitoring account, and says where to set a monitor up.
+      'monitoring-uptime': 'pass',
     })
     expect(findings['site-https']!.message).toContain('max-age 15552000')
     expect(findings['monitoring-health']!.message).toContain('degraded')
