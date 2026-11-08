@@ -47,7 +47,7 @@ export default defineNuxtConfig({
 
 With a [bot check](/docs/build/auth/sign-in/bots) challenge site key set, a second plugin lets the challenge in. `https://challenges.cloudflare.com` joins `script-src` and `frame-src` (`child-src` when frames fall back to it). A policy that restricts only `default-src` gains its own `script-src` and `frame-src` from it, so nothing else that directive governs opens.
 
-With [Sentry](/docs/services/sentry) wired, a plugin lets the browser's error reports out: the DSN's origin joins `connect-src`, or a `connect-src` of its own when the policy restricts only `default-src`. A DSN of `https://key@o123.ingest.de.sentry.io/456` adds `https://o123.ingest.de.sentry.io`, so you don't list the ingest origin yourself. Only a DSN set in your own `sentry.client.config.ts` needs its origin listed by hand, in `connect-src` as above.
+With [Sentry](/docs/services/sentry) wired, the browser's error reports need nothing in the policy: they go through Sentry's managed tunnel, a path on the app's own origin that the Nuxt server forwards to the ingest, so `connect-src 'self'` lets them out. A `sentry.client.config.ts` of your own that sends reports straight to the ingest needs its origin listed in `connect-src` as above, or `tunnel: true` ([Customize the SDK](/docs/ship/operate/monitoring#customize-the-sdk)).
 
 The auth proxy (`/api/auth/**`) carries its own rules, merged over the global config, and your `routeRules` can override them in turn:
 

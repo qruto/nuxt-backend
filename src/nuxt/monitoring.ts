@@ -81,8 +81,8 @@ export interface MonitoringPublicConfig {
 
 /**
  * Register the monitoring layer's runtime: the DSN in runtime config, the
- * health route, the SDK's tagging and capture and its origin in the security
- * headers where it is wired, and in dev the local error log.
+ * health route, the SDK's tagging and capture where it is wired, and in dev
+ * the local error log.
  */
 export function registerMonitoring(resolver: Resolver, nuxt: Nuxt, wiring: MonitoringWiring = monitoringWiring(nuxt)): void {
   const { env } = wiring
@@ -109,14 +109,8 @@ export function registerMonitoring(resolver: Resolver, nuxt: Nuxt, wiring: Monit
     addPlugin({ src: resolver.resolve(`${SDK_DIR}/observe.client`), mode: 'client' })
     const capture = resolver.resolve(`${SDK_DIR}/capture.server`)
     addNitroPlugin({ nitro2: capture, nitro3: capture })
-    // The security headers let the browser's reports out. Nitro runs the
-    // policy hook in plugin order, and the base module's plugin narrows
-    // `connect-src`, so this one goes in once every module has set up: ahead
-    // of the base module's it would find the directive unset, and leave it.
-    nuxt.hook('modules:done', () => {
-      const csp = resolver.resolve('./runtime/server/monitoring/csp')
-      addNitroPlugin({ nitro2: csp, nitro3: csp })
-    })
+    // The browser's reports need no source in the security headers: they go
+    // through the SDK's managed tunnel, on the app's own origin (sdk/*.config.ts).
     warnWithoutSourceMaps(env)
   }
 

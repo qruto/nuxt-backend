@@ -11,7 +11,10 @@
 // same way the backend's do: BACKEND_ENVIRONMENT when the host sets it (a
 // `sandbox` demo), else the host's own (`VERCEL_ENV`). The preset
 // (./preset.ts) scrubs what leaves and sends console warnings and errors as
-// log lines.
+// log lines. `serveTunnelIntegration` answers the browser's managed tunnel
+// (`tunnel: true` in the client config): it forwards the envelopes of its own
+// DSN and of the one the build gave the browser, when the server's env names
+// another, and no other.
 import * as Sentry from '@sentry/nuxt'
 import { useRuntimeConfig } from 'nuxt/server'
 import { DATA_COLLECTION, LOG_LEVELS, SCRUBBING, scrubbingIntegration, tracesSampleRate } from './preset'
@@ -24,5 +27,9 @@ Sentry.init({
   tracesSampleRate: tracesSampleRate(import.meta.dev),
   dataCollection: DATA_COLLECTION,
   ...SCRUBBING,
-  integrations: [Sentry.consoleLoggingIntegration({ levels: [...LOG_LEVELS] }), scrubbingIntegration()],
+  integrations: [
+    Sentry.consoleLoggingIntegration({ levels: [...LOG_LEVELS] }),
+    scrubbingIntegration(),
+    Sentry.serveTunnelIntegration(built ? { allowedDsns: [built] } : undefined),
+  ],
 })
