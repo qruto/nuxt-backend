@@ -621,10 +621,12 @@ export function missingProductionIds(catalog: BillingCatalog, ids: Partial<Catal
  * Whether production can sell the catalog: every plan price, pack, meter
  * and promotion has its production id. A gap fails once production bills in the
  * production environment (checkout of it is refused there), and warns
- * while it bills elsewhere, on purpose or by default. No finding without a
- * catalog, or when the id map does not load (`billing sync` reports that).
+ * while it bills elsewhere, on purpose or by default, or while billing is
+ * not launched there (`launched: false`): nothing sells before the launch.
+ * No finding without a catalog, or when the id map does not load (`billing
+ * sync` reports that).
  */
-export async function productionCatalogFindings(rootDir: string, environment: 'sandbox' | 'production' | 'unset' | 'unread'): Promise<PreflightFinding[]> {
+export async function productionCatalogFindings(rootDir: string, environment: 'sandbox' | 'production' | 'unset' | 'unread', launched = true): Promise<PreflightFinding[]> {
   let catalog: BillingCatalog | undefined
   let ids: Partial<CatalogIds> | undefined
   try {
@@ -639,7 +641,9 @@ export async function productionCatalogFindings(rootDir: string, environment: 's
   if (missing.length === 0) return [finding('billing-catalog-production', 'pass', 'Every plan price, pack, meter and promotion of the catalog has its production id.')]
   const gap = `The catalog has no production id for ${missing.join(', ')}`
   const hint = 'Run npx nuxt-backend billing sync --env production, and commit the billing.generated.ts it writes.'
-  return [environment === 'production'
+  if (environment !== 'production') return [finding('billing-catalog-production', 'warn', `${gap}: once production bills in the production environment, their checkout is refused.`, hint)]
+  // Before billing launches, production sells nothing anyway: the gap is a step of the launch.
+  return [launched
     ? finding('billing-catalog-production', 'fail', `${gap}: production refuses their checkout.`, hint)
-    : finding('billing-catalog-production', 'warn', `${gap}: once production bills in the production environment, their checkout is refused.`, hint)]
+    : finding('billing-catalog-production', 'warn', `${gap}: billing is not launched on production yet, so nothing sells there until it has them.`, hint)]
 }

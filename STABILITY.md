@@ -490,6 +490,7 @@ The backend component's maintenance is part of this surface by its windows: what
 
 - `ai`:
   - `ai-components`
+  - `ai-gateway-budget`
   - `ai-moderation-images`
   - `ai-moderation-providers`
   - `ai-spend-limit`
@@ -521,6 +522,7 @@ The backend component's maintenance is part of this surface by its windows: what
   - `billing-customer-mapping`
   - `billing-feature-benefits`
   - `billing-gift-twins`
+  - `billing-launch`
   - `billing-meter-usage`
   - `billing-multiple-subscriptions`
   - `billing-organization`
@@ -591,6 +593,7 @@ The backend component's maintenance is part of this surface by its windows: what
   - `monitoring-backend-exceptions`
   - `monitoring-health`
   - `monitoring-source-maps`
+  - `monitoring-uptime`
   - `monitoring-usage-alerts`
 - `analytics`:
   - `analytics-activation`

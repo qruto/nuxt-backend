@@ -217,6 +217,7 @@ Run the developer MCP server for your coding agent over stdio: the project's sta
 | `monitoring-source-maps` | monitoring | Source maps |
 | `monitoring-backend-exceptions` | monitoring | Backend exception reporting |
 | `monitoring-health` | monitoring | Health endpoint |
+| `monitoring-uptime` | monitoring | Uptime monitor |
 | `monitoring-usage-alerts` | monitoring | Usage alerts |
 | `site-https` | hosting | HTTPS and HSTS |
 | `site-csp` | hosting | Content security policy |

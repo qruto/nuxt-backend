@@ -111,6 +111,7 @@ Read every billing entity's entitlements again from the billing provider into th
 | `billing-promotion-portal` | billing | Promotions and plan changes |
 | `billing-provider-sdk` | billing | Billing provider SDK |
 | `billing-catalog-production` | billing | Production catalog |
+| `billing-launch` | billing | Billing launch |
 
 ## Environment
 

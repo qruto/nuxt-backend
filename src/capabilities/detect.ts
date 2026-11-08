@@ -120,9 +120,13 @@ export function modelMode(context: CapabilityContext): CapabilityDetection | nul
  * Billing, failing findings aside: missing without an access token, then the
  * provider's sandbox (the backend's default) or its production environment. A
  * `BACKEND_ENVIRONMENT` whose value could not be read is taken as the
- * sandbox, and says so.
+ * sandbox, and says so. A production whose billing is not launched yet
+ * (`doctor --prod`'s `billing-launch` warns) sells nothing, and says that.
  */
 export function billingMode(context: CapabilityContext): CapabilityDetection {
+  if (context.findings.some(finding => finding.id === 'billing-launch' && finding.status === 'warn')) {
+    return { state: 'missing', reason: 'not launched on production yet: nothing can be bought until it holds BILLING_ACCESS_TOKEN and a production catalog, and its pricing reads "Plans open soon"' }
+  }
   if (!isSet(context, 'BILLING_ACCESS_TOKEN')) return { state: 'missing', reason: unsetReason(context, ['BILLING_ACCESS_TOKEN']) }
   const environment = environmentOf(context)
   if (environment === null) return { state: 'test', reason: 'BACKEND_ENVIRONMENT is set on the deployment and its value was not read: taken as the sandbox' }
