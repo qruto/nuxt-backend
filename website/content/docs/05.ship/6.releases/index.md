@@ -1,6 +1,6 @@
 ---
 title: What's new in 0.2
-description: "0.2.0 is the first release of nuxt-backend: a complete backend for client apps, capability by capability, with what is experimental, what waits for the next release, and how to verify the release before you install it."
+description: "0.2.0 is the first release of nuxt-backend: a complete backend for client apps, capability by capability, with what is experimental, what waits for a later release, and how to verify the release before you install it."
 kind: landing
 related:
   - /docs/start/feature-map
@@ -28,9 +28,9 @@ Development runs on the providers' own test modes, with nothing simulated: Polar
 
 A feature the Feature map marks **Planned** arrives in the next minor release, and its page already describes it as it will ship. A page marked **Changing** describes the next release's API of a feature the code still has in an earlier shape.
 
-## What waits for the next release
+## What waits for a later release
 
-`0.2.0` serves client apps. The features a service platform needs (API keys, outgoing webhooks, an MCP endpoint for your users' agents, and deeper workspaces with custom roles) arrive together in the next release. The [Roadmap](/docs/start/roadmap) says why each one waits.
+`0.2.0` serves client apps. The features a service platform needs (API keys, outgoing webhooks, an MCP endpoint for your users' agents, and deeper workspaces with custom roles) arrive together in a later release. The [Roadmap](/docs/start/roadmap) says why each one waits.
 
 ## Experimental
 

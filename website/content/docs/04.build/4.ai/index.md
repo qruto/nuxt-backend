@@ -67,7 +67,7 @@ A budget is a cap per workspace and window, such as 500 credits a day. It is rec
 - **The billing capability**, powered by Polar, holds the credit meters, the plans and packs that grant credits, and the usage events.
 - **Convex's Workflow and rate limiter components** run the job queue: each job's durable steps, and a calls-per-minute limit for each model that halves on a `429`.
 - **Convex's Agent and RAG components**, optional peers, hold chat threads and the documents knowledge search answers from.
-- **A safety classifier through the gateway** checks prompts and uploads, and **C2PA content credentials** in every generated image say a model made it.
+- **A safety classifier through the gateway** checks prompts and uploads, and, once `setupAi({ provenance })` turns them on, **C2PA content credentials** in every image stored through `ctx.storeImage` say a model made it.
 
 [Capabilities](/docs/start/concepts/capabilities) shows how the `ai` capability sits beside the others, and how `npx nuxt-backend status` reads its state. The [AI gateway](/docs/services/ai-gateway) service page has the plans, keys and spending caps.
 

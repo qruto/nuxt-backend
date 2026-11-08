@@ -123,9 +123,9 @@ WHEN TO USE: a name from an older release (in code, a tutorial or your memory) i
 OUTPUT: with a name, every entry it is the old or new side of (\`from\`, \`to\`, \`change\`, \`section\`, \`note\`, \`url\`); without one, the sections and how many names each one moves.`,
   annotations: READ_ONLY,
   inputSchema: {
-    name: z.string().max(200).optional().describe('An old or new name, such as `useBilling().products` or `doctor --only deployment`'),
+    name: z.string().max(200).optional().describe('An old or new name as your code spells it: a composable such as `useCredits()`, a member such as `useCredits().balance`, or a command with its flag such as `doctor --prod`'),
   },
-  inputExamples: [{ name: 'doctor --only deployment' }, {}],
+  inputExamples: [{ name: 'useCredits()' }, {}],
   handler: ({ name }) => upgradeGuide(name, siteOf(useEvent())),
 })
 

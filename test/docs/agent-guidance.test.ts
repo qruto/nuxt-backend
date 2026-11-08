@@ -126,7 +126,11 @@ describe('the public-surface manifest', () => {
 })
 
 describe('the rename map', () => {
-  const page = read(contentFile('/docs/ship/releases/upgrade'))
+  // The page's sections down to "Before 0.2.0": the headings under it only keep
+  // the anchors 0.2.1 links (test/docs/docs-structure.test.ts), and their
+  // names are in the rename map as 0.2.1 published it.
+  const whole = read(contentFile('/docs/ship/releases/upgrade'))
+  const page = whole.includes('\n## Before 0.2.0\n') ? whole.slice(0, whole.indexOf('\n## Before 0.2.0\n')) : whole
   const sections = new Map(page.split(/^## /m).slice(1).map(chunk => [chunk.slice(0, chunk.indexOf('\n')), chunk]))
 
   it('has an entry for every section of the Upgrade page, as every breaking change adds one', () => {

@@ -155,7 +155,7 @@ The tabs run from general to detailed: what it is, how to connect each service, 
 
 These docs describe the `0.2.x` line. Patch releases never change the public surface. A minor release may change it, through a deprecation first, and each change is on the [Upgrade page](/docs/ship/releases/upgrade). [Stability](/docs/ship/releases/stability) lists what counts as the surface, and which parts are still experimental.
 
-Two chips mark a page ahead of the code. **Planned** means the feature arrives in `0.2.0` and is not built yet. **Changing** means it is built, and the page already shows the API as `0.2.0` reshapes it. The [Feature map](/docs/start/feature-map#statuses) explains both and names the unit of work behind each.
+Two chips mark a page ahead of the code. **Planned** means the feature arrives in the next release and is not built yet. **Changing** means it is built, and the page already shows the API as the next release reshapes it. The [Feature map](/docs/start/feature-map#statuses) explains both and names the unit of work behind each.
 
 ## Try it first
 

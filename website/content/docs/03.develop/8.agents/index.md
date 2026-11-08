@@ -117,4 +117,4 @@ The [agent plugin](/docs/develop/agents/plugin) installs the developer MCP serve
 - [Agent files](/docs/develop/agents/agent-files): what `init` writes for agents, and how it merges into files you have.
 - [Docs for agents](/docs/develop/agents/docs-for-agents): everything this site serves to agents.
 - [Diagnose your setup with doctor](/docs/develop/doctor): the checks the agent runs.
-- [Upgrade to a new version](/docs/ship/releases/upgrade): every renamed and removed name, which the upgrade skill carries.
+- [Upgrade to a new version](/docs/ship/releases/upgrade): the edit each release since `0.2.0` asks for, with the names the upgrade skill carries.
