@@ -77,7 +77,7 @@ const PLAN_CHANGES: Readonly<Record<string, string>> = {
 }
 
 export function createSubscriptions(
-  { components, provider, cache, requireEntity, requireProviderAccess, unwrapProvider, throttle, recordEvent }: BillingContext,
+  { components, provider, cache, requireEntity, requireProviderAccess, requireLaunched, unwrapProvider, throttle, recordEvent }: BillingContext,
   { requirePlan }: PurchaseRules,
   { isFreeProduct }: Pick<BillingFreePlan, 'isFreeProduct'>,
   catalogDiscounts: CatalogDiscounts,
@@ -260,7 +260,9 @@ export function createSubscriptions(
   ): Promise<ProviderSubscription> => {
     const { userId } = await requireEntity(ctx, BILLING_ACCESS.change)
     if (purchase) await refusePaused(paused, ctx, 'checkout')
-    requireProviderAccess(operation)
+    // A switch to a paid plan is a sale: refused until billing is launched.
+    if (purchase) requireLaunched(operation)
+    else requireProviderAccess(operation)
     await throttle(ctx, userId, `${operation}s`)
     const subscription = await resolveSubscription(ctx, userId, options.subscriptionId)
     await refuseFreePlan(ctx, operation, subscription)

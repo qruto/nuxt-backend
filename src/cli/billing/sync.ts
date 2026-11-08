@@ -17,7 +17,7 @@ import { refuseInvalidDiscounts, refuseUnpricedDiscounts, syncDiscounts } from '
 import { addCurrencyPrices, alignGiftTwin, fixedPrices, giftProductKey, giftTwinPrices, moveGiftTwins } from './gift-twins'
 import { derivedPassKeys, refuseInvalidGifts, syncPassProducts } from './passes'
 import { customFieldCreatePayload, describeBenefitDrift, describeMeterDrift, describeProductDrift, existsOrDrift, resolvePriceCurrency } from './objects'
-import { findPlanProduct, isUntaggedPlanProduct, pushPlanTrial, recordPlanProduct, refuseInvalidPrices, refuseMissingDefaultCurrency, refuseUnpricedPlans, retirePlan, unpricedPlanProducts } from './plans'
+import { findPlanProduct, isUntaggedPlanProduct, pushPlanTrial, recordPlanProduct, refuseInvalidPrices, refuseMissingDefaultCurrency, refuseOnceCredits, refuseUnpricedPlans, retirePlan, unpricedPlanProducts } from './plans'
 import { isManaged, listAllPages, MANAGED_BY, type CatalogIds, type Environment, type SyncLogEntry } from './provider'
 import { attachPlanQuotas, attachRetiredPlanQuotas, droppedQuotasKeys, ensurePlanQuotas, planQuotasBenefits, planQuotasKeys, recordQuotaKeys, refuseInvalidQuotas } from './quotas'
 
@@ -60,7 +60,10 @@ function recordFallbackCurrency(ids: CatalogIds, catalog: BillingCatalog, curren
 
 /** Record the plan every billing entity starts on, once its monthly product exists: never a retired one. */
 function recordFreePlan(ids: CatalogIds, key: string, plan: CatalogPlan): void {
-  if (!plan.retired && isFreePlan(plan) && ids.plans?.[key]?.month) ids.free = key
+  if (plan.retired || !isFreePlan(plan) || !ids.plans?.[key]?.month) return
+  ids.free = key
+  // Welcome credits are no benefit: the runtime grants them once, as the plan first starts.
+  if (plan.credits?.once && typeof plan.credits.units === 'number') ids.welcome = { meter: plan.credits.meter, units: plan.credits.units }
 }
 
 /** One fixed price per currency, as a create payload takes them; a currency the provider defaults names none. */
@@ -139,6 +142,7 @@ export async function syncBillingCatalog(
   refuseDerivedKeyCollisions(catalog)
   refuseUnpricedPlans(catalog)
   refuseInvalidPrices(catalog)
+  refuseOnceCredits(catalog)
   refuseInvalidGifts(catalog, new Set(catalogKeys(catalog)))
   refuseInvalidQuotas(catalog)
   refuseInvalidDiscounts(catalog)
@@ -426,7 +430,8 @@ export async function syncBillingCatalog(
     // month: the monthly product's benefit, on both.
     const monthly = interval === 'year' && plan.meterCycle === 'month'
     const grantInterval = monthly ? 'month' : interval
-    const units = plan.credits ? planCreditUnits(plan.credits, grantInterval) : undefined
+    // Welcome credits (`once`) are granted by the runtime, never as a benefit every cycle.
+    const units = plan.credits && !plan.credits.once ? planCreditUnits(plan.credits, grantInterval) : undefined
     if (plan.credits && units !== undefined) benefits.push(await creditBenefitFor(planCreditKey(key, grantInterval, untaggedYearly && !monthly), { ...plan.credits, units }, false))
     for (const featureKey of plan.features ?? []) {
       const id = benefitIdByKey.get(featureKey)

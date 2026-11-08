@@ -10,6 +10,8 @@ const GIFT_LABELS = {
   sentTitle: 'Sent',
   receivedEmpty: 'No gifts for you yet.',
   sentEmpty: 'You have not sent a gift yet.',
+  // The gifts page while billing is not launched on the deployment.
+  soon: 'Plans open soon, and gifts with them.',
   // What a gift is: a pack by its name, a plan pass by its length.
   itemPack: '{name}',
   itemPass: '{count} month of {plan} | {count} months of {plan}',

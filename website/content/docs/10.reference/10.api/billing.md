@@ -107,6 +107,7 @@ allowance, and the yearly product grants twelve times it once a year;
 | <a id="meter-1"></a> `meter` | `string` | The catalog meter key the credits land on. | [`CatalogCreditGrant`](#catalogcreditgrant).[`meter`](#meter) | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="rollover-1"></a> `rollover?` | `boolean` | Carry unused credits into the next cycle. Defaults to `false` for plan grants (use-it-or-lose-it monthly allowances) and `true` for packs (purchased credits keep). | [`CatalogCreditGrant`](#catalogcreditgrant).[`rollover`](#rollover) | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="units-1"></a> `units` | \| `number` \| `Partial`\<`Record`\<[`CatalogInterval`](#cataloginterval), `number`\>\> | - | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="once"></a> `once?` | `boolean` | Grant the credits once, as welcome credits, instead of every cycle: the free plan's alone. A new billing entity gets `units` (a whole number) when its free plan first starts, after the reverse trial if the catalog has one, and never again — retries and concurrent starts included. `billing sync` pushes no credit benefit for them: they land as a refund-shaped usage event on a sum meter (`meter` needs a `property`), keyed `welcome:<entityId>`. | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 
 ***
 
@@ -799,6 +800,9 @@ The environment-keyed id map `nuxt-backend billing sync` generates.
 | <a id="meters-2"></a> `meters?` | `Record`\<`string`, [`CreditMeterConfig`](#creditmeterconfig)\> | Catalog key → credit meter config. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="quotas-2"></a> `quotas?` | `Record`\<`string`, `string`\> | **`Experimental`** Quota key → what it counts, as the catalog's `description` says it: each one is reported by `getFeatures` (as `useFeatures().quota()` reads it), granted or not. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="free"></a> `free?` | `string` | The free plan's key (`plans` holds its product): every billing entity starts on it, and returns to it when a paid plan ends. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="welcome"></a> `welcome?` | \{ `meter`: `string`; `units`: `number`; \} | The free plan's welcome credits (`credits: { once: true }` in the catalog): the meter they land on and how many, granted once to every new billing entity as its free plan first starts. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| `welcome.meter` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| `welcome.units` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="currency-3"></a> `currency?` | `string` | The currency a visitor pays in when the catalog does not price theirs, lower-case ISO 4217: written for a catalog that prices more than one. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="discounts-1"></a> `discounts?` | `Record`\<`string`, [`BillingCatalogDiscount`](#billingcatalogdiscount)\> | Discount key → the discount and its terms. A retired one is left out: nothing applies it again. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
@@ -961,6 +965,44 @@ A task the gift sweep found due.
 
 ***
 
+### PricedGiftLength
+
+Defined in: [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts)
+
+**`Experimental`**
+
+One length a plan is gifted for, as a pass, from its private purchase
+product: what it costs, in [Pricing.currency](/docs/reference/api/use-pricing#currency-2) when the product is
+priced in it.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="months-4"></a> `months` | `number` | **`Experimental`** How many months the pass holds the plan: 1, 3 or 12. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="amount-3"></a> `amount` | `number` | **`Experimental`** What the gift costs, in the currency's smallest unit. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="currency-5"></a> `currency` | `string` | **`Experimental`** Lower-case ISO 4217 code. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="monthly"></a> `monthly` | `number` | **`Experimental`** The same per month: the amount divided by the months, unrounded. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="savings"></a> `savings?` | `number` | **`Experimental`** How many percent it saves against as many months at the plan's monthly price in the same currency, rounded down; absent when it saves nothing. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+
+***
+
+### PricedPlanGift
+
+Defined in: [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts)
+
+**`Experimental`**
+
+A plan's gift as a pass: the lengths it is sold for.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="lengths"></a> `lengths` | [`PricedGiftLength`](#pricedgiftlength)[] | **`Experimental`** One entry per length on sale, shortest first. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+
+***
+
 ### RevenuePeriod
 
 Defined in: [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts)
@@ -1078,7 +1120,7 @@ A save offer's terms as the component keeps them (LIFECYCLE).
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
 | <a id="kind-2"></a> `kind` | `"downgrade"` \| `"discount"` \| `"pause"` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="months-4"></a> `months?` | `number` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="months-5"></a> `months?` | `number` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="resumesat-1"></a> `resumesAt?` | `number` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="plan-1"></a> `plan?` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="productid-1"></a> `productId?` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
@@ -1381,6 +1423,7 @@ Defined in: [src/convex/integrations/billing/types/surface.ts](https://github.co
 | <a id="reportcost"></a> `reportCost` | (`ctx`, `event`) => `Promise`\<`void`\> | Send what some work cost you to the billing provider's cost insights: one event for the billing entity, with the cost in US cents (sub-cent precision kept) and the model and tokens it used, as a child of the charge it belongs to (`parentId`, that charge's `externalId`). It moves no credits. The job queue sends one per finished job. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="resolveentity-1"></a> `resolveEntity` | (`ctx`) => `Promise`\<[`BillingEntity`](#billingentity) \| `null`\> | Resolve the caller's billing entity the way every billing function does: `setupBilling`'s `resolveEntity` when given, else identity claims — the active workspace (`billTo: 'workspace'`) or the signed-in user. `null` when signed out. Any query, mutation or action context will do. It checks nobody: to act for the entity, check the caller with [Billing.requireEntity](#requireentity). | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="requireentity"></a> `requireEntity` | (`ctx`, `rule`) => `Promise`\<[`BillingEntity`](#billingentity)\> | The caller's billing entity, checked the way the package's own functions check it, for a function of yours: signed in, an account not banned, a member of the workspace that pays, its owner or an admin for `access: 'manage'` — each read fresh, once per call (`reread: true` reads again) — and no impersonated session where the rule refuses one. Throws the refusal: `unauthenticated`, `no_workspace`, or `forbidden` with reason `banned`, `not_member`, `not_billing_manager` or `impersonating`. **Example** `// Only the billing managers of the workspace that pays set its invoice // address, and only in person. export const setInvoiceAddress = mutation({ args: { address: v.string() }, handler: async (ctx, { address }) => { const { userId: workspaceId } = await billing.requireEntity(ctx, { access: 'manage', impersonation: 'refused' }) await ctx.db.insert('invoiceAddresses', { workspaceId, address }) }, })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="launch"></a> `launch` | [`BillingLaunch`](#billinglaunch) | Whether billing sells on this deployment yet, read once as the backend loads: `{ launched: false, reason }` on a production deployment with no `BILLING_ACCESS_TOKEN` (`no_access_token`) or no production catalog (`no_catalog`), `{ launched: true }` everywhere else. While it is not, `getPricing` answers `launched: false` and every checkout is refused as `unavailable`, reason `not_launched`. For server code that hides a page or a link of its own. **Example** `export const salesOpen = query({ args: {}, handler: () => billing.launch.launched })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="startfreeplan"></a> `startFreePlan` | (`ctx`, `entityId`) => `Promise`\<`void`\> | Queue the catalog's free plan for one billing entity: a real subscription at the provider, started through the scaffold's workpool (else the scheduler) by `billing:startFreePlan`. Nothing happens for an entity that holds a plan already, or when the catalog has no free plan. Every workspace (or user, with `billTo: 'user'`) the auth layer makes is queued — through `registerBackendRoutes` where the auth routes are mounted, by the function's name anywhere else — and a subscription that ends queues it again; call it yourself for a billing entity the auth layer did not make (one your own code writes, or a migration's), or run the backfill, `npx convex run billing:startFreePlan '{}'`. **Guarantee** - Runs: in the mutation or action that calls it; the start runs later, as an internal action - Delivery: through the scaffold's workpool, retried up to five attempts until the provider takes it; without one, once through the scheduler (re-run the backfill for any it missed) - Order: after the entity exists; whether it holds a plan is read from the provider, never from the synced table a late webhook leaves behind - When it throws: only when the queue can't be written to; the caller's work is not undone by a failed start - Idempotency: safe to repeat; an entity on a plan, free or paid, is left as it is | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="hasfeature"></a> `hasFeature` | (`ctx`, `feature`, `options?`) => `Promise`\<`boolean`\> | Whether the billing entity's plan grants `feature`: its catalog key (the `key` in a benefit's metadata), or the benefit id of a benefit that has no key — the one match `useFeatures().has()` makes, read from the same entitlement cache. In any query, mutation or action. Without `userId` it checks the caller's entity, and answers `false` for a caller with none (signed out, no workspace, no member of it) instead of refusing: for a function that shows more to a plan that has more. An empty `feature` is none: `false`. **Example** `export const report = workspace.query({ args: {}, handler: async ctx => ({ totals: await totalsOf(ctx), breakdown: await billing.hasFeature(ctx, 'reports') ? await breakdownOf(ctx) : null, }), })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="requirefeature"></a> `requireFeature` | (`ctx`, `feature`, `options?`) => `Promise`\<`void`\> | Refuse the call unless the billing entity's plan grants `feature` (matched as [Billing.hasFeature](#hasfeature) matches it): `feature_required`, whose `plans` names the catalog plans on sale that include it, in pricing order, for `<UpgradePrompt :plans>` to offer. Without `userId` the caller is checked first, as `requireEntity` checks a member, and refused as it refuses. An empty `feature` is refused as `invalid_input` (field `feature`). The `withFeature(key)` tier of `createFunctions` runs it for a whole function. **Guarantee** Reads the entitlement cache and the products table only: no provider call, on any path. **Guarantee** A caller who may not read the entity's billing is refused for that, never as `feature_required`. **Example** `export const exportReport = action({ args: {}, handler: async (ctx) => { await billing.requireFeature(ctx, 'reports') return await buildExport(ctx) }, })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
@@ -1758,6 +1801,44 @@ A program's terms as `setupReferrals` checks them: the rewards, the hold in mill
 | `caps.perMonth` | `number` \| `null` | [src/convex/referral-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/referral-rules.ts) |
 
 ## Type Aliases
+
+### BillingLaunchReason
+
+```ts
+type BillingLaunchReason = "no_access_token" | "no_catalog";
+```
+
+Defined in: [src/convex/billing-launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/billing-launch.ts)
+
+Why billing sells nothing yet on a production deployment: no provider
+token (`no_access_token`), or a catalog `billing sync` has not pushed to
+the provider's production (`no_catalog`).
+
+***
+
+### BillingLaunch
+
+```ts
+type BillingLaunch = 
+  | {
+  launched: true;
+}
+  | {
+  launched: false;
+  reason: BillingLaunchReason;
+};
+```
+
+Defined in: [src/convex/billing-launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/billing-launch.ts)
+
+Whether billing sells on a deployment. Billing is not launched while a
+production deployment has no provider token or no production catalog:
+the provider's account review can come after an app opens to its first
+people, and until then its pricing reads "Plans open soon" and every
+checkout is refused (`unavailable`, reason `not_launched`). On every
+other deployment billing runs on the provider's sandbox, and is launched.
+
+***
 
 ### CatalogInterval
 

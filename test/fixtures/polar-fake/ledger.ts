@@ -41,7 +41,20 @@ export function customerMeterBalance(state: FakeState, customerId: string, meter
   return { credited, consumed, balance: credited - consumed }
 }
 
-/** The customer's row for a meter, created on first credit. */
+/**
+ * A customer's meters an ingested event reaches, made as it lands: at the
+ * provider a customer meter exists once credits or an event touched it, so a
+ * refund-shaped event (welcome credits) shows on a free plan without a
+ * meter-credit benefit.
+ */
+export function touchMeters(state: FakeState, event: EventRecord, now: number): void {
+  if (!event.customerId) return
+  for (const meter of Object.values(state.meters)) {
+    if (meter.eventName === event.name) meterRow(state, event.customerId, meter.id, now)
+  }
+}
+
+/** The customer's row for a meter, created on first credit or event. */
 function meterRow(state: FakeState, customerId: string, meterId: string, now: number): CustomerMeterRecord {
   const found = Object.values(state.customerMeters).find(row => row.customerId === customerId && row.meterId === meterId)
   if (found) return found

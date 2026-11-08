@@ -175,9 +175,11 @@ export function createCredits(
    * Give credits back on a sum meter (e.g. a generation the user rejected):
    * ingests a compensating negative-value event, then optimistically
    * re-credits the cache. Count meters cannot be compensated — their events
-   * only count up.
+   * only count up. An `externalId` the provider already holds is a
+   * duplicate it drops, so a retried refund under the same key credits the
+   * cache once too. Answers whether the event was new.
    */
-  const refundCredits: Billing['refundCredits'] = async (ctx, event) => {
+  const refund = async (ctx: RunWriteCtx & { auth?: Auth }, event: Parameters<Billing['refundCredits']>[1]): Promise<boolean> => {
     // A negative refund would ingest a positive event: a charge, not a refund.
     const value = requireCreditAmount(event.value, 'refundCredits: `value`')
     const entityId = event.userId ?? await callerEntityId(ctx, 'refundCredits')
@@ -198,8 +200,14 @@ export function createCredits(
         externalId: event.externalId ?? crypto.randomUUID(),
       }],
     })
-    unwrapProvider(result, 'usage refund')
+    const { inserted, duplicates } = unwrapProvider(result, 'usage refund')
+    if (inserted === 0 && duplicates > 0) return false
     await ctx.runMutation(cache.credit, { userId: entityId, meterId: meter.meterId, amount: value })
+    return true
+  }
+
+  const refundCredits: Billing['refundCredits'] = async (ctx, event) => {
+    await refund(ctx, event)
   }
 
   const reportCost: Billing['reportCost'] = async (ctx, report) => {
@@ -233,5 +241,8 @@ export function createCredits(
     unwrapProvider(result, 'cost report')
   }
 
-  return { reserveCredits, settleSpend, releaseSpend, spendCredits, refundCredits, reportCost }
+  return { reserveCredits, settleSpend, releaseSpend, spendCredits, refundCredits, refund, reportCost }
 }
+
+/** The credit operations of one `setupBilling` call. */
+export type BillingCredits = ReturnType<typeof createCredits>

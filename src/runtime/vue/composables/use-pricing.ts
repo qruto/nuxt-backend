@@ -93,6 +93,21 @@ export interface UsePricingReturn {
    * from `startsAt` and `endsAt` against its own clock.
    */
   promotion: ComputedRef<PricedPromotion | undefined>
+  /**
+   * Whether billing sells on this deployment yet: `false` on a production
+   * deployment whose billing is not launched (no provider token, or no
+   * production catalog), where `<PricingTable>` reads "Plans open soon"
+   * and every checkout is refused (`unavailable`, reason `not_launched`).
+   * Hide your own pricing and gift links on it. `undefined` until the
+   * pricing loads; a backend older than 0.3 reads as launched.
+   */
+  launched: ComputedRef<boolean | undefined>
+  /**
+   * The free plan's welcome credits: what a new billing entity gets once
+   * (`credits: { once: true }` in the catalog), with the meter's unit.
+   * `undefined` while the pricing loads, or when the catalog grants none.
+   */
+  welcome: ComputedRef<PricedPlan['welcome']>
   /** Show the prices in another currency, for this visit; a checkout from the pricing table pays in it. */
   setCurrency: (currency: string) => void
   /** `true` until the pricing has loaded (`false` once the read failed, and while it is not enabled). */
@@ -190,6 +205,8 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
       currency: computed(() => undefined),
       currencies: computed(() => []),
       promotion: computed(() => undefined),
+      launched: computed(() => undefined),
+      welcome: computed(() => undefined),
       setCurrency: () => {},
       isLoading: computed(() => false),
       error: computed(() => null),
@@ -223,6 +240,8 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
     currency: computed(() => read.data.value?.currency),
     currencies: computed(() => read.data.value?.currencies ?? []),
     promotion: computed(() => read.data.value?.promotion),
+    launched: computed(() => (read.data.value ? read.data.value.launched !== false : undefined)),
+    welcome: computed(() => plans.value?.find(plan => plan.free)?.welcome),
     setCurrency: (currency) => {
       const code = currencyCode(currency)
       if (code) picked.value = code

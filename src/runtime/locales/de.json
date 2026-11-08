@@ -214,10 +214,12 @@
       "currency": "Währung",
       "loading": "Tarife werden geladen…",
       "empty": "Es sind noch keine Tarife eingerichtet.",
+      "soon": "Die Tarife starten in Kürze.",
       "credits": {
         "month": "{count} {unit} / Monat",
         "year": "{count} {unit} / Jahr"
       },
+      "welcome": "{count} {unit} zum Start",
       "retired": "Nicht mehr erhältlich",
       "packCredits": "{count} {unit}",
       "perCredit": "{price} pro {unit}",
@@ -1510,6 +1512,7 @@
       "sentTitle": "Gesendet",
       "receivedEmpty": "Noch keine Geschenke für Sie.",
       "sentEmpty": "Sie haben noch kein Geschenk gesendet.",
+      "soon": "Die Tarife starten in Kürze, und mit ihnen die Geschenke.",
       "itemPack": "{name}",
       "itemPass": "{count} Monat {plan} | {count} Monate {plan}",
       "from": "Von {sender}",
@@ -2505,6 +2508,7 @@
       "unavailable_suppressed": "Wir können an diese Adresse derzeit keine E-Mails senden. Verwenden Sie eine andere Adresse oder kontaktieren Sie uns.",
       "unavailable_signups_paused": "Neue Registrierungen sind vorerst pausiert. Versuchen Sie es später erneut.",
       "unavailable_checkout_paused": "Käufe sind vorerst pausiert. Versuchen Sie es später erneut.",
+      "unavailable_not_launched": "Die Tarife starten in Kürze. Noch kann nichts gekauft werden.",
       "unavailable_ai_paused": "KI-Funktionen sind vorerst pausiert. Versuchen Sie es später erneut.",
       "unavailable_stalled": "Dieser Job reagiert nicht mehr. Ihre Credits wurden erstattet.",
       "unavailable_job_failed": "Dieser Job ist fehlgeschlagen. Ihre Credits wurden erstattet.",

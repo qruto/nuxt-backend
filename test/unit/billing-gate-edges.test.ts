@@ -223,7 +223,7 @@ describe('getPricing', () => {
     const unsynced = setupBilling(components, { ...config, catalog: undefined } as unknown as SetupBillingConfig)
     const ctx = makeCtx(null)
     const getPricing = unsynced.api.getPricing as unknown as { _handler: (ctx: unknown, args: object) => Promise<unknown> }
-    expect(await getPricing._handler(ctx, {})).toEqual({ plans: [], packs: [], currencies: [] })
+    expect(await getPricing._handler(ctx, {})).toEqual({ plans: [], packs: [], currencies: [], launched: true })
     expect(ctx.runQuery).not.toHaveBeenCalledWith('ref:getBenefitMetadata', expect.anything())
   })
 })

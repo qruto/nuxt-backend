@@ -52,6 +52,13 @@ agent files and skills.
 | `AuthEmailTemplateOverrides` | `EmailTemplateOverrides` |
 | `CreateBetterAuthOptions` | `SetupAuthOptions` |
 
+## [A production checkout waits for billing to launch, and welcome credits come from the catalog](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-production-checkout-waits-for-billing-to-launch-and-welcome-credits-come-from-the-catalog)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| ``unavailable` (reason `not_configured`) from a production checkout` | ``unavailable` (reason `not_launched`)` | reshaped | only a sale on a production deployment with no token or no production catalog; every other refusal keeps `not_configured` |
+| `billing.refundCredits in onUserCreated` | `credits: { meter, units, once: true }` | reshaped | welcome credits on the free plan, granted once after the reverse trial; drop the hand-rolled grant |
+
 ## [One way to do each thing](https://nuxt-backend.dev/docs/ship/releases/upgrade#one-way-to-do-each-thing)
 
 | Was | Now | Change | Note |

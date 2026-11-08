@@ -128,12 +128,15 @@ const pricingCurrency = ref<string | undefined>(undefined)
 const pricingCurrencies = ref<string[]>([])
 // The promotion getPricing was asked for, when a test names one.
 const pricingPromotion = ref<PricedPromotion | undefined>(undefined)
+// Whether billing sells on the deployment: `false` is a production deployment not launched yet.
+const pricingLaunched = ref<boolean | undefined>(true)
 const pricing = {
   plans: computed(() => pricingPlans.value),
   packs: computed(() => pricingPacks.value),
   currency: computed(() => pricingCurrency.value),
   currencies: computed(() => pricingCurrencies.value),
   promotion: computed(() => pricingPromotion.value),
+  launched: computed(() => pricingLaunched.value),
   setCurrency: vi.fn((currency: string) => {
     pricingCurrency.value = currency
   }),
@@ -372,6 +375,7 @@ const { default: SecuritySettings } = await import('../../src/runtime/vue/compon
 const { default: AcceptInvitation } = await import('../../src/runtime/vue/components/workspaces/AcceptInvitation.vue')
 const { default: GiftClaimBanner } = await import('../../src/runtime/vue/components/shell/NoticeGift.vue')
 const { default: PricingPage } = await import('../../src/runtime/vue/pages/pricing.vue')
+const { default: GiftsPage } = await import('../../src/runtime/vue/pages/gifts.vue')
 const { default: SettingsPage } = await import('../../src/runtime/vue/pages/settings.vue')
 const { default: ProfilePage } = await import('../../src/runtime/vue/pages/profile.vue')
 const { default: SecurityPage } = await import('../../src/runtime/vue/pages/security.vue')
@@ -407,6 +411,7 @@ beforeEach(() => {
   pricingCurrency.value = undefined
   pricingCurrencies.value = []
   pricingPromotion.value = undefined
+  pricingLaunched.value = true
   backendConfig.billing.contact = undefined
   route.fullPath = '/pricing'
   route.query = {}
@@ -576,6 +581,18 @@ describe('PricingTable', () => {
     })
     expect(wrapper.find('[data-test="custom-pro"]').exists()).toBe(true)
     expect(wrapper.find('[data-pricing="plan-action"]').exists()).toBe(false)
+  })
+
+  it('reads "Plans open soon" while billing is not launched, with nothing to buy and no switch', () => {
+    pricingLaunched.value = false
+    const wrapper = mount(PricingTable)
+    const soon = wrapper.find('[data-pricing="soon"]')
+    expect(soon.text()).toBe('Plans open soon.')
+    expect(soon.attributes('role')).toBe('status')
+    for (const selector of ['[data-pricing="plan"]', '[data-pricing="pack"]', '[data-pricing="empty"]']) expect(wrapper.find(selector).exists(), selector).toBe(false)
+    // A slot of the app's own takes its place.
+    const custom = mount(PricingTable, { slots: { soon: () => h('p', { 'data-test': 'soon' }, 'Get in line') } })
+    expect(custom.find('[data-test="soon"]').text()).toBe('Get in line')
   })
 
   it('shows the empty state when no plan is on sale', () => {
@@ -2911,6 +2928,14 @@ describe('the shipped pages', () => {
     const member = mount(SettingsPage)
     expect(member.find('[data-history="root"]').exists()).toBe(false)
     expect(member.find('[data-usage="root"]').exists()).toBe(true)
+  })
+
+  it('/gifts says gifts open with the plans while billing is not launched', () => {
+    // The lists are <GiftList>'s own, tested above.
+    const stubs = { global: { stubs: { GiftList: true } } }
+    expect(mount(GiftsPage, stubs).find('[data-gift="soon"]').exists()).toBe(false)
+    pricingLaunched.value = false
+    expect(mount(GiftsPage, stubs).find('[data-gift="soon"]').text()).toBe('Plans open soon, and gifts with them.')
   })
 
   it('an embedded <PricingTable> keeps its h2 under the page heading', () => {

@@ -48,6 +48,17 @@ function refusedStart(error: unknown): 'customer_taken' | 'customer_unknown' | n
   return outcome
 }
 
+/** What `billing:startFreePlan` takes: one entity's start (or its welcome credits), or a page of the backfill. */
+type StartArgs = { entityId?: string, kind?: CreatedEntityKind, cursor?: string, welcome?: boolean }
+
+/**
+ * What one welcome grant did: `granted`, `granted_before` (the provider
+ * held the event already: a retry, or a second start), `none` (the catalog
+ * grants no welcome credits), `gone` (the entity or its customer no longer
+ * exists) or `not_configured` (no provider token).
+ */
+export type WelcomeGrant = 'granted' | 'granted_before' | 'none' | 'gone' | 'not_configured'
+
 /** What one start did, as the internal action answers it. */
 export type FreePlanStart = 'started' | 'subscribed' | 'gone' | 'not_billed' | 'customer_taken' | 'customer_unknown' | 'no_plan' | 'not_configured'
 
@@ -74,7 +85,7 @@ export function createFreePlan(
 ) {
   // The scaffold's `startFreePlan` (`billing.api.startFreePlan`), by the
   // module name every billing function goes by: what the queue runs.
-  const reference = makeFunctionReference<'action', { entityId?: string, cursor?: string }>(START_FREE_PLAN_FUNCTION) as unknown as FunctionReference<'action', 'internal', { entityId?: string, cursor?: string }>
+  const reference = makeFunctionReference<'action', StartArgs>(START_FREE_PLAN_FUNCTION) as unknown as FunctionReference<'action', 'internal', StartArgs>
   // No `maxParallelism`: the queue is the app's, and keeps the app's own.
   const pool = components.workpool
     ? new Workpool(components.workpool, { retryActionsByDefault: true, defaultRetryBehavior: START_RETRIES })
@@ -85,7 +96,11 @@ export function createFreePlan(
    * started: the reverse trial (LIFECYCLE) hooks in here. Never fails the
    * start.
    */
-  const hooks: { firstStart?: (ctx: RunWriteCtx, entityId: string, owner: { userId: string, email: string }, subscriptionId: string) => Promise<void> } = {}
+  const hooks: {
+    firstStart?: (ctx: RunWriteCtx, entityId: string, owner: { userId: string, email: string }, subscriptionId: string) => Promise<void>
+    /** The welcome credits' grant, which `billing:startFreePlan` runs for `{ entityId, welcome: true }`. */
+    welcome?: (ctx: RunWriteCtx, entityId: string) => Promise<WelcomeGrant>
+  } = {}
 
   /**
    * Whether a product is a free plan's: the catalog's, or one whose live
@@ -113,6 +128,19 @@ export function createFreePlan(
     }
     return null
   }
+
+  /**
+   * Queue the welcome credits for one entity: on the workpool, which
+   * retries a grant the provider refused, else on the scheduler. Each run
+   * is the same grant under the same key, so a retry never grants twice.
+   */
+  const queueWelcome = async (ctx: QueueCtx, entityId: string): Promise<void> => {
+    if (pool) await pool.enqueueAction(ctx as never, reference, { entityId, welcome: true })
+    else await ctx.scheduler.runAfter(0, reference, { entityId, welcome: true })
+  }
+
+  /** Grant one entity's welcome credits now: what a queued `{ entityId, welcome: true }` runs. */
+  const welcome = async (ctx: RunWriteCtx, entityId: string): Promise<WelcomeGrant> => hooks.welcome ? await hooks.welcome(ctx, entityId) : 'none'
 
   /**
    * Queue the free plan for one entity, when the catalog has one: on the
@@ -250,7 +278,7 @@ export function createFreePlan(
     return null
   }
 
-  return { isFreeProduct, freeSubscriptionOf, queue, start, backfill, restartAfterRevoke, entityCreated, deletionRefusal, hooks }
+  return { isFreeProduct, freeSubscriptionOf, queue, queueWelcome, welcome, start, backfill, restartAfterRevoke, entityCreated, deletionRefusal, hooks }
 }
 
 /** The free plan of one `setupBilling` call. */

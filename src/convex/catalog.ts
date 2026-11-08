@@ -198,6 +198,16 @@ export type CatalogPackPrices = Record<string, number>
  */
 export interface CatalogPlanCreditGrant extends Omit<CatalogCreditGrant, 'units'> {
   units: number | Partial<Record<CatalogInterval, number>>
+  /**
+   * Grant the credits once, as welcome credits, instead of every cycle:
+   * the free plan's alone. A new billing entity gets `units` (a whole
+   * number) when its free plan first starts, after the reverse trial if
+   * the catalog has one, and never again — retries and concurrent starts
+   * included. `billing sync` pushes no credit benefit for them: they land
+   * as a refund-shaped usage event on a sum meter (`meter` needs a
+   * `property`), keyed `welcome:<entityId>`.
+   */
+  once?: boolean
 }
 
 /** The lengths, in months, a plan can be gifted for as a pass. */

@@ -4,6 +4,7 @@ import { type ApiContext, all, type Body, find, type Handler, idFor, managedKey,
 import { invalid, notFound, refused } from './errors'
 import { discountRefusal, isFreeProduct, priceOf } from './flows'
 import { type CheckoutRecord, type DiscountRecord, type EventRecord, newId, type FakeState, type SubscriptionRecord } from './state'
+import { touchMeters } from './ledger'
 import { discountAmounts } from './models'
 
 // Money moving: checkouts (created by the server, updated and confirmed by
@@ -464,6 +465,7 @@ function eventRoutes({ state, models, now }: ApiContext): Route[] {
         timestamp: timeOf(entry, 'timestamp') ?? now(),
       }
       state.events.push(event)
+      touchMeters(state, event, now())
       inserted += 1
     }
     return reply(200, 'events-ingested', { inserted, duplicates })

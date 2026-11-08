@@ -214,10 +214,12 @@
       "currency": "Moneda",
       "loading": "Cargando planes…",
       "empty": "Todavía no hay planes configurados.",
+      "soon": "Los planes llegan pronto.",
       "credits": {
         "month": "{count} {unit} al mes",
         "year": "{count} {unit} al año"
       },
+      "welcome": "{count} {unit} para empezar",
       "retired": "Ya no se ofrece",
       "packCredits": "{count} {unit}",
       "perCredit": "{price} por {unit}",
@@ -1510,6 +1512,7 @@
       "sentTitle": "Enviados",
       "receivedEmpty": "Todavía no tienes regalos.",
       "sentEmpty": "Todavía no has enviado ningún regalo.",
+      "soon": "Los planes llegan pronto, y con ellos los regalos.",
       "itemPack": "{name}",
       "itemPass": "{count} mes de {plan} | {count} meses de {plan}",
       "from": "De {sender}",
@@ -2505,6 +2508,7 @@
       "unavailable_suppressed": "Ahora mismo no podemos enviar correos a esta dirección. Usa otra dirección o contáctanos para obtener ayuda.",
       "unavailable_signups_paused": "Los nuevos registros están en pausa por ahora. Inténtalo más tarde.",
       "unavailable_checkout_paused": "Las compras están en pausa por ahora. Inténtalo más tarde.",
+      "unavailable_not_launched": "Los planes llegan pronto. Todavía no se puede comprar nada.",
       "unavailable_ai_paused": "Las funciones de IA están en pausa por ahora. Inténtalo más tarde.",
       "unavailable_stalled": "Esta tarea dejó de responder. Se te reembolsaron los créditos.",
       "unavailable_job_failed": "Esta tarea falló. Se te reembolsaron los créditos.",

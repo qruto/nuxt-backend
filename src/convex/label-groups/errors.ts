@@ -110,6 +110,7 @@ const ERROR_LABELS = {
   // A kill switch is on: `unavailable_<service>_paused`.
   unavailable_signups_paused: 'New sign-ups are paused for now. Try again later.',
   unavailable_checkout_paused: 'Purchases are paused for now. Try again later.',
+  unavailable_not_launched: 'Plans open soon. Nothing can be bought yet.',
   unavailable_ai_paused: 'AI features are paused for now. Try again later.',
   // A job that failed: a model kept failing, the job went silent, or the app's code threw.
   unavailable_stalled: 'This job stopped responding. Your credits were refunded.',

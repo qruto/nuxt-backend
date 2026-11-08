@@ -1,6 +1,7 @@
 import type { Polar } from '@convex-dev/polar'
 import type { actionGeneric, Auth, internalActionGeneric, queryGeneric, RegisteredAction, RegisteredQuery, Scheduler } from 'convex/server'
 import type { CancellationReason, ProviderSubscription, RunQueryCtx, RunWriteCtx } from './base.js'
+import type { BillingLaunch } from '../../../billing-launch.js'
 import type { RecordBillingEvent } from '../activity.js'
 import type { CancelFlowState, CancelOutcome, BillingConsole, WithdrawalPeriod } from './lifecycle.js'
 import type { RevenueInterval, RevenueReport } from './revenue.js'
@@ -307,6 +308,21 @@ export interface Billing {
    * ```
    */
   requireEntity: (ctx: BillingEntityCtx, rule: BillingAccessRule) => Promise<BillingEntity>
+  /**
+   * Whether billing sells on this deployment yet, read once as the backend
+   * loads: `{ launched: false, reason }` on a production deployment with
+   * no `BILLING_ACCESS_TOKEN` (`no_access_token`) or no production catalog
+   * (`no_catalog`), `{ launched: true }` everywhere else. While it is
+   * not, `getPricing` answers `launched: false` and every checkout is
+   * refused as `unavailable`, reason `not_launched`. For server code that
+   * hides a page or a link of its own.
+   *
+   * @example
+   * ```ts
+   * export const salesOpen = query({ args: {}, handler: () => billing.launch.launched })
+   * ```
+   */
+  launch: BillingLaunch
   /**
    * Queue the catalog's free plan for one billing entity: a real
    * subscription at the provider, started through the scaffold's workpool

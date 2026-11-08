@@ -74,6 +74,26 @@ async function press(pricing: UsePricingReturn, key: string): Promise<void> {
 }
 
 describe('usePricing', () => {
+  it('says whether billing sells on the deployment yet, and reads an older backend as launched', async () => {
+    backendWith(undefined, { ...PRICING, launched: false })
+    expect((await read()).launched.value).toBe(false)
+    clearNuxtData()
+    backendWith(undefined, { ...PRICING, launched: true })
+    expect((await read()).launched.value).toBe(true)
+    clearNuxtData()
+    backendWith()
+    expect((await read()).launched.value).toBe(true)
+  })
+
+  it('shows the welcome credits of the free plan, and none without them', async () => {
+    const welcome = { meter: 'credits', unit: { one: 'credit', other: 'credits' }, units: 8 }
+    backendWith(undefined, { ...PRICING, plans: [plan('free', { month: price('prod_free', 0) }, { free: true, welcome }), ...PRICING.plans] })
+    expect((await read()).welcome.value).toEqual(welcome)
+    clearNuxtData()
+    backendWith()
+    expect((await read()).welcome.value).toBeUndefined()
+  })
+
   it('lists the plans, retired ones included, the packs, and the intervals a plan on sale still sells at', async () => {
     backendWith()
     const pricing = await read()
