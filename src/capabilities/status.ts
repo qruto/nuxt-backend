@@ -3,6 +3,7 @@ import type { FindingGroup } from '../findings/types.js'
 import { isSet } from './detect.js'
 import { CAPABILITY_NAMES, CAPABILITIES } from './registry.js'
 import { CAPABILITY_SWITCHES, type CapabilityContext, type CapabilityFinding, type CapabilityName, type CapabilityStatus } from './types.js'
+import { gatewayKeyIsTheFix } from './gateway-route.js'
 
 /** Where the docs site serves a capability's docs home. */
 const DOCS_ORIGIN = 'https://nuxt-backend.dev'
@@ -34,7 +35,8 @@ function counts(name: BackendEnvName, context: CapabilityContext): boolean {
   const entry: BackendEnvEntry = BACKEND_ENV[name]
   if (entry.devOnly) return false
   if (entry.whenFlagged) {
-    return context.findings.some(finding => entry.findings.includes(finding.id) && (finding.status === 'warn' || finding.status === 'fail'))
+    // The gateway key counts only where it is the fix: an order of the Convex AI Gateway alone never reads it.
+    return context.findings.some(finding => entry.findings.includes(finding.id) && (finding.status === 'warn' || finding.status === 'fail') && (name !== 'AI_GATEWAY_API_KEY' || gatewayKeyIsTheFix(finding)))
   }
   return entry.side !== 'app' && (context.prod === true || !(CAPABILITY_SWITCHES as readonly string[]).includes(name))
 }

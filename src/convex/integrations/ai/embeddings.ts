@@ -1,26 +1,27 @@
 import type { EmbeddingModel } from 'ai'
-import type { InferenceRegion } from './config.js'
 import {
   checkRegion,
   convexGatewayModel,
-  convexGatewayPossible,
-  GATEWAY_KEY_ENV,
+  FALLBACK_NAME,
   gatewayFor,
   loadSdk,
   type ModelCall,
   modelRefusal,
+  type ModelRoute,
+  type ModelRouting,
   noticeConvexGateway,
   pinProviderOptions,
   reportedUsd,
   requireModelId,
+  routeId,
   TEST_EMBEDDING_MODELS,
 } from './models.js'
 
 // Where an embedding model goes (`ai.knowledge`): the same route as a
-// language model's id. The Convex AI Gateway first, on a deployment that can
-// have it and when no region is pinned, then the Vercel AI Gateway with
-// `AI_GATEWAY_API_KEY`, then the mock `nuxt-backend/test` installs, else a
-// refusal. A model object of your own is called as it is.
+// language model's id, through `setupAi({ gateway })`'s order (default: the
+// Convex AI Gateway, then the Vercel AI Gateway with `AI_GATEWAY_API_KEY`),
+// then the mock `nuxt-backend/test` installs, else a refusal. A model
+// object of your own is called as it is.
 
 /** An embedding model: a `provider/model` id from the gateway's list, or an AI SDK embedding model object. */
 export type AiEmbeddingModel = string | Exclude<EmbeddingModel, string>
@@ -42,45 +43,44 @@ function testDouble(id: string, dimension = 1536): EmbeddingModelObject | undefi
   return typeof make === 'function' ? (make as (id: string, dimension: number) => EmbeddingModelObject)(id, dimension) : undefined
 }
 
+/** Where an embedding id goes on this deployment: the language models' order, the test's mock last. */
+function routeEmbedding(id: string, routing: ModelRouting, env: Env, dimension?: number): ModelRoute<EmbeddingModelObject> {
+  return routeId(id, env, routing, model => testDouble(model, dimension))
+}
+
 /** Whether a model id has a route here, before anything is called: what `send` and `add` check. */
-export function embeddingReachable(model: AiEmbeddingModel, region: InferenceRegion | undefined, env: Env = runtimeEnv()): boolean {
-  if (typeof model !== 'string') return true
-  if (env[GATEWAY_KEY_ENV] || testDouble(model)) return true
-  return region === undefined && convexGatewayPossible(env)
+export function embeddingReachable(model: AiEmbeddingModel, routing: ModelRouting, env: Env = runtimeEnv()): boolean {
+  return typeof model !== 'string' || routeEmbedding(model, routing, env).route !== 'missing'
 }
 
-interface EmbeddingRouteOptions {
-  region: InferenceRegion | undefined
-  /** The store's vector length: what the test's mock answers with. */
-  dimension: number | undefined
-  env: Env
-}
-
-/** The model an id loads: the Convex AI Gateway's, the Vercel AI Gateway's, the test's, or a refusal. */
-async function baseEmbeddingModel(id: string, { region, dimension, env }: EmbeddingRouteOptions): Promise<{ model: EmbeddingModelObject, pinned: boolean }> {
-  const apiKey = env[GATEWAY_KEY_ENV]
-  const fallback = async (unavailable?: string): Promise<{ model: EmbeddingModelObject, pinned: boolean }> => {
-    if (apiKey) return { model: gatewayFor(await loadSdk(), apiKey).embeddingModel(id), pinned: true }
-    const double = testDouble(id, dimension)
-    if (double) return { model: double, pinned: true }
-    throw modelRefusal({ id, ...(region ? { region } : {}) }, unavailable)
+/** The model a route loads, and whether the region pin rides on its calls: the Vercel AI Gateway's and the test's do. */
+async function loadEmbedding(route: ModelRoute<EmbeddingModelObject>, convexReason?: string): Promise<{ model: EmbeddingModelObject, pinned: boolean }> {
+  switch (route.route) {
+    case 'gateway':
+      return { model: gatewayFor(await loadSdk(), route.apiKey).embeddingModel(route.id), pinned: true }
+    case 'own':
+      return { model: route.model, pinned: true }
+    case 'missing':
+      throw modelRefusal(route, convexReason)
+    case 'convex': {
+      const convex = await convexGatewayModel(route.id, provider => provider.convexGateway.embeddingModel(route.id) as EmbeddingModelObject)
+      if ('model' in convex) return { model: convex.model, pinned: false }
+      noticeConvexGateway(route.id, convex.unavailable, FALLBACK_NAME[route.fallback.route])
+      return loadEmbedding(route.fallback, convex.unavailable)
+    }
   }
-  if (region !== undefined || !convexGatewayPossible(env)) return fallback()
-  const convex = await convexGatewayModel(id, provider => provider.convexGateway.embeddingModel(id) as EmbeddingModelObject)
-  if ('model' in convex) return { model: convex.model, pinned: false }
-  noticeConvexGateway(id, convex.unavailable, apiKey ? 'the Vercel AI Gateway' : 'nothing, and is refused')
-  return fallback(convex.unavailable)
 }
 
 /**
  * The embedding model a knowledge store calls, recording each call's cost
- * and tokens into `calls`, and pinned to `region` on the gateway's route.
+ * and tokens into `calls`, and pinned to the routing's region on the
+ * gateway's route.
  */
-export async function meteredEmbeddingModel(model: AiEmbeddingModel, calls: ModelCall[], { region, dimension }: { region?: InferenceRegion, dimension?: number } = {}): Promise<EmbeddingModelObject> {
+export async function meteredEmbeddingModel(model: AiEmbeddingModel, calls: ModelCall[], { routing, dimension }: { routing: ModelRouting, dimension?: number }): Promise<EmbeddingModelObject> {
   const sdk = await loadSdk()
   const id = embeddingModelId(model)
-  const { model: base, pinned } = typeof model === 'string' ? await baseEmbeddingModel(model, { region, dimension, env: runtimeEnv() }) : { model, pinned: false }
-  const pin = pinned ? region : undefined
+  const { model: base, pinned } = typeof model === 'string' ? await loadEmbedding(routeEmbedding(model, routing, runtimeEnv(), dimension)) : { model, pinned: false }
+  const pin = pinned ? routing.region : undefined
   return sdk.wrapEmbeddingModel({
     model: base as never,
     middleware: {

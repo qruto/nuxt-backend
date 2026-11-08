@@ -12,7 +12,7 @@
 
   [data-reauthenticate='input-otp'] {
     padding: 0.55rem 0.7rem;
-    border: 1px solid var(--reauthenticate-edge);
+    border: var(--bk-border-width) solid var(--reauthenticate-edge);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: var(--bk-ink);

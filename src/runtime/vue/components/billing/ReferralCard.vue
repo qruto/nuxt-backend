@@ -83,6 +83,7 @@ async function toggleSharing(event: Event) {
 <template>
   <section
     v-if="!signedOut"
+    data-backend
     data-referral="root"
     :data-state="state"
     :aria-busy="state === 'loading' || undefined"

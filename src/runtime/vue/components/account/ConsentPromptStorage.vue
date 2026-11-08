@@ -29,6 +29,7 @@ const id = useId()
 
 <template>
   <section
+    data-backend
     data-consent="storage"
     :data-state="saving ? 'pending' : 'ready'"
     :aria-labelledby="`${id}-storage`"

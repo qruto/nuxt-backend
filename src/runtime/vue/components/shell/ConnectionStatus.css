@@ -21,7 +21,7 @@
   [data-connection='message'] {
     margin: 0;
     padding: 0.45rem 0.9rem;
-    border: 1px solid color-mix(in srgb, var(--bk-warn) 40%, transparent);
+    border: var(--bk-border-width) solid color-mix(in srgb, var(--bk-warn) 40%, transparent);
     border-radius: var(--bk-radius-control);
     background: color-mix(in srgb, var(--bk-warn) 12%, Canvas);
     color: var(--bk-ink);

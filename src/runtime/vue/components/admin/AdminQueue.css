@@ -27,7 +27,7 @@
   :where([data-admin-queue='tab']) input {
     width: 5rem;
     padding: 0.25rem 0.4rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     background: var(--bk-surface);
     color: inherit;
@@ -47,11 +47,13 @@
 
   [data-admin-queue='button'] {
     padding: 0.35rem 0.75rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow-control);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
     font: inherit;
+    font-family: var(--bk-font-control, var(--bk-font));
     cursor: pointer;
   }
 

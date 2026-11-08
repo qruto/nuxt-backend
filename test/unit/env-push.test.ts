@@ -192,6 +192,16 @@ describe('a production deployment', () => {
     expect(byName(plan, 'PROTECTION_PROOF_SECRET').value).toBeUndefined()
   })
 
+  it('never forwards the development AI gateway key, forced or not: production takes a key of its own', () => {
+    const local = { ...devEnv, AI_GATEWAY_API_KEY: 'dev-gateway-key' }
+    const fresh = byName(planEnvPush({ deployedNames: [], localEnv: local, dev: false }), 'AI_GATEWAY_API_KEY')
+    expect(fresh).toMatchObject({ action: 'unset', detail: expect.stringContaining('npx convex env set --prod AI_GATEWAY_API_KEY') })
+    expect(fresh.value).toBeUndefined()
+    const forced = byName(planEnvPush({ deployedNames: ['AI_GATEWAY_API_KEY'], localEnv: local, dev: false, force: new Set(['AI_GATEWAY_API_KEY']) }), 'AI_GATEWAY_API_KEY')
+    expect(forced).toMatchObject({ action: 'skip' })
+    expect(byName(planEnvPush({ deployedNames: [], localEnv: local, dev: true }), 'AI_GATEWAY_API_KEY')).toMatchObject({ action: 'forward', value: 'dev-gateway-key' })
+  })
+
   it('still forwards dev values to a dev deployment', () => {
     const plan = planEnvPush({ deployedNames: [], localEnv: devEnv, dev: true })
     expect(byName(plan, 'PROTECTION_PROOF_SECRET')).toMatchObject({ action: 'forward' })

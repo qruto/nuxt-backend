@@ -47,11 +47,13 @@
   [data-preferences='unsubscribe-all'] {
     align-self: flex-start;
     padding: 0.45rem 0.8rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow-control);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
     font: inherit;
+    font-family: var(--bk-font-control, var(--bk-font));
     cursor: pointer;
   }
 

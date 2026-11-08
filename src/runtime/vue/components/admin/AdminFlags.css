@@ -19,7 +19,8 @@
     flex-direction: column;
     gap: 0.35rem;
     padding: 0.6rem 0.75rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
   }
 
@@ -59,7 +60,8 @@
     gap: 0.4rem 1rem;
     margin: 0;
     padding: 0.5rem 0.7rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
   }
 

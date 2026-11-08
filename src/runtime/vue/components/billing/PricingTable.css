@@ -28,7 +28,7 @@
   [data-pricing='plan-action'][data-intent='uncancel'],
   [data-pricing='plan-action'][data-intent='sign-in'] {
     background: var(--bk-accent);
-    border: 1px solid var(--bk-accent);
+    border: var(--bk-border-width) solid var(--bk-accent);
     border-radius: var(--bk-radius-control);
     padding: 0.55rem 0.9rem;
     font-weight: 600;
