@@ -472,6 +472,7 @@ const BACKEND_ERRORS: {
         phase?: string;
         invite?: string;
         kind?: string;
+        until?: number;
         waitlist?: {
            position: number;
            total: number;
@@ -484,6 +485,7 @@ const BACKEND_ERRORS: {
         phase: VString<string | undefined, "optional">;
         invite: VString<string | undefined, "optional">;
         kind: VString<string | undefined, "optional">;
+        until: VFloat64<number | undefined, "optional">;
         waitlist: VObject<
            | {
            position: number;
@@ -501,6 +503,7 @@ const BACKEND_ERRORS: {
         | "phase"
         | "invite"
         | "kind"
+        | "until"
         | "waitlist"
         | "waitlist.position"
         | "waitlist.total"
@@ -636,7 +639,8 @@ never renames one.
   `not_billing_manager`, `provider_owner_only`, `gift_refused`,
   `gift_refunded`, `not_recipient`, `no_email`, `bot_check`,
   `other_account`, `flag_off`, `sole_owner`, `paid_subscription`, `ticket_required`, `invitation_refused`,
-  `consent_required`, `age_required`, `under_age`, `passkey_only_admin`). A `consent_required` refusal
+  `consent_required`, `age_required`, `under_age`, `passkey_only_admin`). A `banned` refusal of a
+  sign-in also carries `until`, when the ban ends (epoch ms), for a ban that ends. A `consent_required` refusal
   also carries `kind`, the required consent not yet accepted at its latest version. A
   `ticket_required` refusal also carries `phase`, the launch phase that
   asks for a ticket, and `invite`, how the invite code given checked
@@ -682,9 +686,9 @@ never renames one.
 | <a id="property-unauthenticated"></a> `unauthenticated` | \{ `status`: `401`; `data`: `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `unauthenticated.status` | `401` | `401` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `unauthenticated.data` | `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
-| <a id="property-forbidden"></a> `forbidden` | \{ `status`: `403`; `data`: `VObject`\<\{ `message?`: `string`; `phase?`: `string`; `invite?`: `string`; `kind?`: `string`; `waitlist?`: \{ `position`: `number`; `total`: `number`; `token`: `string`; \}; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; `phase`: `VString`\<`string` \| `undefined`, `"optional"`\>; `invite`: `VString`\<`string` \| `undefined`, `"optional"`\>; `kind`: `VString`\<`string` \| `undefined`, `"optional"`\>; `waitlist`: `VObject`\< \| \{ `position`: `number`; `total`: `number`; `token`: `string`; \} \| `undefined`, \{ `position`: `VFloat64`\<`number`, `"required"`\>; `total`: `VFloat64`\<`number`, `"required"`\>; `token`: `VString`\<`string`, `"required"`\>; \}, `"optional"`, `"position"` \| `"total"` \| `"token"`\>; \}, `"required"`, \| `"message"` \| `"reason"` \| `"phase"` \| `"invite"` \| `"kind"` \| `"waitlist"` \| `"waitlist.position"` \| `"waitlist.total"` \| `"waitlist.token"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| <a id="property-forbidden"></a> `forbidden` | \{ `status`: `403`; `data`: `VObject`\<\{ `message?`: `string`; `phase?`: `string`; `invite?`: `string`; `kind?`: `string`; `until?`: `number`; `waitlist?`: \{ `position`: `number`; `total`: `number`; `token`: `string`; \}; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; `phase`: `VString`\<`string` \| `undefined`, `"optional"`\>; `invite`: `VString`\<`string` \| `undefined`, `"optional"`\>; `kind`: `VString`\<`string` \| `undefined`, `"optional"`\>; `until`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `waitlist`: `VObject`\< \| \{ `position`: `number`; `total`: `number`; `token`: `string`; \} \| `undefined`, \{ `position`: `VFloat64`\<`number`, `"required"`\>; `total`: `VFloat64`\<`number`, `"required"`\>; `token`: `VString`\<`string`, `"required"`\>; \}, `"optional"`, `"position"` \| `"total"` \| `"token"`\>; \}, `"required"`, \| `"message"` \| `"reason"` \| `"phase"` \| `"invite"` \| `"kind"` \| `"until"` \| `"waitlist"` \| `"waitlist.position"` \| `"waitlist.total"` \| `"waitlist.token"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `forbidden.status` | `403` | `403` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
-| `forbidden.data` | `VObject`\<\{ `message?`: `string`; `phase?`: `string`; `invite?`: `string`; `kind?`: `string`; `waitlist?`: \{ `position`: `number`; `total`: `number`; `token`: `string`; \}; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; `phase`: `VString`\<`string` \| `undefined`, `"optional"`\>; `invite`: `VString`\<`string` \| `undefined`, `"optional"`\>; `kind`: `VString`\<`string` \| `undefined`, `"optional"`\>; `waitlist`: `VObject`\< \| \{ `position`: `number`; `total`: `number`; `token`: `string`; \} \| `undefined`, \{ `position`: `VFloat64`\<`number`, `"required"`\>; `total`: `VFloat64`\<`number`, `"required"`\>; `token`: `VString`\<`string`, `"required"`\>; \}, `"optional"`, `"position"` \| `"total"` \| `"token"`\>; \}, `"required"`, \| `"message"` \| `"reason"` \| `"phase"` \| `"invite"` \| `"kind"` \| `"waitlist"` \| `"waitlist.position"` \| `"waitlist.total"` \| `"waitlist.token"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
+| `forbidden.data` | `VObject`\<\{ `message?`: `string`; `phase?`: `string`; `invite?`: `string`; `kind?`: `string`; `until?`: `number`; `waitlist?`: \{ `position`: `number`; `total`: `number`; `token`: `string`; \}; `reason`: `string`; \}, \{ `reason`: `VString`\<`string`, `"required"`\>; `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; `phase`: `VString`\<`string` \| `undefined`, `"optional"`\>; `invite`: `VString`\<`string` \| `undefined`, `"optional"`\>; `kind`: `VString`\<`string` \| `undefined`, `"optional"`\>; `until`: `VFloat64`\<`number` \| `undefined`, `"optional"`\>; `waitlist`: `VObject`\< \| \{ `position`: `number`; `total`: `number`; `token`: `string`; \} \| `undefined`, \{ `position`: `VFloat64`\<`number`, `"required"`\>; `total`: `VFloat64`\<`number`, `"required"`\>; `token`: `VString`\<`string`, `"required"`\>; \}, `"optional"`, `"position"` \| `"total"` \| `"token"`\>; \}, `"required"`, \| `"message"` \| `"reason"` \| `"phase"` \| `"invite"` \| `"kind"` \| `"until"` \| `"waitlist"` \| `"waitlist.position"` \| `"waitlist.total"` \| `"waitlist.token"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | <a id="property-reauthentication_required"></a> `reauthentication_required` | \{ `status`: `403`; `data`: `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\>; \} | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `reauthentication_required.status` | `403` | `403` | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |
 | `reauthentication_required.data` | `VObject`\<\{ `message?`: `string`; \}, \{ `message`: `VString`\<`string` \| `undefined`, `"optional"`\>; \}, `"required"`, `"message"`\> | - | [src/convex/errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/errors.ts) |

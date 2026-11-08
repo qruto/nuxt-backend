@@ -174,7 +174,7 @@ describe('passkey autofill in Chromium', () => {
     flow.db.passkey!.splice(0)
     await page.reload()
     await page.locator('[data-auth="otp-start"]').click()
-    await expect.poll(() => page.locator('[data-auth="error"]').textContent()).toBe('That passkey didn\'t work. Try again, or continue with an email code.')
+    await expect.poll(() => page.locator('[data-auth="error"]').textContent()).toBe('That passkey didn\'t work. If it\'s a security key, set a PIN on it and try again, or continue with an email code.')
     expect(await page.locator('[data-auth="input-email"]').isVisible()).toBe(true)
     expect(await signedIn(page)).toBe(0)
 
