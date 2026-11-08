@@ -283,7 +283,7 @@ export default defineNuxtModule<ModuleOptions>({
     addPlugin({ src: resolver.resolve('./runtime/vue/plugins/passkey-ceremony'), mode: 'client' })
     // The narrow Trusted Types `default` policy, for code that writes a sink without one of its own.
     if (!securityDisabled(nuxt)) addPlugin({ src: resolver.resolve('./runtime/vue/plugins/trusted-types.client'), mode: 'client' })
-    // The headers' exceptions for what other sites load, Content's WebAssembly, and canonical URLs' case.
+    // The headers' exceptions for what other sites load, and Content's WebAssembly.
     registerSecurityRules(resolver, nuxt)
     registerBaseComponentAliases(resolver, nuxt)
     hideBaseBrandNames(nuxt)

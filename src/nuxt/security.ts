@@ -67,43 +67,32 @@ export function securityDisabled(nuxt: Pick<Nuxt, 'options'>): boolean {
 /** nuxt-og-image's rendered Open Graph images, which social scrapers and link unfurls fetch from other sites. */
 export const OG_IMAGE_ROUTE = '/_og/**'
 
+/** The header that lets other sites load a resource, where the app sets none of its own for the route. */
+const CROSS_ORIGIN = 'cross-origin'
+
+type CrossOriginRule = { headers?: Record<string, string>, security?: { headers?: { crossOriginResourcePolicy?: unknown } } }
+
 /**
- * A route other sites may load as a resource: `Cross-Origin-Resource-Policy:
+ * Let other sites load the resources at `paths`: `Cross-Origin-Resource-Policy:
  * cross-origin` in place of the app-wide `same-origin`. Said twice, as the
  * Nitro header a static file is served with and as nuxt-security's own
  * route option, since the rule is added after nuxt-security turned the
- * app's rules into headers.
+ * app's rules into headers. A value of the app's own for the route, in
+ * either form, wins in both.
  */
-const CROSS_ORIGIN_RESOURCE = {
-  headers: { 'Cross-Origin-Resource-Policy': 'cross-origin' },
-  security: { headers: { crossOriginResourcePolicy: 'cross-origin' as const } },
-}
-
-/** Let other sites load the resources at `paths`, under any rule of the app's own for them, which wins. */
 export function allowCrossOriginResources(nuxt: Pick<Nuxt, 'options'>, paths: readonly string[]): void {
   const routeRules = (nuxt.options.routeRules ??= {})
-  for (const path of paths) routeRules[path] = defu(routeRules[path], CROSS_ORIGIN_RESOURCE) as typeof routeRules[string]
-}
-
-/**
- * Keep the case of a canonical URL where nuxt-seo-utils is installed (alone
- * or through `@nuxtjs/seo`): its `seo.canonicalLowercase` lowercases every
- * canonical and `og:url`, which turns a link with a case-sensitive token
- * (a share link, `storage.shareable`) into a dead one. The package's
- * default is `false`, written into the module's public runtime config
- * (`seo-utils.canonicalLowercase`) once every module has set up; an app
- * that sets `seo.canonicalLowercase` itself keeps its own value.
- */
-export function keepCanonicalCase(nuxt: Pick<Nuxt, 'options'>): void {
-  const seoUtils = (nuxt.options.runtimeConfig.public as Record<string, unknown>)['seo-utils'] as { canonicalLowercase?: boolean } | undefined
-  if (!seoUtils || typeof seoUtils !== 'object') return
-  const own = (nuxt.options as { seo?: { canonicalLowercase?: unknown } }).seo?.canonicalLowercase
-  if (own === undefined) seoUtils.canonicalLowercase = false
+  for (const path of paths) {
+    const rule = (routeRules[path] ?? {}) as CrossOriginRule
+    const own = rule.headers?.['Cross-Origin-Resource-Policy'] ?? rule.security?.headers?.crossOriginResourcePolicy
+    const value = own ?? CROSS_ORIGIN
+    routeRules[path] = defu({ headers: { 'Cross-Origin-Resource-Policy': value }, security: { headers: { crossOriginResourcePolicy: value } } }, rule) as typeof routeRules[string]
+  }
 }
 
 /**
  * The security headers' exceptions for what the app serves to other sites
- * or runs itself, and the canonical URLs' case:
+ * or runs itself:
  *
  * - `Cross-Origin-Resource-Policy: cross-origin` on nuxt-og-image's
  *   `/_og/**` and on the brand's logo when the app serves it
@@ -111,19 +100,16 @@ export function keepCanonicalCase(nuxt: Pick<Nuxt, 'options'>): void {
  *   load from other sites; nuxt-security's app-wide `same-origin` refuses
  *   them otherwise;
  * - `'wasm-unsafe-eval'` in `script-src` when `@nuxt/content` is installed
- *   (src/runtime/server/content-wasm.ts);
- * - the case of canonical URLs kept ({@link keepCanonicalCase}).
+ *   (src/runtime/server/content-wasm.ts).
  *
- * The first two only while nuxt-security is installed: with `security:
- * false` there is no header to make an exception to. `convex.security:
- * false` turns off the base module's Convex sources alone, so they stay.
+ * Only while nuxt-security is installed: with `security: false` there is
+ * no header to make an exception to. `convex.security: false` turns off
+ * the base module's Convex sources alone, so these stay.
  */
 export function registerSecurityRules(resolver: Resolver, nuxt: Nuxt): void {
-  const headers = !securityDisabled(nuxt)
-  if (headers) allowCrossOriginResources(nuxt, [OG_IMAGE_ROUTE])
+  if (securityDisabled(nuxt)) return
+  allowCrossOriginResources(nuxt, [OG_IMAGE_ROUTE])
   nuxt.hook('modules:done', async () => {
-    keepCanonicalCase(nuxt)
-    if (!headers) return
     const logo = await appBrandLogoPath(nuxt)
     if (logo) allowCrossOriginResources(nuxt, [logo])
     if (hasNuxtModule('@nuxt/content', nuxt)) {

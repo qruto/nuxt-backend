@@ -176,6 +176,7 @@ const contentStandIn = defineNuxtModule({ meta: { name: '@nuxt/content' } })
 
 describe('a production boot of an app with Content, nuxt-seo-utils and a brand logo of its own', () => {
   // nuxt-seo-utils writes its public runtime config in setup; an app's entry there stands in for it.
+  // The package leaves it alone: a share page names its own canonical URL.
   const boot = useBoot({
     extends: [posix.join(repoRoot, 'test/fixtures/brand-layer')],
     modules: [contentStandIn],
@@ -192,8 +193,8 @@ describe('a production boot of an app with Content, nuxt-seo-utils and a brand l
     expect(nitroPlugins(boot.nuxt()).filter(plugin => /server[\\/]content-wasm/.test(plugin))).toHaveLength(1)
   })
 
-  it('keeps the case of canonical URLs, the app having set nothing of its own', () => {
-    expect((boot.nuxt().options.runtimeConfig.public as Record<string, { canonicalLowercase?: boolean }>)['seo-utils']).toMatchObject({ canonicalLowercase: false })
+  it('leaves nuxt-seo-utils\' canonicalLowercase as it was', () => {
+    expect((boot.nuxt().options.runtimeConfig.public as Record<string, { canonicalLowercase?: boolean }>)['seo-utils']).toEqual({ canonicalLowercase: true })
   })
 })
 
@@ -202,14 +203,12 @@ describe('a production boot of an app with nuxt-security off', () => {
     security: false,
     extends: [posix.join(repoRoot, 'test/fixtures/brand-layer')],
     modules: [contentStandIn],
-    runtimeConfig: { public: { 'seo-utils': { canonicalLowercase: true } } },
   }, { dev: false })
 
-  it('makes no exception to headers nobody sends, and still keeps the canonical case', () => {
+  it('makes no exception to headers nobody sends', () => {
     const nuxt = boot.nuxt()
     expect(nuxt.options.routeRules?.['/_og/**']).toBeUndefined()
     expect(nuxt.options.routeRules?.['/brand/logo.png']).toBeUndefined()
     expect(nitroPlugins(nuxt).filter(plugin => /server[\\/]content-wasm/.test(plugin))).toEqual([])
-    expect((nuxt.options.runtimeConfig.public as Record<string, { canonicalLowercase?: boolean }>)['seo-utils']).toMatchObject({ canonicalLowercase: false })
   })
 })

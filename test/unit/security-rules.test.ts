@@ -5,11 +5,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { Nuxt } from '@nuxt/schema'
 import contentWasmPlugin, { WASM_SOURCE } from '../../src/runtime/server/content-wasm'
 import { appBrandLogoPath, brandLogoPath } from '../../src/nuxt/brand'
-import { allowCrossOriginResources, keepCanonicalCase, OG_IMAGE_ROUTE } from '../../src/nuxt/security'
+import { allowCrossOriginResources, OG_IMAGE_ROUTE } from '../../src/nuxt/security'
 
-// The security headers' exceptions: resources other sites load, Content's
-// WebAssembly, and the case of canonical URLs. The module wiring is in
-// test/module/dev-server-boot.test.ts.
+// The security headers' exceptions: resources other sites load and Content's
+// WebAssembly. The module wiring is in test/module/dev-server-boot.test.ts,
+// and the headers a built app answers with in test/e2e/starter.test.ts.
 
 /** The app-wide policy after the plugin's hook ran on it. */
 function afterHook(csp: Record<string, unknown>) {
@@ -61,36 +61,26 @@ describe('resources other sites load', () => {
     })
   })
 
-  it('keeps a rule of the app\'s own for the same path over the package\'s', () => {
-    const nuxt = { options: { routeRules: { [OG_IMAGE_ROUTE]: { headers: { 'Cross-Origin-Resource-Policy': 'same-site' } } } } } as unknown as Pick<Nuxt, 'options'>
-    allowCrossOriginResources(nuxt, [OG_IMAGE_ROUTE])
+  it('keeps the app\'s own header for the path, said either way, in both forms', () => {
+    const rules = { [OG_IMAGE_ROUTE]: { headers: { 'Cross-Origin-Resource-Policy': 'same-site', 'X-Own': '1' } }, '/logo.png': { security: { headers: { crossOriginResourcePolicy: 'same-site' } } } }
+    const nuxt = { options: { routeRules: rules } } as unknown as Pick<Nuxt, 'options'>
+    allowCrossOriginResources(nuxt, [OG_IMAGE_ROUTE, '/logo.png'])
     expect(nuxt.options.routeRules?.[OG_IMAGE_ROUTE]).toEqual({
+      headers: { 'Cross-Origin-Resource-Policy': 'same-site', 'X-Own': '1' },
+      security: { headers: { crossOriginResourcePolicy: 'same-site' } },
+    })
+    expect(nuxt.options.routeRules?.['/logo.png']).toEqual({
       headers: { 'Cross-Origin-Resource-Policy': 'same-site' },
-      security: { headers: { crossOriginResourcePolicy: 'cross-origin' } },
+      security: { headers: { crossOriginResourcePolicy: 'same-site' } },
     })
   })
-})
 
-describe('the case of canonical URLs', () => {
-  const options = (seo: unknown, seoUtils: unknown) => ({ options: { seo, runtimeConfig: { public: seoUtils === undefined ? {} : { 'seo-utils': seoUtils } } } }) as unknown as Pick<Nuxt, 'options'>
-
-  it('is kept by default where nuxt-seo-utils is installed', () => {
-    const nuxt = options(undefined, { canonicalLowercase: true })
-    keepCanonicalCase(nuxt)
-    expect(nuxt.options.runtimeConfig.public['seo-utils']).toEqual({ canonicalLowercase: false })
-  })
-
-  it('follows the app\'s own seo.canonicalLowercase, either way', () => {
-    for (const own of [true, false]) {
-      const nuxt = options({ canonicalLowercase: own }, { canonicalLowercase: own })
-      keepCanonicalCase(nuxt)
-      expect(nuxt.options.runtimeConfig.public['seo-utils']).toEqual({ canonicalLowercase: own })
-    }
-  })
-
-  it('writes nothing without nuxt-seo-utils', () => {
-    const nuxt = options(undefined, undefined)
-    keepCanonicalCase(nuxt)
-    expect(nuxt.options.runtimeConfig.public).toEqual({})
+  it('says cross-origin in both forms where the app has no rule', () => {
+    const nuxt = { options: {} } as unknown as Pick<Nuxt, 'options'>
+    allowCrossOriginResources(nuxt, [OG_IMAGE_ROUTE])
+    expect(nuxt.options.routeRules?.[OG_IMAGE_ROUTE]).toEqual({
+      headers: { 'Cross-Origin-Resource-Policy': 'cross-origin' },
+      security: { headers: { crossOriginResourcePolicy: 'cross-origin' } },
+    })
   })
 })
