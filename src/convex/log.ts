@@ -99,6 +99,7 @@ export const LOG_CODES = {
   'ai.job_step_failed': 'An attempt of a job\'s step failed: throttled or passing ones are tried again, the rest fail the job.',
   'ai.job_failed': 'A job failed with an error that is not a catalog one: it was refunded and kept in the dead letters.',
   'ai.job_stalled': 'A running job showed no sign of life for its stallAfter: it was failed and refunded.',
+  'ai.job_end_unannounced': 'A job ended, but defineJobQueue({ onJobEnd }) could not be scheduled for it: its hold\'s release and its refund went through, and the app\'s rows about the job were not told.',
   'ai.job_cancel_failed': 'A stalled job\'s workflow could not be canceled; the job is already failed and refunded.',
   'ai.job_refund_retry': 'A failed job\'s refund did not reach the billing provider; it is tried again, later each time.',
   'ai.job_refund_failed': 'A failed job\'s refund failed every try: its credits are still owed, and an administrator\'s retry runs the job on the charge it paid.',
