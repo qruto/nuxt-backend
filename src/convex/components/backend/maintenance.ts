@@ -290,6 +290,10 @@ export const MAINTENANCE_TASKS = {
   aiCosts: async (ctx: MutationCtx, startedAt: number) => remove(ctx, 'aiCosts', [ctx.db.query('aiCosts')
     .withIndex('by_day_and_who', q => q.lt('day', startedAt - AI_COST_RETENTION_MS))]),
 
+  // What the safety classifier flagged, once the days the app keeps them (`moderation.log.days`) are over.
+  aiFlags: async (ctx: MutationCtx, startedAt: number) => remove(ctx, 'aiFlags', [ctx.db.query('aiFlags')
+    .withIndex('by_expiresAt', q => q.lt('expiresAt', startedAt))]),
+
   aiCostDays: async (ctx: MutationCtx, startedAt: number) => remove(ctx, 'aiCostDays', [ctx.db.query('aiCostDays')
     .withIndex('by_day_and_shard', q => q.lt('day', startedAt - AI_COST_RETENTION_MS))]),
 

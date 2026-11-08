@@ -4,7 +4,7 @@ import type { Billing } from '../billing.js'
 import type { AiComponents, AiRateLimiter, MeteredStreamConfig, SetupAiConfig } from './config.js'
 import { costRecorder, type RecordCost } from './costs.js'
 import { requireModelId } from './models.js'
-import { createModeration, type Moderation } from './moderation.js'
+import { createModeration, type FlagRefs, type Moderation } from './moderation.js'
 import { backendEnvironment } from '../../delivery.js'
 import { backendError } from '../../errors.js'
 import { type PauseCheck, pauseCheck, refusePaused } from '../../pauses.js'
@@ -78,7 +78,7 @@ export function createAiContext(components: AiComponents, config: SetupAiConfig)
   // The component's storage, where an upload not yet claimed waits for the check.
   const storage = (components.backend as unknown as { storage?: Parameters<typeof createModeration>[1] }).storage
   const recordCost = costRecorder(components.backend.costs, usdPerDay)
-  const moderation = createModeration(config, storage, recordCost)
+  const moderation = createModeration(config, storage, recordCost, (components.backend as unknown as { moderation?: FlagRefs }).moderation)
 
   const paused = pauseCheck(components.backend)
   const refuseAi: AiContext['refuseAi'] = async (ctx) => {

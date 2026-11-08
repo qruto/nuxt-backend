@@ -368,6 +368,17 @@ export const ERASURE_PARTICIPANTS = {
     return budget.spent
   },
 
+  // What the safety classifier flagged about the account, and in the workspaces that go.
+  aiFlags: async (ctx, erasure) => {
+    const budget = new Budget()
+    if (erasure.userId) await budget.remove(ctx, 'aiFlags', () => ctx.db.query('aiFlags').withIndex('by_userId', q => q.eq('userId', erasure.userId)).take(budget.left))
+    for (const entityId of entitiesOf(erasure)) {
+      if (budget.spent) break
+      await budget.remove(ctx, 'aiFlags', () => ctx.db.query('aiFlags').withIndex('by_owner', q => q.eq('owner', entityId)).take(budget.left))
+    }
+    return budget.spent
+  },
+
   // The provenance records of the workspaces that go: the images are the app's.
   aiProvenance: async (ctx, erasure) => {
     const budget = new Budget()

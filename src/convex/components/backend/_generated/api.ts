@@ -32,6 +32,7 @@ import type * as lifecycle from "../lifecycle.js";
 import type * as lifecycleActivity from "../lifecycleActivity.js";
 import type * as maintenance from "../maintenance.js";
 import type * as migrations from "../migrations.js";
+import type * as moderation from "../moderation.js";
 import type * as monitoring from "../monitoring.js";
 import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
@@ -80,6 +81,7 @@ const fullApi: ApiFromModules<{
   lifecycleActivity: typeof lifecycleActivity;
   maintenance: typeof maintenance;
   migrations: typeof migrations;
+  moderation: typeof moderation;
   monitoring: typeof monitoring;
   notifications: typeof notifications;
   onboarding: typeof onboarding;

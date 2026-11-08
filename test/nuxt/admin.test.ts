@@ -119,6 +119,7 @@ const { default: AdminAccess } = await import('../../src/runtime/vue/components/
 const { default: AdminWaitlist } = await import('../../src/runtime/vue/components/admin/AdminWaitlist.vue')
 const { default: AdminInbox } = await import('../../src/runtime/vue/components/admin/AdminInbox.vue')
 const { default: AdminCosts } = await import('../../src/runtime/vue/components/admin/AdminCosts.vue')
+const { default: AdminModeration } = await import('../../src/runtime/vue/components/admin/AdminModeration.vue')
 const { default: AdminWebhooks } = await import('../../src/runtime/vue/components/admin/AdminWebhooks.vue')
 const { default: AdminSuppressions } = await import('../../src/runtime/vue/components/admin/AdminSuppressions.vue')
 const { default: AdminBilling } = await import('../../src/runtime/vue/components/admin/AdminBilling.vue')
@@ -1164,6 +1165,29 @@ describe('the Billing tab', () => {
   it('shows its tab only while backend/billing.ts re-exports getBillingConsole', async () => {
     const { ADMIN_TABS } = await import('../../src/runtime/vue/components/admin/admin-tabs')
     expect(ADMIN_TABS.find(tab => tab.key === 'billing')).toMatchObject({ needs: 'billing', has: 'getBillingConsole' })
+  })
+})
+
+describe('the Moderation tab', () => {
+  const page = (escalated: boolean) => ({ paginationOpts: { numItems: 25, cursor: null }, ...(escalated ? { escalated: true } : {}) })
+  const flag = { id: 'f1', at: Date.UTC(2026, 10, 8, 12), userId: 'u1', subject: 'comic-1', stage: 'title', categories: ['S12', 'S4'], blocked: false, escalate: true, model: 'meta-llama/llama-guard-4-12b' }
+
+  it('lists what was flagged, newest first, and only the escalated flags on asking', async () => {
+    answers.set(key('ai:listModerationFlags', page(false)), { page: [flag, { ...flag, id: 'f2', userId: undefined, stage: 'job', subject: undefined, categories: ['S10'], blocked: true, escalate: false }], isDone: true, continueCursor: '' })
+    answers.set(key('ai:listModerationFlags', page(true)), { page: [], isDone: true, continueCursor: '' })
+    const wrapper = mount(AdminModeration as never, { attachTo: document.body, global: { provide: { ...provide, [BackendApiKey as symbol]: { ai: { listModerationFlags: 'ai:listModerationFlags' } } } } }) as VueWrapper
+    await flushPromises()
+    const rows = wrapper.findAll('[data-admin="moderation-flag"]')
+    expect(rows.map(row => row.findAll('td').map(cell => cell.text()))).toEqual([
+      ['u1', 'title · comic-1', 'S12, S4', 'Let through Escalated'],
+      ['Nobody signed in', 'job', 'S10', 'Blocked'],
+    ])
+    expect(rows[0]!.attributes('data-escalated')).toBe('true')
+    expect(rows[1]!.attributes('data-blocked')).toBe('true')
+    await wrapper.findAll('[data-admin="moderation-filter"] button')[1]!.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-admin="moderation-empty"]').text()).toBe('Nothing has been escalated.')
+    wrapper.unmount()
   })
 })
 

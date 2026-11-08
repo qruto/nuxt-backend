@@ -61,7 +61,7 @@ export type { Chat, ChatConfig, ChatMessage, ChatReply, ChatThread } from './ai/
 export type { AiEmbeddingModel } from './ai/embeddings.js'
 export type { Knowledge, KnowledgeAddCost, KnowledgeApi, KnowledgeConfig, KnowledgeDocument, KnowledgePassage } from './ai/knowledge.js'
 export { setupAi } from './ai/setup.js'
-export type { ModerationConfig, ModerationCtx, ModerationInput, ModerationVerdict } from './ai/moderation.js'
+export type { ModerationConfig, ModerationCtx, ModerationFlag, ModerationInput, ModerationLog, ModerationSubject, ModerationVerdict } from './ai/moderation.js'
 export type {
   AdminJobView,
   CancelOptions,

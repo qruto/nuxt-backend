@@ -5270,6 +5270,57 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
     };
+    moderation: {
+      list: FunctionReference<
+        "query",
+        "internal",
+        {
+          escalated?: boolean;
+          paginationOpts: {
+            cursor: string | null;
+            endCursor?: string | null;
+            id?: number;
+            maximumBytesRead?: number;
+            maximumRowsRead?: number;
+            numItems: number;
+          };
+        },
+        {
+          continueCursor: string;
+          isDone: boolean;
+          page: Array<{
+            at: number;
+            blocked: boolean;
+            categories: Array<string>;
+            escalate: boolean;
+            id: string;
+            model: string;
+            owner?: string;
+            stage?: string;
+            subject?: string;
+            userId?: string;
+          }>;
+        },
+        Name
+      >;
+      record: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          blocked: boolean;
+          categories: Array<string>;
+          days: number;
+          escalate: boolean;
+          model: string;
+          owner?: string;
+          stage?: string;
+          subject?: string;
+          userId?: string;
+        },
+        null,
+        Name
+      >;
+    };
     notifications: {
       channelOpen: FunctionReference<
         "mutation",

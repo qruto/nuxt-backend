@@ -1,4 +1,4 @@
-import { type GenericActionCtx, type GenericDataModel, queryGeneric } from 'convex/server'
+import { type FunctionReference, type GenericActionCtx, type GenericDataModel, paginationOptsValidator, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import { DEFAULT_ADMIN_ROLES } from '../../constants.js'
 import { logBackend } from '../../log.js'
@@ -76,5 +76,16 @@ export function costsApi(components: AiComponents): AiApi {
       return await ctx.runQuery(components.backend.costs.summary, { since })
     },
   })
-  return { getCosts } as unknown as AiApi
+  // What the safety classifier flagged: the Moderation tab's page, for administrators.
+  const listModerationFlags = queryGeneric({
+    args: { paginationOpts: paginationOptsValidator, escalated: v.optional(v.boolean()) },
+    handler: async (ctx, { paginationOpts, escalated }) => {
+      reads ??= createAccessReads(components.backend.adapter.findOne as AdapterFindOne)
+      const flags = (components.backend as unknown as { moderation?: { list: FunctionReference<'query', 'internal'> } }).moderation
+      if (!await isAdministratorNow(ctx as never, reads, administrators, 'listModerationFlags')) return null
+      if (!flags) return { page: [], isDone: true, continueCursor: '' }
+      return await ctx.runQuery(flags.list, { paginationOpts, ...(escalated ? { escalated } : {}) })
+    },
+  })
+  return { getCosts, listModerationFlags } as unknown as AiApi
 }

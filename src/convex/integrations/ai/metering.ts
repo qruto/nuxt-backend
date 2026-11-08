@@ -198,7 +198,7 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
 
     // The safety check, once the rate limit let the call through: a flagged
     // prompt is refused before the budget or the balance counts anything.
-    if (options.moderate) await moderation.requireSafe(ctx as never, options.moderate)
+    if (options.moderate) await moderation.requireSafe(ctx as never, options.moderate, { owner: entity.userId, stage: 'prompt' })
 
     // The budget is the same limiter, counting credits instead of calls: one
     // fixed window per billing entity, consuming `cost` tokens a spend.

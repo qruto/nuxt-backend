@@ -48,7 +48,7 @@ import type { Ai, AiModel, MeteredModel } from './config.js'
 import { AI_CONTEXTS } from './context.js'
 import { usageOf } from './costs.js'
 import { catalogPayload, classifyStepError, failurePayload, isPassing, modelOutcomeOf } from './job-errors.js'
-import type { ModerationInput } from './moderation.js'
+import type { ModerationInput, ModerationSubject } from './moderation.js'
 import { type AiImageModel, meteredImageModel } from './images.js'
 import { settledAmount } from './metering.js'
 import { meteredModel, type ModelCall, modelIdOf, modelRefusal, requireModelId, routeModel } from './models.js'
@@ -264,11 +264,13 @@ export interface JobDefinition<Args extends PropertyValidators, Result> {
   guest?: boolean
   /**
    * What to check with the safety classifier (`setupAi({ moderation })`),
-   * from the args: as the job's first step, before the charge. A flagged
-   * job fails with `invalid_input`, reason `content_blocked`, and its
-   * hold is released.
+   * from the args: as the job's first step, before the charge. A job the
+   * policy blocks fails with `invalid_input`, reason `content_blocked`,
+   * and its hold is released; one flagged in a category the policy lets
+   * through runs, recorded. Its flag names the job and its starter; add
+   * `subject` and `stage` to name them in your words.
    */
-  moderate?: (args: ObjectType<Args>) => ModerationInput
+  moderate?: (args: ObjectType<Args>) => ModerationInput & Pick<ModerationSubject, 'subject' | 'stage'>
   args: Args
   /** The steps, in order. Runs as a durable workflow: read data and call models in steps, never here. */
   handler: (job: JobContext, args: ObjectType<Args>) => Promise<Result>
@@ -1212,14 +1214,16 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
       attempt: v.optional(v.number()),
       /** What `job.charge` charges, for a kind charged by output. */
       amount: v.optional(v.number()),
-      input: v.optional(v.object({ text: v.optional(v.string()), images: v.optional(v.array(v.string())) })),
+      input: v.optional(v.object({ text: v.optional(v.string()), images: v.optional(v.array(v.string())), subject: v.optional(v.string()), stage: v.optional(v.string()) })),
     },
     returns: v.union(v.null(), v.object({ blocked: v.any() })),
     handler: async (ctx, { op, jobId, attempt, amount, input }): Promise<null | { blocked: Record<string, unknown> }> => {
       if (op === 'moderate') {
         // A refusal the check throws (a gone image, a classifier with no verdict) fails the job as it is.
         try {
-          await context.moderation.requireSafe(ctx, input ?? {})
+          const { subject, stage, ...checked } = input ?? {}
+          const job = await ctx.runQuery(queue.get, { jobId }) as JobRow | null
+          await context.moderation.requireSafe(ctx, checked, defined({ userId: job?.userId, owner: job?.owner, subject: subject ?? jobId, stage: stage ?? 'job' }))
           return null
         }
         catch (error) {

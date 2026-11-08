@@ -14,9 +14,9 @@ import { rateLimiter } from './rateLimiter'
 // your app grows; a sandbox deployment, a public demo, refuses AI without one.
 export const ai = setupAi(components, { billing, rateLimiter, spendLimit: { usdPerDay: 10 } })
 
-// What each person's AI calls cost: the admin console's Costs tab reads it,
-// and it answers administrators only.
-export const { getCosts } = ai.api
+// What each person's AI calls cost, and what the safety classifier flagged:
+// the admin console's Costs and Flags tabs read them, for administrators only.
+export const { getCosts, listModerationFlags } = ai.api
 
 // A metered action — swap the echo for your model call. Costs 1 credit
 // from the 'credits' meter per call (see billing.catalog.ts).
