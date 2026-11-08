@@ -147,9 +147,11 @@ jobs:
           prepare: lib
           save-cache: ${{ github.ref == 'refs/heads/main' }}
 
+      # Uncached, a worker per core: the runner has the memory, and a cold run
+      # can never reuse a type-aware result another file has since changed.
       - name: Lint
         if: ${{ !cancelled() }}
-        run: pnpm run lint
+        run: pnpm run lint:ci
 
       # Type-checks what gets published. The root tsconfig excludes `src/convex`
       # (and the website, which has its own job), so the Convex world —

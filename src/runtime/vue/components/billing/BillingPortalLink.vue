@@ -54,6 +54,7 @@ const { pending, onClick } = useClickSession(async () => {
 <template>
   <a
     v-if="canManage"
+    data-backend
     href="#"
     data-billing="portal-link"
     :aria-busy="pending || undefined"

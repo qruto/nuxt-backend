@@ -25,6 +25,7 @@
   [data-settings='refresh'] {
     align-self: flex-start;
     border: 0;
+    box-shadow: none;
     color: var(--bk-muted);
   }
 }

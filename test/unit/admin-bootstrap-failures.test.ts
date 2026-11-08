@@ -9,6 +9,8 @@ const deployment = vi.hoisted(() => ({
   reachable: true,
   setRole: null as Error | null,
   admit: null as Error | null,
+  /** What `access:admit` answers when it does not throw. */
+  admitted: 'null',
   calls: [] as string[][],
 }))
 vi.mock('../../src/convex-cli', () => ({
@@ -18,6 +20,7 @@ vi.mock('../../src/convex-cli', () => ({
     if (args.includes('--inline-query')) return { stdout: 'false\n', stderr: '' }
     if (args.includes('functions:setUserRole') && deployment.setRole) throw deployment.setRole
     if (args.includes('access:admit') && deployment.admit) throw deployment.admit
+    if (args.includes('access:admit')) return { stdout: deployment.admitted, stderr: '' }
     return { stdout: 'null', stderr: '' }
   }),
 }))
@@ -28,6 +31,7 @@ beforeEach(() => {
   deployment.reachable = true
   deployment.setRole = null
   deployment.admit = null
+  deployment.admitted = 'null'
   deployment.calls.length = 0
 })
 afterEach(() => {
@@ -55,6 +59,16 @@ describe('the first administrator, when the deployment does not cooperate', () =
   it('says to sign in first, and promises no sign-up, for a deployment that cannot admit the address', async () => {
     deployment.setRole = new Error('Uncaught ConvexError: No user with email ada@example.com')
     deployment.admit = new Error('Could not find function for \'access:admit\'')
+    const print = vi.fn()
+    expect(await bootstrapAdmin('/app', { prod: false, ask: async () => 'ada@example.com', print })).toBeNull()
+    expect(print).toHaveBeenCalledWith('[nuxt-backend] doctor --fix: ada@example.com has no account yet. Sign in with it once, then run doctor --fix again to make it the first administrator.')
+  })
+
+  it('promises no sign-up when the deployment skips the address as one with an account', async () => {
+    // The role change found no account, but the admission did (a sign-up in
+    // between, or an address stored in another case): nothing was admitted.
+    deployment.setRole = new Error('Uncaught ConvexError: No user with email ada@example.com')
+    deployment.admitted = JSON.stringify({ admitted: [], ids: [], skipped: [{ email: 'ada@example.com', reason: 'account' }] })
     const print = vi.fn()
     expect(await bootstrapAdmin('/app', { prod: false, ask: async () => 'ada@example.com', print })).toBeNull()
     expect(print).toHaveBeenCalledWith('[nuxt-backend] doctor --fix: ada@example.com has no account yet. Sign in with it once, then run doctor --fix again to make it the first administrator.')

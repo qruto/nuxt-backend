@@ -81,6 +81,7 @@ const errorText = computed(() => (onboarding.error.value ? onboarding.labels.err
 
 <template>
   <div
+    data-backend
     data-onboarding="root"
     :data-state="state"
     :aria-busy="onboarding.isPending.value ? 'true' : undefined"

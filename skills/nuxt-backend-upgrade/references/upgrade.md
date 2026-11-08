@@ -58,6 +58,18 @@ agent files and skills.
 |---|---|---|---|
 | `jobs.enqueue` | `jobs.enqueue` | reshaped | a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready` |
 
+## [Browser error reports go through a tunnel on the app's own origin](https://nuxt-backend.dev/docs/ship/releases/upgrade#browser-error-reports-go-through-a-tunnel-on-the-apps-own-origin)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `@sentry/nuxt` | `@sentry/nuxt@^11.10.0` | reshaped | the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn |
+
+## [The packaged UI reads its faces, lines and shadows from tokens](https://nuxt-backend.dev/docs/ship/releases/upgrade#the-packaged-ui-reads-its-faces-lines-and-shadows-from-tokens)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `[data-auth='form'], [data-pricing='table'], [data-admin]` | `[data-backend]` | reshaped | the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root |
+
 ## [One way to do each thing](https://nuxt-backend.dev/docs/ship/releases/upgrade#one-way-to-do-each-thing)
 
 | Was | Now | Change | Note |

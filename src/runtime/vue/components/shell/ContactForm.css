@@ -26,12 +26,17 @@
 
   :where([data-contact='form']) :where(input, textarea) {
     padding: 0.5rem 0.65rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     background: var(--bk-surface);
     color: var(--bk-ink);
     font: inherit;
     font-weight: 400;
+  }
+
+  /* A pill reads as one line: the message keeps the card corners. */
+  :where([data-contact='form']) :where(textarea) {
+    border-radius: var(--bk-radius);
   }
 
   :where([data-contact='form']) :where(input, textarea):focus-visible {
@@ -60,10 +65,12 @@
     align-self: flex-start;
     padding: 0.5rem 0.9rem;
     border: 0;
+    box-shadow: var(--bk-shadow-control);
     border-radius: var(--bk-radius-control);
     background: var(--bk-accent);
     color: var(--bk-on-accent);
     font: inherit;
+    font-family: var(--bk-font-control, var(--bk-font));
     font-weight: 600;
     cursor: pointer;
   }

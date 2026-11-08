@@ -4,6 +4,7 @@ import { metersCreate } from '@polar-sh/sdk/funcs/metersCreate.js'
 import { metersList } from '@polar-sh/sdk/funcs/metersList.js'
 import { benefitsCreate } from '@polar-sh/sdk/funcs/benefitsCreate.js'
 import { benefitsList } from '@polar-sh/sdk/funcs/benefitsList.js'
+import { checkoutLinksList } from '@polar-sh/sdk/funcs/checkoutLinksList.js'
 import { customFieldsCreate } from '@polar-sh/sdk/funcs/customFieldsCreate.js'
 import { customFieldsList } from '@polar-sh/sdk/funcs/customFieldsList.js'
 import { organizationsListOrganizations } from '@polar-sh/sdk/funcs/organizationsListOrganizations.js'
@@ -23,6 +24,7 @@ vi.mock('@polar-sh/sdk/funcs/metersCreate.js', () => ({ metersCreate: vi.fn() })
 vi.mock('@polar-sh/sdk/funcs/metersList.js', () => ({ metersList: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/benefitsCreate.js', () => ({ benefitsCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/benefitsList.js', () => ({ benefitsList: vi.fn() }))
+vi.mock('@polar-sh/sdk/funcs/checkoutLinksList.js', () => ({ checkoutLinksList: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customFieldsCreate.js', () => ({ customFieldsCreate: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/customFieldsList.js', () => ({ customFieldsList: vi.fn() }))
 vi.mock('@polar-sh/sdk/funcs/organizationsListOrganizations.js', () => ({ organizationsListOrganizations: vi.fn() }))
@@ -57,6 +59,7 @@ beforeEach(() => {
   vi.mocked(benefitsList).mockResolvedValue(emptyPage as never)
   vi.mocked(customFieldsList).mockResolvedValue(emptyPage as never)
   vi.mocked(productsList).mockResolvedValue(emptyPage as never)
+  vi.mocked(checkoutLinksList).mockResolvedValue(emptyPage as never)
   vi.mocked(webhooksListWebhookEndpoints).mockResolvedValue(emptyPage as never)
 })
 
@@ -686,6 +689,7 @@ const healthyState: BillingOrganizationState = {
   memberModel: true,
   membersReadable: true,
   productByKey: { 'credits500': { visibility: 'public', prices: { usd: 2000 }, benefits: 1 }, 'credits500-gift': { visibility: 'private', prices: { usd: 2000 }, benefits: 0 } },
+  checkoutLinks: [],
 }
 
 const statusOf = (findings: Array<{ id: string, status: string }>, id: string) => findings.find(finding => finding.id === id)?.status
@@ -715,7 +719,38 @@ describe('readBillingOrganizationState', () => {
       memberModel: true,
       membersReadable: true,
       productByKey: {},
+      checkoutLinks: [],
     })
+  })
+
+  it('reads the provider\'s checkout links that sell a managed product, by catalog key', async () => {
+    vi.mocked(organizationsListOrganizations).mockResolvedValue(page([organizationPayload]) as never)
+    vi.mocked(membersListMembers).mockResolvedValue(emptyPage as never)
+    vi.mocked(productsList).mockResolvedValue(page([
+      { id: 'p_pro', visibility: 'public', benefits: [], prices: [], metadata: { managedBy: 'nuxt-backend', key: 'pro', interval: 'month' } },
+      { id: 'p_pro_year', visibility: 'public', benefits: [], prices: [], metadata: { managedBy: 'nuxt-backend', key: 'pro', interval: 'year' } },
+    ]) as never)
+    vi.mocked(checkoutLinksList).mockResolvedValue(page([
+      { id: 'cl_1', label: 'Launch tweet', metadata: {}, products: [{ id: 'p_pro' }, { id: 'p_pro_year' }, { id: 'p_unmanaged' }] },
+      { id: 'cl_2', label: null, metadata: {}, products: [{ id: 'p_pro', isArchived: true }] },
+      { id: 'cl_3', label: 'Consulting', metadata: {}, products: [{ id: 'p_unmanaged' }] },
+    ]) as never)
+
+    const state = await readBillingOrganizationState({ accessToken: 'tok', environment: 'sandbox' }, fakeClient)
+
+    // A link selling only archived or unmanaged products sells nothing of the catalog.
+    expect(state?.checkoutLinks).toEqual([{ label: 'Launch tweet', keys: ['pro', 'pro:year'] }])
+  })
+
+  it('leaves the checkout links out when the token may not read them, and reads the rest', async () => {
+    vi.mocked(organizationsListOrganizations).mockResolvedValue(page([organizationPayload]) as never)
+    vi.mocked(membersListMembers).mockResolvedValue(emptyPage as never)
+    vi.mocked(checkoutLinksList).mockResolvedValue({ ok: false, error: { statusCode: 403 } } as never)
+
+    const state = await readBillingOrganizationState({ accessToken: 'tok', environment: 'sandbox' }, fakeClient)
+
+    expect(state).toMatchObject({ slug: 'acme', membersReadable: true })
+    expect(state).not.toHaveProperty('checkoutLinks')
   })
 
   it('reads which of the customer emails billing leans on the organization turned off', async () => {
@@ -814,9 +849,20 @@ describe('collectBillingFindings', () => {
       'billing-portal',
       'billing-customer-emails',
       'billing-team-customers',
+      'billing-checkout-links',
       'billing-gift-twins',
       'billing-feature-benefits',
     ])
+  })
+
+  it('warns about catalog products the provider sells through its own checkout links, and skips links it can\'t read', () => {
+    const linked = collectBillingFindings(catalog, { ...healthyState, checkoutLinks: [{ label: 'Launch tweet', keys: ['pro'] }, { label: null, keys: ['credits500'] }] }, { tokenPresent: true })
+    const found = linked.find(entry => entry.id === 'billing-checkout-links')
+    expect(found).toMatchObject({ status: 'warn' })
+    expect(found?.message).toContain('"Launch tweet" (pro); an unlabelled link (credits500)')
+
+    const { checkoutLinks: _unread, ...unreadable } = healthyState
+    expect(collectBillingFindings(catalog, unreadable, { tokenPresent: true }).some(entry => entry.id === 'billing-checkout-links')).toBe(false)
   })
 
   it.each([

@@ -126,6 +126,7 @@ provideAccountDataView({ labels, context, id, typed, mismatched, link })
 <template>
   <div
     v-if="auth.isImpersonating.value"
+    data-backend
     data-account="root"
   >
     <p data-account="refused">
@@ -134,6 +135,7 @@ provideAccountDataView({ labels, context, id, typed, mismatched, link })
   </div>
   <div
     v-else
+    data-backend
     data-account="root"
     :aria-busy="pending !== null || account.isLoading.value ? 'true' : undefined"
   >

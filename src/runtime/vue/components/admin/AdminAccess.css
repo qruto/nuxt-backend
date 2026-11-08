@@ -43,7 +43,7 @@
 
   [data-admin='access-secret'] {
     padding: 0.35rem 0.6rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     overflow-wrap: anywhere;
   }
