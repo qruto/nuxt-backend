@@ -421,22 +421,28 @@ export const served = query({
   },
 })
 
-/**
- * Whether a file is ready to serve: claimed, checked and not released. It
- * reads the URL clock too: `signedUrl` asks it before it signs, so a live
- * query that signs a URL runs again each time the clock ticks.
- */
+/** Whether a file is ready to serve: claimed, checked and not released. */
 export const isReady = query({
   args: { storageId: v.string() },
   returns: v.boolean(),
   handler: async (ctx, { storageId: id }) => {
-    await ctx.db.query('urlClock').first()
     const record = await recordById(ctx, id)
     return record?.status === 'ready'
   },
 })
 
-/** Move the URL clock (its cron, every half hour): every live query that signed a URL runs again. */
+/**
+ * When the URL clock last ticked, `null` before its first tick: what a
+ * short signed URL's expiry counts from. A live query that signs one reads
+ * it, so it runs again on each tick.
+ */
+export const urlClock = query({
+  args: {},
+  returns: v.union(v.number(), v.null()),
+  handler: async ctx => (await ctx.db.query('urlClock').first())?.tickedAt ?? null,
+})
+
+/** Move the URL clock (its cron, every half hour): every live query that signed a short URL runs again. */
 export const tickUrlClock = internalMutation({
   args: {},
   returns: v.null(),
@@ -451,7 +457,8 @@ export const tickUrlClock = internalMutation({
 /**
  * When a file goes: `at` (epoch ms), after which the component's
  * maintenance deletes it with its record and gives its bytes back to the
- * quota; `null` keeps it again. Returns whether the id names a kept file.
+ * quota; `null` keeps it again. A time already past, the epoch or before
+ * included, is due at the next run. Returns whether the id names a kept file.
  */
 export const expire = mutation({
   args: { storageId: v.string(), at: v.union(v.number(), v.null()) },
@@ -459,7 +466,8 @@ export const expire = mutation({
   handler: async (ctx, { storageId: id, at }) => {
     const record = await recordById(ctx, id)
     if (!record) return false
-    await ctx.db.patch('files', record._id, { expiresAt: at ?? undefined })
+    // The prune reads the index above 0, so a time at or before the epoch is kept as its first millisecond.
+    await ctx.db.patch('files', record._id, { expiresAt: at === null ? undefined : Math.max(at, 1) })
     return true
   },
 })

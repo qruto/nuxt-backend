@@ -99,6 +99,13 @@ describe('defineBackendTestApp', () => {
     expect(values.AUTH_SECRET!.length).toBeGreaterThanOrEqual(32)
   })
 
+  test('a variable stubbed to undefined stays unset, and unstubAllEnvs puts the default back', async () => {
+    vi.stubEnv('SITE_URL', undefined)
+    expect((await testApp().query(envRef, {})).SITE_URL).toBeUndefined()
+    vi.unstubAllEnvs()
+    expect((await testApp().query(envRef, {})).SITE_URL).toBe('https://app.test')
+  })
+
   test('registers a component the app mounts under a name of its own', async () => {
     const t = testApp()
     const generation = (componentsGeneric() as unknown as { generation: { workflow: { list: FunctionReference<'query', 'internal'> } } }).generation
@@ -138,6 +145,15 @@ describe('upload, drain and stubStorageFetch', () => {
       await t.upload('not a photo', { type: 'text/plain' }),
     ]
     expect(new Set(ids).size).toBe(3)
+  })
+
+  test('upload sends a Node Buffer\'s own bytes, not the pool it is a window on', async () => {
+    const t = testApp()
+    const buffer = Buffer.from(btoa(String.fromCharCode(...TEST_PNG)), 'base64')
+    expect(buffer.buffer.byteLength).toBeGreaterThan(buffer.byteLength)
+    const fileId = await t.upload(buffer)
+    const stored = await t.action(components.backend.storage.bytes as unknown as FunctionReference<'action', 'internal'>, { storageId: fileId }) as ArrayBuffer
+    expect(new Uint8Array(stored)).toEqual(TEST_PNG)
   })
 
   test('stubStorageFetch refuses any other request, unless network answers it, and puts fetch back', async () => {
@@ -185,6 +201,11 @@ describe('seedBilling and seedCredits', () => {
     expect(customer?.id).toMatch(/^cus_test_/)
     await seedCredits(t, ada.workspaceId!, 'meter_coins', 3)
     expect((await t.query(getByUser, { userId: ada.workspaceId! }))?.customerId).toBe(customer?.id)
+    // Seeded again, the entity is still the same customer, in both caches.
+    await seedBilling(t, ada.workspaceId!, { customer: true, products: ['prod_pro'] })
+    expect((await t.query(getByUser, { userId: ada.workspaceId! }))?.customerId).toBe(customer?.id)
+    await seedBilling(t, ada.workspaceId!, { customer: customer!.id })
+    await expect(seedBilling(t, ada.workspaceId!, { customer: 'cus_other' })).rejects.toThrow(/one customer/)
   })
 })
 

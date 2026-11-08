@@ -21,11 +21,19 @@ export const UNCLAIMED_FILE_MS = 24 * 60 * 60 * 1000
 export const SIGNED_URL_TTL_MS = 60 * 60 * 1000
 
 /**
- * How often the component's URL clock ticks: every query that signs a URL
- * reads it, so a live page runs its query again and holds fresh URLs. A
- * URL that works for an hour or more is replaced well before it expires.
+ * How often the component's URL clock ticks. A query that signs a URL
+ * working for less than {@link SIGNED_URL_CLOCK_MAX_MS} reads it, so a live
+ * page runs its query again on each tick. The URL it answers changes only
+ * when its expiry moves to the next step (see {@link signedUrlExpiry}), so a
+ * tick in between answers the same URL and the browser's cache holds.
  */
 export const SIGNED_URL_REFRESH_MS = 30 * 60 * 1000
+
+/**
+ * Signed URLs working this long or longer do not read the URL clock: a page
+ * holds one for less than its life (a share page's 7-day preview card).
+ */
+export const SIGNED_URL_CLOCK_MAX_MS = 24 * 60 * 60 * 1000
 
 /** The longest a signed URL works: seven days. */
 export const SIGNED_URL_TTL_MAX_MS = 7 * 24 * 60 * 60 * 1000
@@ -416,12 +424,39 @@ export async function verifyFileUrl(secret: string, storageId: string, expires: 
   return difference === 0
 }
 
+/** A signed URL's life: `ttl` clamped to {@link SIGNED_URL_TTL_MAX_MS}, an hour when it is not a positive number. */
+function signedUrlSpan(ttl: number | undefined): number {
+  return ttl !== undefined && Number.isFinite(ttl) && ttl > 0 ? Math.min(ttl, SIGNED_URL_TTL_MAX_MS) : SIGNED_URL_TTL_MS
+}
+
+/** Whether a signed URL working `ttl` reads the URL clock: one shorter than {@link SIGNED_URL_CLOCK_MAX_MS}. */
+export function readsUrlClock(ttl?: number): boolean {
+  return signedUrlSpan(ttl) < SIGNED_URL_CLOCK_MAX_MS
+}
+
+const HOUR_MS = 60 * 60 * 1000
+
 /**
- * When a signed URL minted now for `ttl` expires: `ttl` clamped to
- * {@link SIGNED_URL_TTL_MAX_MS}, rounded up to the minute so the same
- * query read twice in a minute answers the same URL.
+ * When a signed URL working `ttl` (clamped to {@link SIGNED_URL_TTL_MAX_MS})
+ * expires, on a grid, so the same query run again answers the same URL and
+ * the browser's cache of the file holds.
+ *
+ * A URL shorter than {@link SIGNED_URL_CLOCK_MAX_MS} counts from the URL
+ * clock's last tick (`tickedAt`), not from now: between two ticks every
+ * run answers the same URL. Its expiry is rounded up to a step of half its
+ * life (at least one tick), so it works for `ttl` at least and half as long
+ * again at most, and changes once a step: every tick for an hour, every
+ * sixth tick for six hours. With no tick yet, or one older than two
+ * intervals (no cron), it counts from the current half hour.
+ *
+ * A longer URL counts from now, rounded down to the hour: it works for
+ * `ttl` at most and an hour less at least.
  */
-export function signedUrlExpiry(now: number, ttl: number = SIGNED_URL_TTL_MS): number {
-  const span = Number.isFinite(ttl) && ttl > 0 ? Math.min(ttl, SIGNED_URL_TTL_MAX_MS) : SIGNED_URL_TTL_MS
-  return Math.ceil((now + span) / 60_000) * 60_000
+export function signedUrlExpiry(now: number, ttl?: number, tickedAt?: number | null): number {
+  const span = signedUrlSpan(ttl)
+  if (span >= SIGNED_URL_CLOCK_MAX_MS) return Math.floor((now + span) / HOUR_MS) * HOUR_MS
+  const fresh = tickedAt != null && tickedAt <= now && now - tickedAt < 2 * SIGNED_URL_REFRESH_MS
+  const base = fresh ? tickedAt : Math.floor(now / SIGNED_URL_REFRESH_MS) * SIGNED_URL_REFRESH_MS
+  const step = Math.max(SIGNED_URL_REFRESH_MS, Math.floor(span / 2 / SIGNED_URL_REFRESH_MS) * SIGNED_URL_REFRESH_MS)
+  return Math.ceil((base + span) / step) * step
 }

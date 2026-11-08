@@ -6202,6 +6202,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         string | null,
         Name
       >;
+      urlClock: FunctionReference<"query", "internal", {}, number | null, Name>;
     };
     subscriptions: {
       confirmConsent: FunctionReference<

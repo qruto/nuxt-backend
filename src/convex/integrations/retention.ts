@@ -230,6 +230,8 @@ export function defineRetention<
  * `backend/crons.ts`: one cron each, named after the rule's `fn`. Pass the
  * rules' module (`import * as retention from './retention'`) or an object
  * of rules; anything else in it, and a rule with no `schedule`, is left out.
+ * A rule it schedules needs no cron of yours: one under another name is a
+ * second cron, and the rule runs twice.
  *
  * @guarantee Each rule runs on its own `schedule`, under its `fn` as the cron's name: renaming a rule renames its cron.
  *

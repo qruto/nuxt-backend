@@ -26,6 +26,7 @@ import {
   isRasterImage,
   SIGNED_URL_PATH,
   SIGNED_URL_TTL_MAX_MS,
+  readsUrlClock,
   signedUrlExpiry,
   signFileUrl,
   sniffContentType,
@@ -119,7 +120,12 @@ export type ShareMutationCtx<DM extends GenericDataModel> = GenericMutationCtx<D
 
 /** What `onEnable` learns about the link it follows. */
 export interface EnabledShareLink {
-  /** The link, as `enableShareLink` returns it to the caller. */
+  /**
+   * The link, as `enableShareLink` returns it to the caller: a bearer
+   * secret, opening the row to anyone who holds it. Hand it on (an email
+   * to the author, say), never store or log it: the package keeps only its
+   * hash, so a copy in a table or a log is what would leak it.
+   */
   url: string
   /** Whether it replaced a live link, which stopped working. */
   rotated: boolean
@@ -137,6 +143,7 @@ export interface ShareableOptions<DM extends GenericDataModel, T extends TableNa
    * Runs in `enableShareLink`'s mutation once the link is on, a new one
    * replacing an earlier one included: record an event, tick off a
    * checklist step, stamp the row. A throw rolls the link back with it.
+   * `link.url` is the live secret: never store or log it.
    */
   onEnable?: (ctx: ShareMutationCtx<DM>, row: DocumentByName<DM, T>, link: EnabledShareLink) => void | Promise<void>
 }
@@ -203,15 +210,19 @@ export interface Storage<DM extends GenericDataModel = GenericDataModel> {
   fileUrl: (ctx: StorageReadCtx, storageId: string) => Promise<string | null>
   /**
    * An expiring URL on the deployment's routes: `ttl` ms, an hour by default,
-   * seven days at most; `null` for a file that is gone or still checked. A
-   * live query that signs one runs again every half hour, so its page holds
-   * fresh URLs: with a `ttl` of an hour or more, never an expired one.
+   * seven days at most; `null` for a file that is gone or still checked.
+   * Under a day, a live query that signs one runs again every half hour, so
+   * its page holds fresh URLs (with a `ttl` of an hour or more, never an
+   * expired one), and the URL changes only once a step of half its `ttl`:
+   * it works for `ttl` at least and half as long again at most, and a run
+   * in between answers the same URL, so the browser's cache holds.
    */
   signedUrl: (ctx: StorageReadCtx, storageId: string, options?: { ttl?: number }) => Promise<string | null>
   /**
    * When a file goes: past `at` (epoch ms, or a `Date`), the component's
    * maintenance deletes it within the hour, with its record, and gives its
-   * bytes back to the quota; `null` keeps it again. Returns whether the id
+   * bytes back to the quota; `null` keeps it again. A time already past
+   * (the epoch included) is due at the next run. Returns whether the id
    * names a kept file. It checks no owner: pass an id read from your own row.
    */
   expire: (ctx: StorageWriteCtx, storageId: string | null | undefined, at: number | Date | null) => Promise<boolean>
@@ -253,6 +264,7 @@ interface StorageRefs {
     url: FunctionReference<'query', 'internal', { storageId: string, userId?: string }, string | null>
     served: FunctionReference<'query', 'internal', { storageId: string }, { url: string, contentType: string, size: number } | null>
     isReady: FunctionReference<'query', 'internal', { storageId: string }, boolean>
+    urlClock: FunctionReference<'query', 'internal', Record<string, never>, number | null>
     getShare: FunctionReference<'query', 'internal', { table: string, rowId: string }, { sharedAt: number, sharedBy: string } | null>
     enableShare: FunctionReference<'mutation', 'internal', { table: string, rowId: string, tokenHash: string, userId: string }, { sharedAt: number, sharedBy: string }>
     revokeShare: FunctionReference<'mutation', 'internal', { table: string, rowId: string }, boolean>
@@ -452,7 +464,8 @@ export function setupStorage<DM extends GenericDataModel = GenericDataModel>(com
 
   const signedUrl: Storage<DM>['signedUrl'] = async (ctx, storageId, { ttl } = {}) => {
     if (!storageId || !await ctx.runQuery(refs.storage.isReady, { storageId })) return null
-    const expires = signedUrlExpiry(now(), ttl)
+    const tickedAt = readsUrlClock(ttl) ? await ctx.runQuery(refs.storage.urlClock, {}) : null
+    const expires = signedUrlExpiry(now(), ttl, tickedAt)
     const signature = await signFileUrl(urlSecret(), storageId, expires)
     return `${siteOrigin()}${SIGNED_URL_PATH}${encodeURIComponent(storageId)}?expires=${expires}&signature=${signature}`
   }

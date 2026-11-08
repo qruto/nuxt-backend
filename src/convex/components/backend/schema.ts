@@ -1166,9 +1166,10 @@ export const storageTables = {
   })
     .index('key', ['key']),
   /**
-   * The URL clock: one row its cron moves every half hour. Every query that
-   * signs a file's URL reads it, so a live query runs again and its page
-   * holds fresh URLs before the old ones expire.
+   * The URL clock: one row its cron moves every half hour. A query that
+   * signs a URL shorter than a day reads it and counts the expiry from it,
+   * so a live query runs again and its page holds fresh URLs before the old
+   * ones expire, and answers the same URL between steps.
    */
   urlClock: defineTable({
     tickedAt: v.number(),

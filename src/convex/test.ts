@@ -30,7 +30,11 @@ const testKitModule = {
   }),
 }
 
-/** A component's test helper, as `@convex-dev/<name>/test` exports it. */
+/**
+ * A component's test helper, as `@convex-dev/<name>/test` exports it.
+ *
+ * @experimental
+ */
 export type ComponentTestKit = { register: (t: TestConvex<AnySchema>, name?: string) => unknown }
 
 /**
@@ -103,12 +107,15 @@ export function register<Schema extends AnySchema>(
  * them.
  * Call it once per test, so no test sees another's rows.
  *
- * The environment a deployment holds is set when the test file does not
- * set it: `AUTH_SECRET` (signed file URLs, share links and invite codes
+ * The environment a deployment holds is set once, when
+ * `defineBackendTestApp` runs, for each variable the test file has not set
+ * by then: `AUTH_SECRET` (signed file URLs, share links and invite codes
  * are keyed with it), `SITE_URL` (`https://app.test`, the origin of a
  * share link) and `CONVEX_SITE_URL` (`https://convex.test`, the origin of
  * a signed file URL and the issuer `asUser` signs with). A test's
- * `vi.stubEnv` wins over them.
+ * `vi.stubEnv` changes them as it changes any variable:
+ * `vi.stubEnv('SITE_URL', undefined)` unsets it for the instances made
+ * after it, and `vi.unstubAllEnvs()` puts these values back.
  *
  * A component your app mounts a second time under a name of its own (a
  * `workflow` mounted as `generation`, say) goes in `mounts`, with its
@@ -145,12 +152,13 @@ export function defineBackendTestApp<Schema extends AnySchema>(
 ): () => BackendTestApp<Schema> {
   // Every `provider/model` id answers with the AI SDK's mock, with no key.
   installTestModels()
+  // Once, here: a later `vi.stubEnv(name, undefined)` really unsets one.
+  setDeploymentEnv()
   const mounts = Object.entries(options.mounts ?? {})
   for (const [mount, kit] of mounts) {
     if (typeof kit?.register !== 'function') throw new TypeError(`[nuxt-backend] defineBackendTestApp: mounts.${mount} is a component's test helper, the default export of its \`/test\` entry (\`import workflow from '@convex-dev/workflow/test'\`).`)
   }
   return () => {
-    setDeploymentEnv()
     const t = convexTest(appSchema, appModules as Record<string, () => Promise<never>>) as unknown as TestConvex<Schema>
     supportMutationStorage()
     register(t)
@@ -171,7 +179,11 @@ export function defineBackendTestApp<Schema extends AnySchema>(
   }
 }
 
-/** The options of {@link defineBackendTestApp}. */
+/**
+ * The options of {@link defineBackendTestApp}.
+ *
+ * @experimental
+ */
 export interface BackendTestAppOptions {
   /**
    * Components your app mounts under a name of its own, beside the ones the
@@ -181,16 +193,29 @@ export interface BackendTestAppOptions {
   mounts?: Record<string, ComponentTestKit>
 }
 
-/** A file {@link upload} sends: bytes, a `Blob` (its type kept), or text. */
+/**
+ * A file {@link upload} sends: bytes (a Node `Buffer` included), a `Blob`
+ * (its type kept), or text.
+ *
+ * @experimental
+ */
 export type TestFile = Uint8Array | ArrayBuffer | Blob | string
 
-/** How {@link upload} sends a file. */
+/**
+ * How {@link upload} sends a file.
+ *
+ * @experimental
+ */
 export interface TestUploadOptions {
   /** The type the browser would send with it. Default: the `Blob`'s own, else none. The package's checks read the type from the bytes anyway. */
   type?: string
 }
 
-/** Your app under test, from {@link defineBackendTestApp}: the convex-test instance, and `upload`. */
+/**
+ * Your app under test, from {@link defineBackendTestApp}: the convex-test instance, and `upload`.
+ *
+ * @experimental
+ */
 export type BackendTestApp<Schema extends AnySchema = AnySchema> = TestConvex<Schema> & {
   /**
    * Send a file into the `backend` component's storage, claimed by nobody,
@@ -209,14 +234,18 @@ const DEPLOYMENT_ENV = {
   CONVEX_SITE_URL: 'https://convex.test',
 } as const
 
-/** Set each deployment variable the test file left unset. */
+/** Set each deployment variable the test file left unset, in `process.env` as the functions read it. */
 function setDeploymentEnv(): void {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
   if (!env) return
   for (const [key, value] of Object.entries(DEPLOYMENT_ENV)) env[key] ??= value
 }
 
-/** A valid 2 × 2 PNG: what the storage check sniffs, strips and serves. */
+/**
+ * A valid 2 × 2 PNG: what the storage check sniffs, strips and serves.
+ *
+ * @experimental
+ */
 export const TEST_PNG: Uint8Array<ArrayBuffer> = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAE0lEQVR4nGN4Eq4nKy3GAMRAFgAZigNvRWdDygAAAABJRU5ErkJggg=='), char => char.charCodeAt(0))
 
 /** The test kit's upload, by mount name, through the generic component refs. */
@@ -248,7 +277,10 @@ export async function upload<Schema extends AnySchema>(
     ? await file.arrayBuffer()
     : typeof file === 'string'
       ? new TextEncoder().encode(file).buffer as ArrayBuffer
-      : file instanceof ArrayBuffer ? file : file.slice().buffer as ArrayBuffer
+      : file instanceof ArrayBuffer
+        ? file
+        // A view's own bytes only: a small Node `Buffer` is a window on a shared 8 KB pool.
+        : file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength) as ArrayBuffer
   return t.action(uploadRef(name), { bytes, ...(type ? { type } : {}) })
 }
 
@@ -322,10 +354,18 @@ function supportMutationStorage(): void {
   }
 }
 
-/** Where convex-test's `ctx.storage.getUrl` points: a deployment that does not exist. */
+/**
+ * Where convex-test's `ctx.storage.getUrl` points: a deployment that does not exist.
+ *
+ * @experimental
+ */
 export const TEST_STORAGE_URL = 'https://some-deployment.convex.cloud/api/storage/'
 
-/** How {@link stubStorageFetch} answers. */
+/**
+ * How {@link stubStorageFetch} answers.
+ *
+ * @experimental
+ */
 export interface StubStorageFetchOptions {
   /**
    * What answers a request that is not for a stored file. Default: none, so
@@ -372,7 +412,11 @@ export function stubStorageFetch(options: StubStorageFetchOptions = {}): () => v
   }
 }
 
-/** The fake timers {@link drain} steps: Vitest's `vi` after `vi.useFakeTimers()`. */
+/**
+ * The fake timers {@link drain} steps: Vitest's `vi` after `vi.useFakeTimers()`.
+ *
+ * @experimental
+ */
 export interface TestTimers {
   getTimerCount: () => number
   advanceTimersToNextTimer: () => unknown
@@ -412,7 +456,11 @@ export async function drain<Schema extends AnySchema>(t: TestConvex<Schema>, tim
   throw new Error(`[nuxt-backend] drain: the scheduled functions still scheduled more after ${maxSteps} timers. A function that schedules itself forever never drains.`)
 }
 
-/** An entity's billing state, as a sync from the provider leaves it, for {@link seedBilling}. */
+/**
+ * An entity's billing state, as a sync from the provider leaves it, for {@link seedBilling}.
+ *
+ * @experimental
+ */
 export interface TestBilling {
   /** The provider's product ids the entity holds. Default none. */
   products?: string[]
@@ -421,9 +469,11 @@ export interface TestBilling {
   /** The balance of each meter, by the provider's meter id. Default none. */
   credits?: Record<string, number>
   /**
-   * The provider's customer the entity is: an id, or `true` for a fresh
-   * one. Default none, as before a first checkout, so nothing reaches the
-   * provider. A customer is what a charge, a refund or the portal calls.
+   * The provider's customer the entity is: an id, or `true` for its
+   * customer (a fresh one the first time, the same one after). Default
+   * none, as before a first checkout, so nothing reaches the provider. A
+   * customer is what a charge, a refund or the portal calls. An entity has
+   * one customer: a second, different id throws.
    */
   customer?: string | true
 }
@@ -436,8 +486,25 @@ type BillingRefs = {
   }
 }
 
-/** The billing provider component's customer insert, as the app mounts it at `polar`. */
-type ProviderRefs = { lib: { insertCustomer: FunctionReference<'mutation', 'internal', { id: string, userId: string }, string> } }
+/** The billing provider component's customer functions, as the app mounts it at `polar`. */
+type ProviderRefs = {
+  lib: {
+    insertCustomer: FunctionReference<'mutation', 'internal', { id: string, userId: string }, string>
+    getCustomerByUserId: FunctionReference<'query', 'internal', { userId: string }, { id: string } | null>
+  }
+}
+
+/** The entity's customer at the provider: the one it has, a fresh one for `true`, or the id given. */
+async function seedCustomer<Schema extends AnySchema>(t: TestConvex<Schema>, entityId: string, customer: string | true): Promise<string> {
+  const provider = (componentsGeneric() as unknown as { polar?: ProviderRefs }).polar
+  if (!provider) throw new TypeError('[nuxt-backend] seedBilling: a customer is kept by the billing provider\'s component, mounted at `polar`. Build the instance with defineBackendTestApp.')
+  const existing = await t.query(provider.lib.getCustomerByUserId, { userId: entityId })
+  if (existing && customer !== true && existing.id !== customer) throw new TypeError(`[nuxt-backend] seedBilling: ${entityId} is already the provider's customer ${existing.id}, not ${customer}. An entity has one customer.`)
+  if (existing) return existing.id
+  const customerId = customer === true ? `cus_test_${++created}` : customer
+  await t.mutation(provider.lib.insertCustomer, { id: customerId, userId: entityId })
+  return customerId
+}
 
 /**
  * Give a billing entity the plans, features and credits a sync from the
@@ -462,12 +529,7 @@ type ProviderRefs = { lib: { insertCustomer: FunctionReference<'mutation', 'inte
  */
 export async function seedBilling<Schema extends AnySchema>(t: TestConvex<Schema>, entityId: string, billing: TestBilling = {}, name: string = 'backend'): Promise<void> {
   const refs = (componentsGeneric() as unknown as Record<string, BillingRefs>)[name]!
-  const customerId = billing.customer === true ? `cus_test_${++created}` : billing.customer
-  if (customerId) {
-    const provider = (componentsGeneric() as unknown as { polar?: ProviderRefs }).polar
-    if (!provider) throw new TypeError('[nuxt-backend] seedBilling: a customer is kept by the billing provider\'s component, mounted at `polar`. Build the instance with defineBackendTestApp.')
-    await t.mutation(provider.lib.insertCustomer, { id: customerId, userId: entityId })
-  }
+  const customerId = billing.customer ? await seedCustomer(t, entityId, billing.customer) : undefined
   await t.mutation(refs.billing.upsert, {
     userId: entityId,
     ...(customerId ? { customerId } : {}),
