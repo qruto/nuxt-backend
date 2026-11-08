@@ -214,7 +214,7 @@ nuxt-backend status · dev:happy-otter-123 (cloud dev deployment)
     ⚠ Billing access: BILLING_ACCESS_TOKEN is not set (optional): billing queries return empty and checkout actions fail on invocation.
 ◐ email         test       Resend: BACKEND_ENVIRONMENT is development: only the provider's test addresses receive mail
 ◐ notifications test       Web Push: runs on the cloud dev deployment
-○ ai            missing    AI SDK, Vercel AI Gateway, Convex persistent text streaming, Polar: its credits need billing: BILLING_ACCESS_TOKEN is not set
+○ ai            missing    AI SDK, Convex AI Gateway, Vercel AI Gateway, Convex persistent text streaming, Polar: its credits need billing: BILLING_ACCESS_TOKEN is not set
 ◐ protection    test       Vercel BotID, Cloudflare Turnstile: test mode: the dev server's bot check answers human, as BotID does in development
 ◐ monitoring    test       Sentry: no DSN is set, so errors go to the dev server's local error log (DevTools › Monitoring)
     unset: MONITORING_DSN

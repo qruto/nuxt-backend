@@ -102,13 +102,14 @@ export function emailMode(context: CapabilityContext): CapabilityDetection {
 /**
  * The models, when they decide the ai capability's state: missing once doctor
  * found the backend naming models the deployment cannot reach; `null` when
- * the models are as real as the billing they spend.
+ * the models are as real as the billing they spend. A key that is set
+ * decides nothing alone: `setupAi({ gateway: 'convex' })` never reads it.
  */
 export function modelMode(context: CapabilityContext): CapabilityDetection | null {
-  if (isSet(context, 'AI_GATEWAY_API_KEY')) return null
-  const key = context.findings.find(finding => finding.id === 'deployment-ai-gateway-api-key')
-  if (key?.status === 'warn' || key?.status === 'fail') return { state: 'missing', reason: `its models are refused: ${unsetReason(context, ['AI_GATEWAY_API_KEY'])}` }
-  return null
+  const route = context.findings.find(finding => finding.id === 'deployment-ai-gateway-api-key')
+  if (route?.status !== 'warn' && route?.status !== 'fail') return null
+  const why = isSet(context, 'AI_GATEWAY_API_KEY') ? 'no gateway in setupAi({ gateway }) can serve this deployment' : unsetReason(context, ['AI_GATEWAY_API_KEY'])
+  return { state: 'missing', reason: `its models are refused: ${why}` }
 }
 
 /**

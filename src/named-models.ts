@@ -60,6 +60,34 @@ export function pinnedRegion(rootDir: string): string | undefined {
   return undefined
 }
 
+/** A gateway `setupAi({ gateway })` may name. */
+export type NamedGateway = 'convex' | 'vercel'
+
+/**
+ * `setupAi({ gateway: 'vercel' })` or `gateway: ['vercel', 'convex']`, as a
+ * literal. The object `providerOptions: { gateway: { … } }` takes is never
+ * one: it starts with a brace.
+ */
+const GATEWAY_ORDER = /\bgateway\s*:\s*(?:(['"`])(convex|vercel)\1|\[([^\]]*)\])/
+/** What a list of gateways holds: quoted names, and commas between them. */
+const GATEWAY_LIST = /^\s*(?:(['"`])(?:convex|vercel)\1\s*(?:,\s*)?)+$/
+const GATEWAY_NAME = /['"`](convex|vercel)['"`]/g
+
+/**
+ * The gateways the backend in `rootDir` sends its model ids through, in
+ * order, when it names them as a literal; `undefined` when it names none or
+ * builds the order at run time, read as the default order.
+ */
+export function chosenGateways(rootDir: string): NamedGateway[] | undefined {
+  for (const code of backendSources(rootDir)) {
+    const match = GATEWAY_ORDER.exec(code.replace(STRINGS_AND_COMMENTS, token => token.startsWith('/') ? '' : token))
+    if (!match || (match[3] !== undefined && !GATEWAY_LIST.test(match[3]))) continue
+    const names = match[2] ? [match[2]] : [...match[3]!.matchAll(GATEWAY_NAME)].map(([, name]) => name!)
+    return [...new Set(names as NamedGateway[])]
+  }
+  return undefined
+}
+
 /** `setupAi({ provenance })` turned on (anything but `false`), or a `ctx.storeImage(…)` call. */
 const PROVENANCE_ON = /\bprovenance\s*:(?!\s*(?:false|undefined)\b)|\.storeImage\s*\(/
 

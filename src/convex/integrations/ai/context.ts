@@ -3,7 +3,7 @@ import { PersistentTextStreaming } from '@convex-dev/persistent-text-streaming'
 import type { Billing } from '../billing.js'
 import type { AiComponents, AiRateLimiter, MeteredStreamConfig, SetupAiConfig } from './config.js'
 import { costRecorder, type RecordCost } from './costs.js'
-import { requireModelId } from './models.js'
+import { type ModelRouting, requireModelId, routingOf } from './models.js'
 import { createModeration, type Moderation } from './moderation.js'
 import { backendEnvironment } from '../../delivery.js'
 import { backendError } from '../../errors.js'
@@ -46,6 +46,8 @@ export interface AiContext {
   moderation: Moderation
   /** Record what a run's model calls cost, against who made it: the Costs tab and the AI spend alert read it. */
   recordCost: RecordCost
+  /** The gateways a `provider/model` id goes through, in order, and the region its calls are pinned to (`setupAi`'s `gateway` and `inferenceRegion`). */
+  routing: ModelRouting
 }
 
 /** Each `setupAi` instance's context, for the job queue built on it (`defineJobQueue({ ai })`). */
@@ -67,6 +69,7 @@ export function createAiContext(components: AiComponents, config: SetupAiConfig)
   if (config.inferenceRegion !== undefined && config.inferenceRegion !== 'eu') {
     throw new Error(`[nuxt-backend] setupAi({ inferenceRegion }): '${String(config.inferenceRegion)}' is no region the gateway pins; use 'eu'.`)
   }
+  const routing = routingOf(config)
   const usdPerDay = config.spendLimit?.usdPerDay
   if (config.spendLimit !== undefined && !(typeof usdPerDay === 'number' && Number.isFinite(usdPerDay) && usdPerDay > 0)) {
     throw new TypeError(`[nuxt-backend] setupAi({ spendLimit }): \`usdPerDay\` is the most the app may spend on AI in a UTC day, in US dollars above 0, not ${String(usdPerDay)}.`)
@@ -78,7 +81,7 @@ export function createAiContext(components: AiComponents, config: SetupAiConfig)
   // The component's storage, where an upload not yet claimed waits for the check.
   const storage = (components.backend as unknown as { storage?: Parameters<typeof createModeration>[1] }).storage
   const recordCost = costRecorder(components.backend.costs, usdPerDay)
-  const moderation = createModeration(config, storage, recordCost)
+  const moderation = createModeration({ moderation: config.moderation, routing }, storage, recordCost)
 
   const paused = pauseCheck(components.backend)
   const refuseAi: AiContext['refuseAi'] = async (ctx) => {
@@ -89,5 +92,5 @@ export function createAiContext(components: AiComponents, config: SetupAiConfig)
     await refusePaused(paused, ctx, 'ai')
   }
 
-  return { config, billing, rateLimiter, pts, requests, cache, paused, refuseAi, corsOrigin, streamTimeout, streamRegistry, moderation, recordCost }
+  return { config, billing, rateLimiter, pts, requests, cache, paused, refuseAi, corsOrigin, streamTimeout, streamRegistry, moderation, recordCost, routing }
 }

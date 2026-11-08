@@ -595,6 +595,7 @@
         "AiCosts",
         "AiCreditsConfig",
         "AiEmbeddingModel",
+        "AiGateway",
         "AiGuestConfig",
         "AiModel",
         "AiRateLimiter",

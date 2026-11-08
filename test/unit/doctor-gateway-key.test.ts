@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runDoctorChecks } from '../../src/doctor'
 import { CAPABILITIES, capabilityStatus } from '../../src/capabilities'
 import { MODEL_ID, NAMED_MODEL } from '../../src/convex/integrations/ai/model-id'
-import { modelIdsIn, namedModels } from '../../src/named-models'
+import { chosenGateways, modelIdsIn, namedModels } from '../../src/named-models'
 
 // The gateway key is needed once the backend names a `provider/model` id, and
 // only then: doctor reads the ids from the backend's source and reports the
@@ -190,6 +190,80 @@ describe('doctor\'s model route on Convex Cloud, with the Convex AI Gateway\'s p
     expect(found.status).toBe('warn')
     expect(found.message).not.toContain('Convex AI Gateway')
   })
+
+  describe('with the order setupAi({ gateway }) names', () => {
+    /** A backend whose setupAi names `gateway` as written. */
+    const withGateway = (gateway: string, extra = '') => ({ ...NAMES_A_MODEL, 'ai.ts': `export const ai = setupAi(components, { billing, model: 'openai/gpt-5-mini', gateway: ${gateway}${extra} })\n` })
+
+    it('reads the order from a literal, and nothing else', () => {
+      app({ deployment: 'dev:happy-otter-123', backend: withGateway(`'vercel'`) })
+      expect(chosenGateways(rootDir)).toEqual(['vercel'])
+      app({ deployment: 'dev:happy-otter-123', backend: withGateway(`['vercel', "convex", 'vercel']`) })
+      expect(chosenGateways(rootDir)).toEqual(['vercel', 'convex'])
+      for (const code of [
+        `generateText({ model, providerOptions: { gateway: { order: ['vertex'] } } })`,
+        `setupAi(components, { billing, gateway: process.env.AI_ROUTE })`,
+        `// setupAi(components, { billing, gateway: 'vercel' })`,
+      ]) {
+        app({ deployment: 'dev:happy-otter-123', backend: { 'ai.ts': `${code}\n` } })
+        expect(chosenGateways(rootDir)).toBeUndefined()
+      }
+    })
+
+    it('needs the key for the Vercel AI Gateway alone, even on a plan with the Convex one', async () => {
+      app({ deployment: 'dev:happy-otter-123', backend: withGateway(`'vercel'`) })
+      installProvider()
+      const found = await keyFinding()
+      expect(found.status).toBe('warn')
+      expect(found.message).toContain('through the Vercel AI Gateway alone')
+      expect(found.message).not.toContain('go through the Convex AI Gateway')
+      expect((await keyFinding({ prod: true })).status).toBe('fail')
+      deployed.names = 'AUTH_SECRET\nSITE_URL\nAI_GATEWAY_API_KEY\n'
+      expect(await keyFinding()).toMatchObject({ status: 'pass', message: expect.stringContaining('setupAi({ gateway: \'vercel\' })') })
+    })
+
+    it('passes the Convex AI Gateway alone on Convex Cloud, and names a key it never reads', async () => {
+      deployed.names = 'AUTH_SECRET\nSITE_URL\nAI_GATEWAY_API_KEY\n'
+      app({ deployment: 'dev:happy-otter-123', backend: withGateway(`'convex'`) })
+      installProvider()
+      const found = await keyFinding({ prod: true })
+      expect(found.status).toBe('pass')
+      expect(found.message).toContain('through the Convex AI Gateway alone')
+      expect(found.message).toContain('no other gateway is tried')
+      expect(found.message).toContain('AI_GATEWAY_API_KEY is set on the deployment and never read')
+    })
+
+    it('warns for the Convex AI Gateway alone without its provider, or on a self-hosted deployment', async () => {
+      app({ deployment: 'dev:happy-otter-123', backend: withGateway(`'convex'`) })
+      const unprovided = await keyFinding()
+      expect(unprovided.status).toBe('warn')
+      expect(unprovided.fixHint).toContain('pnpm add @convex-dev/ai-sdk-provider')
+      writeFileSync(join(rootDir, '.env.local'), 'CONVEX_SELF_HOSTED_URL=https://convex.example.com\n')
+      installProvider()
+      const selfHosted = await keyFinding()
+      expect(selfHosted.status).toBe('warn')
+      expect(selfHosted.message).toContain('a self-hosted deployment never has')
+      expect(selfHosted.fixHint).toContain('Add \'vercel\' to setupAi({ gateway })')
+    })
+
+    it('takes the Vercel AI Gateway first with the key, and the Convex one without it', async () => {
+      app({ deployment: 'dev:happy-otter-123', backend: withGateway(`['vercel', 'convex']`) })
+      installProvider()
+      const unkeyed = await keyFinding()
+      expect(unkeyed.status).toBe('pass')
+      expect(unkeyed.message).toContain('go through the Convex AI Gateway, next in setupAi({ gateway })')
+      deployed.names = 'AUTH_SECRET\nSITE_URL\nAI_GATEWAY_API_KEY\n'
+      expect(await keyFinding()).toMatchObject({ status: 'pass', message: expect.stringContaining('first in setupAi({ gateway })') })
+    })
+
+    it('warns when a region pin comes with an order that has no Vercel AI Gateway', async () => {
+      app({ deployment: 'dev:happy-otter-123', backend: withGateway(`'convex'`, `, inferenceRegion: 'eu'`) })
+      installProvider()
+      const found = await keyFinding()
+      expect(found.status).toBe('warn')
+      expect(found.message).toContain('the push fails')
+    })
+  })
 })
 
 describe('the ai capability and its models', () => {
@@ -199,6 +273,13 @@ describe('the ai capability and its models', () => {
     app({ deployment: 'dev:happy-otter-123', backend: NAMES_A_MODEL })
     const detected = CAPABILITIES.ai.detect({ ...context, findings: [await keyFinding()] })
     expect(detected).toEqual({ state: 'missing', reason: 'its models are refused: AI_GATEWAY_API_KEY is not set' })
+  })
+
+  it('is missing when the order cannot serve the deployment, though the key is set', async () => {
+    deployed.names = 'AUTH_SECRET\nSITE_URL\nAI_GATEWAY_API_KEY\n'
+    app({ deployment: 'dev:happy-otter-123', backend: { ...NAMES_A_MODEL, 'ai.ts': `export const ai = setupAi(components, { billing, model: 'openai/gpt-5-mini', gateway: 'convex' })\n` } })
+    const keyed = { ...context, deployed: new Set(['BILLING_ACCESS_TOKEN', 'AI_GATEWAY_API_KEY']) }
+    expect(CAPABILITIES.ai.detect({ ...keyed, findings: [await keyFinding()] })).toEqual({ state: 'missing', reason: 'its models are refused: no gateway in setupAi({ gateway }) can serve this deployment' })
   })
 
   it('is test on a local deployment while no finding says its models are refused: billing decides', () => {

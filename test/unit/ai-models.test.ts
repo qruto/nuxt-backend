@@ -6,7 +6,8 @@ import { MockLanguageModelV4 } from 'ai/test'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setupAi, type AiComponents } from '../../src/convex/integrations/ai'
 import type { Billing, SpendReservation } from '../../src/convex/integrations/billing'
-import { convexGatewayPossible, failedRun, modelRefusal, modelStatusOf, reportedUsd, routeModel, type ModelCall } from '../../src/convex/integrations/ai/models'
+import { convexGatewayPossible, failedRun, modelRefusal, modelStatusOf, reportedUsd, routeModel, routingOf, TEST_EMBEDDING_MODELS, TEST_MODELS, type ModelCall } from '../../src/convex/integrations/ai/models'
+import { embeddingReachable } from '../../src/convex/integrations/ai/embeddings'
 import { priceModelCalls } from '../../src/convex/integrations/ai/pricing'
 import { TEST_IMAGE_PNG, TEST_MODEL_USD, TEST_UNSAFE_MARKER, testModel } from '../../src/convex/test-models'
 import { getBackendError } from '../../src/convex/errors'
@@ -420,9 +421,11 @@ describe('a call pinned to the EU (setupAi({ inferenceRegion: \'eu\' }))', () =>
 
   it('never tries the Convex AI Gateway, even on Convex Cloud with its provider installed', () => {
     const env = { CONVEX_CLOUD_URL: CLOUD, AI_GATEWAY_API_KEY: 'k' }
-    expect(routeModel('anthropic/claude-sonnet-4.5', env, 'eu')).toEqual({ route: 'gateway', id: 'anthropic/claude-sonnet-4.5', apiKey: 'k' })
-    expect(modelStatusOf('anthropic/claude-sonnet-4.5', env, 'eu')).toEqual({ model: 'anthropic/claude-sonnet-4.5', state: 'live', route: 'vercel-gateway' })
-    expect(modelStatusOf('anthropic/claude-sonnet-4.5', { CONVEX_CLOUD_URL: CLOUD }, 'eu')).toEqual({ model: 'anthropic/claude-sonnet-4.5', state: 'missing', route: null })
+    const eu = routingOf({ inferenceRegion: 'eu' })
+    expect(routeModel('anthropic/claude-sonnet-4.5', env, eu)).toEqual({ route: 'gateway', id: 'anthropic/claude-sonnet-4.5', apiKey: 'k' })
+    expect(modelStatusOf('anthropic/claude-sonnet-4.5', env, eu)).toEqual({ model: 'anthropic/claude-sonnet-4.5', state: 'live', route: 'vercel-gateway' })
+    expect(modelStatusOf('anthropic/claude-sonnet-4.5', { CONVEX_CLOUD_URL: CLOUD }, eu)).toEqual({ model: 'anthropic/claude-sonnet-4.5', state: 'missing', route: null })
+    expect(routeModel('anthropic/claude-sonnet-4.5', { CONVEX_CLOUD_URL: CLOUD }, eu)).toEqual({ route: 'missing', id: 'anthropic/claude-sonnet-4.5', region: 'eu' })
   })
 
   it('refuses every call without the key, saying the pin needs the Vercel route', async () => {
@@ -588,6 +591,161 @@ describe('a metered call through the Convex AI Gateway', () => {
     expect(getBackendError(refusal)).toMatchObject({ code: 'unavailable', data: { service: 'ai', reason: 'provider_refused' } })
     expect(fetch).not.toHaveBeenCalled()
     expect(billing.releaseSpend).toHaveBeenCalled()
+  })
+})
+
+describe('choosing the gateway (setupAi({ gateway }))', () => {
+  const ID = 'openai/gpt-5-mini'
+  const keyed = (url?: string) => ({ AI_GATEWAY_API_KEY: 'k', ...(url ? { CONVEX_CLOUD_URL: url } : {}) })
+  const viaKey = { route: 'gateway', id: ID, apiKey: 'k' }
+
+  afterEach(() => {
+    convexGateway.token.mockReset().mockRejectedValue(new Error('AiGatewayUnavailable: this deployment cannot use the AI Gateway'))
+    convexGateway.models.length = 0
+  })
+
+  const summarize = (ai: ReturnType<typeof setupAi>) => ai.meteredAction({
+    meter: 'credits',
+    cost: { estimate: 50, creditsPerUsd: 1000 },
+    args: {},
+    handler: async ctx => (await generateText({ model: ctx.model(), prompt: 'Summarize' })).text,
+  })
+
+  /** The Vercel AI Gateway's answer, through a stubbed fetch. */
+  const vercelAnswers = () => {
+    const fetch = vi.fn(async () => Response.json({
+      content: [{ type: 'text', text: 'From the Vercel AI Gateway.' }],
+      finishReason: { unified: 'stop', raw: 'stop' },
+      usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } },
+      providerMetadata: { gateway: { cost: '0.001' } },
+      warnings: [],
+    }))
+    vi.stubGlobal('fetch', fetch)
+    return fetch
+  }
+
+  it('settles the order once: each gateway once, and a region narrowing it to the Vercel AI Gateway', () => {
+    expect(routingOf({})).toEqual({ gateways: ['convex', 'vercel'] })
+    expect(routingOf({ gateway: 'vercel' })).toEqual({ gateways: ['vercel'] })
+    expect(routingOf({ gateway: ['vercel', 'convex', 'vercel'] })).toEqual({ gateways: ['vercel', 'convex'] })
+    expect(routingOf({ inferenceRegion: 'eu' })).toEqual({ gateways: ['vercel'], region: 'eu' })
+    expect(routingOf({ gateway: ['convex', 'vercel'], inferenceRegion: 'eu' })).toEqual({ gateways: ['vercel'], region: 'eu' })
+  })
+
+  it('refuses an order it cannot follow, where setupAi is called', () => {
+    expect(() => setupAi(components, { billing: makeBilling(), gateway: [] })).toThrow(/name at least one gateway/)
+    expect(() => setupAi(components, { billing: makeBilling(), gateway: 'openrouter' as never })).toThrow(/'openrouter' is no gateway/)
+    expect(() => setupAi(components, { billing: makeBilling(), gateway: 'convex', inferenceRegion: 'eu' })).toThrow(/only the Vercel AI Gateway pins inference/)
+  })
+
+  it('takes the Convex AI Gateway alone: never the key, even where the deployment cannot have it', () => {
+    const convex = routingOf({ gateway: 'convex' })
+    const nowhere = { route: 'missing', id: ID, gateways: ['convex'] }
+    expect(routeModel(ID, keyed(CLOUD), convex)).toEqual({ route: 'convex', id: ID, fallback: nowhere })
+    for (const url of [SELF_HOSTED, undefined]) expect(routeModel(ID, keyed(url), convex)).toEqual(nowhere)
+    expect(modelStatusOf(ID, keyed(CLOUD), convex)).toEqual({ model: ID, state: 'live', route: 'convex-gateway' })
+    expect(modelStatusOf(ID, keyed(LOCAL), convex)).toEqual({ model: ID, state: 'missing', route: 'convex-gateway' })
+    expect(modelStatusOf(ID, keyed(SELF_HOSTED), convex)).toEqual({ model: ID, state: 'missing', route: null })
+  })
+
+  it('takes the Vercel AI Gateway alone: never the Convex one, even on Convex Cloud', () => {
+    const vercel = routingOf({ gateway: 'vercel' })
+    for (const url of [CLOUD, LOCAL, SELF_HOSTED]) expect(routeModel(ID, keyed(url), vercel)).toEqual(viaKey)
+    expect(routeModel(ID, { CONVEX_CLOUD_URL: CLOUD }, vercel)).toEqual({ route: 'missing', id: ID, gateways: ['vercel'] })
+    expect(modelStatusOf(ID, keyed(CLOUD), vercel)).toEqual({ model: ID, state: 'live', route: 'vercel-gateway' })
+    expect(modelStatusOf(ID, { CONVEX_CLOUD_URL: CLOUD }, vercel)).toEqual({ model: ID, state: 'missing', route: null })
+  })
+
+  it('takes the Vercel AI Gateway first where the key is set, and the Convex one where it is not', () => {
+    const order = routingOf({ gateway: ['vercel', 'convex'] })
+    expect(routeModel(ID, keyed(CLOUD), order)).toEqual(viaKey)
+    expect(routeModel(ID, { CONVEX_CLOUD_URL: CLOUD }, order)).toEqual({ route: 'convex', id: ID, fallback: { route: 'missing', id: ID, gateways: ['vercel', 'convex'] } })
+    expect(routeModel(ID, { CONVEX_CLOUD_URL: SELF_HOSTED }, order)).toEqual({ route: 'missing', id: ID, gateways: ['vercel', 'convex'] })
+  })
+
+  it('lets the model a test installed answer last, whatever the order', () => {
+    const globals = globalThis as Record<symbol, unknown>
+    const previous = globals[TEST_MODELS]
+    globals[TEST_MODELS] = testModel
+    try {
+      for (const gateway of ['convex', 'vercel', ['vercel', 'convex'], undefined] as const) {
+        const route = routeModel(ID, { CONVEX_CLOUD_URL: SELF_HOSTED }, routingOf({ gateway }))
+        expect(route).toMatchObject({ route: 'own', id: ID, double: true })
+      }
+    }
+    finally {
+      globals[TEST_MODELS] = previous
+    }
+  })
+
+  it('routes an embedding model by the same order', () => {
+    const embedding = 'openai/text-embedding-3-small'
+    expect(embeddingReachable(embedding, routingOf({ gateway: 'convex' }), keyed(CLOUD))).toBe(true)
+    expect(embeddingReachable(embedding, routingOf({ gateway: 'convex' }), keyed(SELF_HOSTED))).toBe(false)
+    expect(embeddingReachable(embedding, routingOf({ gateway: 'vercel' }), { CONVEX_CLOUD_URL: CLOUD })).toBe(false)
+    expect(embeddingReachable(embedding, routingOf({ gateway: 'vercel' }), keyed(SELF_HOSTED))).toBe(true)
+    const globals = globalThis as Record<symbol, unknown>
+    const previous = globals[TEST_EMBEDDING_MODELS]
+    globals[TEST_EMBEDDING_MODELS] = () => ({ modelId: embedding })
+    try {
+      expect(embeddingReachable(embedding, routingOf({ gateway: 'vercel' }), {})).toBe(true)
+    }
+    finally {
+      globals[TEST_EMBEDDING_MODELS] = previous
+    }
+  })
+
+  it('says, refusing a call, what the order allowed', () => {
+    expect(modelRefusal({ id: ID, gateways: ['convex'] }).message).toMatch(/cannot use .*setupAi\(\{ gateway: 'convex' \}\) names no other gateway.*add 'vercel'/)
+    expect(modelRefusal({ id: ID, gateways: ['convex'] }, 'AiGatewayDisabled: paid plans only').message).toMatch(/did not answer openai\/gpt-5-mini \(AiGatewayDisabled: paid plans only\), and setupAi\(\{ gateway: 'convex' \}\)/)
+    expect(modelRefusal({ id: ID, gateways: ['vercel'] }).message).toMatch(/through the Vercel AI Gateway \(setupAi\(\{ gateway: 'vercel' \}\)\), and AI_GATEWAY_API_KEY is not set/)
+    // The default order keeps its words.
+    expect(modelRefusal({ id: ID }).message).toBe(modelRefusal({ id: ID, gateways: ['convex', 'vercel'] }).message)
+    expect(modelRefusal({ id: ID }).message).toMatch(/needs AI_GATEWAY_API_KEY on this deployment, which cannot use the Convex AI Gateway/)
+  })
+
+  it('refuses a Convex-only call the plan has no gateway for, without reading the key', async () => {
+    vi.stubEnv('CONVEX_CLOUD_URL', CLOUD)
+    vi.stubEnv('AI_GATEWAY_API_KEY', 'gateway-key-for-tests')
+    convexGateway.token.mockRejectedValue(new Error('AiGatewayDisabled: the AI Gateway needs a paid plan'))
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const fetch = vercelAnswers()
+    const billing = makeBilling(50)
+
+    const refusal = await invoke(summarize(setupAi(components, { billing, model: ID, gateway: 'convex' })), signedIn(), {}).catch((error: unknown) => error)
+
+    expect(getBackendError(refusal)).toMatchObject({ code: 'unavailable', data: { service: 'ai', reason: 'not_configured' } })
+    expect(String((refusal as Error).message)).toMatch(/AiGatewayDisabled.*gateway: 'convex'/)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(billing.releaseSpend).toHaveBeenCalled()
+  })
+
+  it('calls the Vercel AI Gateway alone on a plan that has the Convex one, and never asks for its token', async () => {
+    vi.stubEnv('CONVEX_CLOUD_URL', CLOUD)
+    vi.stubEnv('AI_GATEWAY_API_KEY', 'gateway-key-for-tests')
+    convexGateway.token.mockResolvedValue('deployment-jwt')
+    const fetch = vercelAnswers()
+    const billing = makeBilling(50)
+
+    expect(await invoke(summarize(setupAi(components, { billing, model: ID, gateway: 'vercel' })), signedIn(), {})).toBe('From the Vercel AI Gateway.')
+    expect(fetch).toHaveBeenCalled()
+    expect(convexGateway.token).not.toHaveBeenCalled()
+    expect(convexGateway.models).toEqual([])
+    expect(settledAt(billing)).toBe(1)
+  })
+
+  it('calls the Convex AI Gateway when the Vercel one before it has no key', async () => {
+    vi.stubEnv('CONVEX_CLOUD_URL', CLOUD)
+    vi.stubEnv('AI_GATEWAY_API_KEY', '')
+    convexGateway.token.mockResolvedValue('deployment-jwt')
+    const fetch = vercelAnswers()
+    const billing = makeBilling(50)
+
+    expect(await invoke(summarize(setupAi(components, { billing, model: ID, gateway: ['vercel', 'convex'] })), signedIn(), {})).toBe('From the Convex AI Gateway.')
+    expect(fetch).not.toHaveBeenCalled()
+    expect(convexGateway.models).toEqual([ID])
+    expect(settledAt(billing)).toBe(4.2)
   })
 })
 

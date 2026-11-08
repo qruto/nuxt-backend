@@ -30,11 +30,16 @@ rules every change follows.
 - Name a model as a `provider/model` id (`model: 'openai/gpt-5-mini'`) on `setupAi` or the
   action, and call it with the AI SDK: `generateText({ model: ctx.model(), prompt })`. Install
   `ai` first (an optional peer). A model object from any AI SDK provider works too.
-- Ids go through the AI Gateway with `AI_GATEWAY_API_KEY` on the deployment (its own name; Convex
-  actions never get Vercel's keyless sign-in). Put it in `.env.local` and run `env push`.
+- Ids go through the gateways `setupAi({ gateway })` names, in order. The default is
+  `['convex', 'vercel']`: the Convex AI Gateway (a paid Convex plan, `@convex-dev/ai-sdk-provider`,
+  no key), then the Vercel AI Gateway with `AI_GATEWAY_API_KEY` on the deployment (its own name;
+  Convex actions never get Vercel's keyless sign-in: put it in `.env.local`, run `env push`).
+  `gateway: 'convex'` never reads the key, `'vercel'` never tries Convex, and
+  `['vercel', 'convex']` takes Vercel where the key is set. `inferenceRegion` needs `'vercel'`.
+  The next gateway answers only when one cannot serve the deployment, never past a spent limit.
 - `cost: { estimate, creditsPerUsd }` settles at the cost each call reports; `prices` covers a
   call that reports none, else the run settles at the reservation (`ai.cost_unreported`).
-- Without the key, and where the Convex AI Gateway does not answer, a call is refused with
+- When no gateway in the order answers, a call is refused with
   `unavailable` (`not_configured`), in development as in production. `ai.modelStatus()` says
   which route answers. Under Vitest, `defineBackendTestApp` answers every id with the AI SDK's
   mock, which repeats the prompt at a fixed cost.
@@ -60,7 +65,7 @@ thin: record or hand off.
 ## Tasks
 
 <!-- generated:tasks -->
-- [Choose a model](https://nuxt-backend.dev/docs/build/ai/models): Call any provider's model by its provider/model id through the Convex AI Gateway, or a Vercel AI Gateway key where Convex's is unavailable, pin inference to the EU, cap what the gateway may spend, set budgets per workspace, and charge each call at the cost it reports. Reach for `nuxt-backend/ai`.
+- [Choose a model](https://nuxt-backend.dev/docs/build/ai/models): Call any provider's model by its provider/model id through the Convex AI Gateway, a Vercel AI Gateway key, or both in the order you choose, pin inference to the EU, cap what the gateway may spend, set budgets per workspace, and charge each call at the cost it reports. Reach for `nuxt-backend/ai`.
 - [Meter an AI action](https://nuxt-backend.dev/docs/build/ai/metered-actions): Wrap a Convex action with ai.meteredAction so every call is rate-limited and paid for in prepaid credits: reserve, run, then settle, and a failed run costs nothing. Reach for `nuxt-backend/ai`.
 - [Stream a response](https://nuxt-backend.dev/docs/build/ai/streaming): Stream a metered answer to the page while it persists on the server: ai.stream on the backend, the /ai/stream endpoint, and useAiStream in Vue. Reload mid-stream and the text continues. Reach for `useAiStream()`.
 - [Give plans priority in the queue](https://nuxt-backend.dev/docs/build/ai/jobs/priority): Decide what each plan gets in the job queue: tiers named for plan features set a head start in minutes, how many jobs an owner runs at once, slots kept for paid plans and a daily credit budget, and a job that waits long enough still beats any newcomer for a shared slot.
