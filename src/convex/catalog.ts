@@ -91,7 +91,7 @@ export type CatalogTrial
     interval?: 'day' | 'week' | 'month'
     /** Number of intervals. Defaults to 1, or 14 days when `interval` is left out. */
     count?: number
-    /** A reverse trial on a plan pass, started for every new workspace (LIFECYCLE). */
+    /** A reverse trial on a plan pass, started for every new workspace. */
     pass: true
   }
 
@@ -245,7 +245,7 @@ export interface CatalogPlan {
   /**
    * Free trial before the first charge, on every interval. `billing sync`
    * pushes a change to it. `{ pass: true }` makes it a reverse trial: a
-   * pass every new workspace starts on, with no card (LIFECYCLE).
+   * pass every new workspace starts on, with no card.
    */
   trial?: CatalogTrial
   /**

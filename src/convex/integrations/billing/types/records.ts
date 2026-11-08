@@ -130,7 +130,7 @@ export interface CatalogPassIds {
   pass: string
   /** The private purchase product per gift length in months, keyed `'3'`. */
   months: Record<string, string>
-  /** Days of the reverse trial every new workspace starts on this pass for (LIFECYCLE). */
+  /** Days of the reverse trial every new workspace starts on this pass for. */
   trialDays?: number
 }
 
@@ -160,7 +160,7 @@ export interface BillingCatalogIds {
    * length in months (`months`, keyed `'3'`) and the one free pass product
    * that carries the plan's benefits (`pass`). Neither is sold on its own.
    * `trialDays` marks the plan whose trial is a reverse trial: every new
-   * workspace starts on its pass for that many days (LIFECYCLE).
+   * workspace starts on its pass for that many days.
    */
   passes?: Record<string, CatalogPassIds>
   /** Catalog key → credit meter config. */
@@ -360,7 +360,7 @@ export interface GiftRecord {
   passReturnScheduledAt?: number
   passNoticedAt?: number
   passEndedAt?: number
-  /** A reverse trial's pass (LIFECYCLE), which nobody bought: the workspace started on it. */
+  /** A reverse trial's pass, which nobody bought: the workspace started on it. */
   reverseTrial?: boolean
 }
 

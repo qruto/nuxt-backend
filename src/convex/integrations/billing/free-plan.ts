@@ -139,7 +139,7 @@ export function createFreePlan(
   const billedKind: CreatedEntityKind = billTo === 'user' ? 'user' : 'workspace'
   /**
    * What runs once an entity's very first subscription, its free plan,
-   * started: the reverse trial (LIFECYCLE) hooks in here. Never fails the
+   * started: the reverse trial hooks in here. Never fails the
    * start.
    */
   const hooks: {

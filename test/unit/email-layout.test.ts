@@ -206,4 +206,40 @@ describe('an email sequence', () => {
       expect.objectContaining({ subject: 'Day two', text: 'Again\n\n— Sent by acme.example.com' }),
     ])
   })
+
+  it('journals its steps under the names every earlier release journaled them under', async () => {
+    // The step names are a contract across releases, not within one: a
+    // sequence an app started before an upgrade replays on the new code at its
+    // next wake, and the workflow component refuses a step whose kind or name
+    // differs from its journal entry. Each wait is `email-sequence-wait-<index>`,
+    // each send is backend's `email.send`, journaled by name only
+    // (`unstableArgs`), as the test above replays. Renaming either strands every
+    // sequence that is running when the app upgrades.
+    let definition: { handler: (step: unknown, args: Record<string, unknown>) => Promise<void> } | undefined
+    const workflow = { define: (value: typeof definition) => (definition = value) } as never
+    defineEmailSequence(workflow, { backend: { email: { send: 'backend:email.send' } } }, {
+      args: {},
+      steps: [
+        { after: 0, email: () => ({ to: 'ada@example.com', subject: 'Day one', text: 'Hi' }) },
+        { after: 1000, email: () => ({ to: 'ada@example.com', subject: 'Day two', text: 'Again' }) },
+        { after: 2000, email: () => ({ to: 'ada@example.com', subject: 'Day three', text: 'Once more' }) },
+      ],
+    })
+    vi.stubEnv('SITE_URL', 'https://app.example.com')
+    const step = {
+      sleep: vi.fn(async (_ms: number, _options: { name: string }) => null),
+      runQuery: vi.fn(),
+      runMutation: vi.fn(async (_ref: string, _message: unknown, _options?: { unstableArgs?: boolean }) => null),
+    }
+    await definition!.handler(step, {})
+    expect(step.sleep.mock.calls).toEqual([
+      [1000, { name: 'email-sequence-wait-1' }],
+      [2000, { name: 'email-sequence-wait-2' }],
+    ])
+    expect(step.runMutation.mock.calls.map(([ref, , options]) => [ref, options])).toEqual([
+      ['backend:email.send', { unstableArgs: true }],
+      ['backend:email.send', { unstableArgs: true }],
+      ['backend:email.send', { unstableArgs: true }],
+    ])
+  })
 })

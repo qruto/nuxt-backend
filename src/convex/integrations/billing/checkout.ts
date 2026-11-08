@@ -279,7 +279,7 @@ export function createCheckout(
     const created = await checkoutsCreate(provider.polar, buildCheckoutPayload(options, userId, hasCode, trialUsed, openedBy))
     if (!created.ok && options.discountId && refusedDiscount(created.error)) return null
     const checkout = unwrapProvider(created, 'checkout')
-    // A renewing checkout's consent proof, kept as it is made (LIFECYCLE).
+    // A renewing checkout's consent proof, kept as it is made.
     await recordConsent(ctx, userId, checkout)
     return checkout
   }
@@ -359,7 +359,7 @@ export function createCheckout(
 
   /**
    * What a referral promised the person it brought, on their first paid
-   * checkout (REF): the discount the program named, locked on, or its trial
+   * checkout: the discount the program named, locked on, or its trial
    * days, kept on the referral as it was claimed. Only for the entity the
    * person pays for (their own, not a workspace someone else owns), and
    * only while the referral waits for their first payment; a discount that

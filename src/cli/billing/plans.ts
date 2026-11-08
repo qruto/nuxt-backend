@@ -48,7 +48,7 @@ export function refuseUnpricedPlans(catalog: BillingCatalog): void {
   for (const [key, plan] of Object.entries(catalog.plans ?? {})) {
     const line = legacyPlanLine(plan as unknown as LegacyPlan)
     if (line) {
-      throw new Error(`[nuxt-backend] billing sync: plans.${key} has \`interval\` and \`price\`, which became \`prices: { month, year }\` — write ${line} (the Upgrade page has the rest).`)
+      throw new Error(`[nuxt-backend] billing sync: plans.${key} has \`interval\` and \`price\`, which became \`prices: { month, year }\` — write ${line} (https://nuxt-backend.dev/docs/build/billing/catalog#declare has the rest).`)
     }
     if (pricedIntervals(plan).length === 0) {
       throw new Error(`[nuxt-backend] billing sync: plans.${key} has no price — give it \`prices: { month }\`, \`prices: { year }\` or both.`)

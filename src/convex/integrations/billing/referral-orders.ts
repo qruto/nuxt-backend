@@ -13,7 +13,7 @@ export interface ReferralOrder {
 }
 
 /**
- * Hand the referral program the orders it counts (REF): a paid order of the
+ * Hand the referral program the orders it counts: a paid order of the
  * person a referral brought starts its hold, and a refund of the order a
  * referral holds voids it. The program lives in the component's tables, so
  * the billing module needs no knowledge of the app's `setupReferrals`

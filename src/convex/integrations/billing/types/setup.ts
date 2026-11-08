@@ -21,7 +21,7 @@ import type {
   GiftTask,
 } from './records.js'
 
-/** A save offer's terms as the component keeps them (LIFECYCLE). */
+/** A save offer's terms as the component keeps them. */
 export interface SaveOfferTerms {
   kind: 'pause' | 'downgrade' | 'discount'
   months?: number
@@ -158,7 +158,7 @@ export interface BillingComponents {
         modifiedAt: number
       }>>
     }
-    /** The referral program (REF): what the first paid checkout and the order webhooks ask of it. Absent from a component built before it. */
+    /** The referral program: what the first paid checkout and the order webhooks ask of it. Absent from a component built before it. */
     referrals?: {
       offerFor: FunctionReference<'query', 'internal', { userId: string }, { id: string, discount?: string, trialDays?: number } | null>
       orderPaid: FunctionReference<'mutation', 'internal', { ownerId: string, entityId: string, orderId: string }, { id: string, holdUntil: number } | null>
@@ -208,7 +208,7 @@ export interface BillingComponents {
       registerSweep: FunctionReference<'mutation', 'internal', { wake: string }, null>
     }
     webhooks: WebhookLogRefs
-    /** The billing lifecycle's records (LIFECYCLE): save offers, consent proofs, once-marks and withdrawals. */
+    /** The billing lifecycle's records: save offers, consent proofs, once-marks and withdrawals. */
     subscriptions: {
       recordOffer: FunctionReference<'mutation', 'internal', { entityId: string, subscriptionId: string, reason: string, offer: SaveOfferTerms, since: number }, string | null>
       lastOffer: FunctionReference<'query', 'internal', { entityId: string, since: number }, number | null>
@@ -539,7 +539,7 @@ export interface SetupBillingConfig {
    */
   catalog?: Partial<Record<'sandbox' | 'production', BillingCatalogIds | undefined>>
   /**
-   * The billing lifecycle beyond the provider's own (LIFECYCLE): save offers
+   * The billing lifecycle beyond the provider's own: save offers
    * by cancellation reason for the cancel flow, the abandoned-checkout
    * hand-off, the annual renewal reminder for short cycles, and the EU
    * withdrawal button. Each is off until named.

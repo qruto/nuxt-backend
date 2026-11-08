@@ -358,12 +358,12 @@ const vGiftRow = v.object({
   passReturnScheduledAt: v.optional(v.number()),
   passNoticedAt: v.optional(v.number()),
   passEndedAt: v.optional(v.number()),
-  // A reverse trial (LIFECYCLE): the pass a new workspace started on,
+  // A reverse trial: the pass a new workspace started on,
   // with no purchaser (`status` 'trial'). `recipientEmail` holds its
   // owner's address with plus tags and dots taken out, so an address
   // starts one.
   reverseTrial: v.optional(v.boolean()),
-  // A referral reward (REF): the pass a referrer on the free plan got for
+  // A referral reward: the pass a referrer on the free plan got for
   // free months, with no purchaser (`status` 'reward'). `rewardId` is the
   // referral it came from; `recipientEmail` is empty.
   rewardId: v.optional(v.string()),
@@ -372,7 +372,7 @@ const vGiftRow = v.object({
 /** A gift as the component's reads return it: its id, without the claim and cancel holds or the reward it came from. */
 export const vGift = vGiftRow.omit('claimingUntil', 'cancelingUntil', 'passReturnFrom', 'rewardId').extend({ id: v.string() })
 
-/** A save offer's terms, as the cancel flow made it (LIFECYCLE). */
+/** A save offer's terms, as the cancel flow made it. */
 export const vSaveOfferTerms = v.object({
   kind: v.union(v.literal('pause'), v.literal('downgrade'), v.literal('discount')),
   months: v.optional(v.number()),
@@ -528,7 +528,7 @@ export const billingTables = {
     wake: v.string(),
     updatedAt: v.number(),
   }),
-  // The cancel flow's save offers (LIFECYCLE): one per cancellation, and
+  // The cancel flow's save offers: one per cancellation, and
   // one per billing entity in 12 months. The browser names an offer by its
   // id; the server finds what it made here, for that subscription, and
   // takes it once.

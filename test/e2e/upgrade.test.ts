@@ -12,8 +12,8 @@ import { prepareExampleApp, type PreparedExampleApp } from './helpers/example-ap
 // The upgrade fixture, built: the starter as it shipped at UPGRADE_BASE,
 // repaired by `doctor --fix`, must typecheck and build against this
 // checkout. test/unit/upgrade-fixture.test.ts asserts what the repair adds;
-// this proves the result is an app, once the one edit the Upgrade page
-// leaves to the reader is made (`billing.api` no longer has
+// this proves the result is an app, once the one edit the 0.2 Upgrade page
+// left to the reader is made (`billing.api` no longer has
 // `getWebhookDeliveries`: it lives in backend/webhooks.ts, which the repair
 // writes). In the e2e project because the build
 // takes about ten seconds.

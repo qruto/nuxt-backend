@@ -90,7 +90,7 @@ export { type BillingCatalog, type CatalogCreditGrant, type CatalogCurrencyPrice
 export { ALL_BILLING_EVENTS } from './billing/events.js'
 export type { BillingLaunch, BillingLaunchReason } from '../billing-launch.js'
 
-// The referral program (REF), set up in its own backend file beside billing.
+// The referral program, set up in its own backend file beside billing.
 export { setupReferrals } from './referrals.js'
 export type { ClaimRefusal, DueReferral, ReferralCodeView, ReferralComponents, ReferralRefs, ReferralConsole, ReferralConsoleRow, ReferralConsoleRows, ReferralEntry, ReferralPreview, ReferralProgram, Referrals, ReferralsApi, ReferralsView, ReferredOffer, ReferrerOffer, SetupReferralsOptions, StoredTerms } from './referrals.js'
 export type { ReferralCaps, ReferralRewards, ReferralState, ReferralTerms, ReferredReward, ReferrerReward } from '../referral-rules.js'
