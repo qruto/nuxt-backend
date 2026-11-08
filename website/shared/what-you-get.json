@@ -235,6 +235,10 @@
           "to": "/docs/reference/api/use-sessions"
         },
         {
+          "name": "useSignInAlerts",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useReauthentication",
           "to": "/docs/reference/api/use-reauthentication"
         },
@@ -1298,6 +1302,30 @@
         {
           "name": "<AiLabel>",
           "to": "/docs/reference/components/shell#ailabel"
+        },
+        {
+          "name": "<LegalProcessors>",
+          "to": "/docs/reference/components/shell#legalprocessors"
+        },
+        {
+          "name": "<LegalStorage>",
+          "to": "/docs/reference/components/shell#legalstorage"
+        },
+        {
+          "name": "<LegalDetail>",
+          "to": "/docs/reference/components/shell#legaldetail"
+        },
+        {
+          "name": "<LegalVersion>",
+          "to": "/docs/reference/components/shell#legalversion"
+        },
+        {
+          "name": "<LegalContactPoints>",
+          "to": "/docs/reference/components/shell#legalcontactpoints"
+        },
+        {
+          "name": "<LegalModeration>",
+          "to": "/docs/reference/components/shell#legalmoderation"
         }
       ]
     },
@@ -1346,6 +1374,35 @@
       ]
     },
     {
+      "kind": "Components",
+      "items": [
+        {
+          "name": "<LegalProcessors>",
+          "to": "/docs/reference/components/shell#legalprocessors"
+        },
+        {
+          "name": "<LegalStorage>",
+          "to": "/docs/reference/components/shell#legalstorage"
+        },
+        {
+          "name": "<LegalDetail>",
+          "to": "/docs/reference/components/shell#legaldetail"
+        },
+        {
+          "name": "<LegalVersion>",
+          "to": "/docs/reference/components/shell#legalversion"
+        },
+        {
+          "name": "<LegalContactPoints>",
+          "to": "/docs/reference/components/shell#legalcontactpoints"
+        },
+        {
+          "name": "<LegalModeration>",
+          "to": "/docs/reference/components/shell#legalmoderation"
+        }
+      ]
+    },
+    {
       "kind": "Composables",
       "items": [
         {
@@ -1355,6 +1412,10 @@
         {
           "name": "useFlagAdmin",
           "to": "/docs/reference/api/use-flags"
+        },
+        {
+          "name": "useReportForm",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
           "name": "useExperiment",
@@ -1424,9 +1485,9 @@
       "kind": "Components",
       "items": [
         {
-          "name": "33 in all",
+          "name": "39 in all",
           "to": "/docs/reference/components",
-          "label": "33 components in all"
+          "label": "39 components in all"
         }
       ]
     },
@@ -1434,9 +1495,9 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "61 in all",
+          "name": "63 in all",
           "to": "/docs/reference/nuxt/composables",
-          "label": "61 composables in all"
+          "label": "63 composables in all"
         }
       ]
     },
@@ -1776,6 +1837,10 @@
           "to": "/docs/reference/api/use-sessions"
         },
         {
+          "name": "useSignInAlerts",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useReauthentication",
           "to": "/docs/reference/api/use-reauthentication"
         },
@@ -1865,6 +1930,10 @@
         },
         {
           "name": "useContactForm",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useReportForm",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
@@ -2075,6 +2144,30 @@
         {
           "name": "<AiLabel>",
           "to": "/docs/reference/components/shell#ailabel"
+        },
+        {
+          "name": "<LegalProcessors>",
+          "to": "/docs/reference/components/shell#legalprocessors"
+        },
+        {
+          "name": "<LegalStorage>",
+          "to": "/docs/reference/components/shell#legalstorage"
+        },
+        {
+          "name": "<LegalDetail>",
+          "to": "/docs/reference/components/shell#legaldetail"
+        },
+        {
+          "name": "<LegalVersion>",
+          "to": "/docs/reference/components/shell#legalversion"
+        },
+        {
+          "name": "<LegalContactPoints>",
+          "to": "/docs/reference/components/shell#legalcontactpoints"
+        },
+        {
+          "name": "<LegalModeration>",
+          "to": "/docs/reference/components/shell#legalmoderation"
         }
       ]
     },

@@ -3,7 +3,8 @@ import type { LabelTree } from '../label-format.js'
 /**
  * The `/report` page: the public notice form (DSA Art. 16, with the TAKE IT
  * DOWN Act's intimate-image removal request), and the author's appeal
- * against a decision on the same page.
+ * against a decision on the same page; and `content`, the words of a
+ * signed-in person's report beside the thing itself (`useReportForm`).
  */
 const REPORT_LABELS = {
   page: {
@@ -36,6 +37,14 @@ const REPORT_LABELS = {
   sending: 'Sending…',
   sent: 'Thanks. We received your report and will email you our decision.',
   sentAnonymous: 'Thanks. We received your report.',
+  // A signed-in person's report of one thing (`useReportForm`), beside the thing: the reasons above, details optional.
+  content: {
+    reason: 'Why are you reporting it?',
+    details: 'Anything else? (optional)',
+    sent: 'Thanks. A person on our team will look at it.',
+    // The honeypot's name, which assistive technology never reads: the field is hidden from it.
+    trap: 'Leave this field empty',
+  },
   appeal: {
     title: 'Appeal a decision',
     checking: 'Checking the link…',

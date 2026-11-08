@@ -32,6 +32,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useReferralAdmin()` | The admin console's Referrals tab, as data: the program's totals, the top referrers, the flagged queue and one referrer's history, through `backend/referrals.ts`, and the decision an administrator makes on a flagged referral. |
 | `usePasskeys()` | Passkey management over the auth client — list, register, rename, remove. |
 | `useSessions()` | Device-session management: list, revoke one, revoke the rest. |
+| `useSignInAlerts()` | What an account shows around its sign-ins, without the markup: the latest sign-ins from a device it had not used before, and with its recovery code (the ones the person is also emailed about), each with its device and time, and a button that signs that session out while it is still signed in and is not this browser's. |
 | `useReauthentication()` | Asking the person to confirm it is them before a sensitive action: the client half of `requireRecentSignIn` and of the routes that take a recent sign-in. |
 | `useAuditLog()` | The activity trail, a page at a time: the signed-in account's own (sign-ins, passkeys, email and session changes, workspaces joined, an administrator's actions on it), the active workspace's for its owners and admins, or every event for administrators. |
 | `useAccount()` | The account itself: its profile, its export and its deletion. |
@@ -55,6 +56,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useAnnouncements()` | The announcements an administrator published that the signed-in person has not dismissed, live: what `<BackendNotices>`' `announcement` notice shows. |
 | `useAnnouncementsAdmin()` | The admin console's Announcements tab, as data: every announcement with its notice and its broadcast, and the changes an administrator makes, through `backend/email.ts`. |
 | `useContactForm()` | The contact form without its markup: a name and an address for a visitor, the message alone for a signed-in account (so the same form on a page behind sign-in is a feedback form), the bot check, a honeypot, and the deployment's refusals. |
+| `useReportForm()` | A report about content of the app's, without its markup. |
 | `useOnboarding()` | The first run at `/welcome` without its markup: the steps in order, where the person is, moving between them, and the stamp that ends it. |
 | `useActivation()` | The activation checklist without its markup: the first tasks `defineActivation` declares, which of them are done, the progress, and dismissing it. |
 | `useExperiment()` | The variant of an experiment, a `defineFlags` flag with `variants`, for whoever is looking. |
@@ -114,6 +116,12 @@ types, auto-imported too: `AsyncQueryData`, `AsyncQueryOptions`, `AsyncQueryRetu
 | `<ContactForm>` | A contact form for visitors, and a feedback form for signed-in people: the same component. |
 | `<AppShell>` | The frame of a signed-in app, for your layout: a header with your brand and links, the workspace switcher, the notification bell and the account menu, then the app-wide notices, then your page in the `<main>` landmark, with the consent dialog and the connection status closing it. |
 | `<AiLabel>` | The visible "AI-generated" label the EU AI Act (Art. 50) asks for, beside an image or a text a model made. |
+| `<LegalProcessors>` | The processors an app on the package hands personal data to, as a table: who, what each handles, where, and its agreement. |
+| `<LegalStorage>` | Every cookie and storage key the package writes for the capabilities the app uses, then the app's own (`appConfig.backend.legal.storage`), as a table: its name, where it lives, what it is for, how long it lasts, and whether it waits for the person's permission. |
+| `<LegalDetail>` | One of the company details `appConfig.backend.legal` holds, inside a sentence of yours: the company, its address and phone, the contact, the data protection officer, the registration number, the share capital, the VAT line, the publication director, the host or the consumer mediator. |
+| `<LegalVersion>` | The version of one of your documents, as `setupAccount({ consents })` declares it in `backend/account.ts`: the version the consent ledger records when someone agrees, so the page and the record never disagree. |
+| `<LegalContactPoints>` | The single points of contact the EU Digital Services Act asks every host to name: one for the authorities of the member states, the Commission and the Board (Art. 11), one for the people who use the app (Art. 12, `legal.contact` unless you name another), and the languages you answer in, from `appConfig.backend.legal.contactPoints`. |
+| `<LegalModeration>` | How content is moderated, as the EU Digital Services Act asks a host's terms to say (Art. 14): a person on your team decides every report, every notice and every appeal, through the admin console's Reports tab; and the automated tools that check content (`appConfig.backend.legal.moderation`), each with what it checks and whether its verdict takes effect on its own or waits for a person. |
 
 The base module's, under neutral names: `<Authenticated>`, `<Unauthenticated>`, `<AuthLoading>`, `<AuthRefreshing>`, `<AuthBoundary>`, `<StorageImage>`.
 
@@ -155,7 +163,7 @@ The base module's, under neutral names: `<Authenticated>`, `<Unauthenticated>`, 
 |---|---|
 | `default` | The Nuxt module: list `'nuxt-backend'` in `modules`. |
 
-Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDeniedReason`, `PageAccessRules`, `AdminTabMeta`, `ModuleRedirectsOptions`, `ModuleOptions`.
+Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDeniedReason`, `PageAccessRules`, `AdminTabMeta`, `InstallableOptions`, `ModuleRedirectsOptions`, `ModuleOptions`.
 
 ### `nuxt-backend/auth`
 

@@ -32,7 +32,7 @@ import { backendPathsOf, pathOption, pathsSourceOf } from './paths-file'
 import { pathsFileFinding } from './paths-sync'
 import { appBrandOf } from './brand-file'
 import { brandFileFinding } from './brand-sync'
-import { installableFinding } from './installable'
+import { installableFinding, type InstallableOptions } from './installable'
 import type { BillingCatalog } from './convex/catalog'
 import { collectBillingFindings, loadCatalog, readBillingOrganizationState } from './cli/billing'
 import { productionCatalogFindings, providerSdkFindings } from './cli/billing/doctor'
@@ -76,7 +76,7 @@ async function readDeployment(rootDir: string, options: { prod: boolean, reachab
 
 /** What doctor reads of the app's nuxt.config: the module's pages, and whether it serves docs for agents. */
 interface AppConfig {
-  backend?: { pages?: ModulePagesOptions, authRoute?: string }
+  backend?: { pages?: ModulePagesOptions, authRoute?: string, installable?: InstallableOptions | false }
   /** nuxt-llms' options: set when the app (or a layer it extends, such as Docus) serves `llms.txt`. */
   llms?: unknown
   modules?: unknown[]
@@ -110,7 +110,7 @@ async function generatedFileFindings(rootDir: string, appConfig: () => Promise<A
   return [codegenFinding(rootDir), ...pathsFileFinding(rootDir, await loadedBackendOptions(appConfig)), ...brandFileFinding(rootDir, await appBrandOf(await appConfig() as never))]
 }
 
-/** The installable app's check, from nuxt.config's public directory and modules and app.config's brand; nothing when nuxt.config does not load. */
+/** The installable app's check, from nuxt.config's public directory, modules and `installable` option and app.config's brand; nothing when nuxt.config does not load. */
 async function installableFindings(rootDir: string, appConfig: () => Promise<AppConfig | null>, { wanted, pushKeys }: { wanted: boolean, pushKeys: boolean }): Promise<PreflightFinding[]> {
   const config = wanted ? await appConfig() : null
   if (!config) return []
@@ -119,7 +119,9 @@ async function installableFindings(rootDir: string, appConfig: () => Promise<App
     return typeof name === 'string' ? [name] : []
   })
   const publicDir = join(rootDir, (config as { dir?: { public?: string } }).dir?.public ?? 'public')
-  return installableFinding(publicDir, await appBrandOf(config as never), { modules, pushKeys })
+  const options = (pathsSourceOf(config) as { installable?: InstallableOptions | false }).installable
+  const links = (config as { app?: { head?: { link?: unknown[] } } }).app?.head?.link ?? []
+  return installableFinding(publicDir, await appBrandOf(config as never), { modules, pushKeys, options, links })
 }
 
 /** Whether the app serves docs for agents: nuxt-llms is configured, or listed as a module. */
