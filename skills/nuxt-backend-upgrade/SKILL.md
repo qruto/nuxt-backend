@@ -1,6 +1,6 @@
 ---
 name: nuxt-backend-upgrade
-description: Upgrading a Nuxt app to a new version of nuxt-backend, including from a preview build of main to 0.2. The steps in order (install, nuxt-backend upgrade to repair the scaffold and migrate the data, refresh the agent files and skills, read the changelog, type check), and the rename map, every composable, component, factory, option, type and constant the previews of main renamed, reshaped or removed, each with what replaces it and the Upgrade page section that explains it. Use when bumping nuxt-backend, when code written for an earlier version fails on a name that no longer exists, or when doctor or the type check reports what an upgrade changed. Read the nuxt-backend core skill first.
+description: Upgrading a Nuxt app to a new version of nuxt-backend, or from a preview build of main to 0.2. The steps in order (install, nuxt-backend upgrade to repair the scaffold and migrate the data, refresh the agent files and skills, read the changelog, type check), and the rename map, every composable, component, factory, option, type and constant a release renamed, reshaped or removed, each with what replaces it and the Upgrade page section that explains it. Use when bumping nuxt-backend, when code written for an earlier version fails on a name that no longer exists, or when doctor or the type check reports what an upgrade changed. Read the nuxt-backend core skill first.
 ---
 
 # nuxt-backend: upgrade
@@ -40,15 +40,20 @@ with the edit to make, and you make it.
    deploy with `npx nuxt-backend upgrade --prod --yes`. That command writes production: run it
    only when the user says so.
 
+## Applying the Upgrade page
+
+The [Upgrade page](https://nuxt-backend.dev/docs/ship/releases/upgrade) has a section per change
+that needs an edit, newest first. Make the edits of every section newer than the app's version
+oldest first: start at the lowest such section and go up, since a later change can build on an
+earlier one. Some need an edit nothing finds in code, such as a provider setting or a label.
+
 ## From a preview build
 
 `0.1.0` on npm was a test publish, so most apps start on 0.2 directly. An app built on a preview
-of `main` (`https://pkg.pr.new/qruto/nuxt-backend@main`) meets every section of the
-[Upgrade page](https://nuxt-backend.dev/docs/ship/releases/upgrade) newer than its build.
-Make their edits oldest first: start at the bottom of the page, at the first section newer than the
-build, and go up, since a later change can build on an earlier one (the page lists sections
-newest first). Some need an
-edit nothing finds in code, such as a provider setting or a label.
+of `main` (`https://pkg.pr.new/qruto/nuxt-backend@main`) before 0.2.0 meets the changes between
+the previews, which the rename map no longer carries. They are on the
+[Upgrade page as 0.2.1 published it](https://github.com/qruto/nuxt-backend/blob/v0.2.1/website/content/docs/05.ship/6.releases/4.upgrade.md),
+newest first: make the edits of every section newer than the build, oldest first, the same way.
 
 ## Reading the rename map
 
@@ -60,10 +65,10 @@ the installed version has, so a name renamed twice leads straight to the current
 - **reshaped**: the same name, called or read differently; the note and the section say how.
 - **removed**: gone; **Now** names what to use instead, and a — means nothing replaces it.
 
-The table "Renamed one for one" at its top is the quick lookup. The core skill's
-`references/renames.json` holds the same entries as data, each with its section's link, and its
-`references/surface.json` every name the installed version has: check a name there before writing
-it.
+The table "Renamed one for one" at its top, when a release renamed a name one for one, is the quick
+lookup. The core skill's `references/renames.json` holds the same entries as data, each with its
+section's link, and its `references/surface.json` every name the installed version has: check a
+name there before writing it.
 
 ## Tasks
 

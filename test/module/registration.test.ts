@@ -92,6 +92,7 @@ const COMPOSABLE_NAMES = [
   'useFlagAdmin',
   'useAccessPhase',
   'useInvite',
+  'useMemberTicket',
   'useAccessAdmin',
   'useWaitlist',
   'useWaitlistAdmin',
@@ -879,15 +880,15 @@ describe('options 0.2 removed', () => {
   // Refused in `moduleDependencies`, which Nuxt runs before any module's
   // setup: nothing reads them, and nothing is written.
   it.each([
-    ['pages turned off', { pages: false }, '`backend.pages` is `false`.'],
-    ['a page turned on', { pages: { pricing: true } }, '`backend.pages.pricing` is `true`.'],
-    ['loginPath', { loginPath: '/sign-in' }, '`loginPath` is gone.'],
-  ])('stop the boot with a named error: %s', async (_name, backend, problem) => {
+    ['pages turned off', { pages: false }, '`backend.pages` is `false`.', 'page-keys'],
+    ['a page turned on', { pages: { pricing: true } }, '`backend.pages.pricing` is `true`.', 'page-keys'],
+    ['loginPath', { loginPath: '/sign-in' }, '`loginPath` is gone.', 'removed-options'],
+  ])('stop the boot with a named error: %s', async (_name, backend, problem, section) => {
     const before = snapshotFixture()
     const error = await bootError({ backend })
     expect(error.name).toBe('BackendOptionsError')
     expect(error.message).toContain(problem)
-    expect(error.message).toContain('https://nuxt-backend.dev/docs/ship/releases/upgrade#page-paths-the-stylesheet-and-the-webhook-log')
+    expect(error.message).toContain(`https://nuxt-backend.dev/docs/reference/configuration/module-options#${section}`)
     expect(snapshotFixture()).toEqual(before)
   })
 })

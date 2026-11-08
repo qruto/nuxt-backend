@@ -13,7 +13,7 @@ export type SaveOfferRule
 
 /**
  * `setupBilling({ lifecycle })`: what the package does around a
- * subscription's life beyond the provider's own (LIFECYCLE).
+ * subscription's life beyond the provider's own.
  */
 export interface BillingLifecycle {
   /**

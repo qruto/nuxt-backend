@@ -207,7 +207,7 @@ export function createBillingFunctions(
     args: {},
     handler: async (ctx) => {
       if (!(await allowedEntity(ctx, BILLING_ACCESS.read))) return null
-      // `saveOffers`: the cancel flow has an offer for some reason, so the billing section opens `<CancelFlow>` (LIFECYCLE).
+      // `saveOffers`: the cancel flow has an offer for some reason, so the billing section opens `<CancelFlow>`.
       // `softOptIn`: a paid checkout joins topics with `softOptIn`, so a checkout shows the notice and its box.
       return {
         canManage: (await allowedEntity(ctx, BILLING_ACCESS.portal)) !== null,
@@ -234,7 +234,7 @@ export function createBillingFunctions(
     }
   }
 
-  // The admin console's Billing tab (LIFECYCLE): the save offers, the EU
+  // The admin console's Billing tab: the save offers, the EU
   // withdrawals and the renewal consent proofs, newest first, all of them
   // or one billing entity's. Admin-tier like the webhook log, and `null`
   // for anyone else, signed out included. An impersonated session may read.

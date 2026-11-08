@@ -296,7 +296,7 @@ ordinary checkout of the plan, at `keepUrl`.
 | <a id="workspace"></a> `workspace?` | `string` | The workspace's name, as a member typed it: escape it in HTML. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="endsat"></a> `endsAt` | `number` | When the pass ends, epoch milliseconds. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="keepurl-1"></a> `keepUrl` | `string` | Where the plan is kept: the app's billing settings. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
-| <a id="trial"></a> `trial?` | `boolean` | A reverse trial's pass (LIFECYCLE), which nobody gave: the template says the trial ends. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="trial"></a> `trial?` | `boolean` | A reverse trial's pass, which nobody gave: the template says the trial ends. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 
 ***
 
@@ -304,7 +304,7 @@ ordinary checkout of the plan, at `keepUrl`.
 
 Defined in: [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts)
 
-Data for the `renewalReminder` template (LIFECYCLE): the yearly reminder
+Data for the `renewalReminder` template: the yearly reminder
 of a renewing subscription's terms that California's automatic renewal
 law asks for, sent where the billing provider's own reminder does not
 reach (cycles under six months).
@@ -328,7 +328,7 @@ reach (cycles under six months).
 
 Defined in: [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts)
 
-Data for the `withdrawalReceipt` template (LIFECYCLE): the acknowledgement
+Data for the `withdrawalReceipt` template: the acknowledgement
 on a durable medium that an EU withdrawal was received, with its date and
 time (Consumer Rights Directive, Art. 11a).
 
@@ -482,8 +482,8 @@ message or a promise of it, so an async renderer (`@vue-email/render`,
 | <a id="invite"></a> `invite` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | A workspace invitation with its accept link. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="gift"></a> `gift` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | Tells a gift's recipient it is paid and waiting for them. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="giftpassending"></a> `giftPassEnding` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | Tells a workspace's billing managers that a plan pass ends in a week, and offers to keep the plan. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
-| <a id="renewalreminder"></a> `renewalReminder` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | The yearly reminder of a renewing subscription's terms, where the billing provider sends none (LIFECYCLE). | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
-| <a id="withdrawalreceipt"></a> `withdrawalReceipt` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | The receipt of an EU withdrawal, with its date and time (LIFECYCLE). | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="renewalreminder"></a> `renewalReminder` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | The yearly reminder of a renewing subscription's terms, where the billing provider sends none. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="withdrawalreceipt"></a> `withdrawalReceipt` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | The receipt of an EU withdrawal, with its date and time. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="waitlistconfirmation"></a> `waitlistConfirmation` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | Sent once to a person whose sign-in code checked while the app is in early access: their place, and the link that shows it again. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="waitlistadmitted"></a> `waitlistAdmitted` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | Sent once when an administrator admits a waitlist entry: a plain "You're in", with no token and no promotion. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="topicconfirmation"></a> `topicConfirmation` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | A double opt-in's confirmation: one button that joins the topic the person asked for. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |

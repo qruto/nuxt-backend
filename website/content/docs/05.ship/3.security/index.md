@@ -53,10 +53,6 @@ With [Nuxt Content](https://content.nuxt.com) installed, a plugin adds `'wasm-un
 
 Every one of these additions goes into the app-wide policy, the `/**` rule. A route rule of yours that sets a directive of its own replaces that directive for its paths, since nuxt-security merges a route's source list over the app's by replacing it (`defuReplaceArray`). A `script-src` on a route of yours then loses `'wasm-unsafe-eval'` and the bot check's origin, and a `connect-src` the deployment's origins: list them in it yourself.
 
-## Resources other sites load
-
-The headers say `Cross-Origin-Resource-Policy: same-origin` app-wide, which stops other sites from loading what the app serves. Two kinds of resource are meant for them, so they get `cross-origin`: [nuxt-og-image](https://nuxtseo.com/og-image)'s rendered images under `/_og/**`, which social scrapers and link previews fetch, and the brand's logo when `appConfig.backend.brand.logo` is a path the app serves (`/logo.png`), which the emails show. A `Cross-Origin-Resource-Policy` of yours for the same path, in `routeRules` headers or nuxt-security's `security.headers`, wins in both.
-
 The auth proxy (`/api/auth/**`) carries its own rules, merged over the global config, and your `routeRules` can override them in turn:
 
 - `xssValidator: false`. The validator HTML-escapes JSON bodies and rejects anything that changed, which would break a display name containing `<`. These are opaque credentials forwarded to Better Auth, never rendered HTML.
@@ -93,9 +89,13 @@ A browser that already stored HSTS for `localhost` keeps upgrading until that po
 
 `convex.security: false` opts out of the Convex additions. `security: false` turns `nuxt-security` off entirely, which the package does not recommend.
 
+## Resources other sites load
+
+The headers say `Cross-Origin-Resource-Policy: same-origin` app-wide, which stops other sites from loading what the app serves. Two kinds of resource are meant for them, so they get `cross-origin`: [nuxt-og-image](https://nuxtseo.com/og-image)'s rendered images under `/_og/**`, which social scrapers and link previews fetch, and the brand's logo when `appConfig.backend.brand.logo` is a path the app serves (`/logo.png`), which the emails show. A `Cross-Origin-Resource-Policy` of yours for the same path, in `routeRules` headers or nuxt-security's `security.headers`, wins in both.
+
 ## Webhooks: fail closed
 
-Both inbound webhooks, `/billing/events` and `/email/events`, share one edge. It verifies the signature once, before any handler runs, with one [Standard Webhooks](https://www.standardwebhooks.com/) verifier: Polar signs to the spec with secrets created on or after 2026-09-08, and Resend signs through Svix, whose scheme the spec adopted. In `0.2.0` the verifier also accepts Polar's older HMAC, so a secret created before that date keeps working ([Polar](/docs/services/polar#link-it)). One verifier serves both routes, so their policy cannot drift apart:
+Both inbound webhooks, `/billing/events` and `/email/events`, share one edge. It verifies the signature once, before any handler runs, with one [Standard Webhooks](https://www.standardwebhooks.com/) verifier: Polar signs to the spec with secrets created on or after 2026-09-08, and Resend signs through Svix, whose scheme the spec adopted. The verifier also accepts Polar's older HMAC, so a secret created before that date keeps working ([Polar](/docs/services/polar#link-it)). One verifier serves both routes, so their policy cannot drift apart:
 
 | Condition | Status | Logged outcome |
 |---|---|---|

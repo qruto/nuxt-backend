@@ -17,6 +17,7 @@ export const ACCESS_PHASES = ['early-access', 'invite-only', 'public'] as const 
  * ledger, the activity trail and `canSignIn` name it:
  *
  * - `invite-code` and `access-link`: an administrator's code or link.
+ * - `member-ticket`: a member's ticket, an access link a member shares (`access.memberTickets`).
  * - `invitation`: an administrator invited the address (`access.admit`, the Access tab).
  * - `waitlist`: an administrator admitted the address's waitlist entry.
  * - `workspace-invitation`: a pending, unexpired invitation to a workspace.
@@ -24,7 +25,7 @@ export const ACCESS_PHASES = ['early-access', 'invite-only', 'public'] as const 
  * - `domain`: its domain is one of `setupAccess`'s `domains`.
  * - `administrator`: an administrator created the account.
  */
-export type AccessTicket = 'invite-code' | 'access-link' | 'invitation' | 'waitlist' | 'workspace-invitation' | 'gift' | 'domain' | 'administrator'
+export type AccessTicket = 'invite-code' | 'access-link' | 'member-ticket' | 'invitation' | 'waitlist' | 'workspace-invitation' | 'gift' | 'domain' | 'administrator'
 
 /** A context the gate reads in. */
 type GateReadCtx = Pick<GenericActionCtx<GenericDataModel>, 'runQuery'>
@@ -116,6 +117,18 @@ export async function inviteHash(secret: string, input: string): Promise<string 
   if (!normalized) return null
   const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   return hex(await crypto.subtle.sign('HMAC', key, encoder.encode(`invite:${normalized}`)))
+}
+
+/**
+ * A member ticket's token, for the fragment of `/invite#<token>`: an access
+ * link token derived from the member and the ticket's expiry under the auth
+ * secret, so the member reads it back without the database keeping it.
+ */
+export async function memberTicketToken(secret: string, holder: string, expiresAt: number): Promise<string> {
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const bytes = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(`member-ticket:${holder}:${expiresAt}`)))
+  // 256 is a multiple of 32: each byte gives one character, all equally likely.
+  return Array.from(bytes.slice(0, LINK_LENGTH), byte => ALPHABET[byte % ALPHABET.length]).join('')
 }
 
 /** An address as admissions keep it: trimmed, lower-cased. */

@@ -1,6 +1,6 @@
 ---
 title: Components
-description: "Every component of 0.2.0 by area, with its status and its section: one gate, one notice region, the account, workspace, billing and admin components, the new ones, the parts each is built from, the contract each keeps, and the base module's components it passes through."
+description: "Every component by area, with its status and its section: one gate, one notice region, the account, workspace, billing, admin and shell components, the parts each is built from, the contract each keeps, and the base module's components it passes through."
 kind: reference
 source: test/nuxt/component-contract.ts
 navigation:
@@ -8,22 +8,20 @@ navigation:
   icon: i-lucide-component
 ---
 
-In `0.2.0` the module registers about thirty components of its own, auto-imported in every page and layout, and keeps the base module's `<StorageImage>` under a neutral name. Every one of its own keeps one contract, so a component you have not used yet reads like the ones you have: the same slots-and-events shape, the same `data-*` hooks, the same states and the same accessibility. This page lists them by area, with each one's status, and links to its section.
+The module registers about thirty components of its own, auto-imported in every page and layout, and keeps the base module's `<StorageImage>` under a neutral name. Every one of its own keeps one contract, so a component you have not used yet reads like the ones you have: the same slots-and-events shape, the same `data-*` hooks, the same states and the same accessibility. This page lists them by area, with each one's status, and links to its section.
 
-## What changes
+## One component per job
 
-`0.2.0` keeps one component per job (SIMPLIFY):
-
-- **One gate.** `<Gate>` replaces the four boundaries: its `signed-in`, `role`, `workspace`, `feature` and `quota` props are their checks.
-- **One notice region.** `<BackendNotices>` replaces the four banners: each is a notice of the region, overridden through its slot.
-- **Built from parts (UIKIT).** Each component becomes a `.vue` file made of named [parts](/docs/reference/components/parts), and a same-named component in your app replaces a part everywhere. Tokens move to `:root` inside `@layer nuxt-backend`, `css: false` loads no package CSS, and `npx nuxt-backend eject` copies a part's source into the app. The components work beside any UI library and depend on none.
+- **One gate.** `<Gate>` shows a region only to the people its `signed-in`, `role`, `workspace`, `feature` and `quota` props admit.
+- **One notice region.** `<BackendNotices>` holds every app-wide notice, each overridden through its slot.
+- **Built from parts.** Each component is a `.vue` file made of named [parts](/docs/reference/components/parts), and a same-named component in your app replaces a part everywhere. Tokens live on `:root` inside `@layer nuxt-backend`, `css: false` loads no package CSS, and `npx nuxt-backend eject` copies a part's source into the app. The components work beside any UI library and depend on none.
 
 ## Components by area
 
 | Component | Area | Status | What it is |
 |---|---|---|---|
-| [`<Gate>`](/docs/reference/components/shell#gate) | Gating | Built | Its content only for the people its props admit: signed in, a role, a workspace, a plan feature, room in a quota |
-| [`<BackendNotices>`](/docs/reference/components/shell#backendnotices) | Notices | Built | One region for every app-wide notice: impersonation, maintenance, announcements, a scheduled deletion, low credits and gifts to claim |
+| [`<Gate>`](/docs/reference/components/shell#gate) | Gating | Available | Its content only for the people its props admit: signed in, a role, a workspace, a plan feature, room in a quota |
+| [`<BackendNotices>`](/docs/reference/components/shell#backendnotices) | Notices | Available | One region for every app-wide notice: impersonation, maintenance, announcements, a scheduled deletion, low credits and gifts to claim |
 | [`<AuthForm>`](/docs/reference/components/account#authform) | Sign-in and account | Available | The passwordless sign-in: email code and passkey, one slot per step |
 | [`<AcceptInvitation>`](/docs/reference/components/workspaces#acceptinvitation) | Sign-in and account | Available | Accept or decline a workspace invitation |
 | [`<ProfileSettings>`](/docs/reference/components/account#profilesettings) | Sign-in and account | Available | The name, the email change and the language |
@@ -45,7 +43,7 @@ In `0.2.0` the module registers about thirty components of its own, auto-importe
 | [`<AdminUsers>`](/docs/reference/components/workspaces#adminusers) | Admin | Available | Every account, for administrators |
 | [`<AdminWorkspaces>`](/docs/reference/components/workspaces#adminworkspaces) | Admin | Available | Every workspace, for administrators |
 | [`<AuditLog>`](/docs/reference/components/workspaces#auditlog) | Admin | Available | The activity trail, a page at a time |
-| [`<NotificationInbox>`](/docs/reference/components/shell#notificationinbox) | New | Available | The in-app notifications, with the unread count |
+| [`<NotificationInbox>`](/docs/reference/components/shell#notificationinbox) | Notifications | Available | The in-app notifications, with the unread count |
 | [`<WaitlistForm>`](/docs/reference/components/account#waitlistform) | Sign-in and account | Available | Join the waitlist, confirm the address, see your place, built from the `WaitlistJoin`, `WaitlistCode`, `WaitlistPlace` and `WaitlistShare` parts |
 | [`<ContactForm>`](/docs/reference/components/forms#contactform) | Email | Available | A contact or feedback form delivered to your team |
 | [`<UploadField>`](/docs/reference/components/forms#uploadfield) | Files | Available | A checked upload with progress |
@@ -57,22 +55,22 @@ In `0.2.0` the module registers about thirty components of its own, auto-importe
 | [`<ReferralCard>`](/docs/reference/components/billing#referralcard) | Billing | Available | A person's referral link with copy and share buttons, and the disclosure of the reward ([Referrals](/docs/build/growth/offers/referrals)) |
 | [`<StorageImage>`](#the-base-modules-components) | Base module | Available | An image from file storage |
 
-The admin console's own tabs grow with their units, and apps add tabs of their own ([Add your own admin tabs](/docs/build/auth/admin/custom-tabs)).
+Apps add tabs of their own to the admin console ([Add your own admin tabs](/docs/build/auth/admin/custom-tabs)).
 
-## What leaves
+## Names from before 0.2.0
 
-These names stop being components in `0.2.0`. Each one's job continues under the name beside it:
+The previews of `main` before `0.2.0` had these components. Each one's job is the name beside it now:
 
-| Leaves | Its job continues as | Unit |
-|---|---|---|
-| `RoleBoundary` | `<Gate role>` | SIMPLIFY |
-| `OrganizationBoundary` | `<Gate workspace>` | SIMPLIFY |
-| `FeatureBoundary` | `<Gate feature>` | SIMPLIFY |
-| `QuotaBoundary` | `<Gate quota>` | SIMPLIFY |
-| `ImpersonationBanner` | The `impersonation` notice of `<BackendNotices>` | SIMPLIFY |
-| `MaintenanceBanner` | The `maintenance` notice of `<BackendNotices>` | SIMPLIFY |
-| `CreditsLowBanner` | The `low-credits` notice of `<BackendNotices>` | SIMPLIFY |
-| `GiftClaimBanner` | The `gift` notice of `<BackendNotices>` | SIMPLIFY |
+| Was | Its job now |
+|---|---|
+| `RoleBoundary` | `<Gate role>` |
+| `OrganizationBoundary` | `<Gate workspace>` |
+| `FeatureBoundary` | `<Gate feature>` |
+| `QuotaBoundary` | `<Gate quota>` |
+| `ImpersonationBanner` | The `impersonation` notice of `<BackendNotices>` |
+| `MaintenanceBanner` | The `maintenance` notice of `<BackendNotices>` |
+| `CreditsLowBanner` | The `low-credits` notice of `<BackendNotices>` |
+| `GiftClaimBanner` | The `gift` notice of `<BackendNotices>` |
 
 ## The component contract
 
@@ -136,7 +134,7 @@ A notice shows nothing when it has nothing to say (empty): what stays is an empt
 
 ## By family
 
-Each component has a section on its family's page: the page that renders it, its props, its slots, events and states, and its accessibility guarantee. The table below is generated from the module's registry as the code stands; the components that arrive with their units have their sections on the same pages, and the forms on a page of their own.
+Each component has a section on its family's page: the page that renders it, its props, its slots, events and states, and its accessibility guarantee. The table below is generated from the module's registry; the forms have a page of their own.
 
 <!-- generated:families (pnpm docs:lookups, from src/nuxt/registry.ts) -->
 
@@ -161,8 +159,8 @@ Each component has a section on its family's page: the page that renders it, its
 | [`<BillingHistory>`](/docs/reference/components/billing#billinghistory) | Billing | The customer's past charges with their invoice links — every row read live from the billing provider (this package stores no order ledger), so what renders is what the provider will show on the invoice. |
 | [`<UsageHistory>`](/docs/reference/components/billing#usagehistory) | Billing | Metered consumption, event by event, straight from the provider's events API — the same records that drew the credit balance down. |
 | [`<UpgradePrompt>`](/docs/reference/components/billing#upgradeprompt) | Billing | What someone whose plan lacks a feature sees: a sentence naming the plans on sale that include it, in pricing order, and a link to the first of them on the pricing page (`/pricing?plan=<key>`). |
-| [`<CancelFlow>`](/docs/reference/components/billing#cancelflow) | Billing | Cancelling takes one step; a save offer is one optional step (LIFECYCLE). |
-| [`<WithdrawalButton>`](/docs/reference/components/billing#withdrawalbutton) | Billing | The EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art. 11a, from 2026-06-19): "Withdraw from contract here", for a purchase inside its 14 days, then a confirm step, "Confirm withdrawal". |
+| [`<CancelFlow>`](/docs/reference/components/billing#cancelflow) | Billing | Cancelling takes one step; a save offer is one optional step. |
+| [`<WithdrawalButton>`](/docs/reference/components/billing#withdrawalbutton) | Billing | The EU withdrawal button (Consumer Rights Directive Art. 11a, from 2026-06-19): "Withdraw from contract here", for a purchase inside its 14 days, then a confirm step, "Confirm withdrawal". |
 | [`<ReferralCard>`](/docs/reference/components/billing#referralcard) | Billing | A person's referral link, with copy and share buttons and the disclosure of the reward: the link is `/r/<code>` on this site, made the first time the card is read. |
 | [`<AdminUsers>`](/docs/reference/components/workspaces#adminusers) | Workspaces and admin | Every account of the app, for its administrators: a search by address, a page at a time (`AdminUsersTable`), and a drawer with one account in full (`AdminUserDrawer`): its role, its ban, its device sessions and workspaces, and "Impersonate". |
 | [`<AdminWorkspaces>`](/docs/reference/components/workspaces#adminworkspaces) | Workspaces and admin | Every workspace of the app, read-only, for its administrators: a search by name, a page at a time (`AdminWorkspacesTable`), and a drawer with one workspace's members and open invitations (`AdminWorkspaceDrawer`). |
@@ -204,7 +202,7 @@ Each component has a section on its family's page: the page that renders it, its
   :::
 
   :::card{icon="i-lucide-puzzle" title="Parts" to="/docs/reference/components/parts"}
-  Planned: every part the components are built from, with what it receives and the hook it keeps.
+  Every part the components are built from, with what it receives and the hook it keeps.
   :::
 ::
 

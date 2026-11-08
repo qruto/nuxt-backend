@@ -178,8 +178,27 @@ describe('the lookups', () => {
   })
 
   it('answer every rename by either side, and list the sections without a name', () => {
-    const exact = upgradeGuide('doctor --only deployment', SITE_URL)
+    // Entries of the test's own, so the rules hold whatever the map holds today.
+    const section = (heading: string) => ({ section: heading, url: `${SITE_URL}/docs/ship/releases/upgrade#${heading.toLowerCase().replace(/\s+/g, '-')}` })
+    const fixture = [
+      { from: 'doctor --only deployment', to: 'doctor --only data', change: 'renamed' as const, ...section('Newer') },
+      { from: 'useOldThing', to: 'useNewThing', change: 'renamed' as const, ...section('Newer') },
+      { from: 'OLD_LIMIT', to: null, change: 'removed' as const, ...section('Older') },
+    ]
+    const exact = upgradeGuide('doctor --only deployment', SITE_URL, fixture)
     expect(exact.renames?.[0]).toMatchObject({ from: 'doctor --only deployment', to: 'doctor --only data', change: 'renamed' })
+    expect(upgradeGuide('useNewThing', SITE_URL, fixture).renames?.[0]).toMatchObject({ from: 'useOldThing' })
+    expect(upgradeGuide('thing', SITE_URL, fixture).renames?.map(rename => rename.from)).toEqual(['useOldThing'])
+    const all = upgradeGuide(undefined, SITE_URL, fixture)
+    expect(all.total).toBe(3)
+    expect(all.sections).toEqual([{ ...section('Newer'), names: 2 }, { ...section('Older'), names: 1 }])
+    expect(all.guide).toBe(`${SITE_URL}/docs/ship/releases/upgrade`)
+    const none = upgradeGuide('useNothingAtAll', SITE_URL, fixture)
+    expect(none.renames).toEqual([])
+    expect(none.message).toContain('/.well-known/skills/nuxt-backend/references/surface.json')
+  })
+
+  it('answer from the generated rename map by default', () => {
     for (const rename of RENAMES) {
       expect(upgradeGuide(rename.from, SITE_URL).renames, rename.from).toContainEqual(expect.objectContaining({ from: rename.from, section: rename.section }))
     }
@@ -187,10 +206,6 @@ describe('the lookups', () => {
     expect(all.total).toBe(RENAMES.length)
     expect(all.sections?.map(entry => entry.section)).toEqual([...new Set(RENAMES.map(rename => rename.section))])
     expect(all.sections?.reduce((sum, entry) => sum + entry.names, 0)).toBe(RENAMES.length)
-    expect(all.guide).toBe(`${SITE_URL}/docs/ship/releases/upgrade`)
-    const none = upgradeGuide('useNothingAtAll', SITE_URL)
-    expect(none.renames).toEqual([])
-    expect(none.message).toContain('/.well-known/skills/nuxt-backend/references/surface.json')
   })
 
   it('hold one record per registry entry, each a page of the site', () => {

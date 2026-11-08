@@ -1,7 +1,7 @@
 import { defineEventHandler, getRequestIP } from 'nuxt/server'
 
 // `/api/backend/visitor-ip`: the visitor's IP address as the app's server
-// sees it, for the billing provider's local pricing (LIFECYCLE). A checkout
+// sees it, for the billing provider's local pricing. A checkout
 // is created on the deployment, whose address the provider would otherwise
 // price and pre-fill the billing country by; `useBilling().checkout` reads
 // this and sends it with the checkout. It answers the caller's own address

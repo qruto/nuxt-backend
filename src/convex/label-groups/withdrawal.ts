@@ -1,7 +1,7 @@
 import type { LabelTree } from '../label-format.js'
 
 /**
- * `<WithdrawalButton>` (LIFECYCLE): the EU withdrawal function of Art. 11a,
+ * `<WithdrawalButton>`: the EU withdrawal function of Art. 11a,
  * labelled as the law asks, with its confirm step. `{date}` is a date in the
  * reader's words, `{at}` a date and time.
  */
