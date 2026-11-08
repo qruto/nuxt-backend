@@ -100,14 +100,15 @@ const isDefaultOrder = (gateways: readonly AiGateway[]): boolean =>
   gateways.length === DEFAULT_GATEWAYS.length && gateways.every((gateway, at) => gateway === DEFAULT_GATEWAYS[at])
 
 /**
- * One order, each gateway once: `where` names the setting in a refusal, and
- * `Refusal` is the error a gateway it does not know or an empty order throws.
+ * One order, each gateway once: `where` names the setting in a refusal. A
+ * gateway it does not know, or an empty order, is a `TypeError`, in
+ * `gateway` and in `routes` alike.
  */
-function orderOf(value: unknown, where: string, Refusal: ErrorConstructor): AiGateway[] {
+function orderOf(value: unknown, where: string): AiGateway[] {
   const named: readonly unknown[] = Array.isArray(value) ? value : [value]
-  if (named.length === 0) throw new Refusal(`[nuxt-backend] setupAi(${where}): name at least one gateway, 'convex' or 'vercel'.`)
+  if (named.length === 0) throw new TypeError(`[nuxt-backend] setupAi(${where}): name at least one gateway, 'convex' or 'vercel'.`)
   for (const name of named) {
-    if (typeof name !== 'string' || !GATEWAY_NAMES.has(name)) throw new Refusal(`[nuxt-backend] setupAi(${where}): '${String(name)}' is no gateway; use 'convex' or 'vercel'.`)
+    if (typeof name !== 'string' || !GATEWAY_NAMES.has(name)) throw new TypeError(`[nuxt-backend] setupAi(${where}): '${String(name)}' is no gateway; use 'convex' or 'vercel'.`)
   }
   return [...new Set(named as AiGateway[])]
 }
@@ -124,7 +125,7 @@ function routesOf(routes: unknown): Record<string, AiGateway[]> | undefined {
   const settled: Record<string, AiGateway[]> = {}
   for (const [key, order] of Object.entries(routes)) {
     if (!ROUTE_KEY.test(key)) throw new TypeError(`[nuxt-backend] setupAi({ routes }): '${key}' is no provider/model id or pattern ending in *, such as 'google/*'.`)
-    settled[key] = orderOf(order, `{ routes: { '${key}' } }`, TypeError)
+    settled[key] = orderOf(order, `{ routes: { '${key}' } }`)
   }
   return Object.keys(settled).length === 0 ? undefined : settled
 }
@@ -139,7 +140,7 @@ function routesOf(routes: unknown): Record<string, AiGateway[]> | undefined {
  */
 export function routingOf(config: Pick<SetupAiConfig, 'gateway' | 'inferenceRegion' | 'routes'>): ModelRouting {
   const { gateway, inferenceRegion: region } = config
-  const gateways = gateway === undefined ? [...DEFAULT_GATEWAYS] : orderOf(gateway, '{ gateway }', Error)
+  const gateways = gateway === undefined ? [...DEFAULT_GATEWAYS] : orderOf(gateway, '{ gateway }')
   const routes = routesOf(config.routes)
   if (region === undefined) return { gateways, ...(routes ? { routes } : {}) }
   if (!gateways.includes('vercel')) {
@@ -179,6 +180,8 @@ export function modelIdOf(model: AiModel | undefined): string | undefined {
 
 export interface ModelCall {
   model: string
+  /** An image model's call (`ctx.image()`): what `ctx.storeImage` names as the image's generator. */
+  kind?: 'image'
   /**
    * - `finished`: it reached its end, with its usage and any cost;
    * - `open`: a stream that had not ended when the run did (the handler
@@ -567,6 +570,15 @@ export function checkRegion(id: string, metadata: unknown, region: InferenceRegi
 }
 
 /**
+ * A call's signal: its own and the step's deadline, whichever aborts first.
+ * A caller's signal never lifts the deadline.
+ */
+export function stepSignal(own: AbortSignal | undefined, deadline: AbortSignal | undefined): AbortSignal | undefined {
+  if (!own || !deadline) return own ?? deadline
+  return AbortSignal.any([own, deadline])
+}
+
+/**
  * The AI SDK middleware that records each call: a generation once it returns;
  * a stream as soon as it answers (`open`), then `finished` at its `finish`
  * part, which carries the usage and the cost, or `failed` at an error part.
@@ -581,8 +593,8 @@ function recordCalls(id: string, calls: ModelCall[], region?: InferenceRegion, s
           transformParams: async ({ params }) => ({
             ...params,
             ...(region === undefined ? {} : { providerOptions: pinProviderOptions(params.providerOptions, region) as typeof params.providerOptions }),
-            // A job step's deadline, for a call that brings none of its own.
-            ...(signal === undefined || params.abortSignal ? {} : { abortSignal: signal }),
+            // A job step's deadline, beside a signal the call brings of its own.
+            ...(signal === undefined ? {} : { abortSignal: stepSignal(params.abortSignal, signal) }),
           }),
         }),
     wrapGenerate: async ({ doGenerate }) => {

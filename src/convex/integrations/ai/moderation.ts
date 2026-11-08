@@ -5,6 +5,7 @@ import { logBackend } from '../../log.js'
 import type { AiModel } from './config.js'
 import type { RecordCost } from './costs.js'
 import { upstreamErrorOf } from './job-errors.js'
+import { DEFAULT_MODERATION_MODEL } from './model-id.js'
 import { convexGatewayModel, FALLBACK_NAME, loadSdk, meteredModel, modelIdOf, type ModelCall, modelRefusal, type ModelRoute, type ModelRouting, noticeConvexGateway, requireModelId, routeModel } from './models.js'
 
 // Content safety's check (`ai.moderate`, `ai.requireSafe`, `moderate` on a
@@ -22,7 +23,7 @@ import { convexGatewayModel, FALLBACK_NAME, loadSdk, meteredModel, modelIdOf, ty
 // `spendLimit` count it.
 
 /** The classifier `setupAi` checks with through the Convex AI Gateway, unless `moderation.model` names another: Llama Guard 4, which reads images too. */
-export const DEFAULT_MODERATION_MODEL = 'meta-llama/llama-guard-4-12b'
+export { DEFAULT_MODERATION_MODEL }
 
 /**
  * The classifier `setupAi` checks with through the Vercel AI Gateway, unless

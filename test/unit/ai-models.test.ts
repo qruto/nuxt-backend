@@ -9,7 +9,7 @@ import type { Billing, SpendReservation } from '../../src/convex/integrations/bi
 import { convexGatewayPossible, failedRun, modelRefusal, modelStatusOf, refusalRouting, reportedUsd, routeModel, routingOf, TEST_EMBEDDING_MODELS, TEST_IMAGE_MODELS, TEST_MODELS, type ModelCall } from '../../src/convex/integrations/ai/models'
 import { embeddingReachable } from '../../src/convex/integrations/ai/embeddings'
 import { createModeration, DEFAULT_MODERATION_MODEL, VERCEL_MODERATION_MODEL } from '../../src/convex/integrations/ai/moderation'
-import { routeImage } from '../../src/convex/integrations/ai/images'
+import { meteredImageModel, routeImage } from '../../src/convex/integrations/ai/images'
 import { priceModelCalls } from '../../src/convex/integrations/ai/pricing'
 import { TEST_IMAGE_PNG, TEST_MODEL_USD, TEST_UNSAFE_MARKER, testModel } from '../../src/convex/test-models'
 import { getBackendError } from '../../src/convex/errors'
@@ -1236,5 +1236,41 @@ describe('a gateway order for some models (setupAi({ routes }))', () => {
   it('refuses a pinned region when a route leaves out the Vercel AI Gateway, and narrows every route to it otherwise', () => {
     expect(() => setupAi(components, { billing: makeBilling(), inferenceRegion: 'eu', routes: { 'google/*': 'convex' } })).toThrow(/the route for 'google\/\*' does not name 'vercel'/)
     expect(routingOf({ inferenceRegion: 'eu', routes: { 'google/*': ['convex', 'vercel'] } })).toEqual({ gateways: ['vercel'], region: 'eu' })
+  })
+})
+
+describe('an image edit (ctx.image() with input images or a mask)', () => {
+  const ID = 'openai/gpt-image-2'
+  const edit = { prompt: 'Make the sky blue', n: 1, files: [{ type: 'file', mediaType: 'image/png', data: TEST_IMAGE_PNG }], size: undefined, aspectRatio: undefined, seed: undefined, providerOptions: {} }
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+    convexGateway.token.mockReset().mockRejectedValue(new Error('AiGatewayUnavailable: this deployment cannot use the AI Gateway'))
+    convexGateway.models.length = 0
+  })
+
+  it('goes through the Vercel AI Gateway under the default order, which the Convex one cannot serve', async () => {
+    vi.stubEnv('CONVEX_CLOUD_URL', CLOUD)
+    vi.stubEnv('AI_GATEWAY_API_KEY', 'k')
+    convexGateway.token.mockResolvedValue('deployment-jwt')
+    const fetch = vi.fn(async () => Response.json({ images: [Buffer.from(TEST_IMAGE_PNG).toString('base64')], warnings: [], providerMetadata: { gateway: { cost: '0.04' } } }))
+    vi.stubGlobal('fetch', fetch)
+    const calls: ModelCall[] = []
+    const result = await meteredImageModel(ID, calls, { routing: routingOf({}) }).doGenerate(edit as never)
+    expect(result.images).toHaveLength(1)
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(convexGateway.token).not.toHaveBeenCalled()
+    expect(calls).toEqual([expect.objectContaining({ model: ID, kind: 'image', state: 'finished', usd: 0.04 })])
+  })
+
+  it('is refused before any call where the order names no Vercel AI Gateway, naming the route to add', async () => {
+    vi.stubEnv('CONVEX_CLOUD_URL', CLOUD)
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+    const calls: ModelCall[] = []
+    await expect(meteredImageModel(ID, calls, { routing: routingOf({ gateway: 'convex' }) }).doGenerate(edit as never)).rejects.toThrow(`setupAi({ routes: { '${ID}': 'vercel' } })`)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(calls).toEqual([expect.objectContaining({ model: ID, state: 'refused' })])
   })
 })

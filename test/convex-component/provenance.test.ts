@@ -70,6 +70,8 @@ const drawImage = jobs.step({
   args: { stripId: v.id('strips'), photoId: v.string() },
   handler: async (ctx, { stripId, photoId }) => {
     const { image } = await generateImage({ model: ctx.image(), prompt: 'Panel 1 of a strip about a fox.', ...ctx.callSettings })
+    // A caption after the image: a language model's call, which never signs the image.
+    await generateText({ model: ctx.model('openai/gpt-5-mini'), prompt: 'Caption panel 1.', ...ctx.callSettings })
     const storageId = await ctx.storeImage(image, { inputs: [stripId, photoId] })
     await ctx.runMutation(makeFunctionReference<'mutation'>('strips:savePanel'), { stripId, storageId })
   },
@@ -249,15 +251,18 @@ describe('ctx.storeImage in a job step', () => {
 })
 
 describe('an image model in a job step', () => {
-  test('ctx.image() draws through the gateway route, and the stored image names the image model it came from', async () => {
+  test('ctx.image() draws through the gateway route, and the stored image names the image model it came from, not a caption call after it', async () => {
     const t = appUnderTest()
     const ada = await asUser(t)
     const { stripId, jobId } = await ada.mutation(ref.create, { kind: 'illustrate' })
     await drain(t)
     const [storageId] = (await ada.query(ref.get, { id: stripId }))!.panels
-    expect(await stored(t, storageId!)).toContain('openai/gpt-image-2')
-    expect(await ada.query(ref.getJob, { jobId })).toMatchObject({ status: 'done', provenance: { models: ['openai/gpt-image-2'] } })
-    expect(await ada.query(ref.provenanceOf, { storageId: storageId! })).toEqual({ models: ['openai/gpt-image-2'], finishedAt: expect.any(Number), inputs: [stripId, 'photo_1'] })
+    const file = await stored(t, storageId!)
+    expect(file).toContain('openai/gpt-image-2')
+    expect(file).not.toContain('openai/gpt-5-mini')
+    // The record lists every model the step called.
+    expect(await ada.query(ref.getJob, { jobId })).toMatchObject({ status: 'done', provenance: { models: ['openai/gpt-image-2', 'openai/gpt-5-mini'] } })
+    expect(await ada.query(ref.provenanceOf, { storageId: storageId! })).toEqual({ models: ['openai/gpt-image-2', 'openai/gpt-5-mini'], finishedAt: expect.any(Number), inputs: [stripId, 'photo_1'] })
   })
 })
 

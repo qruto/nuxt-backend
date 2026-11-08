@@ -53,6 +53,7 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const STEP_TIMEOUT = 'A job step stops its model calls at its timeout'
 const COLD_BALANCE = 'A job joins on a balance never read'
 const TUNNEL = 'Browser error reports go through a tunnel on the app\'s own origin'
 const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
@@ -96,6 +97,8 @@ const SESSIONS = 'Sessions are listed and revoked by id'
 
 /** Every rename, newest section first, as the Upgrade page orders them. */
 export const RENAMES: readonly Rename[] = [
+  // A job step aborts its model calls at its timeout, 3 minutes by default.
+  { from: 'jobs.step', to: 'jobs.step', change: 'reshaped', section: STEP_TIMEOUT, note: 'a step aborts its model calls at `timeout`, by default 3 minutes or 80% of `stallAfter`; set `timeout` for a longer step, below `stallAfter`' },
   // A job joins on a balance never read, and reads it as it starts.
   { from: 'jobs.enqueue', to: 'jobs.enqueue', change: 'reshaped', section: COLD_BALANCE, note: 'a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready`' },
   // The managed tunnel needs a newer SDK: the peer range moves.

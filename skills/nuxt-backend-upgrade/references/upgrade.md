@@ -52,6 +52,12 @@ agent files and skills.
 | `AuthEmailTemplateOverrides` | `EmailTemplateOverrides` |
 | `CreateBetterAuthOptions` | `SetupAuthOptions` |
 
+## [A job step stops its model calls at its timeout](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-step-stops-its-model-calls-at-its-timeout)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `jobs.step` | `jobs.step` | reshaped | a step aborts its model calls at `timeout`, by default 3 minutes or 80% of `stallAfter`; set `timeout` for a longer step, below `stallAfter` |
+
 ## [A job joins on a balance never read](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-joins-on-a-balance-never-read)
 
 | Was | Now | Change | Note |
