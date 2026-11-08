@@ -673,6 +673,10 @@
           "to": "/docs/reference/cli/diagnostics#billing-team-customers"
         },
         {
+          "name": "billing-checkout-links",
+          "to": "/docs/reference/cli/diagnostics#billing-checkout-links"
+        },
+        {
           "name": "billing-gift-twins",
           "to": "/docs/reference/cli/diagnostics#billing-gift-twins"
         },
@@ -1476,9 +1480,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "96 in all",
+          "name": "97 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "96 findings in all"
+          "label": "97 findings in all"
         }
       ]
     }

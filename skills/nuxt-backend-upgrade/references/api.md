@@ -11,7 +11,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 
 ### `npx nuxt-backend upgrade`
 
-Move the app to the installed version: repair the scaffold as doctor --fix does, and run the package's data migrations. It rewrites none of the app's code.
+Move the app to the installed version: repair the scaffold as doctor --fix does, run the package's data migrations, and start the workpool backfill on every pool. It rewrites none of the app's code.
 
 - `--cwd`: Project directory
 - `--dry-run`: Show what the scaffold repairs would change, as diffs, and where the data migrations stand; write nothing
@@ -20,4 +20,4 @@ Move the app to the installed version: repair the scaffold as doctor --fix does,
 - `--yes`: Confirm --prod: the production data is migrated
 - `--json`: Machine-readable output
 
-`--json`: `{ to, dryRun, scaffold: { written, changes, diffs }, ejected: [{ target, file, from, to, changes }], data: { deployment, state, reason, migrations }, next }`: `data.state` is `done`, `running`, `pending`, `none`, `skipped`, `needs-push` or `failed`; `scaffold.diffs` comes with `--dry-run` only; with `--diff`, `[{ target, file, from, to, changes, diff }]` alone; progress goes to stderr.
+`--json`: `{ to, dryRun, scaffold: { written, changes, diffs }, ejected: [{ target, file, from, to, changes }], data: { deployment, state, reason, migrations }, pools: { state, pools, failed: [{ component, reason }], reason }, next }`: `data.state` is `done`, `running`, `pending`, `none`, `skipped`, `needs-push` or `failed`; `pools.state` is `started`, `none`, `pending`, `skipped` or `failed`; `scaffold.diffs` comes with `--dry-run` only; with `--diff`, `[{ target, file, from, to, changes, diff }]` alone; progress goes to stderr.

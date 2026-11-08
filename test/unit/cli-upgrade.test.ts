@@ -7,6 +7,7 @@ import { runCommand } from 'citty'
 import { main } from '../../src/cli/main'
 import { PRODUCTION_DEPLOY, type UpgradeReport } from '../../src/cli/upgrade'
 import { migrateData } from '../../src/cli/upgrade/data'
+import { backfillPools, POOL_BACKFILL } from '../../src/cli/upgrade/pools'
 import { ConvexCliError, runConvex } from '../../src/convex-cli'
 import { PACKAGE_MIGRATIONS, type PackageMigrationStatus } from '../../src/convex/package-migrations'
 import { ADDED_SINCE_BASE, checkoutBaseStarter, removeFixture } from '../helpers/upgrade-fixture'
@@ -68,6 +69,15 @@ function deployKey(type: string): string {
 const statuses = (state: PackageMigrationStatus['state'], extra: Partial<PackageMigrationStatus> = {}): PackageMigrationStatus[] =>
   PACKAGE_MIGRATIONS.map(({ name, since, does }) => ({ name, since, does, state, processed: state === 'done' ? 3 : 0, ...extra }))
 
+/** The probe that has the deployment list its component paths. */
+const LISTING = ['run', '--component', '__nuxt_backend_component_listing__', '--inline-query', 'return null']
+
+/** The Convex CLI's refusal of an unknown component path, which lists the ones mounted. */
+const listed = (components: string[]) => new ConvexCliError('convex run exited with code 1', { code: 1, signal: null, timedOut: false, stderrTail: 'Omit `--component` to target the app root.', components })
+
+/** `convex run` naming a function the component does not have. */
+const absent = () => new ConvexCliError('convex run exited with code 1', { code: 1, signal: null, timedOut: false, stderrTail: '• lib:get', missingFunction: true })
+
 /** `convex run` answering `migrations:status` and `migrations:run` with these, in turn. */
 function deployment(...answers: Array<PackageMigrationStatus[] | Error>) {
   writeFileSync(join(dir, '.env.local'), 'CONVEX_DEPLOYMENT=local:test-app\n')
@@ -86,7 +96,9 @@ describe('the starter an earlier release shipped', () => {
     // The starter's pages still use names the previews of `main` renamed: the command leaves them to their author.
     const before = snapshot()
     const report = await upgradeJson()
-    expect(Object.keys(report).sort()).toEqual(['data', 'dryRun', 'ejected', 'next', 'scaffold', 'to'])
+    expect(Object.keys(report).sort()).toEqual(['data', 'dryRun', 'ejected', 'next', 'pools', 'scaffold', 'to'])
+    // No dev deployment: the workpools are not asked either.
+    expect(report.pools).toMatchObject({ state: 'skipped', pools: [] })
     const after = snapshot()
     expect(Object.keys(after).filter(path => !path.startsWith('backend/') && after[path] !== before[path])).toEqual([])
     expect(readFileSync(join(dir, 'app/pages/index.vue'), 'utf-8')).toBe(before['app/pages/index.vue'])
@@ -166,6 +178,7 @@ describe('the data migrations', () => {
     expect(vi.mocked(runConvex).mock.calls.map(([, args]) => args)).toEqual([
       ['run', '--component', 'backend', 'migrations:status', '{}'],
       ['run', '--component', 'backend', 'migrations:run', '{}'],
+      LISTING,
     ])
     expect(report.data).toEqual({ deployment: 'dev', state: 'done', migrations: statuses('done') })
     expect(process.exitCode).toBeUndefined()
@@ -176,7 +189,8 @@ describe('the data migrations', () => {
     expect((await upgradeJson('--dry-run')).data.state).toBe('pending')
     deployment(statuses('done'))
     expect((await upgradeJson()).data.state).toBe('done')
-    expect(vi.mocked(runConvex).mock.calls.map(([, args]) => args.at(-2))).toEqual(['migrations:status', 'migrations:status'])
+    // A dry run lists no component: the backfill is pending.
+    expect(vi.mocked(runConvex).mock.calls.map(([, args]) => args.at(-2))).toEqual(['migrations:status', 'migrations:status', '--inline-query'])
   })
 
   it('wait for a push when the deployment runs an older backend', async () => {
@@ -191,7 +205,7 @@ describe('the data migrations', () => {
   it('start one that failed again, and fail the command when it fails again', async () => {
     deployment(statuses('failed', { error: 'boom' }), statuses('failed', { error: 'boom' }))
     expect((await upgradeJson()).data.state).toBe('failed')
-    expect(vi.mocked(runConvex).mock.calls.map(([, args]) => args.at(-2))).toEqual(['migrations:status', 'migrations:run'])
+    expect(vi.mocked(runConvex).mock.calls.map(([, args]) => args.at(-2))).toEqual(['migrations:status', 'migrations:run', '--inline-query'])
     expect(process.exitCode).toBe(1)
   })
 
@@ -209,6 +223,7 @@ describe('the data migrations', () => {
     expect(vi.mocked(runConvex).mock.calls.map(([, args]) => args)).toEqual([
       ['run', '--component', 'backend', '--prod', 'migrations:status', '{}'],
       ['run', '--component', 'backend', '--prod', 'migrations:run', '{}'],
+      ['run', '--prod', ...LISTING.slice(1)],
     ])
   })
 
@@ -229,6 +244,71 @@ describe('the data migrations', () => {
     expect(lines).toEqual(['[nuxt-backend] upgrade: 0 of 2 package migrations done…', '[nuxt-backend] upgrade: 0 of 2 package migrations done…'])
     deployment(statuses('pending'), statuses('running'))
     expect(await migrateData(dir, { prod: false, dryRun: false, wait: 0 })).toMatchObject({ state: 'running' })
+  })
+})
+
+describe('the workpool backfill', () => {
+  beforeEach(() => {
+    dir = checkoutBaseStarter(parent)
+  })
+
+  /** The deployment's answers: the migrations done, then the listing, then each pool's in turn. */
+  function pools(components: string[], ...answers: Array<'started' | Error>) {
+    deployment(statuses('done'), listed(components))
+    for (const answer of answers) {
+      if (answer instanceof Error) vi.mocked(runConvex).mockRejectedValueOnce(answer)
+      else vi.mocked(runConvex).mockResolvedValueOnce({ stdout: '', stderr: '' })
+    }
+  }
+
+  it('starts on every pool the deployment mounts, nested ones included, and asks no batch worker', async () => {
+    pools(['backend', 'backend/resend/emailWorkpool', 'backend/resend/emailWorkpool/batchWorker', 'workpool', 'workpool/batchWorker'], absent(), 'started', 'started')
+    const report = await upgradeJson()
+    expect(report.pools).toEqual({ state: 'started', pools: ['backend/resend/emailWorkpool', 'workpool'], failed: [] })
+    expect(vi.mocked(runConvex).mock.calls.slice(1).map(([, args]) => args)).toEqual([
+      LISTING,
+      ['run', '--component', 'backend', POOL_BACKFILL, '{}'],
+      ['run', '--component', 'backend/resend/emailWorkpool', POOL_BACKFILL, '{}'],
+      ['run', '--component', 'workpool', POOL_BACKFILL, '{}'],
+    ])
+    expect(process.exitCode).toBeUndefined()
+  })
+
+  it('says none when no pool has the backfill yet, and does not fail', async () => {
+    pools(['workpool', 'workpool/batchWorker'], absent())
+    expect((await upgradeJson()).pools).toEqual({ state: 'none', pools: [], failed: [] })
+    expect(process.exitCode).toBeUndefined()
+  })
+
+  it('fails the command when a pool refuses it, and still starts the rest', async () => {
+    pools(['workflow/workpool', 'workpool'], new ConvexCliError('convex run exited with code 1', { code: 1, signal: null, timedOut: false, stderrTail: 'Server Error' }), 'started')
+    const report = await upgradeJson()
+    expect(report.pools).toEqual({ state: 'failed', pools: ['workpool'], failed: [{ component: 'workflow/workpool', reason: 'convex run exited with code 1' }] })
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('is skipped when the deployment lists no components', async () => {
+    deployment(statuses('done'), new Error('network down'))
+    expect((await upgradeJson()).pools).toEqual({ state: 'skipped', pools: [], failed: [], reason: 'the deployment did not list its components: network down' })
+  })
+
+  it('asks pools four at a time, and a dry run asks none', async () => {
+    const paths = Array.from({ length: 6 }, (_, index) => `pool${index}`)
+    let open = 0
+    let most = 0
+    const run = vi.fn(async (_root: string, args: string[]) => {
+      if (args.includes('--inline-query')) throw listed(paths)
+      open++
+      most = Math.max(most, open)
+      await new Promise(resolve => setTimeout(resolve, 1))
+      open--
+      return { stdout: '', stderr: '' }
+    })
+    expect((await backfillPools(dir, { prod: false, dryRun: false }, run)).pools).toEqual(paths)
+    expect(most).toBe(4)
+    run.mockClear()
+    expect(await backfillPools(dir, { prod: false, dryRun: true }, run)).toMatchObject({ state: 'pending', pools: [] })
+    expect(run).not.toHaveBeenCalled()
   })
 })
 

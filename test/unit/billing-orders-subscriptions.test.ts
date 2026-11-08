@@ -2154,7 +2154,7 @@ describe('registered actions', () => {
       'acceptSaveOffer', 'cancelGift', 'cancelPendingChange', 'cancelSubscription', 'changeGiftRecipient', 'claimGift', 'generateCheckoutLink', 'generateCustomerPortalUrl', 'getBillingAccess',
       'getBillingConsole', 'getCancelFlow', 'getConfiguredProducts', 'getCredits', 'getCurrentSubscription', 'getFeatures', 'getInvoiceUrl', 'getOrders', 'getPricing',
       'getReceivedGifts', 'getRevenue', 'getSentGifts', 'getUsageHistory', 'getWithdrawal', 'giftCheckout', 'listAllSubscriptions', 'pauseSubscription',
-      'refundOrder', 'rescheduleGift', 'resendGift', 'resumeSubscription', 'runGiftSweep', 'startFreePlan', 'syncEntitlements', 'syncProducts', 'uncancelSubscription', 'updateSubscription', 'withdraw',
+      'refundOrder', 'rescheduleGift', 'resendGift', 'resumeSubscription', 'resyncEntitlements', 'runGiftSweep', 'startFreePlan', 'syncEntitlements', 'syncProducts', 'uncancelSubscription', 'updateSubscription', 'withdraw',
     ])
   })
 

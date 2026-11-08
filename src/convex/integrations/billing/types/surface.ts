@@ -110,6 +110,20 @@ export interface Billing {
      * `billing.ts`, where the queue finds it by name.
      */
     startFreePlan: ReturnType<typeof internalActionGeneric>
+    /**
+     * Internal: read every billing entity's entitlements again from the
+     * provider into the cache, as `syncEntitlements` does for the caller's
+     * own: after missed webhooks, say. Without an `entityId` it queues
+     * every existing entity on the free plan's queue, a page at a time, and
+     * answers `{ queued, more }`; with one it reads that entity's state
+     * (`'synced'`, or `'gone'` while an erasure deletes it). An app that
+     * bills entities of its own (`billTo: 'user'` and its own
+     * `resolveEntity`) has none it can page: the sweep answers
+     * `'custom_entities'`, and each is read by its `entityId`. Run by
+     * `npx nuxt-backend billing resync`; exported from `billing.ts`, where
+     * each page finds it by name.
+     */
+    resyncEntitlements: ReturnType<typeof internalActionGeneric>
     getReceivedGifts: ReturnType<typeof queryGeneric>
     claimGift: ReturnType<typeof actionGeneric>
     getSentGifts: ReturnType<typeof queryGeneric>

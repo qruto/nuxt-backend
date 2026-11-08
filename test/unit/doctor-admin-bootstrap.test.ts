@@ -18,6 +18,11 @@ vi.mock('../../src/convex-cli', () => ({
       if (deployment.setRole) throw deployment.setRole
       return { stdout: 'null', stderr: '' }
     }
+    if (args.includes('access:admit')) {
+      // The component's answer: each address admitted, none with an account.
+      const { emails } = JSON.parse(args.at(-1)!) as { emails: string[] }
+      return { stdout: JSON.stringify({ admitted: emails, ids: emails.map((_, i) => `admission${i}`), skipped: [] }), stderr: '' }
+    }
     return { stdout: '{}', stderr: '' }
   }),
 }))
@@ -131,5 +136,15 @@ describe('doctor --fix\'s first administrator', () => {
     expect(admit.slice(0, 4)).toEqual(['run', '--component', 'backend', 'access:admit'])
     expect(JSON.parse(admit[4]!)).toMatchObject({ emails: ['ada@example.com'], source: 'invitation', label: 'first-administrator' })
     expect(print).toHaveBeenCalledWith('[nuxt-backend] doctor --fix: ada@example.com has no account yet, and may now sign up while the app is closed. Sign in with it once, then run doctor --fix again to make it the first administrator.')
+  })
+
+  it('lower-cases an address typed in mixed case before the role change and the admission, so the admission is recognised', async () => {
+    deployment.setRole = new Error('Uncaught ConvexError: No user with email admin@example.com')
+    const print = vi.fn()
+    expect(await bootstrapAdmin(rootDir, { prod: false, ask: async () => ' Admin@Example.com ', print })).toBeNull()
+    const [setRole, admit] = deployment.calls.slice(-2)
+    expect(JSON.parse(setRole!.at(-1)!)).toEqual({ email: 'admin@example.com', role: 'admin' })
+    expect(JSON.parse(admit!.at(-1)!)).toMatchObject({ emails: ['admin@example.com'] })
+    expect(print).toHaveBeenCalledWith('[nuxt-backend] doctor --fix: admin@example.com has no account yet, and may now sign up while the app is closed. Sign in with it once, then run doctor --fix again to make it the first administrator.')
   })
 })

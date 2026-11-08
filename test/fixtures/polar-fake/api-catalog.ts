@@ -293,6 +293,8 @@ export function catalogRoutes(context: ApiContext): Route[] {
     ['GET', '/v1/meters', listMeters],
     ['POST', '/v1/meters', createMeter],
     ['GET', '/v1/custom-fields', listCustomFields],
+    // The organization's own checkout links, made in its dashboard: the package never makes one, so the fake holds none.
+    ['GET', '/v1/checkout-links', ({ query }) => reply(200, 'checkout-links', paginate([], query))],
     ['POST', '/v1/custom-fields', createCustomField],
     ['GET', '/v1/organizations', listOrganizations],
     ['PATCH', '/v1/organizations/{id}', updateOrganization],

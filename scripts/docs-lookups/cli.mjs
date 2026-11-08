@@ -226,6 +226,11 @@ export const FINDING_DOCS = {
     why: 'A workspace\'s owner and admins manage its billing through the customer\'s members.',
     fix: 'Turn on team customers, and give the token the member and customer-session scopes.',
   },
+  'billing-checkout-links': {
+    checks: 'No checkout link made in the provider\'s dashboard sells a product of the catalog (an archived product sells nothing). The package never makes one. No finding when the token may not read the organization\'s checkout links.',
+    why: 'A purchase through such a link names no billing entity: the provider makes a customer of the buyer\'s email, which the app maps to nobody, so the buyer pays and the app grants nothing, or a second plan lands beside the free one.',
+    fix: 'Delete those links in the provider\'s dashboard, and link to the app\'s pricing page instead: its checkout names the billing entity.',
+  },
   'billing-gift-twins': {
     checks: 'Every pack has a private gift product with no benefits, at its pack\'s live prices in every currency. A pack or twin with no live fixed price warns too.',
     why: 'A gift buys the pack\'s twin; without one, gifts of that pack are refused, sold at the wrong price or in the wrong currency, or grant a benefit twice.',

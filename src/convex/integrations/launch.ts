@@ -8,8 +8,8 @@ import {
   type AccessTicket,
   ADMISSION_TTL_MS,
   admissionEmail,
-  admissionProblem,
   ADMIT_BATCH_MAX,
+  cleanAddresses,
   effectivePhase,
   inDomains,
   INVITE_LABEL_MAX,
@@ -299,18 +299,6 @@ function checkLimits(input: { maxUses: number, expiresAt?: number, kind: InviteK
   }
   if (input.expiresAt === undefined && input.kind === 'link') throw backendError('invalid_input', { field: 'expiresAt' }, `[nuxt-backend] ${what}: an access link needs an expiry.`)
   if (input.expiresAt !== undefined && !(input.expiresAt > Date.now())) throw backendError('invalid_input', { field: 'expiresAt' }, `[nuxt-backend] ${what}: expiresAt is in the past.`)
-}
-
-/** A pasted list as admissions take it: each address trimmed and lower-cased, the ones that take none set aside with why. */
-function cleanAddresses(emails: readonly string[]): { clean: string[], skipped: AdmitResult['skipped'] } {
-  const clean: string[] = []
-  const skipped: AdmitResult['skipped'] = []
-  for (const email of emails.map(admissionEmail).filter(Boolean)) {
-    const problem = admissionProblem(email)
-    if (problem) skipped.push({ email, reason: problem })
-    else clean.push(email)
-  }
-  return { clean, skipped }
 }
 
 /** The tickets a sign-up records as they come: an address's own, and a code's or link's. */
