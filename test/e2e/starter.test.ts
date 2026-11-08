@@ -378,6 +378,13 @@ describe('templates/starter (production build)', { timeout: 60_000 }, () => {
     expect(csp).toMatch(new RegExp(`img-src[^;]*http://${stubHost.replace('.', '\\.')}`))
   })
 
+  it('lets other sites load nuxt-og-image\'s images, and keeps same-origin everywhere else', async () => {
+    const og = await fetch('/_og/s/og.png')
+    expect(og.headers.get('cross-origin-resource-policy')).toBe('cross-origin')
+    const page = await fetch('/login')
+    expect(page.headers.get('cross-origin-resource-policy')).toBe('same-origin')
+  })
+
   it('writes nothing into the example app (zero scaffold writes)', () => {
     const status = gitStatus()
     expect(status).toEqual(statusBeforeBuild)
