@@ -36,6 +36,8 @@ import { installableFinding, type InstallableOptions } from './installable'
 import type { BillingCatalog } from './convex/catalog'
 import { collectBillingFindings, loadCatalog, readBillingOrganizationState } from './cli/billing'
 import { productionCatalogFindings, providerSdkFindings } from './cli/billing/doctor'
+import { productionBillingLaunch, withBillingLaunch } from './cli/billing/launch'
+import type { BillingLaunch } from './convex/billing-launch'
 import { billingEndpointFindings, billingProviderTarget, providerClient, readProviderEndpoint } from './cli/billing/settings'
 import { checkMappedCustomers, customerMappingFindings, readMappedCustomers } from './cli/billing/mappings'
 import { metricsAccessFindings } from './cli/billing/metrics'
@@ -950,16 +952,18 @@ function productionBillsIn({ environment }: ProductionPosture): 'sandbox' | 'pro
 /**
  * Under --prod, what production's posture says beyond the presence of its
  * names: its site's origin, its own email facts, and whether the catalog
- * can sell there. The environment and the sender report through their
- * deployment findings ({@link deploymentEnvFindings}).
+ * can sell there (a gap only warns while billing is not launched). The
+ * environment and the sender report through their deployment findings
+ * ({@link deploymentEnvFindings}).
  */
-async function productionPostureFindings(rootDir: string, posture: ProductionPosture | null, wants: (group: FindingGroup) => boolean): Promise<PreflightFinding[]> {
+async function productionPostureFindings(rootDir: string, posture: ProductionPosture | null, wants: (group: FindingGroup) => boolean, { launch, deployed, cloud }: { launch: BillingLaunch | null, deployed: readonly string[], cloud: boolean }): Promise<PreflightFinding[]> {
   if (!posture) return []
   return [
     ...wants('auth') ? siteOriginFinding(posture) : [],
     ...wants('email') ? emailPostureFindings(posture) : [],
-    ...wants('billing') ? await productionCatalogFindings(rootDir, productionBillsIn(posture)) : [],
+    ...wants('billing') ? await productionCatalogFindings(rootDir, productionBillsIn(posture), launch?.launched ?? true) : [],
     ...wants('ai') ? aiSpendLimitFinding(rootDir, posture) : [],
+    ...wants('ai') ? aiGatewayBudgetFinding(rootDir, posture, { deployed, cloud }) : [],
   ]
 }
 
@@ -978,6 +982,62 @@ function aiSpendLimitFinding(rootDir: string, posture: ProductionPosture): Prefl
     'warn',
     'Production is a sandbox (BACKEND_ENVIRONMENT=sandbox), and setupAi sets no spendLimit: every metered call, stream, job and chat reply is refused (not_ready, reason no_budget).',
     'Pass `spendLimit: { usdPerDay }` to setupAi in backend/ai.ts: once a UTC day costs that much, pause_ai turns on until the day ends.',
+  )]
+}
+
+/** Each gateway by name, and its own cap in dollars: where it lives, and how to set it. Neither is read here. */
+const GATEWAY_CAP: Readonly<Record<NamedGateway, { name: string, cap: string, fix: string }>> = {
+  convex: {
+    name: 'the Convex AI Gateway',
+    cap: 'the team\'s spending limit, on its billing page',
+    fix: 'For the Convex AI Gateway, set the team\'s spending limit on its billing page in the Convex dashboard.',
+  },
+  vercel: {
+    name: 'the Vercel AI Gateway',
+    cap: 'a budget on its key, the project or the team',
+    fix: 'For the Vercel AI Gateway: `vercel ai-gateway budgets set api-key <the key production holds> --amount <dollars> --refresh-period monthly`.',
+  },
+}
+
+/**
+ * The gateways production's model calls go through: in each order
+ * `setupAi({ gateway, routes })` gives the backend's models, the first that
+ * answers there; the Vercel AI Gateway alone for calls pinned to a region.
+ * None when no model is named, the order is no literal doctor reads, or
+ * nothing answers (the route finding says each of those).
+ */
+function productionGateways(rootDir: string, deployed: readonly string[], cloud: boolean): NamedGateway[] {
+  const models = namedModels(rootDir)
+  const order = chosenGateways(rootDir)
+  const routes = chosenRoutes(rootDir)
+  if (models.length === 0 || order === 'unread' || routes === 'unread') return []
+  if (pinnedRegion(rootDir) !== undefined) return ['vercel']
+  const facts = { keyed: deployed.includes('AI_GATEWAY_API_KEY'), convex: cloud && convexGatewayProviderInstalled(rootDir) }
+  const answering = routedGroups(models, order ?? ['convex', 'vercel'], routes).map(group => answeringGateway(group.order, facts))
+  return [...new Set(answering.filter((gateway): gateway is NamedGateway => gateway !== undefined))]
+}
+
+/**
+ * Under --prod, what caps production's model spend in dollars: setupAi's
+ * daily `spendLimit`, which pauses AI alone, read from the backend; each
+ * gateway's own cap, which doctor reads no account for, is named with how
+ * to set it. A sandbox is `ai-spend-limit`'s; no finding for a backend with
+ * no AI, or whose model calls go nowhere.
+ */
+function aiGatewayBudgetFinding(rootDir: string, posture: ProductionPosture, { deployed, cloud }: { deployed: readonly string[], cloud: boolean }): PreflightFinding[] {
+  if (posture.environment === 'sandbox') return []
+  const { setupAi, spendLimit } = aiFeatures(rootDir)
+  const gateways = setupAi ? productionGateways(rootDir, deployed, cloud) : []
+  if (gateways.length === 0) return []
+  const through = `Production's model calls go through ${gateways.map(gateway => GATEWAY_CAP[gateway].name).join(' and ')}`
+  const unchecked = `Not checked: ${gateways.map(gateway => `${GATEWAY_CAP[gateway].name}'s own cap, ${GATEWAY_CAP[gateway].cap}`).join('; ')}, as doctor reads no account of ${gateways.length === 1 ? 'it' : 'theirs'}.`
+  const fixes = gateways.map(gateway => GATEWAY_CAP[gateway].fix).join(' ')
+  if (spendLimit) return [finding('ai-gateway-budget', 'pass', `${through}, and setupAi's daily spendLimit pauses AI once a UTC day's spend reaches it. ${unchecked}`, fixes)]
+  return [finding(
+    'ai-gateway-budget',
+    'warn',
+    `${through}, and setupAi sets no spendLimit: nothing doctor can read caps what they cost in dollars. ${unchecked}`,
+    `Pass \`spendLimit: { usdPerDay }\` to setupAi in backend/ai.ts: once a UTC day costs that much, AI pauses itself until the day ends. And cap the gateway: ${fixes}`,
   )]
 }
 
@@ -1025,7 +1085,7 @@ export async function runDoctorChecks(rootDir: string, { prod, only, deployedNam
   const appConfig = appConfigLoader(rootDir)
 
   const siteUrl = resolveSiteUrl({ env, derived: deriveDeploymentUrls(rootDir, env) })
-  const [{ deployed, surface, posture }, catalog, metrics] = await Promise.all([
+  const [{ deployed, surface, posture, launch }, catalog, metrics] = await Promise.all([
     (async () => {
       // The deployment's env names (never values) first, so a variable set
       // there but not visible here counts as set instead of warning next to
@@ -1041,7 +1101,10 @@ export async function runDoctorChecks(rootDir: string, { prod, only, deployedNam
         names !== null && !prod && wants('deployment') ? envDefaultsFindings(rootDir) : [],
         posture,
       ])
-      return { deployed: names, surface: [...surface, ...defaults, ...await productionPostureFindings(rootDir, read, wants)], posture: read }
+      // Whether production's billing sells yet, once it bills in the provider's production environment.
+      const launch = read && wants('billing') && productionBillsIn(read) === 'production' ? await productionBillingLaunch(rootDir, names ?? []) : null
+      const cloud = deploymentRoute(computeDeployment(rootDir, env).kind, true).cloud
+      return { deployed: names, surface: [...surface, ...defaults, ...await productionPostureFindings(rootDir, read, wants, { launch, deployed: names ?? [], cloud })], posture: read, launch }
     })(),
     // Billing catalog cross-checks: what backend/billing.catalog.ts declares
     // against the organization's own subscription + portal settings. Every
@@ -1069,6 +1132,16 @@ export async function runDoctorChecks(rootDir: string, { prod, only, deployedNam
     ...catalog,
     ...metrics,
   ].filter(reported => wantsCapability(reported.capability))
-  // With production's own value read, `BACKEND_ENVIRONMENT` has settled its status: a `sandbox` warns on purpose.
-  return prod ? applyProductionPosture(findings, posture ? new Set(['deployment-backend-environment']) : undefined) : findings
+  return prod ? productionFindings(findings, { posture, launch }) : findings
+}
+
+/**
+ * Production posture over the findings: with production's own value read,
+ * `BACKEND_ENVIRONMENT` has settled its status (a `sandbox` warns on
+ * purpose), and so has billing's launch state: before billing launches, the
+ * findings that only say so warn rather than fail (`billing-launch`).
+ */
+function productionFindings(findings: PreflightFinding[], { posture, launch }: { posture: ProductionPosture | null, launch: BillingLaunch | null }): PreflightFinding[] {
+  const launched = launch ? withBillingLaunch(findings, launch) : { findings, settled: [] }
+  return applyProductionPosture(launched.findings, new Set([...posture ? ['deployment-backend-environment'] : [], ...launched.settled]))
 }

@@ -49,7 +49,9 @@ export const contractRegion = path => `cli-${path.replace(/ /g, '-')}`
  * it. A finding added to the registry needs its entry here: the lookup
  * throws without one. `fails` is when it fails in any mode; `prodFails`,
  * when it fails under `--prod` only; `prodOnly` marks a finding only
- * `doctor --prod` reports.
+ * `doctor --prod` reports; `prelaunch`, one that stays a warning under
+ * `--prod` while billing is not launched (`billing-launch`); `notChecked`, one
+ * that only says what doctor cannot read, and how to set it up.
  */
 export const FINDING_DOCS = {
   'backend-site-url': {
@@ -141,26 +143,31 @@ export const FINDING_DOCS = {
     fix: 'Mount it with `registerBackendRoutes` in `backend/http.ts`, and set `EMAIL_WEBHOOK_SECRET`.',
   },
   'billing-access': {
+    prelaunch: true,
     checks: '`BILLING_ACCESS_TOKEN` is visible locally or set on the deployment.',
     why: 'Without it, billing queries return empty and checkout fails when called.',
     fix: 'Add an organization access token to `.env.local` and push it.',
   },
   'billing-webhook-secret': {
+    prelaunch: true,
     checks: '`BILLING_WEBHOOK_SECRET` is visible locally or set on the deployment.',
     why: 'Without it, billing events are refused and entitlements refresh only on demand.',
     fix: '`npx nuxt-backend billing sync` creates the endpoint and stores its secret on the deployment.',
   },
   'deployment-billing-access-token': {
+    prelaunch: true,
     checks: '`BILLING_ACCESS_TOKEN` is set on the deployment.',
     why: 'Without it, billing queries return empty and checkout fails when called.',
     fix: 'Push it from `.env.local`: `npx nuxt-backend env push`, or `doctor --fix`.',
   },
   'deployment-billing-webhook-secret': {
+    prelaunch: true,
     checks: '`BILLING_WEBHOOK_SECRET` is set on the deployment.',
     why: 'Without it, billing events are refused and entitlements refresh only on demand.',
     fix: 'Run `npx nuxt-backend billing sync`, which stores the endpoint\'s secret there.',
   },
   'billing-webhook-route': {
+    prelaunch: true,
     checks: 'An unsigned empty POST to `/billing/events` on the site URL: `404` is not mounted and fails; `503` is mounted but fail-closed, its secret unset, and warns; any other 4xx is mounted and passes; any other status warns as unexpected, and an unreachable site warns.',
     fails: 'the route answers `404`',
     why: 'The provider delivers events there; unmounted, entitlements never refresh on their own.',
@@ -292,6 +299,12 @@ export const FINDING_DOCS = {
     prodOnly: true,
     why: 'Anyone may sign up to a demo, and its model calls are real: a sandbox refuses every metered call, stream, job and chat reply (`not_ready`, reason `no_budget`) until a daily ceiling caps what they cost.',
     fix: 'Pass `spendLimit: { usdPerDay }` to `setupAi` in `backend/ai.ts` ([Cap the daily spend](/docs/build/ai/models#cap-the-daily-spend)).',
+  },
+  'ai-gateway-budget': {
+    checks: 'Off a sandbox, what caps production\'s model spend in dollars. The gateways its calls go through come from `setupAi({ gateway, routes })`\'s order: in each, the first that answers on production (the Convex AI Gateway with `@convex-dev/ai-sdk-provider` installed on Convex Cloud, the Vercel AI Gateway with `AI_GATEWAY_API_KEY`), and the Vercel one alone for calls pinned to a region. A `spendLimit` in `setupAi`, read from the source, passes. Each gateway\'s own cap is not checked, as doctor reads no Convex team or Vercel account: the finding names it and how to set it. No finding on a sandbox ([`ai-spend-limit`](#ai-spend-limit)), for a backend without `setupAi`, or when no model call goes anywhere ([`deployment-ai-gateway-api-key`](#deployment-ai-gateway-api-key) says why).',
+    prodOnly: true,
+    why: 'Credits cap what each workspace spends in your prices; a cap in dollars is the last line, whatever the prices say. The Convex usage limit\'s `warning` ([`monitoring-usage-alerts`](#monitoring-usage-alerts)) only emails, and its `disable` pauses the whole deployment.',
+    fix: 'Pass `spendLimit: { usdPerDay }` to `setupAi` in `backend/ai.ts`, which pauses AI alone ([Cap the daily spend](/docs/build/ai/models#cap-the-daily-spend)), and cap each gateway: the Convex team\'s spending limit on its billing page, a Vercel AI Gateway budget with `vercel ai-gateway budgets set` ([Cap what the gateway spends](/docs/build/ai/models#cap-what-the-gateway-spends)).',
   },
   'ai-moderation-images': {
     checks: 'Whether the image checks a backend file asks for (`images` in an `ai.moderate` or `ai.requireSafe` call, or in a `moderate` option) can run. The default safety classifier follows the gateway that answers: Llama Guard 4 through the Convex AI Gateway, which reads images, and `openai/gpt-oss-safeguard-20b` through the Vercel AI Gateway, which reads text only. A classifier named in `setupAi({ moderation: { model } })` passes as the app\'s own choice.',
@@ -457,11 +470,17 @@ export const FINDING_DOCS = {
     fix: 'Move the account to a paid plan before launch: it has a monthly quota only.',
   },
   'billing-catalog-production': {
-    checks: 'Every price of a plan still sold (`pro`, `pro:year`), every pack and every meter of `billing.catalog.ts` has its production id in `billing.generated.ts`, which `billing sync --env production` writes. A retired plan is not asked for. A gap fails once production bills in the production environment, and warns while it bills in the sandbox, on purpose or by default. No finding without a catalog, or when the id map does not load.',
-    prodFails: 'production bills in the production environment and an id is missing',
+    checks: 'Every price of a plan still sold (`pro`, `pro:year`), every pack and every meter of `billing.catalog.ts` has its production id in `billing.generated.ts`, which `billing sync --env production` writes. A retired plan is not asked for. A gap fails once production bills in the production environment and its billing is launched, and warns while it bills in the sandbox, on purpose or by default, or before billing launches there ([`billing-launch`](#billing-launch)). No finding without a catalog, or when the id map does not load.',
+    prodFails: 'production bills in the production environment, its billing is launched, and an id is missing',
     prodOnly: true,
     why: 'The backend looks a product up by its catalog key in the production ids: one without its id cannot be checked out, and a meter without its id records no spend.',
     fix: 'Run `npx nuxt-backend billing sync --env production`, and commit the `billing.generated.ts` it writes.',
+  },
+  'billing-launch': {
+    checks: 'Whether billing sells on production yet, by the rule the deployment follows: a production that bills in the provider\'s production environment (`BACKEND_ENVIRONMENT=production`) is launched once it holds `BILLING_ACCESS_TOKEN` and `billing.generated.ts` has production products. Not launched warns, naming which is missing and the steps that launch it; until then [`billing-access`](#billing-access), [`deployment-billing-access-token`](#deployment-billing-access-token), [`billing-webhook-secret`](#billing-webhook-secret), [`deployment-billing-webhook-secret`](#deployment-billing-webhook-secret), a fail-closed [`billing-webhook-route`](#billing-webhook-route) and [`billing-catalog-production`](#billing-catalog-production) warn rather than fail, and `status --prod` reads billing as missing, not failing. No finding while production bills in the sandbox, where billing is always launched, or for an app with no billing catalog.',
+    prodOnly: true,
+    why: 'A production deployment can open before its billing does, while the provider reviews the organization: its pricing reads "Plans open soon" and every sale is refused (`unavailable`, reason `not_launched`), by design rather than by a broken setup ([Before billing launches](/docs/build/billing/setup#before-billing-launches)).',
+    fix: 'Launch it as [Go live](/docs/build/billing/setup#go-live) says: set the live token on production, run `npx nuxt-backend billing sync --env production` with production\'s deploy key, commit and deploy the `billing.generated.ts` it writes, then start everyone who joined meanwhile on the free plan with `npx convex run --prod billing:startFreePlan \'{}\'`.',
   },
   'site-https': {
     checks: 'An anonymous request to the root of production\'s site, at the `https` origin its `SITE_URL` names, following its redirects: answered at that origin, with `Strict-Transport-Security` for a day or more. A redirect to plain HTTP fails; a redirect to another origin, no HSTS, a shorter one or a `5xx` warns. A site that was not probed at all is one warning, on the first probe the run checks (this one, else `site-gated-page`, `mcp-challenge` or `monitoring-health`), and no other probe runs: a site that does not answer, or, in a run without the auth capability, whose `site-url-origin` would say so, a `SITE_URL` that names no `https` origin of its own.',
@@ -559,6 +578,13 @@ export const FINDING_DOCS = {
     why: 'Uptime checks read the public shape; the detail names env names and findings, which only admins should see.',
     fix: 'Production shows the detail to everyone only when its `BACKEND_ENVIRONMENT` says `development`: name it `production` with `npx nuxt-backend env push --prod --force BACKEND_ENVIRONMENT` (`env push` leaves a value already set unless forced).',
   },
+  'monitoring-uptime': {
+    notChecked: true,
+    checks: 'Not checked: whether an uptime monitor asks production\'s health endpoint, as doctor reads no monitoring account. Reported once the endpoint answers its public shape ([`monitoring-health`](#monitoring-health)), as a pass that says so, with where to set one up; nothing before that.',
+    prodOnly: true,
+    why: 'The health endpoint answers anyone; without a monitor asking it, an outage is heard of when someone reports it.',
+    fix: 'In Sentry: **Monitors**, **Add Monitor**, **Uptime**, at `https://<your site>/api/backend/health`, every minute ([Watch the health endpoint](/docs/services/sentry#watch-the-health-endpoint)). Any uptime service that GETs the URL works the same way.',
+  },
   'monitoring-usage-alerts': {
     checks: 'Production\'s usage limits, as `npx convex deployment usage-limits list --prod --json` prints them: an active `warning` limit on some metric, and on `aiGatewayCostDollars` too when models go through the Convex AI Gateway (`@convex-dev/ai-sdk-provider` installed). A limit past its threshold warns. Limits that cannot be read pass, saying so.',
     prodOnly: true,
@@ -588,8 +614,9 @@ export const findingIds = () => Object.keys(FINDINGS)
 /** When a finding fails, in dev and under `--prod`, as its entry's table says it. */
 function severities(entry, docs) {
   const dev = docs.prodOnly ? 'Not checked' : docs.fails ? `Fails when ${docs.fails}; otherwise warns` : 'Warns, never fails'
-  if (entry.prod === 'fail') return { dev, prod: 'A warning fails' }
+  if (entry.prod === 'fail') return { dev, prod: docs.prelaunch ? 'A warning fails, except before billing launches' : 'A warning fails' }
   if (docs.prodFails) return { dev, prod: `Fails when ${docs.prodFails}; otherwise warns` }
+  if (docs.notChecked) return { dev, prod: 'Passes, saying it was not checked' }
   return { dev, prod: docs.fails ? 'As in dev' : docs.prodOnly ? 'Warns, never fails' : 'Still a warning' }
 }
 

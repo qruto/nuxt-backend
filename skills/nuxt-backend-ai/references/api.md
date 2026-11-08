@@ -45,6 +45,7 @@ Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBala
 | `ai-stream-route` | ai | AI stream route |
 | `ai-components` | ai | Chat and knowledge components |
 | `ai-spend-limit` | ai | AI spend limit on a sandbox |
+| `ai-gateway-budget` | ai | AI gateway budget |
 | `ai-moderation-images` | ai | Image checks and the safety classifier |
 | `deployment-ai-gateway-api-key` | ai | Deployment AI_GATEWAY_API_KEY |
 | `deployment-provenance-private-key` | ai | Deployment PROVENANCE_PRIVATE_KEY |

@@ -39,7 +39,7 @@ export declare const DEPLOYMENT_ROUTES: Record<string, [methods: string, calledB
 export declare const ROUTE_AREAS: Record<string, string>
 
 /** What each `doctor` finding checks, when it fails, and its fix. */
-export declare const FINDING_DOCS: Record<string, { checks: string, fails?: string, prodFails?: string, prodOnly?: boolean, why: string, fix: string, verify?: string }>
+export declare const FINDING_DOCS: Record<string, { checks: string, fails?: string, prodFails?: string, prodOnly?: boolean, prelaunch?: boolean, notChecked?: boolean, why: string, fix: string, verify?: string }>
 
 /** What each subpath is for, by subpath. */
 export declare const USE_FOR: Record<string, string>

@@ -725,6 +725,7 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `billing-promotion-portal` | billing | Promotions and plan changes |
 | `billing-provider-sdk` | billing | Billing provider SDK |
 | `billing-catalog-production` | billing | Production catalog |
+| `billing-launch` | billing | Billing launch |
 | `email-transport` | email | Email transport |
 | `email-webhook-secret` | email | Email webhooks |
 | `deployment-email-api-key` | email | Deployment EMAIL_API_KEY |
@@ -749,6 +750,7 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `ai-stream-route` | ai | AI stream route |
 | `ai-components` | ai | Chat and knowledge components |
 | `ai-spend-limit` | ai | AI spend limit on a sandbox |
+| `ai-gateway-budget` | ai | AI gateway budget |
 | `ai-moderation-images` | ai | Image checks and the safety classifier |
 | `deployment-ai-gateway-api-key` | ai | Deployment AI_GATEWAY_API_KEY |
 | `deployment-provenance-private-key` | ai | Deployment PROVENANCE_PRIVATE_KEY |
@@ -766,6 +768,7 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `monitoring-source-maps` | monitoring | Source maps |
 | `monitoring-backend-exceptions` | monitoring | Backend exception reporting |
 | `monitoring-health` | monitoring | Health endpoint |
+| `monitoring-uptime` | monitoring | Uptime monitor |
 | `monitoring-usage-alerts` | monitoring | Usage alerts |
 | `analytics-metrics` | analytics | Billing metrics |
 | `analytics-activation` | analytics | Activation event |
