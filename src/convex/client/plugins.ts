@@ -114,7 +114,18 @@ export const PASSKEY_ONLY_PLUGIN = {
  * The registration and sign-in options ask for it (`userVerification:
  * 'required'`), and the server refuses a response whose authenticator did
  * not verify the person (`requireUserVerification`), at registration and
- * at every sign-in. A security key with no PIN set cannot be saved.
+ * at every sign-in, `useReauthentication().withPasskey` included. A
+ * security key with no PIN set cannot be saved.
+ *
+ * A passkey saved under 0.2 (which asked for verification as `preferred`)
+ * by a security key with no PIN was stored without it, and is now refused.
+ * Chrome offers to set a PIN on such a key; a U2F-only key can never
+ * verify. The passkey row keeps no verification flag, so those accounts
+ * can't be found in advance: the refusal reads as `invalid_input` on
+ * `passkey`, whose label names the PIN, or as `passkey_cancelled` when the
+ * browser gives up on the key. The person signs in with an email
+ * code; a passkey-only account uses its recovery code, or an
+ * administrator's `allowSignInCodes`.
  *
  * This deliberately omits passkey-first (pre-auth) account creation: minting an
  * account + session from a WebAuthn ceremony over an unverified, client-typed
@@ -124,7 +135,9 @@ export const PASSKEY_ONLY_PLUGIN = {
  * New users sign up with OTP, then add a passkey from their authenticated
  * session (the `passkey-offer` step of `useLoginFlow`).
  *
- * Override by passing your own `passkey(...)` plugin in `authOptions.plugins`.
+ * Override by passing your own `passkey(...)` plugin in `authOptions.plugins`,
+ * and keep `authenticatorSelection: { userVerification: 'required' }` in it:
+ * without it, a passkey that never checked the person signs in.
  */
 export function defaultPasskey() {
   return passkey({ authenticatorSelection: { userVerification: 'required' } })
@@ -197,8 +210,10 @@ export function impersonationSeconds(options: AdminPluginOptions | undefined): n
  *
  * A banned account's sign-in is refused with a sentence naming when its
  * ban ends ({@link bannedSentence}), which the reader turns into the
- * `forbidden` refusal's `until`. An app's own `bannedUserMessage` replaces
- * it, and the refusal then carries no `until`.
+ * `forbidden` refusal's `until`. The person reads the `errors` labels, never
+ * Better Auth's sentence: word the refusal by overriding
+ * `errors.forbidden_banned` and `errors.forbidden_banned_until`. An app's
+ * own `bannedUserMessage` only loses `until`.
  *
  * Override by passing your own `admin(...)` in `authOptions.plugins`: the
  * hook still refuses an administrator's account (by your plugin's

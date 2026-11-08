@@ -64,7 +64,7 @@ const ERROR_LABELS = {
   invalid_input_recoveryCode: 'That recovery code isn\'t right, or it was used already.',
   invalid_input_passkeys: 'A passkey-only account needs a passkey. Add one, or allow sign-in codes again first.',
   invalid_input_slug: 'That name is taken. Try another one.',
-  invalid_input_passkey: 'That passkey didn\'t work. Try again, or continue with an email code.',
+  invalid_input_passkey: 'That passkey didn\'t work. If it\'s a security key, set a PIN on it and try again, or continue with an email code.',
   invalid_input_passkey_cancelled: 'The passkey prompt was closed. Try again, or continue with an email code.',
   invalid_input_no_password: 'This app signs in with codes and passkeys: there is no password to reset.',
   invalid_input_comment: 'That comment is too long. Keep it to 500 characters.',

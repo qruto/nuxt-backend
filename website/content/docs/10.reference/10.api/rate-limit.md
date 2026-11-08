@@ -284,12 +284,16 @@ The three busiest deployment-wide ceilings, `emailOtpGlobal`, `aiGlobal`
 and `passkeySignInGlobal`, apply their updates asynchronously
 (`applyUpdates: 'asynchronously'`): a request checks the window on a
 snapshot and queues its token, so the requests that spend one never
-conflict over the window's single row. The ceiling can then let a few more
-through than its rate under a burst, which a deployment-wide backstop
-allows; the per-address and per-caller limits in front of it stay exact.
-An override of one of these three keeps working when it omits
-`applyUpdates` (the rate limiter then applies it transactionally), but may
-not shard it.
+conflict over the window's single row. Under a burst the ceiling lets
+through every request that read the window before the queue caught up,
+so more than its rate. The queue then applies every queued spend, without
+stopping at zero, so the window ends below zero and the overshoot is
+taken from the next windows: a flood keeps the ceiling closed for longer
+than one window. Nothing in front of it bounds a flood either: a sign-in
+code is limited per address, and a flood rotates addresses.
+An override of one of these three replaces its whole config: without
+`applyUpdates` it is transactional again, and may be sharded; an
+asynchronous limit can't be.
 
 ## Covering other auth routes
 

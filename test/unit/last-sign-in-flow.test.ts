@@ -135,6 +135,14 @@ describe('the passkey sign-in challenge', () => {
     expect(flow.limiter.limit.mock.calls[0]![2]?.key).not.toBe(sha256('203.0.113.7'))
   })
 
+  it('asks the device to verify the person when a passkey is saved, too', async () => {
+    const flow = await authFlow()
+    const person = await flow.signedIn(ADA)
+    const answer = await flow.get('/passkey/generate-register-options', { cookie: person.cookie })
+    expect(answer.status).toBe(200)
+    expect(await answer.json()).toMatchObject({ authenticatorSelection: { userVerification: 'required' } })
+  })
+
   it('refuses an address past its bucket with the wait, and leaves other addresses and the ceiling alone', async () => {
     const flow = await authFlow()
     const capacity = DEFAULT_LIMITS.passkeySignIn.capacity

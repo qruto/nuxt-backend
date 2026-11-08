@@ -192,9 +192,15 @@ function sentenceWithNumbers(code: BackendErrorCode, data: Record<string, unknow
   return budget ?? timed ?? amounts ?? bannedUntil
 }
 
-/** When a ban ends, as the `errors` labels say it: the minute, in UTC (`2026-12-01 14:30 UTC`). */
+/**
+ * When a ban ends, as the `errors` labels say it: the minute, in UTC
+ * (`2026-12-01 14:30 UTC`), rounded up, so a person who tries again at the
+ * minute named is let in. The sentence is built where no locale or time
+ * zone is known, so it names UTC rather than guess one.
+ */
 function banEndText(until: number): string {
-  return `${new Date(until).toISOString().slice(0, 16).replace('T', ' ')} UTC`
+  const minute = Math.ceil(until / 60_000) * 60_000
+  return `${new Date(minute).toISOString().slice(0, 16).replace('T', ' ')} UTC`
 }
 
 /** The moment a ban's sentence ({@link bannedSentence}) names, as an ISO timestamp. */

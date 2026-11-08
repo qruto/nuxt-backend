@@ -110,11 +110,26 @@ describe('a refused sign-in', () => {
     })
   })
 
-  it('keeps an app\'s own banned sentence, with no end read out of it', async () => {
+  it('names the minute a ban ends rounded up, so trying again at that minute gets in', async () => {
+    const ends = Date.UTC(2099, 11, 1, 14, 30, 20)
+    const flow = await authFlow()
+    await flow.helpers.saveUser(flow.helpers.createUser({ email: ADA, name: 'Ada', emailVerified: true, banned: true, banExpires: new Date(ends) }))
+    const body = await (await signIn(flow)).json() as Record<string, unknown>
+    expect(getBackendError({ error: { ...body, status: 403, statusText: 'Forbidden' } })).toMatchObject({
+      data: { reason: 'banned', until: ends },
+      message: 'This account is banned until 2099-12-01 14:31 UTC.',
+    })
+  })
+
+  it('shows the person the label, not an app\'s own banned sentence, which only loses the end', async () => {
     const flow = await authFlow({ build: { admin: { bannedUserMessage: 'Banned until next Tuesday.' } } as never })
     await flow.helpers.saveUser(flow.helpers.createUser({ email: ADA, name: 'Ada', emailVerified: true, banned: true, banExpires: new Date(Date.UTC(2099, 0, 1)) }))
     const body = await (await signIn(flow)).json() as Record<string, unknown>
     expect(body).toMatchObject({ code: 'BANNED_USER', message: 'Banned until next Tuesday.' })
-    expect(getBackendError({ error: { ...body, status: 403, statusText: 'Forbidden' } })?.data).toEqual({ reason: 'banned' })
+    expect(getBackendError({ error: { ...body, status: 403, statusText: 'Forbidden' } })).toEqual({
+      code: 'forbidden',
+      data: { reason: 'banned' },
+      message: 'This account is banned.',
+    })
   })
 })

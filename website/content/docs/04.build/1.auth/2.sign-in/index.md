@@ -275,7 +275,7 @@ Checking codes has a budget of its own: ten checks an hour per address, however 
 
 - **Codes.** Five sends a minute per address, 300 an hour for the whole deployment, and ten checks an hour per address ([Tune rate limits](/docs/ship/security/rate-limits)). Every code is an email against your provider's quota ([Resend](/docs/services/resend)).
 - **Passkeys.** The browser and the device decide what a passkey prompt looks like. A browser without WebAuthn signs in with codes only.
-- **User verification.** Every passkey asks the device to check the person: a fingerprint, a face or the device's PIN (`userVerification: 'required'`), when it is saved and at every sign-in, and the server refuses a passkey that skipped it. A security key with no PIN set can't be saved until it has one.
+- **User verification.** Every passkey asks the device to check the person: a fingerprint, a face or the device's PIN (`userVerification: 'required'`), when it is saved and at every sign-in, and the server refuses a passkey that skipped it, at sign-in and in `useReauthentication().withPasskey`. A security key with no PIN set can't be saved until it has one. If you pass your own `passkey(...)`, keep `authenticatorSelection: { userVerification: 'required' }` in it.
 - **Signals.** A browser without the Signal API keeps offering a removed passkey until the person deletes it from the device.
 - **Recovery.** One recovery code per account, at least 100 bits. Its route is limited per client and for the whole deployment, never per address, so nobody can lock a person out of their own recovery. A person who loses it with every passkey gets back in only through an administrator.
 
@@ -309,6 +309,8 @@ test('signs in with a code', async ({ page }) => {
 ## Coming from the current API
 
 `resolveSignInMethod` is deprecated: Better Auth 1.7 names a code sign-in `email-otp` itself, so drop `customResolveMethod: resolveSignInMethod` from your own `lastLoginMethod`. It still works until a later minor release removes it. Passkeys now require user verification: a device that signs in without checking the person's fingerprint, face or PIN is refused.
+
+A passkey saved under 0.2, which asked for verification as `preferred`, by a security key with no PIN was stored unverified, and it is now refused at sign-in and in `useReauthentication().withPasskey`. Chrome offers to set a PIN on such a key; a U2F-only key can never verify. The passkey row keeps no verification flag, so you can't find those accounts in advance. The refusal is `invalid_input` on `passkey`, whose label tells a security key's owner to set a PIN, or reason `passkey_cancelled` when the browser gives up on the key itself. The person signs in with an email code and saves a new passkey. A passkey-only account uses its recovery code, and without one an administrator's `allowSignInCodes` ([Passkey-only accounts](#passkey-only-accounts)).
 
 The offer step was `add-passkey`, and so was `<AuthForm>`'s slot: both are `passkey-offer` now (the `data-auth="step-add-passkey"` hook keeps its name). A code now works only in the browser that asked for it, so a test that asks in one client and checks in another fails with `other_browser`. The last-method cookie is set only once the browser allowed it in the consent manager, so a page that marks **Last used** lists `preferences` in `appConfig.backend.consent.purposes`.
 

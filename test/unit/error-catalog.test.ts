@@ -227,7 +227,7 @@ describe('getBackendError', () => {
   it('reads the passkey plugin\'s 401 refusals of a passkey sign-in as the passkey refused, not a missing session', () => {
     const read = (code: string) => getBackendError({ data: null, error: { code, message: 'Refused', status: 401, statusText: 'UNAUTHORIZED' } })
     // A passkey removed from the account and still on the device, which autofill offers.
-    expect(read('PASSKEY_NOT_FOUND')).toEqual({ code: 'invalid_input', data: { field: 'passkey' }, message: 'That passkey didn\'t work. Try again, or continue with an email code.' })
+    expect(read('PASSKEY_NOT_FOUND')).toEqual({ code: 'invalid_input', data: { field: 'passkey' }, message: 'That passkey didn\'t work. If it\'s a security key, set a PIN on it and try again, or continue with an email code.' })
     expect(read('AUTHENTICATION_FAILED')!.data).toEqual({ field: 'passkey' })
     // Any other 401 is still a missing session.
     expect(read('UNAUTHORIZED')!.code).toBe('unauthenticated')
