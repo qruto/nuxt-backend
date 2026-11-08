@@ -62,6 +62,7 @@ const empty = computed(() => !firstLoad.value && items.value.length === 0 && log
 <template>
   <section
     v-if="!log.isRefused.value"
+    data-backend
     data-audit="root"
     :aria-busy="busy ? 'true' : undefined"
   >

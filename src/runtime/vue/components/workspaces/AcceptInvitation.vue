@@ -136,6 +136,7 @@ const invited = computed(() => {
       v-bind="context"
     >
       <div
+        data-backend
         :data-invitation="state"
         :aria-busy="state === 'loading' || pending ? 'true' : undefined"
         :data-loading="state === 'loading' ? '' : undefined"

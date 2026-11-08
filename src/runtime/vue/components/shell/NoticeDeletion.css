@@ -10,7 +10,8 @@
     align-items: center;
     gap: 0.6rem 1rem;
     padding: 0.6rem 0.9rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
     background: var(--bk-surface);
     color: var(--bk-ink);
@@ -22,11 +23,13 @@
 
   [data-deletion='keep'] {
     padding: 0.35rem 0.8rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow-control);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
     font: inherit;
+    font-family: var(--bk-font-control, var(--bk-font));
     cursor: pointer;
   }
 

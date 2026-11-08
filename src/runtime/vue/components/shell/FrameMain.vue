@@ -20,6 +20,7 @@ const titleHook = computed(() => ({ [`data-${props.family}`]: 'title' }))
 <template>
   <div
     v-if="shell"
+    data-backend
     :data-backend-page="page"
     v-bind="family"
   >
@@ -33,6 +34,7 @@ const titleHook = computed(() => ({ [`data-${props.family}`]: 'title' }))
   </div>
   <main
     v-else
+    data-backend
     :data-backend-page="page"
     v-bind="family"
   >

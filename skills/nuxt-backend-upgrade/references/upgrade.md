@@ -58,6 +58,12 @@ agent files and skills.
 |---|---|---|---|
 | `@sentry/nuxt` | `@sentry/nuxt@^11.10.0` | reshaped | the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn |
 
+## [The packaged UI reads its faces, lines and shadows from tokens](https://nuxt-backend.dev/docs/ship/releases/upgrade#the-packaged-ui-reads-its-faces-lines-and-shadows-from-tokens)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `[data-auth='form'], [data-pricing='table'], [data-admin]` | `[data-backend]` | reshaped | the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root |
+
 ## [One way to do each thing](https://nuxt-backend.dev/docs/ship/releases/upgrade#one-way-to-do-each-thing)
 
 | Was | Now | Change | Note |

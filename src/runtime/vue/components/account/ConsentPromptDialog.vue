@@ -78,6 +78,7 @@ const onClose = () => {
 <template>
   <dialog
     ref="dialog"
+    data-backend
     data-consent="dialog"
     :data-state="saving ? 'pending' : 'ready'"
     :aria-labelledby="`${id}-title`"

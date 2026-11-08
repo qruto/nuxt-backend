@@ -171,6 +171,7 @@ const verdict = computed<GateVerdict>(() => {
     />
     <p
       v-else-if="verdict.kind === 'quota-loading'"
+      data-backend
       data-quota="loading"
       role="status"
       aria-busy="true"
@@ -179,6 +180,7 @@ const verdict = computed<GateVerdict>(() => {
     </p>
     <p
       v-else-if="verdict.kind === 'quota-error'"
+      data-backend
       data-quota="error"
       role="alert"
     >

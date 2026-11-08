@@ -51,7 +51,10 @@ const { t, errorMessage } = field.labels
 </script>
 
 <template>
-  <div v-bind="bind.root.value">
+  <div
+    data-backend
+    v-bind="bind.root.value"
+  >
     <span v-bind="bind.label.value">{{ t('label') }}</span>
     <input v-bind="bind.input.value">
     <div data-upload="picker">

@@ -80,6 +80,7 @@ async function finish(skip: boolean): Promise<void> {
 <template>
   <form
     v-if="!question.isSignedOut.value || question.isLoading.value"
+    data-backend
     data-source="root"
     :data-state="question.isDone.value ? 'done' : question.isAnswered.value ? 'answered' : 'open'"
     :aria-busy="question.isLoading.value || question.isPending.value ? 'true' : undefined"
