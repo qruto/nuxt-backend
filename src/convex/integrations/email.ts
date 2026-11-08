@@ -90,6 +90,7 @@ export type {
   NoticeDecidedEmailData,
   ContentRestrictedEmailData,
   AppealDecidedEmailData,
+  NotificationEmailData,
 } from '../email-templates.js'
 export type { LabelParams, Translate } from '../labels.js'
 export type { ClockTime, EmailCaps, EmailTopic, EmailTopics, TopicSource, TopicState } from '../email-preferences.js'
@@ -387,10 +388,13 @@ export interface SetupEmailOptions {
   retention?: EmailRetention
   /**
    * Restyle any email the package sends, by template name: `otp`,
-   * `emailChanged`, `deletionScheduled`, `deletionCanceled`, `welcome`, `invite`, `gift`. Each
+   * `emailChanged`, `deletionScheduled`, `deletionCanceled`, `welcome`, `invite`, `gift`,
+   * `notification` and the rest of {@link EmailTemplates}. Each
    * override gets the template's data and its render context, the default
    * included:
    * `invite: (data, { byDefault }) => ({ ...byDefault(data), subject: 'Join us' })`.
+   * The `notification` override is every notification's email: switch on
+   * `data.type` to give a kind its own, and return `byDefault(data)` for the rest.
    */
   templates?: EmailTemplateOverrides
   /**

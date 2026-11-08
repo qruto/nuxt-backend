@@ -5,7 +5,7 @@ import { v } from 'convex/values'
 import { asUser, defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { setupAudit } from '../../src/convex/integrations/audit'
-import { setupEmail } from '../../src/convex/integrations/email'
+import { type NotificationEmailData, setupEmail } from '../../src/convex/integrations/email'
 import { type NotificationKindChoice, setupNotifications } from '../../src/convex/integrations/notifications'
 import { base64urlEncode, generatePushKeys } from '../../src/convex/web-push'
 
@@ -17,8 +17,18 @@ import { base64urlEncode, generatePushKeys } from '../../src/convex/web-push'
 // hours, which a transactional kind skips.
 
 const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'> }
+/** What the `notification` template was handed, kind by kind. */
+const notified: NotificationEmailData[] = []
 const email = setupEmail(components as never, {
   brand: { name: 'Panels' },
+  templates: {
+    // A kind of its own: the printed strip says how many copies ship, from the kind's fields; every other kind gets the default.
+    notification: (data, { byDefault }) => {
+      notified.push(data)
+      if (data.type !== 'app.strip_printed') return byDefault(data)
+      return { to: data.email, subject: data.words.title, blocks: [{ heading: data.words.title }, { paragraph: `${String(data.fields.copies)} copies ship today.` }, { button: { label: 'Track it', url: data.link } }] }
+    },
+  },
   caps: { perWeek: 1, quietHours: { start: '21:00', end: '08:00' } },
   messages: { en: { backend: { notifications: {
     strip_shared: { title: '{actor} shared a strip with you', body: 'Open it to read and comment.' },
@@ -28,10 +38,11 @@ const email = setupEmail(components as never, {
 /** What the email channel handed to the sending rules: the message, as rendered. */
 const prepared: Array<{ to: string, subject: string, html?: string, deliverAt?: number }> = []
 /** What a transactional kind sent at once, past the sending rules. */
-const sent: Array<{ to: string, subject: string, html?: string }> = []
+const sent: Array<{ to: string, subject: string, html?: string, text?: string }> = []
 const notifications = setupNotifications(components as never, {
   email: {
     compose: email.compose,
+    render: email.render,
     send: async (ctx, message) => {
       sent.push(message as never)
       return email.send(ctx, message)
@@ -89,6 +100,7 @@ beforeEach(async () => {
   vi.spyOn(console, 'warn').mockImplementation(() => {})
   prepared.length = 0
   sent.length = 0
+  notified.length = 0
   t = testApp()
 })
 
@@ -176,6 +188,27 @@ describe('the email channel', () => {
     await grace.mutation(recordRef, { event: { type: 'app.strip_shared', subjectId: ada.userId, targetId: 'strip_9' } })
     await settle()
     expect(prepared).toEqual([expect.objectContaining({ subject: 'Grace shared a strip with you', deliverAt: Date.UTC(2026, 9, 29, 8) })])
+  })
+
+  test('renders every kind through the notification template, so one kind gets its own email and the rest the default', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com', workspace: false })
+    await t.mutation(recordRef, { event: { type: 'app.strip_printed', actor: null, subjectId: ada.userId, targetId: 'strip_7', data: { copies: 3 } } })
+    await ada.mutation(recordRef, { event: { type: 'auth.passkey_added' } })
+    await settle()
+    expect(notified).toEqual([
+      { email: 'ada@example.com', type: 'app.strip_printed', words: { title: 'Your strip is printed', body: 'It ships today.' }, link: 'https://app.example.com/profile', fields: { copies: 3 } },
+      { email: 'ada@example.com', type: 'auth.passkey_added', words: { title: 'A passkey was added', body: 'If this was not you, remove it in your security settings.' }, link: 'https://app.example.com/security', fields: {} },
+    ])
+    expect(sent.map(message => message.subject)).toEqual(['Your strip is printed', 'A passkey was added'])
+    // The override, in the layout: its own words and button, no note.
+    expect(sent[0]!.html).toContain('3 copies ship today.')
+    expect(sent[0]!.html).toContain('Track it')
+    expect(sent[0]!.html).toContain('Panels')
+    expect(sent[0]!.html).not.toContain('You can choose which notifications reach you by email')
+    // The default: the kind's words, a button to its page and the link written out, and where to choose.
+    expect(sent[1]!.html).toContain('If this was not you, remove it in your security settings.')
+    expect(sent[1]!.html).toContain('href="https://app.example.com/security"')
+    expect(sent[1]!.text).toContain('You can choose which notifications reach you by email on your profile.')
   })
 
   test('holds a transactional kind to the person\'s channel choice', async () => {

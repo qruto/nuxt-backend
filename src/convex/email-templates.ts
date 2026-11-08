@@ -11,6 +11,7 @@ import { invite } from './emails/invite.js'
 import { otp } from './emails/otp.js'
 import { passkeyRecovered } from './emails/passkey-recovered.js'
 import { newDevice } from './emails/new-device.js'
+import { notification } from './emails/notification.js'
 import { topicConfirmation } from './emails/topic-confirmation.js'
 import { renewalReminder } from './emails/renewal-reminder.js'
 import { waitlistAdmitted } from './emails/waitlist-admitted.js'
@@ -380,6 +381,40 @@ export interface AppealDecidedEmailData {
 }
 
 /**
+ * Data for the `notification` template: one notification by email, worded
+ * already. `type` says which kind it is, so one override can give each kind
+ * its own email and leave the rest to the default.
+ */
+export interface NotificationEmailData {
+  /** The person notified: the email goes to their account's address. */
+  email: string
+  /**
+   * The kind: an event type of the package's catalog (`auth.passkey_added`),
+   * or one of yours under `app.` (`app.strip_shared`).
+   */
+  type: string
+  /**
+   * The kind's words in the reader's language, as the inbox shows them: its
+   * `title`, and its `body` when it has one. The kind's own fields, the
+   * actor and the workspace are filled in.
+   */
+  words: { title: string, body?: string }
+  /**
+   * Where the notification opens, an absolute URL of the app: your kind's
+   * `link`, or the ready-made page a package kind is about. The default
+   * puts it in the reader's language with `context.link`.
+   */
+  link: string
+  /**
+   * The kind's own fields, as the event recorded them (`{ role }`,
+   * `{ balance }`): an email of your own can show what the words leave out.
+   * Values a person typed are their own text, so escape them in HTML
+   * ({@link escapeHtml}).
+   */
+  fields: Record<string, string | number | boolean | string[]>
+}
+
+/**
  * Every email the package sends, as a template. A template returns the
  * message or a promise of it, so an async renderer (`@vue-email/render`,
  * `@react-email/render`) works as is.
@@ -436,6 +471,13 @@ export interface EmailTemplates {
   contentRestricted: (data: ContentRestrictedEmailData, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>
   /** Tells the author the outcome of their appeal (DSA Art. 20). */
   appealDecided: (data: AppealDecidedEmailData, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>
+  /**
+   * A notification by email, for every kind whose email channel the person
+   * keeps on: the kind's words, a button that opens it, and where to choose
+   * which notifications reach them by email. Switch on `data.type` to give
+   * a kind its own, and return `byDefault(data)` for the rest.
+   */
+  notification: (data: NotificationEmailData, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>
 }
 
 /** A template's name. */
@@ -684,6 +726,7 @@ export const PACKAGED_EMAIL_TEMPLATES: { [Name in EmailTemplateName]: (data: Ema
   appealDecided: inLayout(appealDecided),
   renewalReminder: inLayout(renewalReminder),
   withdrawalReceipt: inLayout(withdrawalReceipt),
+  notification: inLayout(notification),
 }
 
 /** A packaged template's message, its blocks rendered into the layout. */
@@ -872,7 +915,8 @@ interface PreviewSample<Name extends EmailTemplateName = EmailTemplateName> {
   template: Name
   variant?: string
   note: string
-  data: (site: string) => EmailTemplateData<Name>
+  /** The sample's data, from the site's URL and, for words a template takes worded, the preview's `t`. */
+  data: (site: string, t: Translate) => EmailTemplateData<Name>
 }
 
 const SAMPLE_EMAIL = 'ada@example.com'
@@ -919,6 +963,16 @@ export const EMAIL_PREVIEW_SAMPLES: readonly PreviewSample[] = [
   { key: 'renewalReminder', template: 'renewalReminder', note: 'Once a year, to the billing managers of a plan renewing every month.', data: site => ({ email: SAMPLE_EMAIL, plan: 'Pro', amount: 2900, currency: 'usd', interval: 'month', intervalCount: 1, renewsAt: Date.UTC(2027, 0, 15), manageUrl: `${site}/settings` }) } satisfies PreviewSample<'renewalReminder'>,
   { key: 'withdrawalReceipt', template: 'withdrawalReceipt', note: 'To the person who pressed the withdrawal button.', data: () => ({ email: SAMPLE_EMAIL, plan: 'Pro', withdrawnAt: Date.UTC(2027, 0, 15, 14, 2) }) } satisfies PreviewSample<'withdrawalReceipt'>,
   { key: 'giftPassEnding', template: 'giftPassEnding', note: 'To a workspace\'s billing managers, a week before a plan pass ends.', data: site => ({ email: SAMPLE_EMAIL, plan: 'Pro', workspace: 'Analytical Engines', endsAt: Date.UTC(2027, 0, 15), keepUrl: `${site}/settings` }) } satisfies PreviewSample<'giftPassEnding'>,
+  {
+    key: 'notification',
+    template: 'notification',
+    note: 'A notification by email, for each kind whose email the person keeps on: here, a role changed in a workspace.',
+    data: (site, t) => {
+      const fields = { role: 'admin' }
+      const params = { ...fields, workspace: 'Analytical Engines' }
+      return { email: SAMPLE_EMAIL, type: 'workspace.member_role_changed', words: { title: t('notifications.workspace.member_role_changed.title', params), body: t('notifications.workspace.member_role_changed.body', params) }, link: `${site}/settings`, fields }
+    },
+  } satisfies PreviewSample<'notification'>,
 ] as readonly PreviewSample[]
 
 /** The emails of one setup, rendered: what `setupEmail` holds, and `renderEmail` runs on. */
@@ -996,8 +1050,9 @@ export function createEmailRenderer(options: EmailRenderOptions, env: () => Emai
     previews: async (locale) => {
       const resolved = resolveLocale(locale)
       const site = (env().siteUrl ?? '').replace(/\/$/, '') || 'https://app.example.com'
+      const { t } = context(resolved)
       return await Promise.all(EMAIL_PREVIEW_SAMPLES.map(async (sample) => {
-        const rendered = await render(sample.template, sample.data(site) as never, resolved)
+        const rendered = await render(sample.template, sample.data(site, t) as never, resolved)
         return {
           key: sample.key,
           template: sample.template,

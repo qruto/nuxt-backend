@@ -193,10 +193,10 @@ passed it.
 | ------ | ------ | ------ |
 | `workflow` | `WorkflowManager` | - |
 | `components` | `SequenceEmailComponents` | - |
-| `options` | \{ `args`: `Args`; `steps`: [`EmailSequenceStep`](#emailsequencestep)\<`ObjectType`\<`Args`\>\>[]; `email?`: `Pick`\<[`Email`](/docs/reference/api/email#email-23), `"compose"`\>; \} | - |
+| `options` | \{ `args`: `Args`; `steps`: [`EmailSequenceStep`](#emailsequencestep)\<`ObjectType`\<`Args`\>\>[]; `email?`: `Pick`\<[`Email`](/docs/reference/api/email#email-24), `"compose"`\>; \} | - |
 | `options.args` | `Args` | - |
 | `options.steps` | [`EmailSequenceStep`](#emailsequencestep)\<`ObjectType`\<`Args`\>\>[] | - |
-| `options.email?` | `Pick`\<[`Email`](/docs/reference/api/email#email-23), `"compose"`\> | The app's `setupEmail` instance: its brand and `messages` reach every step. |
+| `options.email?` | `Pick`\<[`Email`](/docs/reference/api/email#email-24), `"compose"`\> | The app's `setupEmail` instance: its brand and `messages` reach every step. |
 
 #### Returns
 

@@ -100,6 +100,21 @@ describe('packaged templates', () => {
     const waitlist = PACKAGED_EMAIL_TEMPLATES.waitlistConfirmation({ email: 'a@b.com', statusUrl: '/waitlist#t', position: 3, total: 9 }, path)
     expect(waitlist.html).toContain('/waitlist#t')
     expect(waitlist.html).not.toContain('class="nb-button"')
+    const notification = PACKAGED_EMAIL_TEMPLATES.notification({ email: 'a@b.com', type: 'auth.passkey_added', words: { title: 'A passkey was added' }, link: '/security', fields: {} }, path)
+    expect(notification.html).not.toContain('class="nb-button"')
+    expect(notification.text).toContain('/security')
+  })
+
+  it('word a notification with the words it is handed, escaped, a button to its link and where to choose', () => {
+    const message = PACKAGED_EMAIL_TEMPLATES.notification({ email: 'ada@example.com', type: 'app.strip_shared', words: { title: '<b>Grace</b> shared a strip', body: 'Open it.' }, link: 'https://app.example.com/strips/7', fields: {} }, context)
+    expect(message).toMatchObject({ to: 'ada@example.com', subject: '<b>Grace</b> shared a strip' })
+    expect(message.html).toContain('&lt;b&gt;Grace&lt;/b&gt; shared a strip')
+    expect(message.html).toContain('href="https://app.example.com/strips/7"')
+    expect(message.html).toContain(LABELS.notifications.emailOpen)
+    expect(message.text).toContain(LABELS.notifications.emailNote)
+    // A kind with no body has no paragraph for one.
+    const bare = PACKAGED_EMAIL_TEMPLATES.notification({ email: 'ada@example.com', type: 'app.strip_shared', words: { title: 'New activity' }, link: 'https://app.example.com/', fields: {} }, context)
+    expect(bare.text!.split('\n\n')[0]).toBe('New activity')
   })
 })
 

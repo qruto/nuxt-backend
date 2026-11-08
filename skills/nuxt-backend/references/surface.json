@@ -332,6 +332,7 @@
         "NewDeviceEmailData",
         "NoticeDecidedEmailData",
         "NoticeReceivedEmailData",
+        "NotificationEmailData",
         "OtpEmailData",
         "OtpPurpose",
         "PasskeyRecoveredEmailData",
