@@ -62,10 +62,10 @@ const body = [
   '| --- | --- | --- | --- |',
   ...rows,
   '',
-  '## Decisions',
-  '',
-  ...config.decisions.map(decision => `- **${decision.id}** (${decision.title}): **${decision.state}**. ${decision.note}`),
-  '',
+  // A decision waits on upstream until it is taken; with none open, no section.
+  ...(config.decisions.length > 0
+    ? ['## Decisions', '', ...config.decisions.map(decision => `- **${decision.id}** (${decision.title}): **${decision.state}**. ${decision.note}`), '']
+    : []),
   '## Asks',
   '',
   '| Ask | Owner | Blocks | Until then |',

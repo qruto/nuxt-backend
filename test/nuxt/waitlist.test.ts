@@ -58,7 +58,7 @@ mockNuxtImport('useRoute', () => () => route)
 // The bot check asks for no token where the app checks nobody (the protection tests hold the rest).
 vi.mock('../../src/runtime/vue/composables/use-human-check', () => ({ useHumanCheck: () => ({ mode: computed(() => 'off'), isPending: computed(() => false), error: ref(null), token: async () => null }) }))
 
-const { useWaitlist } = await import('../../src/runtime/vue/composables/use-waitlist')
+const { campaignSource, useWaitlist } = await import('../../src/runtime/vue/composables/use-waitlist')
 const { registerComponents } = await import('../helpers/register-components')
 const { WaitlistForm } = await registerComponents('WaitlistForm') as Record<'WaitlistForm', Component>
 const { default: WaitlistStatus } = await import('../../src/runtime/vue/components/auth/WaitlistStatus.vue')
@@ -119,6 +119,29 @@ describe('useWaitlist', () => {
     waitlist.answers.role = ''
     await waitlist.join()
     expect(joinCall.mock.calls[0]![0]).toEqual({ email: 'mo@panels.example', human: null })
+  })
+
+  it('records the campaign the visitor came with beside the source, unless asked not to', async () => {
+    route.query = { utm_source: 'insta gram', utm_campaign: 'early-access', utm_medium: 'social' }
+    const landing = inSetup(() => useWaitlist({ source: 'landing' }))
+    landing.email.value = 'mo@panels.example'
+    await landing.join()
+    // The form's source, then the campaign's tags, a space taken for a dash.
+    expect(joinCall.mock.calls.at(-1)![0]).toMatchObject({ source: 'landing:insta-gram/early-access' })
+    const form = inSetup(() => useWaitlist())
+    form.email.value = 'mo@panels.example'
+    await form.join()
+    expect(joinCall.mock.calls.at(-1)![0]).toMatchObject({ source: 'form:insta-gram/early-access' })
+    const plain = inSetup(() => useWaitlist({ source: 'landing', campaign: false }))
+    plain.email.value = 'mo@panels.example'
+    await plain.join()
+    expect(joinCall.mock.calls.at(-1)![0]).toMatchObject({ source: 'landing' })
+  })
+
+  it('cuts a campaign source to the longest one a join takes', () => {
+    expect(campaignSource('landing', { source: 'x'.repeat(80) })).toHaveLength(64)
+    expect(campaignSource('landing', undefined)).toBe('landing')
+    expect(campaignSource('landing', { medium: 'email' })).toBe('landing')
   })
 
   it('carries the friend\'s code from the address, once, and lets the visitor drop it', async () => {

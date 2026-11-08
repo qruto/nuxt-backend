@@ -1,12 +1,12 @@
 {
   "tarball": {
     "measured": {
-      "bytes": 15875130,
-      "files": 2855
+      "bytes": 16659272,
+      "files": 2916
     },
     "ceiling": {
-      "bytes": 16700000,
-      "files": 2998
+      "bytes": 17500000,
+      "files": 3062
     }
   },
   "install": {

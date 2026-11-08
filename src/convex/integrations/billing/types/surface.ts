@@ -155,13 +155,13 @@ export interface Billing {
      * names one (`{ offer }`; `offer: false` cancels past it).
      */
     cancelSubscription: RegisteredAction<'public', { subscriptionId?: string, atPeriodEnd?: boolean, reason?: CancellationReason, comment?: string, offer?: false }, Promise<CancelOutcome>>
-    /** What the cancel flow reads before it asks: whether a save offer could stand, and for which reasons; `null` for anyone who may not manage the billing (LIFECYCLE). */
+    /** What the cancel flow reads before it asks: whether a save offer could stand, and for which reasons; `null` for anyone who may not manage the billing. */
     getCancelFlow: RegisteredQuery<'public', { subscriptionId?: string }, Promise<CancelFlowState | null>>
-    /** Apply the save offer the cancel flow made, by its id (LIFECYCLE). */
+    /** Apply the save offer the cancel flow made, by its id. */
     acceptSaveOffer: RegisteredAction<'public', { offerId: string }, Promise<null>>
-    /** The caller's purchase inside its EU withdrawal period, for the withdrawal button (`period`, `null` without one); `null` for anyone who may not manage the billing (LIFECYCLE). */
+    /** The caller's purchase inside its EU withdrawal period, for the withdrawal button (`period`, `null` without one); `null` for anyone who may not manage the billing. */
     getWithdrawal: RegisteredQuery<'public', Record<string, never>, Promise<{ period: WithdrawalPeriod | null } | null>>
-    /** Withdraw from a purchase inside its 14 days: it ends at once, and a receipt goes out (LIFECYCLE). */
+    /** Withdraw from a purchase inside its 14 days: it ends at once, and a receipt goes out. */
     withdraw: RegisteredAction<'public', { subscriptionId?: string }, Promise<{ withdrawnAt: number }>>
     /** Undo a scheduled cancellation. */
     uncancelSubscription: ReturnType<typeof actionGeneric>

@@ -17,7 +17,7 @@ Everything you build on the other tabs runs first on your dev deployment. This t
 | Hosting | One build command that ships the backend, then the app; the env split between them; previews, demos and custom domains; one-command production and a deploy template | Convex deployments, and Vercel or any host Nitro deploys to | A dev deployment and the Nuxt dev server | [Deploy to production](/docs/ship/deploy) |
 | The launch gate | `doctor --prod` fails on what a live product cannot run without, reads production's values and probes the live site | The package's CLI | `doctor` against the dev deployment | [Prepare for launch](/docs/ship/checklist) |
 | Protection | A Content Security Policy that knows the deployment, webhooks verified once that fail closed, rate limits on every route that sends mail or acts on others, bot checks | `nuxt-security`, the Convex rate limiter, Vercel BotID or Cloudflare Turnstile | Bot checks answer human; everything else as in production | [Security model](/docs/ship/security) |
-| Compliance | Which laws reach a client app and who answers for what; in `0.2.0`, generated legal pages and a data map, a minimum age, a consent manager, the EU withdrawal button and AI-generated labels | Your counsel, with the providers' DPAs and Polar as merchant of record | The same pages, filled from your dev deployment's capabilities | [Compliance](/docs/ship/compliance) |
+| Compliance | Which laws reach a client app and who answers for what; generated legal pages and a data map, a minimum age, a consent manager, the EU withdrawal button and AI-generated labels | Your counsel, with the providers' DPAs and Polar as merchant of record | The same pages, filled from your dev deployment's capabilities | [Compliance](/docs/ship/compliance) |
 | Monitoring | Error reports from the browser, the Nuxt server and the backend, cron check-ins, and a health endpoint | Sentry | A local error log in DevTools | [Monitor errors and uptime](/docs/ship/operate/monitoring) |
 | Flags | Feature flags read inside your functions, targeted by account, workspace, plan or percentage; kill switches; a maintenance notice | The backend component, on Convex | The same code, on the dev deployment | [Flags and kill switches](/docs/ship/operate/flags) |
 | Operations | Runbooks, backups, the webhook delivery log with replay, secret rotation, and the provider settings `doctor --fix` applies | The package, Convex, Polar and Resend | The same tools, on the providers' test modes | [Monitor production](/docs/ship/operate) |
@@ -36,9 +36,9 @@ A production app has two halves. The **Convex deployment** runs your functions a
 5. **Gate the launch.** `npx nuxt-backend doctor --prod`, then the list of what it can't see, and the first administrator ([Prepare for launch](/docs/ship/checklist)).
 6. **Run it.** Errors and uptime, flags and kill switches, the delivery log and the activity trail, with runbooks for when something breaks ([Monitor production](/docs/ship/operate)).
 
-[One-command production](/docs/ship/deploy/one-command), arriving in `0.2.0`, runs steps 2 to 5 as one command, and writes the app's env into a Vercel project for you.
+[One-command production](/docs/ship/deploy/one-command) runs steps 2 to 5 as one command, and writes the app's env into a Vercel project for you.
 
-The webhooks here are the ones your app receives. API keys and outgoing webhooks, for apps that other systems call, wait for the next release ([Roadmap](/docs/start/roadmap)).
+The webhooks here are the ones your app receives. API keys and outgoing webhooks, for apps that other systems call, wait for a later release ([Roadmap](/docs/start/roadmap)).
 
 ## What you get
 
@@ -62,11 +62,11 @@ Set up each service first: the [Service map](/docs/services) has the order, and 
   :::
 
   :::card{icon="i-lucide-wand-sparkles" title="One-command production" to="/docs/ship/deploy/one-command"}
-  Planned: one command sets up production and writes the app's Vercel env.
+  One command sets up production and writes the app's Vercel env.
   :::
 
   :::card{icon="i-lucide-layout-template" title="Deploy template" to="/docs/ship/deploy/template"}
-  Planned: a new app on Vercel from its first commit, with Convex through the Marketplace.
+  A new app on Vercel from its first commit, with Convex through the Marketplace.
   :::
 
   :::card{icon="i-lucide-git-branch" title="Previews" to="/docs/ship/deploy/previews"}
@@ -102,11 +102,11 @@ Set up each service first: the [Service map](/docs/services) has the order, and 
   :::
 
   :::card{icon="i-lucide-rotate-ccw-key" title="Rotate secrets" to="/docs/ship/security/secrets"}
-  Planned: every secret replaced without signing anyone out or dropping a delivery.
+  Every secret replaced without signing anyone out or dropping a delivery.
   :::
 
   :::card{icon="i-lucide-scan-search" title="Security surface" to="/docs/ship/security/surface"}
-  Planned: everything an outsider can reach, reviewed as one checkpoint.
+  Everything an outsider can reach, reviewed as one checkpoint.
   :::
 
   :::card{icon="i-lucide-package-check" title="Supply chain" to="/docs/ship/security/supply-chain"}
@@ -138,7 +138,7 @@ Set up each service first: the [Service map](/docs/services) has the order, and 
   :::
 
   :::card{icon="i-lucide-refresh-cw" title="Replay deliveries" to="/docs/ship/operate/replay"}
-  Planned: send a webhook delivery an endpoint missed again.
+  Send a webhook delivery an endpoint missed again.
   :::
 
   :::card{icon="i-lucide-life-buoy" title="Troubleshooting" to="/docs/ship/operate/troubleshooting"}

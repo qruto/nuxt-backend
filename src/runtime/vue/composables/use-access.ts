@@ -2,15 +2,16 @@ import type { DefaultFunctionArgs, FunctionReference } from 'convex/server'
 import { computed, inject, ref, type ComputedRef, type Ref } from 'vue'
 import { ConvexAuthStateKey, useMutation } from 'nuxt-convex-module/client'
 import { useAsyncQuery } from 'nuxt-convex-module/app'
-import type { AccessConsole, AccessPhaseState, AdmitResult } from '../../../convex/integrations/launch'
+import type { AccessConsole, AccessPhaseState, AdmitResult, MemberTicket } from '../../../convex/integrations/launch'
 import type { AccessPhase, InviteKind, InviteStatus } from '../../../convex/access-tickets'
 import { useActionState } from '../utils/action-state'
 import { type BackendError, failureOf } from '../utils/backend-error'
 import { forgetInvite, keepInvite, keptInvite, takeInviteFromAddress } from '../utils/kept-invite'
 import { absentQuery, diagnostics, useLiveQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
+import { useBackendPagePath } from './use-backend-page-path'
 
-export type { AccessConsole, AccessPhaseState, AdmitResult } from '../../../convex/integrations/launch'
+export type { AccessConsole, AccessPhaseState, AdmitResult, MemberTicket } from '../../../convex/integrations/launch'
 export type { AccessPhase, InviteKind, InviteStatus } from '../../../convex/access-tickets'
 
 /** The functions re-exported from your `backend/access.ts`. */
@@ -22,6 +23,8 @@ export interface AccessApiRefs {
   createInvite?: FunctionReference<'mutation', 'public', { kind: InviteKind, label: string, maxUses: number, expiresAt?: number }, { id: string, code: string }>
   revokeInvite?: FunctionReference<'mutation', 'public', { id: string }, null>
   admitEmails?: FunctionReference<'mutation', 'public', { emails: string[], label?: string, email?: boolean }, AdmitResult>
+  getMemberTicket?: FunctionReference<'query', 'public', Record<string, never>, MemberTicket | null>
+  issueMemberTicket?: FunctionReference<'mutation', 'public', Record<string, never>, MemberTicket>
 }
 
 export interface UseAccessPhaseOptions {
@@ -169,7 +172,7 @@ export interface UseAccessAdminOptions {
 }
 
 export interface UseAccessAdminReturn {
-  /** The Access tab's data, live: the phase, the codes and links, the invitations by address. `null` for a caller who is no administrator, `undefined` while it is read. */
+  /** The Access tab's data, live: the phase, the codes and links, the member tickets, the invitations by address. `null` for a caller who is no administrator, `undefined` while it is read. */
   console: ComputedRef<AccessConsole | null | undefined>
   /** `true` while it is first read. */
   isLoading: ComputedRef<boolean>
@@ -183,7 +186,7 @@ export interface UseAccessAdminReturn {
   setPhase: (phase: AccessPhase) => Promise<void>
   /** Make a code or a link and answer it, once. Takes a recent sign-in. Rejects on failure. */
   createInvite: (input: { kind: InviteKind, label: string, maxUses: number, expiresAt?: number }) => Promise<{ id: string, code: string }>
-  /** Close a code or a link, or delete an unused invitation by address. Takes a recent sign-in. Rejects on failure. */
+  /** Close a code, a link or a member's ticket, or delete an unused invitation by address. Takes a recent sign-in. Rejects on failure. */
   revoke: (id: string) => Promise<void>
   /** Invite addresses: with no email, unless `email` asks for one ("Email them", about a hundred an hour). Takes a recent sign-in. Rejects on failure. */
   admit: (emails: string[], label?: string, options?: { email?: boolean }) => Promise<AdmitResult>
@@ -191,8 +194,8 @@ export interface UseAccessAdminReturn {
 
 /**
  * The admin console's Access tab, as data: the launch phase and its
- * change, the invite codes and access links, and the invitations by
- * address, through `backend/access.ts`. Every change is an
+ * change, the invite codes and access links, the member tickets, and
+ * the invitations by address, through `backend/access.ts`. Every change is an
  * administrator's in person and takes a recent sign-in
  * (`useReauthentication().withReauthentication` asks for one).
  */
@@ -234,5 +237,87 @@ export function useAccessAdmin(options: UseAccessAdminOptions = {}): UseAccessAd
       await revoke({ id })
     },
     admit: (emails, label, options = {}) => admit({ emails, ...(label?.trim() ? { label } : {}), ...(options.email ? { email: true } : {}) }),
+  }
+}
+
+export interface UseMemberTicketOptions {
+  /** Override the injected `api.access` namespace. */
+  api?: AccessApiRefs
+}
+
+export interface UseMemberTicketReturn {
+  /**
+   * The signed-in member's ticket, live: `open` once the app is public,
+   * `off` while the program is, `none` until they ask for one, then
+   * `issued` with its token, its uses, the ones left and its end. `null`
+   * signed out, `undefined` while it is read.
+   */
+  ticket: ComputedRef<MemberTicket | null | undefined>
+  /** The link to share once issued, `<origin>/invite#<token>` on the page's own origin in the browser (the `invite` page's path; the path alone while rendered on the server), else `null`. */
+  link: ComputedRef<string | null>
+  /** Mint the member's ticket, or answer the one they hold. Rejects on failure, which `error` holds too. */
+  issue: () => Promise<MemberTicket>
+  /** `true` while the ticket is first read. */
+  isLoading: ComputedRef<boolean>
+  /** `true` while `issue` runs. */
+  isPending: ComputedRef<boolean>
+  /** Why the last `issue` failed, else why the read failed, else `null`. */
+  error: ComputedRef<BackendError | null>
+}
+
+/**
+ * A member's ticket (`access.memberTickets`), on markup of your own: the
+ * access link a member shares while the app is closed, admitting a few
+ * friends past the waitlist. `issue` mints it the first time and answers
+ * the same one after, until it expires. The token rides in the link's
+ * fragment, out of every server's logs, and the packaged `/invite` page
+ * redeems it.
+ *
+ * @example
+ * ```vue
+ * <script setup lang="ts">
+ * const { ticket, link, issue } = useMemberTicket()
+ * </script>
+ * <template>
+ *   <button v-if="ticket?.state === 'none'" @click="issue()">Get my ticket</button>
+ *   <p v-else-if="ticket?.state === 'issued'">{{ ticket.left }} of {{ ticket.uses }} left: {{ link }}</p>
+ * </template>
+ * ```
+ */
+export function useMemberTicket(options: UseMemberTicketOptions = {}): UseMemberTicketReturn {
+  const api = useBackendNamespace<AccessApiRefs>('access', 'useMemberTicket', options.api)
+  const auth = inject(ConvexAuthStateKey, null)
+  const signedOut = computed(() => auth == null || !auth.isAuthenticated.value)
+  const authLoading = computed(() => auth != null && auth.isLoading.value)
+  if (!api.getMemberTicket && diagnostics.enabled) console.warn('[nuxt-backend] useMemberTicket(): the backend exports no `getMemberTicket`: re-export `access.memberTickets(…).api` from backend/access.ts.')
+  const read = api.getMemberTicket ? useLiveQuery(api.getMemberTicket, () => (signedOut.value ? 'skip' : {})) : absentQuery<MemberTicket | null>()
+  const runIssue = api.issueMemberTicket ? useMutation(api.issueMemberTicket) : null
+  const { isPending, failure, run } = useActionState(() => signedOut.value)
+  // What `issue` answered, until the live read catches up with it.
+  const issued = ref<MemberTicket | null>(null)
+  const invitePath = useBackendPagePath('invite')
+  const ticket = computed<MemberTicket | null | undefined>(() => {
+    if (authLoading.value) return undefined
+    if (signedOut.value) return null
+    return read.data.value?.state === 'issued' || !issued.value ? read.data.value : issued.value
+  })
+  return {
+    ticket,
+    link: computed(() => {
+      const current = ticket.value
+      if (current?.state !== 'issued' || !invitePath.value) return null
+      // The page's own origin, as the browser sees it: a server behind a proxy may know another.
+      const origin = typeof window === 'undefined' ? '' : window.location.origin
+      return `${origin}${invitePath.value}#${current.token}`
+    }),
+    issue: () => run(async () => {
+      if (!runIssue) throw new Error('[nuxt-backend] A member ticket needs `issueMemberTicket` re-exported from access.memberTickets(…).api in backend/access.ts, or pass `{ api }` to useMemberTicket().')
+      const answer = await runIssue({})
+      issued.value = answer
+      return answer
+    }),
+    isLoading: computed(() => authLoading.value || (!signedOut.value && read.isLoading.value)),
+    isPending,
+    error: computed(() => failure.value ?? (signedOut.value ? null : read.error.value)),
   }
 }

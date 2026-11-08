@@ -47,14 +47,14 @@ The package's own emails go out through your `setupEmail` instance: `setupAuth` 
 
 1. **Configure.** `setupEmail(components)` in `backend/email.ts` is your app's email instance. The scaffolded `convex.config.ts` forwards the `EMAIL_*` variables to the `backend` component ([Send transactional email](/docs/build/email/sending#environment)).
 2. **Render.** Every email comes from a template in one registry, rendered into one layout with your brand, light and dark, in the recipient's language ([Brand your emails](/docs/build/email/templates/theme)).
-3. **Check.** In test mode, a sign-in code or an invitation to a real address is refused up front, with a reason the page shows. An address Resend suppressed gets a step of its own at sign-in ([Handle suppressed addresses](/docs/build/email/delivery/suppressions)). Planned: a marketing send checks the person's topic, the weekly cap, quiet hours and the sunset rule ([Let people choose their emails](/docs/build/email/preferences)).
+3. **Check.** In test mode, a sign-in code or an invitation to a real address is refused up front, with a reason the page shows. An address Resend suppressed gets a step of its own at sign-in ([Handle suppressed addresses](/docs/build/email/delivery/suppressions)). A marketing send checks the person's topic, the weekly cap, quiet hours and the sunset rule ([Let people choose their emails](/docs/build/email/preferences)).
 4. **Send.** A send is durable: the component queues it, retries it and keeps a delivery record. A sign-in code takes a path that keeps no record ([Secret emails leave no record](/docs/build/email/sending#secret-emails-leave-no-record)).
 5. **Track.** Resend posts delivery events to `/email/events`, verified with `EMAIL_WEBHOOK_SECRET`. Each advances the email's record, which `useEmailStatus` reads live, then runs your handlers ([Track delivery](/docs/build/email/delivery)).
 6. **Notify.** A backend event, such as a role change, a low balance or a bounce, writes its row on the activity trail. It then becomes a notification in the inbox and, with the preferences, an email and a push notification. Each goes only where its kind allows and the person has not opted out ([Show in-app notifications](/docs/build/email/notifications)).
 
 ## Who does what
 
-- **The package** holds the templates, the layout and the languages, refuses mail that cannot arrive, and queues, retries and records every send. It verifies, deduplicates and logs every webhook delivery, and prunes its records every hour. With the planned features, it also keeps copies of each person's topic choices and of the suppressed addresses, applies the sending rules, and delivers notifications.
+- **The package** holds the templates, the layout and the languages, refuses mail that cannot arrive, and queues, retries and records every send. It verifies, deduplicates and logs every webhook delivery, and prunes its records every hour. It also keeps copies of each person's topic choices and of the suppressed addresses, applies the sending rules, and delivers notifications.
 - **Resend** delivers the mail, signs the delivery events, keeps the list of addresses it no longer delivers to, and holds the contacts, topics, segments, broadcasts, automations and Inboxes.
 - **Your app** decides what it sends and to whom, from data it trusts: a send never takes its recipient from the browser ([Send transactional email](/docs/build/email/sending#set-up-the-email-instance)).
 
@@ -87,16 +87,16 @@ reference entry.
 | Send an email from your own function | [Send transactional email](/docs/build/email/sending) |
 | Change what the sign-in code or the invitation says | [Customize email templates](/docs/build/email/templates) |
 | Write the emails in German | [Send email in each reader's language](/docs/build/email/templates/languages) |
-| Put your logo and colors on every email (colors planned) | [Brand your emails](/docs/build/email/templates/theme) |
+| Put your logo and colors on every email | [Brand your emails](/docs/build/email/templates/theme) |
 | Show "Delivered" next to an email you sent | [Track delivery](/docs/build/email/delivery) |
 | Send real mail from your own domain | [Get email into inboxes](/docs/build/email/delivery/deliverability) |
-| Keep sign-in codes and newsletters on separate senders (planned) | [Get email into inboxes](/docs/build/email/delivery/deliverability#separate-your-senders) |
+| Keep sign-in codes and newsletters on separate senders | [Get email into inboxes](/docs/build/email/delivery/deliverability#separate-your-senders) |
 | Let a demo or an end-to-end test sign in without a mailbox | [Read test mail in the dev inbox](/docs/develop/dev-inbox) |
 | Follow up a day after sign-up | [Send lifecycle emails](/docs/build/growth/engage/lifecycle-emails) |
-| Email the people who opted into product news (planned) | [Let people choose their emails](/docs/build/email/preferences), then [Announce product news](/docs/build/growth/engage/announcements) |
+| Email the people who opted into product news | [Let people choose their emails](/docs/build/email/preferences), then [Announce product news](/docs/build/growth/engage/announcements) |
 | Hear from visitors and answer from a shared support inbox | [Add a contact form](/docs/build/email/inbound/contact-form) |
-| Tell someone in the app that they were given a role (planned) | [Show in-app notifications](/docs/build/email/notifications) |
-| Reach people with the app closed (planned) | [Send web push notifications](/docs/build/email/notifications/web-push) |
+| Tell someone in the app that they were given a role | [Show in-app notifications](/docs/build/email/notifications) |
+| Reach people with the app closed | [Send web push notifications](/docs/build/email/notifications/web-push) |
 
 ## In this tab
 
@@ -116,7 +116,7 @@ reference entry.
   :::
 
   :::card{icon="i-lucide-palette" title="Brand your emails" to="/docs/build/email/templates/theme"}
-  Planned: your colors and fonts on the layout, the postal address, and blocks for emails of your own.
+  Your colors and fonts on the layout, the postal address, and blocks for emails of your own.
   :::
 
   :::card{icon="i-lucide-mail-check" title="Track delivery" to="/docs/build/email/delivery"}
@@ -128,7 +128,7 @@ reference entry.
   :::
 
   :::card{icon="i-lucide-mail-x" title="Handle suppressed addresses" to="/docs/build/email/delivery/suppressions"}
-  Planned: addresses Resend stopped delivering to, a clear step at sign-in, and lifting one from the admin console.
+  Addresses Resend stopped delivering to, a clear step at sign-in, and lifting one from the admin console.
   :::
 ::
 
@@ -138,11 +138,11 @@ Email that reaches out on its own, and mail that comes back. [Keep people engage
 
 ::card-group
   :::card{icon="i-lucide-sliders-horizontal" title="Let people choose their emails" to="/docs/build/email/preferences"}
-  Planned: topics with double opt-in, the soft opt-in at checkout, one-click unsubscribe, weekly caps, quiet hours and the sunset rule.
+  Topics with double opt-in, the soft opt-in at checkout, one-click unsubscribe, weekly caps, quiet hours and the sunset rule.
   :::
 
   :::card{icon="i-lucide-mail-open" title="Receive email" to="/docs/build/email/inbound"}
-  Planned: replies by email on the right thread, an address per workspace, and a shared support inbox.
+  Replies by email on the right thread, an address per workspace, and a shared support inbox.
   :::
 
   :::card{icon="i-lucide-message-square-text" title="Add a contact form" to="/docs/build/email/inbound/contact-form"}
@@ -154,7 +154,7 @@ Email that reaches out on its own, and mail that comes back. [Keep people engage
   :::
 
   :::card{icon="i-lucide-megaphone" title="Announce product news" to="/docs/build/growth/engage/announcements"}
-  Planned: an in-app notice and a broadcast to the people who opted in.
+  An in-app notice and a broadcast to the people who opted in.
   :::
 ::
 
@@ -162,19 +162,19 @@ Email that reaches out on its own, and mail that comes back. [Keep people engage
 
 ::card-group
   :::card{icon="i-lucide-bell" title="Show in-app notifications" to="/docs/build/email/notifications"}
-  Planned: an in-app inbox fed by backend events, and the channels each kind may use.
+  An in-app inbox fed by backend events, and the channels each kind may use.
   :::
 
   :::card{icon="i-lucide-bell-plus" title="Notify people about your own events" to="/docs/build/email/notifications/custom-events"}
-  Planned: an event of your own, in the inbox, by email and as push, under each person's choices.
+  An event of your own, in the inbox, by email and as push, under each person's choices.
   :::
 
   :::card{icon="i-lucide-bell-ring" title="Send web push notifications" to="/docs/build/email/notifications/web-push"}
-  Planned: push in Safari, Chromium and Firefox, with keys `env push` generates, each kind opted into.
+  Push in Safari, Chromium and Firefox, with keys `env push` generates, each kind opted into.
   :::
 
   :::card{icon="i-lucide-smartphone" title="Make the app installable" to="/docs/build/email/notifications/installable"}
-  Planned: a manifest from your brand and two icons, and the Home Screen install iPhone needs for push.
+  A manifest from your brand and two icons, and the Home Screen install iPhone needs for push.
   :::
 ::
 

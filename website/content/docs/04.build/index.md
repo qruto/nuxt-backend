@@ -24,7 +24,7 @@ Every group says what the provider does natively and what the package adds on to
 | [Grow your app](/docs/build/growth) | `auth`, `billing`, `email`, `analytics`, `flags` | The providers above |
 | [Pages and components](/docs/build/ui) | spans them all | Nuxt and Vue |
 
-[Capabilities](/docs/start/concepts/capabilities) explains each of the twelve, and the [Feature map](/docs/start/feature-map) shows which pages are built, changing or planned for this release.
+[Capabilities](/docs/start/concepts/capabilities) explains each of the twelve, and the [Feature map](/docs/start/feature-map) lists every page with its status.
 
 ## Where to start
 

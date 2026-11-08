@@ -201,7 +201,7 @@ export function createWebhooks(
    * one it could not record.
    */
   /**
-   * The billing lifecycle's part of a delivery (LIFECYCLE): a subscription
+   * The billing lifecycle's part of a delivery: a subscription
    * a checkout started or upgraded, and the order it paid, confirm the
    * checkout's consent proof; an update (a new period among them) may
    * bring the annual renewal reminder, and an expired checkout is handed to
@@ -231,7 +231,7 @@ export function createWebhooks(
 
   /**
    * A paid order may be the first one of a person a referral brought: it
-   * starts the hold (REF). A refund of the order a referral holds voids it.
+   * starts the hold. A refund of the order a referral holds voids it.
    * A failure is logged and never fails the delivery: the provider's state is
    * already right, and the program's sweep checks the order again at the end
    * of the hold.
