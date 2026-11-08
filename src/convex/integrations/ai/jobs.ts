@@ -436,7 +436,7 @@ export interface JobQueueApi {
   /** Internal: the pick, the stall sweep, a job's progress and each job's end. */
   runQueue: RegisteredMutation<'internal', Record<string, unknown>, Promise<null>>
   /** Internal: a job's charge, refund and cost report. */
-  billJob: RegisteredAction<'internal', { op: 'charge' | 'hold' | 'refund' | 'report' | 'moderate', jobId: string, attempt?: number, amount?: number, input?: ModerationInput }, Promise<null | { blocked: Record<string, unknown> }>>
+  billJob: RegisteredAction<'internal', { op: 'charge' | 'hold' | 'refund' | 'report' | 'moderate', jobId: string, attempt?: number, amount?: number, input?: ModerationInput & Pick<ModerationSubject, 'subject' | 'stage'> }, Promise<null | { blocked: Record<string, unknown> }>>
 }
 
 /** What `jobs.enqueue` takes beside the kind and its args. */

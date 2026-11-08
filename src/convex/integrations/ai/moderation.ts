@@ -8,7 +8,7 @@ import { upstreamErrorOf } from './job-errors.js'
 import { DEFAULT_MODERATION_MODEL } from './model-id.js'
 import { convexGatewayModel, FALLBACK_NAME, loadSdk, meteredModel, modelIdOf, type ModelCall, modelRefusal, type ModelRoute, type ModelRouting, noticeConvexGateway, requireModelId, routeModel } from './models.js'
 import type { KnownAbuseProvider, ModerationImage, ModerationProvider } from './moderation-providers.js'
-import { type CategoryScore, classifierReading, combineReadings, flaggedCategories, inGrayBand, type ModerationCategory, type ProviderReading, requireThresholds, thresholdsFor } from './moderation-taxonomy.js'
+import { type CategoryScore, classifierReading, combineReadings, flaggedCategories, inGrayBand, llamaGuardCategory, MODERATION_CATEGORIES, type ModerationCategory, type ProviderReading, requireThresholds, thresholdsFor } from './moderation-taxonomy.js'
 
 // Content safety's check (`ai.moderate`, `ai.requireSafe`, `moderate` on a
 // metered action, a stream, a chat or a job): a call to a safety classifier
@@ -42,7 +42,11 @@ export interface ModerationInput {
   images?: string[]
 }
 
-/** What the providers said, and what the app's policy makes of it. */
+/**
+ * What the providers said, and what the app's policy makes of it. An
+ * escalated verdict is always blocked too: content an administrator is to
+ * look at is held back, never published while it waits.
+ */
 export interface ModerationVerdict {
   /** Whether it found anything: a category at its threshold, or a classifier's code. */
   flagged: boolean
@@ -56,9 +60,9 @@ export interface ModerationVerdict {
   providers: string[]
   /** A known-abuse match (`moderation.knownAbuse`): blocked and escalated whatever the policy says. */
   knownAbuse?: true
-  /** Whether the policy refuses it (`moderation.block`): what `requireSafe` throws on. */
+  /** Whether the policy refuses it (`moderation.block`, or an escalated category): what `requireSafe` throws on. */
   blocked: boolean
-  /** Whether it falls in a category the policy has an administrator look at (`moderation.escalate`). */
+  /** Whether it falls in a category the policy has an administrator look at (`moderation.escalate`): blocked as well, and recorded. */
   escalate: boolean
 }
 
@@ -93,6 +97,14 @@ export interface ModerationFlag extends ModerationSubject {
   /** A known-abuse match's evidence: the image's SHA-256. */
   hash?: string
   playbook?: 'csam'
+  /** The policy it was judged under, as `setupAi({ moderation })` set it then: `block all; escalate S4`. */
+  policy?: string
+  /**
+   * Kept through the account's erasure until it expires, under a pseudonym:
+   * an escalated flag, or child sexual exploitation (`S4`) refused. The
+   * record is evidence the app may be obliged to keep.
+   */
+  legalHold?: boolean
 }
 
 /**
@@ -119,7 +131,7 @@ export interface ModerationStatement {
 
 /** How long flags are kept, and whether at all (`moderation.log`). */
 export interface ModerationLog {
-  /** Days a flag is kept before the maintenance pass prunes it. Default `90`. */
+  /** Days a flag is kept before the maintenance pass prunes it. Default `183`, the six months a person has to complain about a decision. */
   days: number
 }
 
@@ -167,10 +179,12 @@ export interface ModerationConfig {
   /** Your moderation policy's version, named in every statement of reasons. */
   policy?: { version: string }
   /**
-   * The categories that refuse content: `requireSafe`, a `moderate` option
+   * The categories that refuse content, as shared names (`sexual`) or
+   * Llama Guard's codes `S1` to `S14`: `requireSafe`, a `moderate` option
    * and a job's check throw on them, and `moderate` answers `blocked`. The
-   * rest are recorded and let through. Default `'all'`: any flag refuses.
-   * A flag naming no category is refused under any policy.
+   * rest are recorded and let through. Default `'all'`: any flag refuses. A
+   * flag naming no category, or a code beyond `S14`, is refused under any
+   * policy.
    *
    * @example
    * ```ts
@@ -180,70 +194,114 @@ export interface ModerationConfig {
    */
   block?: readonly string[] | 'all'
   /**
-   * The categories an administrator looks at: their flags read `escalate`,
-   * stand out in the admin console's Moderation tab, and log
-   * `ai.content_escalated` as an error, which reaches your error monitoring.
-   * Default none.
+   * The categories an administrator looks at: their content is refused,
+   * their flags read `escalate`, stand out in the admin console's
+   * Moderation tab, and log `ai.content_escalated` as an error, which
+   * reaches your error monitoring. `block` names each too, or its code
+   * or category (unless `block` is `'all'`), and each needs `log`: an
+   * escalation leaves a record. Default none.
    */
   escalate?: readonly string[]
   /**
    * Keep a record of every flagged check, categories only, never the
-   * content: who, what, where, and whether it was refused. Default
-   * `{ days: 90 }`; `false` keeps none. An account's erasure deletes the
-   * records about it.
+   * content: who, what, where, under which policy, and whether it was
+   * refused. Default `{ days: 183 }`; `false` keeps none, and takes no
+   * `escalate`. An account's erasure deletes the records about it, but for
+   * those on legal hold (`legalHold`), kept under a pseudonym until they
+   * expire.
    */
   log?: ModerationLog | false
 }
 
-/** How long flags are kept unless `moderation.log` says otherwise, in days. */
-export const DEFAULT_FLAG_DAYS = 90
+/** How long flags are kept unless `moderation.log` says otherwise, in days: the six months the DSA gives a person to complain about a decision (Art. 20). */
+export const DEFAULT_FLAG_DAYS = 183
 
 /** The longest `moderation.log.days` takes: ten years. */
 const MAX_FLAG_DAYS = 3650
 
+/** Llama Guard's hazard codes, `S1` to `S14`: a policy names these or the shared categories, and a verdict naming another code is refused. */
+const CODE = /^S(?:[1-9]|1[0-4])$/
+
+/** What reads as child sexual exploitation: refused, its flag is kept on legal hold. */
+const CHILD_EXPLOITATION: ReadonlySet<string> = new Set(['S4', 'minors_sexual', 'csam_match'])
+
 /** The backend component's flags, as a check records one. */
 export interface FlagRefs {
-  record: FunctionReference<'mutation', 'internal', Omit<ModerationFlag, 'id' | 'at'> & { days: number }, null>
+  record: FunctionReference<'mutation', 'internal', Omit<ModerationFlag, 'id' | 'at'> & { days: number }, string>
 }
 
-/** A list of categories or codes, each a word. */
-const isCodes = (list: unknown): list is readonly string[] => Array.isArray(list) && list.every(code => typeof code === 'string' && code.trim() !== '')
+/** Llama Guard's code shape: `S` and a number. One beyond `S14` is no category the policy weighed. */
+const LLAMA_CODE = /^S\d{1,2}$/
 
-/** Refuse a moderation config `setupAi` cannot keep, where it is set: its lists, thresholds, classifier and policy version. */
-function requireModerationConfig(config: ModerationConfig | undefined): void {
+/**
+ * A policy's entry as the policy compares it: a shared category, in lower
+ * case (`sexual`), or a Llama Guard code `S1` to `S14`, in upper case;
+ * `null` for anything else, such as `'s04'` or `'csam'`.
+ */
+function policyEntry(entry: unknown): string | null {
+  if (typeof entry !== 'string') return null
+  const word = entry.trim()
+  if ((MODERATION_CATEGORIES as readonly string[]).includes(word.toLowerCase())) return word.toLowerCase()
+  return CODE.test(word.toUpperCase()) ? word.toUpperCase() : null
+}
+
+/** A policy's list, each entry as `policyEntry` reads it, or `null` when one is neither a category nor a code. */
+function entriesOf(list: unknown): string[] | null {
+  if (!Array.isArray(list)) return null
+  const entries = list.map(policyEntry)
+  return entries.every(entry => entry !== null) ? entries as string[] : null
+}
+
+/** Whether `block` covers an escalated entry: by name, or a code by the category it reads as. */
+const covers = (block: readonly string[], entry: string): boolean => block.includes(entry) || block.some(blocked => llamaGuardCategory(blocked) === entry || llamaGuardCategory(entry) === blocked)
+
+/** A policy's lists, checked where it is set: `block`'s entries (`null` for 'all') and `escalate`'s, each one `block` covers. */
+function policyLists(config: ModerationConfig | undefined): { blockEntries: string[] | null, escalate: string[] } {
   const block = config?.block ?? 'all'
-  if (block !== 'all' && !isCodes(block)) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `block` is \'all\' or a list of categories or codes, such as [\'sexual\', \'S4\'].')
-  if (!isCodes(config?.escalate ?? [])) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `escalate` is a list of categories or codes, such as [\'minors_sexual\', \'S4\'].')
+  const blockEntries = block === 'all' ? null : entriesOf(block)
+  if (block !== 'all' && !blockEntries) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `block` is \'all\' or a list of categories or Llama Guard\'s codes `S1` to `S14`, such as [\'sexual\', \'S4\'].')
+  const escalate = entriesOf(config?.escalate ?? [])
+  if (!escalate) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `escalate` is a list of categories or Llama Guard\'s codes `S1` to `S14`, such as [\'minors_sexual\', \'S4\'].')
+  const unblocked = blockEntries ? escalate.filter(entry => !covers(blockEntries, entry)) : []
+  if (unblocked.length > 0) throw new TypeError(`[nuxt-backend] setupAi({ moderation }): \`escalate\` names ${unblocked.join(', ')}, which \`block\` does not: escalated content is held back until an administrator looks at it, so add ${unblocked.join(', ')} to \`block\`.`)
+  return { blockEntries, escalate }
+}
+
+/** Refuse a moderation config `setupAi` cannot keep, where it is set: its thresholds, classifier and policy version. */
+function requireModerationConfig(config: ModerationConfig | undefined): void {
   requireThresholds(config?.thresholds)
   if (config?.model !== undefined && config.text !== undefined) throw new TypeError('[nuxt-backend] setupAi({ moderation }): name the text classifier once, as `text` or as `model`.')
   if (config?.policy !== undefined && (typeof config.policy?.version !== 'string' || !config.policy.version.trim())) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `policy.version` names your moderation policy\'s version, such as \'2026-11-08\'.')
 }
 
-/** How many days flags are kept: `moderation.log`'s, the default, or `false` for none. */
-function flagDays(log: ModerationConfig['log']): number | false {
+/** How many days flags are kept: `moderation.log`'s, the default, or `false` for none, which takes no escalation. */
+function flagDays(log: ModerationConfig['log'], escalating: boolean): number | false {
   const days = log === false ? false : (log?.days ?? DEFAULT_FLAG_DAYS)
   if (days !== false && !(Number.isInteger(days) && days >= 1 && days <= MAX_FLAG_DAYS)) throw new TypeError(`[nuxt-backend] setupAi({ moderation }): \`log.days\` is a whole number of days from 1 to ${MAX_FLAG_DAYS}, or \`log: false\` to keep no flags.`)
+  if (days === false && escalating) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `escalate` needs the flags `log` keeps, so an escalation leaves a record: drop `log: false`, or `escalate`.')
   return days
 }
 
 /** The policy `setupAi({ moderation })` sets, checked where it is set. */
-export function moderationPolicy(config: ModerationConfig | undefined): { judge: (verdict: { flagged: boolean, categories: readonly string[], codes?: readonly string[] }) => { blocked: boolean, escalate: boolean }, days: number | false } {
+export function moderationPolicy(config: ModerationConfig | undefined): { judge: (verdict: { flagged: boolean, categories: readonly string[], codes?: readonly string[] }) => { blocked: boolean, escalate: boolean, legalHold: boolean }, days: number | false, snapshot: string } {
   requireModerationConfig(config)
-  const block = config?.block ?? 'all'
-  const escalate = config?.escalate ?? []
-  const days = flagDays(config?.log)
-  const blocking = block === 'all' ? null : new Set(block.map(code => code.toUpperCase()))
-  const escalating = new Set(escalate.map(code => code.toUpperCase()))
+  const { blockEntries, escalate } = policyLists(config)
+  const days = flagDays(config?.log, escalate.length > 0)
+  const blocking = blockEntries ? new Set(blockEntries) : null
+  const escalating = new Set(escalate)
+  // A Llama Guard code beyond S14 is refused, whatever the policy names: it was never weighed.
+  const refuses = (entry: string) => (LLAMA_CODE.test(entry) && !CODE.test(entry)) || blocking === null || blocking.has(entry)
   return {
     judge: ({ flagged, categories, codes = [] }) => {
-      // A list names shared categories (`sexual`) or a provider's codes (`S4`) alike.
-      const found = [...categories, ...codes].map(code => code.toUpperCase())
-      return {
-        blocked: flagged && (blocking === null || found.length === 0 || found.some(code => blocking.has(code))),
-        escalate: flagged && found.some(code => escalating.has(code)),
-      }
+      if (!flagged) return { blocked: false, escalate: false, legalHold: false }
+      // A list names shared categories (`sexual`) or Llama Guard's codes (`S4`) alike.
+      const found = [...categories, ...codes.map(code => code.toUpperCase())]
+      const escalated = found.some(entry => escalating.has(entry))
+      const blocked = escalated || found.length === 0 || found.some(refuses)
+      return { blocked, escalate: escalated, legalHold: escalated || (blocked && found.some(entry => CHILD_EXPLOITATION.has(entry))) }
     },
     days,
+    snapshot: `block ${blockEntries ? blockEntries.join(',') : 'all'}; escalate ${escalate.length > 0 ? escalate.join(',') : 'none'}`,
   }
 }
 
@@ -304,14 +362,22 @@ const answerBudget = (llamaGuard: boolean) => llamaGuard
 /** Whether a classifier reads images: Llama Guard 4, and a model object of the app's own, which is trusted to, unless it is a text-only safeguard. */
 const readsImages = (model: AiModel): boolean => typeof model === 'string' ? /llama-guard-4/i.test(model) : !/safeguard/i.test(modelIdOf(model))
 
-/** Read a classifier's answer: `safe`, or `unsafe` and its codes; `null` for anything else. */
+/**
+ * Read a classifier's answer: `safe`, or `unsafe` and its codes; `null`
+ * for anything else. Every word after `unsafe` is a code (`S` and a number)
+ * or the answer is unread: a code beyond `S14` is kept, and the policy
+ * refuses it; words such as `child abuse` beside the codes are no verdict
+ * this reads, so the content is refused as unchecked rather than judged on
+ * the codes alone.
+ */
 export function readVerdict(answer: string): { flagged: boolean, categories: string[] } | null {
   const lines = answer.trim().split(/\r?\n/).map(line => line.trim()).filter(Boolean)
   const head = lines[0]?.toLowerCase().replace(/[^a-z]/g, '')
-  if (head === 'safe') return { flagged: false, categories: [] }
+  if (head === 'safe') return lines.length === 1 ? { flagged: false, categories: [] } : null
   if (head !== 'unsafe') return null
-  const codes = lines.slice(1).join(',').split(/[\s,]+/).map(code => code.trim().toUpperCase()).filter(code => /^S\d{1,2}$/.test(code))
-  return { flagged: true, categories: [...new Set(codes)] }
+  const words = lines.slice(1).join(',').split(/[\s,]+/).filter(Boolean).map(word => word.toUpperCase())
+  if (!words.every(word => /^S\d{1,2}$/.test(word))) return null
+  return { flagged: true, categories: [...new Set(words)] }
 }
 
 /** An image's bytes, read from the backend component's storage or the app's own. */
@@ -447,21 +513,32 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
     : { id: modelIdOf(named), route: routeModel(named, undefined, config.routing) }
   const policy = moderationPolicy(config.moderation)
 
-  /**
-   * Record a flagged check, and say an escalated one in the logs. A record
-   * that fails is logged and never fails the check: the verdict stands.
-   */
-  async function recordFlag(ctx: ModerationCtx, verdict: ModerationVerdict, about: ModerationSubject, decision: Decision): Promise<void> {
-    if (verdict.knownAbuse) logBackend('error', 'ai.known_abuse_matched', `An image matched a list of known child sexual abuse material${about.stage ? ` at ${about.stage}` : ''}: it was blocked and sent nowhere else. Follow the CSAM playbook from the Moderation tab.`)
-    else if (verdict.escalate) logBackend('error', 'ai.content_escalated', `The moderation providers flagged content in a category escalated to administrators (${[...verdict.categories, ...verdict.codes].join(', ')})${about.stage ? ` at ${about.stage}` : ''}: see the Moderation tab.`)
-    if (policy.days === false || !flags) return
+  /** Record a flagged check: its id, or `undefined` when none is kept or the record failed, which is logged. */
+  async function storeFlag(ctx: ModerationCtx, verdict: ModerationVerdict, legalHold: boolean, about: ModerationSubject, decision: Decision): Promise<string | undefined> {
+    if (policy.days === false || !flags) return undefined
     try {
       const userId = about.userId ?? (await ctx.auth?.getUserIdentity())?.subject
-      await ctx.runMutation(flags.record, { ...flagRecord(verdict, { ...about, userId }, decision, policyVersion), days: policy.days })
+      return await ctx.runMutation(flags.record, { ...flagRecord(verdict, { ...about, userId }, decision, policyVersion), policy: policy.snapshot, ...(legalHold ? { legalHold } : {}), days: policy.days })
     }
     catch (error) {
-      logBackend('warn', 'ai.flag_unrecorded', 'A flagged check could not be recorded for the Moderation tab; its verdict stands.', error)
+      if (verdict.escalate) logBackend('error', 'ai.flag_unrecorded', 'An escalated check could not be recorded for the Moderation tab; its content stays blocked.', error)
+      else logBackend('warn', 'ai.flag_unrecorded', 'A flagged check could not be recorded for the Moderation tab; its verdict stands.', error)
+      return undefined
     }
+  }
+
+  /**
+   * Record a flagged check, and say an escalated one in the logs with the
+   * flag that holds it. A record that fails is logged and never fails the
+   * check: the verdict stands, and an escalated verdict is blocked already,
+   * so content an administrator was to see is never let through unrecorded.
+   */
+  async function recordFlag(ctx: ModerationCtx, verdict: ModerationVerdict, legalHold: boolean, about: ModerationSubject, decision: Decision): Promise<void> {
+    const flagId = await storeFlag(ctx, verdict, legalHold, about, decision)
+    if (!verdict.escalate) return
+    const where = [about.subject && `subject ${about.subject}`, about.stage && `at ${about.stage}`, flagId ? `flag ${flagId}` : 'no flag recorded'].filter(Boolean).join(', ')
+    if (verdict.knownAbuse) logBackend('error', 'ai.known_abuse_matched', `An image matched a list of known child sexual abuse material (${where}): it was blocked and sent nowhere else. Follow the CSAM playbook from the Moderation tab.`)
+    else logBackend('error', 'ai.content_escalated', `The moderation providers flagged content in a category escalated to administrators (${[...verdict.categories, ...verdict.codes].join(', ')}), and it is blocked (${where}): see the Moderation tab.`)
   }
 
   /** An image's bytes: an upload in the component's storage first, then a file of the app's own. */
@@ -502,10 +579,10 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
 
   const moderate = async (ctx: ModerationCtx, input: ModerationInput, about: ModerationSubject = {}): Promise<ModerationVerdict> => {
     const { decision, ...read } = await classify(ctx, input, about.stage)
-    const judged = policy.judge(read)
-    // A known-abuse match is blocked and escalated whatever the policy says.
+    const { legalHold, ...judged } = policy.judge(read)
+    // A known-abuse match is blocked and escalated whatever the policy says, and held.
     const verdict: ModerationVerdict = { ...read, ...(read.knownAbuse ? { blocked: true, escalate: true } : judged) }
-    if (verdict.flagged) await recordFlag(ctx, verdict, about, decision)
+    if (verdict.flagged) await recordFlag(ctx, verdict, legalHold || verdict.knownAbuse === true, about, decision)
     return verdict
   }
 

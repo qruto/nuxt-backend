@@ -146,6 +146,9 @@ const LLAMA_GUARD_CATEGORIES: Readonly<Record<string, ModerationCategory>> = {
   S12: 'sexual',
 }
 
+/** The shared category a Llama Guard code reads as, if any: `S4` is `minors_sexual`. */
+export const llamaGuardCategory = (code: string): ModerationCategory | undefined => LLAMA_GUARD_CATEGORIES[code.toUpperCase()]
+
 /** A classifier's codes (Llama Guard's, or a policy-following classifier answering in them) as a reading. */
 export function classifierReading(provider: string, codes: readonly string[]): ProviderReading {
   const scores: Partial<Record<ModerationCategory, CategoryScore>> = {}

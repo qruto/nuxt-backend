@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import { mutation, query } from './_generated/server.js'
 import { vRenewalConsent, vSaveOfferTerms } from './schema.js'
 
-// The billing lifecycle's own records (LIFECYCLE): the cancel flow's save
+// The billing lifecycle's own records: the cancel flow's save
 // offers, the renewal consent proof, what was sent once (an annual reminder,
 // an abandoned checkout's hand-off) and the withdrawals. The app's
 // `setupBilling` decides; these only keep what it decided, each write

@@ -813,6 +813,7 @@ describe('the Access tab', () => {
     phase: 'early-access',
     phases: ['early-access', 'invite-only', 'public'],
     invites: [{ id: 'i1', kind: 'code', label: 'meetup', maxUses: 30, uses: 2, status: 'valid', expiresAt: null, createdAt: AT }],
+    memberTickets: [],
     admissions: [{ id: 'a1', email: 'grace@resend.dev', source: 'invitation', label: 'beta-1', expiresAt: AT + 1000, usedAt: null, createdAt: AT }],
     ...fields,
   })

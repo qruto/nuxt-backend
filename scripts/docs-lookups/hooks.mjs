@@ -16,6 +16,7 @@ const HOOK_SOURCES = [
   ['setupEmail', 'src/convex/integrations/inbound.ts', 'InboundOptions', 'inbound.'],
   ['setupAi', 'src/convex/integrations/ai/config.ts', 'AiCreditsConfig', 'credits.'],
   ['setupAudit', 'src/convex/integrations/audit.ts', 'SetupAuditOptions', ''],
+  ['access.memberTickets', 'src/convex/integrations/launch.ts', 'MemberTicketsOptions', ''],
   ['defineJobQueue', 'src/convex/integrations/ai/jobs.ts', 'DefineJobQueueOptions', ''],
 ]
 

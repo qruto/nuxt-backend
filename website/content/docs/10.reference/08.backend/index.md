@@ -1,6 +1,6 @@
 ---
 title: Setup helpers
-description: "Every setup and define helper the package exports in 0.2.0: its import path, the file of yours that calls it, and what it gives you, then the helpers generated from the code today."
+description: "Every setup and define helper the package exports: its import path, the file of yours that calls it, and what it gives you, the options that extend them, then the helpers generated from the code."
 kind: reference
 source: package.json
 navigation:
@@ -27,64 +27,64 @@ Each `setup*`, `define*`, `create*` and `register*` the package's Convex subpath
 
 `npx nuxt-backend init` writes these files, each calling its helper once ([Project files](/docs/reference/configuration/project-files)):
 
-| Helper | Import | File | What it gives you | Unit |
-|---|---|---|---|---|
-| `setupAuth` | `nuxt-backend/auth` | `backend/auth.ts` | Sign-in by sign-in code and passkey, `canSignIn`, the account hooks, and the launch phases you pass as `access` | |
-| `createFunctions` | `nuxt-backend/functions` | `backend/functions.ts` | Every access tier, called once: `authed`, `workspace`, `admin`, `withRole`, `withFeature` and `setUserRole` | SIMPLIFY |
-| `registerBackendRoutes` | `nuxt-backend/http` | `backend/http.ts` | Every inbound route: auth, both webhooks, the AI stream and the health route | |
-| `backendEnv` | `nuxt-backend/app` | `backend/convex.config.ts` | The typed env contract the deployment validates | |
-| `defineBackendAuthConfig` | `nuxt-backend/auth.config` | `backend/auth.config.ts` | The Convex auth config that trusts the backend's tokens | |
-| `defineBillingCatalog` | `nuxt-backend/billing` | `backend/billing.catalog.ts` | What the app sells: meters, plans, packs, features and promotions | |
-| `setupBilling` | `nuxt-backend/billing` | `backend/billing.ts` | Subscriptions, credits, gifts and promotions, cached inside the component | |
-| `setupEmail` | `nuxt-backend/email` | `backend/email.ts` | Sending and templates, the theme, topics and one-click unsubscribe, the contact form and inbound mail | PREFS |
-| `setupRateLimiter` | `nuxt-backend/rate-limit` | `backend/rateLimiter.ts` | The rate limiter, seeded with `DEFAULT_LIMITS` | |
-| `setupAudit` | `nuxt-backend/audit` | `backend/audit.ts` | The activity trail, and your own events on it | |
-| `setupAccount` | `nuxt-backend/account` | `backend/account.ts` | Export, deletion with a grace period, and consents | |
-| `setupAdmin` | `nuxt-backend/admin` | `backend/admin.ts` | The admin console: accounts, workspaces, impersonation and the report queue | SAFETY |
-| `setupFlags`, `defineFlags` | `nuxt-backend/flags` | `backend/flags.ts` | Feature flags read in your functions, and the kill switches | |
-| `setupAi` | `nuxt-backend/ai` | `backend/ai.ts` | Metered model calls and streams, through the Convex AI Gateway, and the moderation helpers | SAFETY |
-| `setupWorkflows`, `defineEmailSequence` | `nuxt-backend/workflows` | `backend/workflows.ts` | Durable workflows, and email sequences on them | |
+| Helper | Import | File | What it gives you |
+|---|---|---|---|
+| `setupAuth` | `nuxt-backend/auth` | `backend/auth.ts` | Sign-in by sign-in code and passkey, `canSignIn`, the account hooks, and the launch phases you pass as `access` |
+| `createFunctions` | `nuxt-backend/functions` | `backend/functions.ts` | Every access tier, called once: `authed`, `workspace`, `admin`, `withRole`, `withFeature` and `setUserRole` |
+| `registerBackendRoutes` | `nuxt-backend/http` | `backend/http.ts` | Every inbound route: auth, both webhooks, the AI stream and the health route |
+| `backendEnv` | `nuxt-backend/app` | `backend/convex.config.ts` | The typed env contract the deployment validates |
+| `defineBackendAuthConfig` | `nuxt-backend/auth.config` | `backend/auth.config.ts` | The Convex auth config that trusts the backend's tokens |
+| `defineBillingCatalog` | `nuxt-backend/billing` | `backend/billing.catalog.ts` | What the app sells: meters, plans, packs, features and promotions |
+| `setupBilling` | `nuxt-backend/billing` | `backend/billing.ts` | Subscriptions, credits, gifts and promotions, cached inside the component |
+| `setupEmail` | `nuxt-backend/email` | `backend/email.ts` | Sending and templates, the theme, topics and one-click unsubscribe, the contact form and inbound mail |
+| `setupRateLimiter` | `nuxt-backend/rate-limit` | `backend/rateLimiter.ts` | The rate limiter, seeded with `DEFAULT_LIMITS` |
+| `setupAudit` | `nuxt-backend/audit` | `backend/audit.ts` | The activity trail, and your own events on it |
+| `setupAccount` | `nuxt-backend/account` | `backend/account.ts` | Export, deletion with a grace period, and consents |
+| `setupAdmin` | `nuxt-backend/admin` | `backend/admin.ts` | The admin console: accounts, workspaces, impersonation and the report queue |
+| `setupFlags`, `defineFlags` | `nuxt-backend/flags` | `backend/flags.ts` | Feature flags read in your functions, and the kill switches |
+| `setupAi` | `nuxt-backend/ai` | `backend/ai.ts` | Metered model calls and streams, through the Convex AI Gateway, and the moderation helpers |
+| `setupWorkflows`, `defineEmailSequence` | `nuxt-backend/workflows` | `backend/workflows.ts` | Durable workflows, and email sequences on them |
 
 ### Called by a file you add
 
 A feature you use gets a file of yours. The composables read its `api` by default, and each takes an `api` option to point at another file:
 
-| Helper | Import | File | What it gives you | Unit |
-|---|---|---|---|---|
-| `setupReferrals` | `nuxt-backend/billing` | `backend/referrals.ts` | The referral program: codes, the claim, rewards after a hold, and caps | |
-| `setupAccess` | `nuxt-backend/access` | `backend/access.ts` | Launch phases, invite codes and access links, checked in the sign-in hooks of `setupAuth` | |
-| `setupWaitlist` | `nuxt-backend/access` | `backend/waitlist.ts` | A double opt-in waitlist with public positions, launched in waves | |
-| `setupNotifications` | `nuxt-backend/notifications` | `backend/notifications.ts` | The in-app inbox, and the `notify` option that turns events of your own into notifications; web push and the preferences behind both join it | PREFS |
-| `setupStorage` | `nuxt-backend/storage` | `backend/storage.ts` | Checked uploads, storage refs with orphan cleanup, and share links | FILES |
-| `defineJobQueue` | `nuxt-backend/ai` | `backend/jobs.ts` | A generation queue: tiers from plan features with a head start, running jobs per owner, dedicated slots and a daily budget; model limits that adapt; credits held until a job runs | JOBS |
-| `defineRetention` | `nuxt-backend/functions` | `backend/retention.ts` | Rows of a table deleted after a lifetime, in bounded batches | RETAIN |
-| `defineSearch` | `nuxt-backend/search` | A file of yours | A typed full-text search query over a search index | |
-| `defineActivation` | `nuxt-backend/audit` | `backend/audit.ts` | The activation checklist: three to seven first tasks, each done when its event is recorded, passed to `setupAudit({ checklist })` | |
-
-### Options the newest units add
-
-The units planned on 2026-10-24 extend helpers above rather than add new ones:
-
-| Helper | Option or return | What it does | Unit |
+| Helper | Import | File | What it gives you |
 |---|---|---|---|
-| `setupBilling` | `lifecycle: { saveOffers, abandonedCheckout, renewalReminders, withdrawal }` | Makes one save offer by cancellation reason before a cancellation, records an expired checkout for the lifecycle email, sends the annual renewal reminder Polar doesn't send for short cycles, and serves the EU withdrawal button where Polar doesn't. Checkout records the auto-renew consent, kept three years | LIFECYCLE |
-| `setupStorage` | `stripMetadata`, `quota: { files, bytes }` | Strips EXIF and GPS from images, sniffs the content type, and caps each owner's files and bytes | FILES |
-| `setupStorage` | `storage.signedUrl(ctx, id, { ttl })` | An expiring URL for a private file | FILES |
-| `setupAi` | `provenance` | Signs a content-credentials manifest into generated images, and records the model, time and inputs on each job result | PROVENANCE |
-| `setupAdmin` | `reports` | The report queue, with a statement of reasons to the person affected, an appeal, and a flag for suspected crimes | SAFETY |
-| `setupEmail` | `lifecycle`, `caps: { perWeek, quietHours, sunsetAfterDays }` | The ready-made lifecycle flows on Resend Automations, and the frequency caps and sunset rule for non-transactional mail | ENGAGE |
-| `defineJobQueue` | `guest: { perVisitor }` | One generation before sign-up, claimed at sign-up | JOBS |
-| `defineFlags` | `{ key: { variants, weights, goal, guardrails, discounts } }` | An experiment: each person gets one variant, read with `useExperiment(key)` in a page and `flags.variant(ctx, key)` on the server, compared in the admin console's Experiments view | FUNNEL |
-| `setupAudit` | `activation` | The event that counts as a person's activation in the growth funnel, recorded once as `account.activated` | FUNNEL |
-| `setupAdmin` | `api.getFunnel` | The growth funnel for the admin console's Growth view | FUNNEL |
+| `setupReferrals` | `nuxt-backend/billing` | `backend/referrals.ts` | The referral program: codes, the claim, rewards after a hold, and caps |
+| `setupAccess` | `nuxt-backend/access` | `backend/access.ts` | Launch phases, invite codes and access links, checked in the sign-in hooks of `setupAuth` |
+| `setupWaitlist` | `nuxt-backend/access` | `backend/waitlist.ts` | A double opt-in waitlist with public positions, launched in waves |
+| `setupNotifications` | `nuxt-backend/notifications` | `backend/notifications.ts` | The in-app inbox, email and web push for each kind under each person's choices, and the `notify` option that turns events of your own into notifications |
+| `setupStorage` | `nuxt-backend/storage` | `backend/storage.ts` | Checked uploads, storage refs with orphan cleanup, and share links |
+| `defineJobQueue` | `nuxt-backend/ai` | `backend/jobs.ts` | A generation queue: tiers from plan features with a head start, running jobs per owner, dedicated slots and a daily budget; model limits that adapt; credits held until a job runs |
+| `defineRetention` | `nuxt-backend/functions` | `backend/retention.ts` | Rows of a table deleted after a lifetime, in bounded batches |
+| `defineSearch` | `nuxt-backend/search` | A file of yours | A typed full-text search query over a search index |
+| `defineActivation` | `nuxt-backend/audit` | `backend/audit.ts` | The activation checklist: three to seven first tasks, each done when its event is recorded, passed to `setupAudit({ checklist })` |
 
-The helpers `0.2.0` removes (SIMPLIFY): `setupAuthorization` folds into `createFunctions`, and `setupMigrations`, `setupWorkpool`, `setupCounter`, `defineCache`, `setupCrons` and `defineBackendCrons` give way to the Convex components they wrapped, which you import directly ([Ecosystem](/docs/reference/ecosystem#what-changes)). The package's own maintenance runs inside its component, so your app registers no cron for it.
+### Options that extend them
 
-Each built helper's generated API page has its options and its return type; a planned one gets its page when its unit lands. The rest of this group covers what the helpers mount: the [component's functions](/docs/reference/backend/component), the [HTTP routes](/docs/reference/backend/http-routes), the [events](/docs/reference/backend/events) they react to, the [errors](/docs/reference/backend/errors) they refuse with, the [hooks](/docs/reference/backend/hooks) they call, and their [limits](/docs/reference/backend/limits).
+These features are options of the helpers above, not helpers of their own:
 
-## In the code today
+| Helper | Option or return | What it does |
+|---|---|---|
+| `setupBilling` | `lifecycle: { saveOffers, abandonedCheckout, renewalReminders, withdrawal }` | Makes one save offer by cancellation reason before a cancellation, records an expired checkout for the lifecycle email, sends the annual renewal reminder Polar doesn't send for short cycles, and serves the EU withdrawal button where Polar doesn't. Checkout records the auto-renew consent, kept three years |
+| `setupStorage` | `stripMetadata`, `quota: { files, bytes }` | Strips EXIF and GPS from images, sniffs the content type, and caps each owner's files and bytes |
+| `setupStorage` | `storage.signedUrl(ctx, id, { ttl })` | An expiring URL for a private file |
+| `setupAi` | `provenance` | Signs a content-credentials manifest into generated images, and records the model, time and inputs on each job result |
+| `setupAdmin` | `reports` | The report queue, with a statement of reasons to the person affected, an appeal, and a flag for suspected crimes |
+| `setupEmail` | `lifecycle`, `caps: { perWeek, quietHours, sunsetAfterDays }` | The ready-made lifecycle flows on Resend Automations, and the frequency caps and sunset rule for non-transactional mail |
+| `defineJobQueue` | `guest: { perVisitor }` | One generation before sign-up, claimed at sign-up |
+| `defineFlags` | `{ key: { variants, weights, goal, guardrails, discounts } }` | An experiment: each person gets one variant, read with `useExperiment(key)` in a page and `flags.variant(ctx, key)` on the server, compared in the admin console's Experiments view |
+| `setupAudit` | `activation` | The event that counts as a person's activation in the growth funnel, recorded once as `account.activated` |
+| `setupAdmin` | `api.getFunnel` | The growth funnel for the admin console's Growth view |
 
-Generated from the exports map, every `setup*`, `define*`, `create*` and `register*` the package's Convex subpaths export as they stand.
+No helper wraps a Convex component your app can use on its own: for migrations, a workpool, counters, an action cache or crons, the app imports `@convex-dev/migrations`, `@convex-dev/workpool`, `@convex-dev/sharded-counter`, `@convex-dev/action-cache` or `@convex-dev/crons` itself ([Ecosystem](/docs/reference/ecosystem)). The package's own maintenance runs inside its component, so your app registers no cron for it.
+
+Each helper's generated API page has its options and its return type. The rest of this group covers what the helpers mount: the [component's functions](/docs/reference/backend/component), the [HTTP routes](/docs/reference/backend/http-routes), the [events](/docs/reference/backend/events) they react to, the [errors](/docs/reference/backend/errors) they refuse with, the [hooks](/docs/reference/backend/hooks) they call, and their [limits](/docs/reference/backend/limits).
+
+## Generated from the code
+
+Every `setup*`, `define*`, `create*` and `register*` the package's Convex subpaths export, read from the exports map.
 
 <!-- generated:setup-helpers (pnpm docs:lookups, from package.json and src/templates.ts) -->
 

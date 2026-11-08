@@ -986,6 +986,7 @@
       "tickets": {
         "inviteCode": "Un code d’invitation",
         "accessLink": "Un lien d’accès",
+        "memberTicket": "Le ticket d’un membre",
         "invitation": "Une invitation par adresse",
         "waitlist": "La liste d’attente",
         "workspaceInvitation": "Une invitation à un espace de travail",
@@ -1036,6 +1037,9 @@
         "revoking": "Révocation…",
         "revokeConfirm": "Révoquer {label} ? Plus personne ne sera admis avec, immédiatement.",
         "noInvites": "Aucun code ni lien pour l’instant.",
+        "memberTicketsTitle": "Tickets des membres",
+        "memberTicketsHint": "Le lien de chaque membre pour ses amis, jamais affiché ici. Le révoquer l’arrête aussitôt, et le membre n’en reçoit pas d’autre avant la date où il aurait pris fin.",
+        "member": "Membre",
         "admitTitle": "Inviter par adresse",
         "admitHint": "Une adresse par ligne, ou séparées par des virgules, jusqu’à 500. Aucun e-mail n’est envoyé sauf si vous le demandez : faites l’annonce par une diffusion aux personnes qui l’ont accepté. Chaque invitation dure 30 jours.",
         "emailThem": "Leur envoyer un e-mail",
@@ -1786,8 +1790,8 @@
           "kept": "Un an après la dernière détection de l’appareil."
         },
         "access": {
-          "holds": "Les invitations par adresse qu’un administrateur a créées pour l’adresse, le ticket qui a admis le compte pendant que l’application était fermée (le registre des utilisations), les codes et liens qu’il a créés en tant qu’administrateur, et son inscription sur la liste d’attente : l’adresse, ses réponses, sa place et l’état de son contact pour les nouvelles du lancement (le consentement à ces nouvelles figure lui-même dans le registre des consentements).",
-          "kept": "Une invitation par adresse jusqu’à son utilisation ou sa révocation ; l’enregistrement du ticket aussi longtemps que le compte ; une inscription sur la liste d’attente jusqu’à ce que la personne la quitte ou soit effacée, et une inscription dont le code n’a jamais été vérifié, un jour."
+          "holds": "Les invitations par adresse qu’un administrateur a créées pour l’adresse, le ticket qui a admis le compte pendant que l’application était fermée (le registre des utilisations, qui nomme le membre dont le ticket a admis un ami), les codes et liens qu’il a créés en tant qu’administrateur, ses tickets de membre (une empreinte de chaque lien, ses utilisations et sa fin), et son inscription sur la liste d’attente : l’adresse, ses réponses, sa place, sa provenance (le formulaire, suivi des utm_source et utm_campaign de l’adresse de la page, choisis par l’auteur du lien et pouvant contenir un identifiant) et l’état de son contact pour les nouvelles du lancement (le consentement à ces nouvelles figure lui-même dans le registre des consentements).",
+          "kept": "Une invitation par adresse jusqu’à son utilisation ou sa révocation ; l’enregistrement du ticket aussi longtemps que le compte ; un ticket de membre jusqu’à 30 jours après sa fin ; une inscription sur la liste d’attente jusqu’à ce que la personne la quitte ou soit effacée, et une inscription dont le code n’a jamais été vérifié, un jour."
         },
         "consents": {
           "holds": "Le registre des consentements : une ligne pour chaque fois que le compte (ou, avant son inscription, un hachage de son adresse) a accepté un document ou une option, l’a retiré ou a fait un choix de stockage facultatif, avec le type, sa version, l’heure et sa provenance.",
@@ -1842,8 +1846,8 @@
           "kept": "Jusqu’à ce qu’un membre le retire, ou que son espace de travail disparaisse."
         },
         "aiFlags": {
-          "holds": "Ce que le classifieur de sécurité a signalé dans le contenu envoyé par un compte : les catégories, s’il a été refusé ou escaladé, le classifieur, ainsi que l’identifiant et l’étape de l’app pour ce qui a été vérifié, jamais le contenu.",
-          "kept": "Le nombre de jours pendant lesquels l’app conserve les signalements (moderation.log.days, 90 par défaut), ou aucun avec log: false."
+          "holds": "Ce que le classifieur de sécurité a signalé dans le contenu envoyé par un compte : les catégories, s’il a été refusé ou escaladé, le classifieur et la politique, ainsi que l’identifiant et l’étape de l’app pour ce qui a été vérifié, jamais le contenu.",
+          "kept": "Le nombre de jours pendant lesquels l’app conserve les signalements (moderation.log.days, 183 par défaut), ou aucun avec log: false."
         },
         "aiProvenance": {
           "holds": "Ce qui a produit chaque image générée stockée par les tâches d’un espace de travail : les modèles, la date, et les identifiants des lignes et fichiers à partir desquels elle a été créée, jamais leur contenu.",

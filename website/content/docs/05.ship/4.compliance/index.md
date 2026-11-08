@@ -50,7 +50,7 @@ The package is a library you run on your own accounts. It is no party to any of 
 | Separates transactional mail from marketing, and adds one-click unsubscribe | Collect consent, and put a postal address in every marketing email |
 | Records the auto-renew consent at checkout | Write your terms, and set your refund policy with the billing provider |
 
-Each page says which of these exist today and which arrive in 0.2.0, with the unit that builds them on the [Feature map](/docs/start/feature-map).
+The [Feature map](/docs/start/feature-map) lists each of these with its status.
 
 ## Why it works this way
 
@@ -58,7 +58,7 @@ A library can make the safe path the default and keep the records an auditor ask
 
 - **It knows its own data.** Every table it creates is listed with what it holds, how long it keeps it, and what an export and an erasure do. A table missing from that list fails the package's tests.
 - **It records.** Consents, decisions about content and renewal consent are rows with a time and a version. You answer a regulator from them, not from memory.
-- **It defaults to strict.** From 0.2.0, no cookie that needs consent is set before a person agrees, marketing email needs an opt-in, and the AI label is on. You loosen a default on purpose, in your own code.
+- **It defaults to strict.** No cookie that needs consent is set before a person agrees, marketing email needs an opt-in, and the AI label is on. You loosen a default on purpose, in your own code.
 
 Polar as merchant of record takes the hardest part of selling across borders, tax and consumer billing, off your desk. It doesn't take the rest: Polar sells your product, but you still run the service people use.
 

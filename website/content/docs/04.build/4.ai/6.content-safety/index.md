@@ -66,9 +66,9 @@ export const ai = setupAi(components, {
   moderation: {
     // Refused: violent and sex crimes, child safety, weapons, hate, self-harm, sexual content.
     block: ['S1', 'S3', 'S4', 'S9', 'S10', 'S11', 'S12'],
-    // An administrator looks at these.
+    // Held back for an administrator: each is one of block's too.
     escalate: ['S4'],
-    log: { days: 90 },
+    log: { days: 365 },
   },
 })
 
@@ -78,11 +78,11 @@ export const { getCosts, listModerationFlags } = ai.api
 
 To check images with a provider made for it, match known abuse material, or give people a statement of reasons, see [Choose moderation providers](/docs/build/ai/content-safety/providers).
 
-- **`block`** lists the categories that refuse content, as the shared categories (`sexual`, `hate`) or a provider's own codes (`S4`), alike: `requireSafe`, every `moderate` option and a job's check throw on them. Content flagged only in other categories is let through and recorded. Default `'all'`: any flag refuses. A flag that names no category is refused under any policy.
-- **`escalate`** lists the categories an administrator looks at. Their flags read `escalate`, stand out in the Moderation tab, and log `ai.content_escalated` as an error, which reaches your [error monitoring](/docs/ship/operate/monitoring).
-- **`log`** keeps a record of every flagged check for `days`, 90 by default: categories, who, what and where, whether it was blocked, never the content. `log: false` keeps none. The maintenance pass prunes a record once its days are over, and an account's erasure deletes the records about it.
+- **`block`** lists the categories that refuse content, as the shared categories (`sexual`, `hate`) or Llama Guard's codes `S1` to `S14` (`S4`), alike: `requireSafe`, every `moderate` option and a job's check throw on them. Content flagged only in other categories is let through and recorded. Default `'all'`: any flag refuses. A flag that names no category, or a code beyond `S14`, is refused under any policy, and `setupAi` refuses a list with any other word in it, such as `'s04'` or `'csam'`. Another provider's own codes, such as Azure's `Sexual:4`, are not policy words: name their shared category.
+- **`escalate`** lists the categories an administrator looks at. Their content is refused like `block`'s, and `setupAi` refuses an entry here that `block` does not cover, by the same word, or by the category a code reads as (`S4` and `minors_sexual`), unless `block` is `'all'`: nothing waiting for an administrator is published meanwhile. Their flags read `escalate`, stand out in the Moderation tab, and log `ai.content_escalated` as an error, with the subject, the stage and the flag's id, which reaches your [error monitoring](/docs/ship/operate/monitoring). An escalation needs `log`.
+- **`log`** keeps a record of every flagged check for `days`, 183 by default, the six months the DSA gives a person to complain about a decision (Art. 20): categories, who, what and where, the policy it was judged under, whether it was blocked, never the content. `log: false` keeps none. The maintenance pass prunes a record once its days are over. An account's erasure deletes the records about it, but for those on legal hold: an escalated flag, or child sexual exploitation (`minors_sexual`, `S4`, a known-abuse match) refused. Those stay until their days are over, the account and its deleted workspaces replaced by a pseudonym, as evidence you may be obliged to keep (GDPR Art. 17(3)(b) and (e)).
 
-`ai.moderate` answers the policy's view beside the classifier's: `blocked` and `escalate`. A third argument names what was checked in your words, for its record: `{ subject, stage }`, and `userId` or `owner` when the content is not the signed-in person's:
+`ai.moderate` answers the policy's view beside the classifier's: `blocked` and `escalate`, and an escalated verdict is always `blocked`. A third argument names what was checked in your words, for its record: `{ subject, stage }`, and `userId` or `owner` when the content is not the signed-in person's:
 
 ```ts [backend/comics.ts]
 const { blocked } = await ai.moderate(ctx, { text: title }, { subject: comicId, stage: 'title' })

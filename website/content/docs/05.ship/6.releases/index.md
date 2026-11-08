@@ -1,6 +1,6 @@
 ---
 title: What's new in 0.2
-description: "0.2.0 is the first release of nuxt-backend: a complete backend for client apps, capability by capability, with what is experimental, what waits for the next release, and how to verify the release before you install it."
+description: "0.2.0 is the first release of nuxt-backend: a complete backend for client apps, capability by capability, with what is experimental, what waits for a later release, and how to verify the release before you install it."
 kind: landing
 related:
   - /docs/start/feature-map
@@ -26,11 +26,11 @@ navigation:
 
 Development runs on the providers' own test modes, with nothing simulated: Polar's sandbox, Resend's test addresses and the Convex AI Gateway ([Develop on real sandboxes](/docs/develop/sandboxes)). Each service has a page of its own, from sign-up to a passing `doctor` ([Service map](/docs/services)).
 
-A feature the Feature map marks **Planned** lands before `0.2.0` is published, and its page already describes it as it will ship. A page marked **Changing** describes the `0.2.0` API of a feature the code still has in an earlier shape.
+A feature the Feature map marks **Planned** arrives in the next minor release, and its page already describes it as it will ship. A page marked **Changing** describes the next release's API of a feature the code still has in an earlier shape.
 
-## What waits for the next release
+## What waits for a later release
 
-`0.2.0` serves client apps. The features a service platform needs (API keys, outgoing webhooks, an MCP endpoint for your users' agents, and deeper workspaces with custom roles) arrive together in the next release. The [Roadmap](/docs/start/roadmap) says why each one waits.
+`0.2.0` serves client apps. The features a service platform needs (API keys, outgoing webhooks, an MCP endpoint for your users' agents, and deeper workspaces with custom roles) arrive together in a later release. The [Roadmap](/docs/start/roadmap) says why each one waits.
 
 ## Experimental
 
@@ -38,7 +38,7 @@ A few parts may still change shape in a minor release of the `0.x` line, without
 
 ## Coming from a preview
 
-`npx nuxt-backend upgrade` repairs the scaffold and runs the package's data migrations. An app built on a preview of `main` gets the edits it needs from it too ([Upgrade to a new version](/docs/ship/releases/upgrade)).
+`npx nuxt-backend upgrade` repairs the scaffold and runs the package's data migrations. An app built on a preview of `main` before `0.2.0` makes its edits by hand, from the Upgrade page as `0.2.1` published it ([Upgrade to a new version](/docs/ship/releases/upgrade)).
 
 ## In this section
 

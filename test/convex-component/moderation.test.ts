@@ -66,7 +66,7 @@ const classifier = new MockLanguageModelV4({
       return new Promise((_resolve, reject) => abortSignal?.addEventListener('abort', () => reject(abortSignal.reason)))
     }
     if (failure === 'provider' || !text) throw upstreamError()
-    const verdict = answer ?? (/BAD/.test(text) ? 'unsafe\nS10' : media.includes('image/gif') ? 'unsafe\nS12,S4' : 'safe')
+    const verdict = answer ?? (/BAD/.test(text) ? 'unsafe\nS10' : /HOUSE/.test(text) ? 'unsafe\nS7' : media.includes('image/gif') ? 'unsafe\nS12,S4' : 'safe')
     return { content: [{ type: 'text', text: verdict }], finishReason: { unified: 'stop', raw: 'stop' }, usage, warnings: [] }
   },
 })
@@ -99,8 +99,8 @@ const billing = {
 const rateLimiter = setupRateLimiter(components as never)
 const ai = setupAi(components as never, { billing, rateLimiter, moderation: { model: classifier } })
 const textOnly = setupAi(components as never, { billing, rateLimiter, moderation: { model: new MockLanguageModelV4({ provider: 'test', modelId: 'openai/gpt-oss-safeguard-20b', doGenerate: classifier.doGenerate as never }) } })
-/** A policy: hate (S10) refused, child safety (S4) escalated, the rest recorded and let through, flags kept 30 days. */
-const policed = setupAi(components as never, { billing, rateLimiter, moderation: { model: classifier, block: ['S10'], escalate: ['S4'], log: { days: 30 } } })
+/** A policy: hate (S10) and child safety (S4) refused, S4 escalated, the rest recorded and let through, flags kept 30 days. */
+const policed = setupAi(components as never, { billing, rateLimiter, moderation: { model: classifier, block: ['S10', 'S4'], escalate: ['S4'], log: { days: 30 } } })
 /** The default policy, with no flags kept. */
 const unlogged = setupAi(components as never, { billing, rateLimiter, moderation: { model: classifier, log: false } })
 /** The default classifier, by its id: what an app's own tests get from nuxt-backend/test. */
@@ -328,6 +328,13 @@ describe('readVerdict', () => {
     expect(readVerdict('Unsafe.\ns12')).toEqual({ flagged: true, categories: ['S12'] })
     expect(readVerdict('I cannot help with that.')).toBeNull()
   })
+
+  test('keeps a code beyond S14 for the policy to refuse, and reads no answer with other words beside the codes', () => {
+    expect(readVerdict('unsafe\nS15')).toEqual({ flagged: true, categories: ['S15'] })
+    expect(readVerdict('unsafe\nS7, child abuse')).toBeNull()
+    expect(readVerdict('unsafe\nS1: violent crimes')).toBeNull()
+    expect(readVerdict('safe\nS4')).toBeNull()
+  })
 })
 
 describe('ai.moderate and ai.requireSafe', () => {
@@ -475,19 +482,32 @@ describe('the moderation policy', () => {
     const ada = await asUser(t)
     const gif = await ada.mutation(ref.upload, { gif: true })
     expect(await ada.action(ref.checkPoliced, { text: 'Something BAD' })).toMatchObject({ flagged: true, categories: ['hate'], codes: ['S10'], blocked: true, escalate: false })
-    // Sexual content (S12) is let through under this policy; child safety (S4) goes to an administrator.
-    expect(await ada.action(ref.checkPoliced, { images: [gif] })).toMatchObject({ flagged: true, categories: ['minors_sexual', 'sexual'], codes: ['S12', 'S4'], blocked: false, escalate: true })
-    expect(await ada.action(ref.checkPoliced, { images: [gif], require: true })).toBeNull()
+    // Privacy (S7) is let through under this policy, recorded.
+    expect(await ada.action(ref.checkPoliced, { text: 'My HOUSE number' })).toMatchObject({ flagged: true, categories: [], codes: ['S7'], blocked: false, escalate: false })
+    expect(await ada.action(ref.checkPoliced, { text: 'My HOUSE number', require: true })).toBeNull()
+    // Child safety (S4) goes to an administrator, and is held back meanwhile.
+    expect(await ada.action(ref.checkPoliced, { images: [gif] })).toMatchObject({ flagged: true, categories: ['minors_sexual', 'sexual'], codes: ['S12', 'S4'], blocked: true, escalate: true })
+    expect(await refusal(ada.action(ref.checkPoliced, { images: [gif], require: true }))).toMatchObject({ code: 'invalid_input', data: { reason: 'content_blocked' } })
     expect(await refusal(ada.action(ref.checkPoliced, { text: 'Something BAD', require: true }))).toMatchObject({ code: 'invalid_input', data: { reason: 'content_blocked' } })
     // A clean check records nothing.
     expect(await ada.action(ref.checkPoliced, { text: 'A fox' })).toMatchObject({ flagged: false, blocked: false })
-    expect(vi.mocked(console.error).mock.calls.flat().map(String).join('\n')).toContain('ai.content_escalated')
-
     const rows = await flagRows(t)
-    expect(rows).toHaveLength(4)
-    expect(rows[0]).toMatchObject({ userId: ada.userId, subject: 'comic-1', stage: 'title', categories: ['hate'], codes: ['S10'], providers: ['meta-llama/llama-guard-4-12b'], automated: true, blocked: true, escalate: false, model: 'meta-llama/llama-guard-4-12b' })
+    expect(rows).toHaveLength(6)
+    expect(rows[0]).toMatchObject({ userId: ada.userId, subject: 'comic-1', stage: 'title', categories: ['hate'], codes: ['S10'], providers: ['meta-llama/llama-guard-4-12b'], automated: true, blocked: true, escalate: false, model: 'meta-llama/llama-guard-4-12b', policy: 'block S10,S4; escalate S4' })
+    expect(rows[0]).not.toHaveProperty('legalHold')
+    expect(rows[3]).toMatchObject({ codes: ['S12', 'S4'], blocked: true, escalate: true, legalHold: true })
+    // The escalation's log line names what, where, and the flag that holds it.
+    expect(vi.mocked(console.error).mock.calls.flat().map(String).join('\n')).toContain('ai.content_escalated')
+    expect(vi.mocked(console.error).mock.calls.flat().map(String).join('\n')).toContain(`subject comic-1, at title, flag ${rows[3]!._id as string}`)
     // Kept the policy's 30 days.
     expect(Math.round(((rows[0]!.expiresAt as number) - (rows[0]!._creationTime as number)) / 1000)).toBe(30 * 24 * 60 * 60)
+  })
+
+  test('refuses a code beyond S14 under any policy: it was never weighed', async () => {
+    const t = appUnderTest()
+    const ada = await asUser(t)
+    answer = 'unsafe\nS15'
+    expect(await ada.action(ref.checkPoliced, { text: 'A fox' })).toMatchObject({ flagged: true, categories: [], codes: ['S15'], blocked: true, escalate: false })
   })
 
   test('lists the flags to administrators only, newest first, the escalated ones alone on asking', async () => {
@@ -502,19 +522,19 @@ describe('the moderation policy', () => {
     expect(await ada.query(ref.listModerationFlags, { paginationOpts: firstPage })).toBeNull()
     const all = (await admin.query(ref.listModerationFlags, { paginationOpts: firstPage }))!
     expect(all.page.map(flag => flag.codes)).toEqual([['S12', 'S4'], ['S10']])
-    expect(all.page[0]).toMatchObject({ id: expect.any(String), at: expect.any(Number), userId: ada.userId, subject: 'comic-1', stage: 'title', categories: ['minors_sexual', 'sexual'], codes: ['S12', 'S4'], blocked: false, escalate: true, model: 'meta-llama/llama-guard-4-12b' })
+    expect(all.page[0]).toMatchObject({ id: expect.any(String), at: expect.any(Number), userId: ada.userId, subject: 'comic-1', stage: 'title', categories: ['minors_sexual', 'sexual'], codes: ['S12', 'S4'], blocked: true, escalate: true, model: 'meta-llama/llama-guard-4-12b', policy: 'block S10,S4; escalate S4', legalHold: true })
     const escalated = (await admin.query(ref.listModerationFlags, { paginationOpts: firstPage, escalated: true }))!
     expect(escalated.page.map(flag => flag.codes)).toEqual([['S12', 'S4']])
   })
 
-  test('the default blocks every flag and keeps flags 90 days; `log: false` keeps none', async () => {
+  test('the default blocks every flag and keeps flags 183 days; `log: false` keeps none', async () => {
     const t = appUnderTest()
     const ada = await asUser(t)
     expect(await refusal(ada.action(ref.check, { text: 'Something BAD', require: true }))).toMatchObject({ code: 'invalid_input' })
     expect(await ada.action(ref.checkUnlogged, { text: 'Something BAD' })).toMatchObject({ blocked: true })
     const rows = await flagRows(t)
     expect(rows).toHaveLength(1)
-    expect(Math.round(((rows[0]!.expiresAt as number) - (rows[0]!._creationTime as number)) / 1000)).toBe(90 * 24 * 60 * 60)
+    expect(Math.round(((rows[0]!.expiresAt as number) - (rows[0]!._creationTime as number)) / 1000)).toBe(183 * 24 * 60 * 60)
   })
 
   test('the maintenance pass prunes a flag once its days are over', async () => {
@@ -541,6 +561,20 @@ describe('the moderation policy', () => {
     expect(setup({ block: 'some' })).toThrow(/`block` is 'all' or a list/)
     expect(setup({ block: ['S1', ''] })).toThrow(/`block`/)
     expect(setup({ escalate: 'S4' })).toThrow(/`escalate` is a list/)
+    // A mistyped or unknown code would match nothing, and let its content through.
+    for (const code of ['s04', 'csam', 'S15', 'S0', 'S4.']) {
+      expect(setup({ block: ['S1', code] })).toThrow(/`block` is 'all' or a list of categories or Llama Guard's codes/)
+      expect(setup({ block: 'all', escalate: [code] })).toThrow(/`escalate` is a list of categories or Llama Guard's codes/)
+    }
+    expect(setup({ block: [' s4 ', 'S10'], escalate: ['S4 '] })).not.toThrow()
+    // Escalated content is held back: each escalated code is blocked too, and leaves a record.
+    expect(setup({ block: ['S10'], escalate: ['S4'] })).toThrow(/`escalate` names S4, which `block` does not/)
+    expect(setup({ escalate: ['S4'] })).not.toThrow()
+    // A code and the shared category it reads as cover each other; another category does not.
+    expect(setup({ block: ['minors_sexual'], escalate: ['S4'] })).not.toThrow()
+    expect(setup({ block: ['S4'], escalate: ['minors_sexual'] })).not.toThrow()
+    expect(setup({ block: ['sexual'], escalate: ['minors_sexual'] })).toThrow(/`escalate` names minors_sexual/)
+    expect(setup({ escalate: ['S4'], log: false })).toThrow(/`escalate` needs the flags `log` keeps/)
     expect(setup({ log: { days: 0 } })).toThrow(/log.days/)
     expect(setup({ log: { days: 1.5 } })).toThrow(/log.days/)
   })

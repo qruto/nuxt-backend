@@ -90,7 +90,7 @@ Give each stage its own account or team where the service allows it: production'
 
 Web push needs no account: the browsers' push services deliver it, signed with a key pair of the deployment's own. `npx nuxt-backend env push` generates `PUSH_PUBLIC_KEY` and `PUSH_PRIVATE_KEY` for the dev deployment, and `env push --prod` a pair of production's own, never copied from `.env.local` ([Send web push notifications](/docs/build/email/notifications/web-push)).
 
-[Deploy in one command](/docs/ship/deploy/one-command), arriving in `0.2.0`, runs the production column of this table in one command, and reports each step under its capability.
+[Deploy in one command](/docs/ship/deploy/one-command) runs the production column of this table in one command, and reports each step under its capability.
 
 ## Recommended settings
 

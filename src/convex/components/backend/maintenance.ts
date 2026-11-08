@@ -6,6 +6,7 @@ import { logBackend } from '../../log.js'
 import { SECRET_OUTBOX_TTL_MS } from './email.js'
 import { scheduleHeartbeat } from './monitoring.js'
 import { pruneJoins, retryMirrors, WAITLIST_JOIN_TTL_MS, WAITLIST_MIRROR_RETRY_MS } from './waitlist.js'
+import { MEMBER_TICKET_RETENTION_MS } from './access.js'
 import { UNCLAIMED_FILE_MS } from '../../files.js'
 import { INBOUND_RETENTION_MS, REPLY_ADDRESS_RETENTION_MS } from '../../inbound-rules.js'
 import { GUEST_TRIES_RETENTION_MS, JOB_RETENTION_MS } from './jobs.js'
@@ -256,6 +257,10 @@ export const MAINTENANCE_TASKS = {
 
   // A waitlist join whose code never checked is dropped after a day.
   waitlistJoins: async (ctx: MutationCtx, startedAt: number): Promise<Batch> => pruneJoins(ctx, startedAt - WAITLIST_JOIN_TTL_MS),
+
+  // A member ticket, 30 days after it ended: its link reads `unknown` from then on.
+  memberTickets: async (ctx: MutationCtx, startedAt: number) => remove(ctx, 'accessInvites', [ctx.db.query('accessInvites')
+    .withIndex('heldUntil', q => q.gt('heldUntil', 0).lt('heldUntil', startedAt - MEMBER_TICKET_RETENTION_MS))]),
 
   // A launch-news contact left pending or drifting is written again; nothing is deleted.
   waitlistMirror: async (ctx: MutationCtx, startedAt: number): Promise<Batch> => {

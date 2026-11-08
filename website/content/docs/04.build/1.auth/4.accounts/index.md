@@ -8,7 +8,7 @@ navigation:
 
 An account is one person: an address proven by a code, the passkeys they saved, their signed-in devices and the workspaces they belong to. Two packaged pages cover what a person manages about it, `/profile` and `/security`. Each is one component you can place anywhere, or rebuild from its composables. Everything the app keeps about a person, they can take with them or erase.
 
-Better Auth holds the account, its sessions and its passkeys. The package adds the pages, the export, an erasure that reaches every provider, and the records the law asks a client app to keep. In `0.2.0` a person can also make their account passkey-only, and you can set a minimum age.
+Better Auth holds the account, its sessions and its passkeys. The package adds the pages, the export, an erasure that reaches every provider, and the records the law asks a client app to keep. A person can also make their account passkey-only, and you can set a minimum age.
 
 ::card-group
   :::card{icon="i-lucide-user-pen" title="Let users edit their profile" to="/docs/build/auth/accounts/profile"}
@@ -24,7 +24,7 @@ Better Auth holds the account, its sessions and its passkeys. The package adds t
   :::
 
   :::card{icon="i-lucide-badge-check" title="Record consents" to="/docs/build/auth/accounts/consents"}
-  Planned: your terms and opt-ins by version, the consent manager for optional storage, and a minimum age.
+  Your terms and opt-ins by version, the consent manager for optional storage, and a minimum age.
   :::
 
   :::card{icon="i-lucide-bell-ring" title="Alert people to new sign-ins" to="/docs/build/auth/accounts/alerts"}

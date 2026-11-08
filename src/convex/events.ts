@@ -271,15 +271,15 @@ export const BACKEND_EVENTS = {
     scope: 'account',
     data: { ticket: STRING, label: OPTIONAL_STRING },
     channels: [],
-    description: 'A new account signed up with a ticket while the app was closed: `ticket` is its kind (`invite-code`, `access-link`, `invitation`, `waitlist`, `workspace-invitation`, `gift`, `domain`, `administrator`) and `label` the cohort of a code, a link or an invitation by address. Never the code itself.',
+    description: 'A new account signed up with a ticket while the app was closed: `ticket` is its kind (`invite-code`, `access-link`, `member-ticket`, `invitation`, `waitlist`, `workspace-invitation`, `gift`, `domain`, `administrator`) and `label` the cohort of a code, a link or an invitation by address (`member:<userId>` for a member ticket). Never the code itself.',
     recordedBy: 'The account\'s creation (`user.create`), once the account exists',
   },
   'access.invite_created': {
     scope: 'account',
     data: { kind: STRING, label: STRING, maxUses: NUMBER },
     channels: [],
-    description: 'An administrator (the actor) or server code made an invite code (`kind` `code`) or an access link (`link`) for the cohort `label`, good for `maxUses` sign-ups. Never the code itself.',
-    recordedBy: '`access:createInvite` and `access.invites.create`',
+    description: 'An administrator (the actor) or server code made an invite code (`kind` `code`) or an access link (`link`) for the cohort `label`, good for `maxUses` sign-ups, or a member (the actor) asked for their member ticket (`link`, label `member`). Never the code itself.',
+    recordedBy: '`access:createInvite`, `access.invites.create` and `issueMemberTicket` (`access.memberTickets`)',
   },
   'access.invite_revoked': {
     scope: 'account',

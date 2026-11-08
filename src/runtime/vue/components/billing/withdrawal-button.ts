@@ -36,7 +36,7 @@ export interface UseWithdrawalButtonReturn {
 }
 
 /**
- * The headless EU withdrawal button `<WithdrawalButton>` renders (LIFECYCLE):
+ * The headless EU withdrawal button `<WithdrawalButton>` renders:
  * shown for a purchase inside its 14 days, to a billing manager, while
  * `setupBilling({ lifecycle: { withdrawal: true } })` is on. A confirm step,
  * then the server ends the plan and emails the receipt.

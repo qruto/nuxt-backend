@@ -296,7 +296,7 @@ A plan pass a workspace holds: gifted until `endsAt`, with no card and no renewa
 | <a id="months-2"></a> `months?` | `number` | How many months it was given for. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="startedat-1"></a> `startedAt` | `Date` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="endsat-1"></a> `endsAt` | `Date` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="trial"></a> `trial?` | `true` | A reverse trial's pass (LIFECYCLE): the workspace started on it, nobody gave it. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="trial"></a> `trial?` | `true` | A reverse trial's pass: the workspace started on it, nobody gave it. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 
 ***
 

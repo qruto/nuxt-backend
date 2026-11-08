@@ -23,7 +23,7 @@ Nothing is added to your schema, and the package keeps no ledger of its own: ord
 - **Credits**: prepaid packs, a monthly allowance per plan, and usage past the allowance.
 - **Gates**: features and resource quotas, enforced on the server and mirrored in the UI.
 - **Growth**: discounts, promotions, campaign links, gifts, plan passes and referrals.
-- **The lifecycle**, in `0.2.0`: a cancel flow with one save offer, a past-due notice, abandoned-checkout and renewal reminders, local prices at checkout, and the EU withdrawal button.
+- **The lifecycle**: a cancel flow with one save offer, a past-due notice, abandoned-checkout and renewal reminders, local prices at checkout, and the EU withdrawal button.
 
 ## Start here
 
@@ -153,7 +153,7 @@ reference entry.
   :::
 
   :::card{icon="i-lucide-door-open" title="Handle cancellations" to="/docs/build/growth/engage/cancel-flow"}
-  Planned: cancelling in one step, with one optional step before it for a question and a save offer by reason.
+  Cancelling in one step, with one optional step before it for a question and a save offer by reason.
   :::
 ::
 
@@ -185,15 +185,15 @@ reference entry.
   :::
 
   :::card{icon="i-lucide-gift" title="Send, receive and manage gifts" to="/docs/build/growth/offers/gifts"}
-  Buy a credit pack for someone by email; they sign in and claim it. A gifts page to manage them is planned.
+  Buy a credit pack for someone by email; they sign in and claim it, and `/gifts` lists the gifts sent and received.
   :::
 
   :::card{icon="i-lucide-ticket" title="Gift a plan as a pass" to="/docs/build/growth/offers/plan-passes"}
-  Planned: a plan bought once as a gift, for 1, 3 or 12 months, with no card and no renewal.
+  A plan bought once as a gift, for 1, 3 or 12 months, with no card and no renewal.
   :::
 
   :::card{icon="i-lucide-share-2" title="Run a referral program" to="/docs/build/growth/offers/referrals"}
-  Planned: a link per person, an explicit claim, and rewards once the first payment clears its hold.
+  A link per person, an explicit claim, and rewards once the first payment clears its hold.
   :::
 ::
 
@@ -223,7 +223,7 @@ reference entry.
 
 ## Revenue and growth numbers
 
-The admin console reads Polar's live metrics: recurring revenue, new and churned subscriptions, checkouts and usage per meter. It also shows the growth funnel, from waitlist to paid ([Read revenue and usage](/docs/build/growth/measure/revenue); [Measure growth](/docs/build/growth/measure), planned for `0.2.0`). Like the rest of billing it keeps no ledger: the numbers are Polar's.
+The admin console reads Polar's live metrics: recurring revenue, new and churned subscriptions, checkouts and usage per meter. It also shows the growth funnel, from waitlist to paid ([Read revenue and usage](/docs/build/growth/measure/revenue); [Measure growth](/docs/build/growth/measure)). Like the rest of billing it keeps no ledger: the numbers are Polar's.
 
 ## Not included
 
@@ -232,7 +232,7 @@ The admin console reads Polar's live metrics: recurring revenue, new and churned
 - **Auto top-up.** A balance grows when someone buys a pack, never by the app charging a card on its own.
 - **Editing provider objects from code.** `billing sync` never deletes, and never rewrites a price or a credit grant a customer holds: it reports drift. To stop selling a plan, retire it.
 - **A second billing provider.** The catalog and the cache are built on Polar's products, benefits and meters.
-- **Workspace billing permissions.** The owner and admins manage billing; granting it to a custom role waits for the next release ([Roadmap](/docs/start/roadmap)).
+- **Workspace billing permissions.** The owner and admins manage billing; granting it to a custom role waits for a later release ([Roadmap](/docs/start/roadmap)).
 
 The reasons are on [Principles](/docs/start/concepts/principles#what-it-never-does), and the rules every growth feature follows are under [Guardrails on growth features](/docs/start/concepts/principles#guardrails-on-growth-features).
 

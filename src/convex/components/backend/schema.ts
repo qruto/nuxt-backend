@@ -345,12 +345,12 @@ const vGiftRow = v.object({
   passReturnScheduledAt: v.optional(v.number()),
   passNoticedAt: v.optional(v.number()),
   passEndedAt: v.optional(v.number()),
-  // A reverse trial (LIFECYCLE): the pass a new workspace started on,
+  // A reverse trial: the pass a new workspace started on,
   // with no purchaser (`status` 'trial'). `recipientEmail` holds its
   // owner's address with plus tags and dots taken out, so an address
   // starts one.
   reverseTrial: v.optional(v.boolean()),
-  // A referral reward (REF): the pass a referrer on the free plan got for
+  // A referral reward: the pass a referrer on the free plan got for
   // free months, with no purchaser (`status` 'reward'). `rewardId` is the
   // referral it came from; `recipientEmail` is empty.
   rewardId: v.optional(v.string()),
@@ -359,7 +359,7 @@ const vGiftRow = v.object({
 /** A gift as the component's reads return it: its id, without the claim and cancel holds or the reward it came from. */
 export const vGift = vGiftRow.omit('claimingUntil', 'cancelingUntil', 'passReturnFrom', 'rewardId').extend({ id: v.string() })
 
-/** A save offer's terms, as the cancel flow made it (LIFECYCLE). */
+/** A save offer's terms, as the cancel flow made it. */
 export const vSaveOfferTerms = v.object({
   kind: v.union(v.literal('pause'), v.literal('downgrade'), v.literal('discount')),
   months: v.optional(v.number()),
@@ -501,7 +501,7 @@ export const billingTables = {
     wake: v.string(),
     updatedAt: v.number(),
   }),
-  // The cancel flow's save offers (LIFECYCLE): one per cancellation, and
+  // The cancel flow's save offers: one per cancellation, and
   // one per billing entity in 12 months. The browser names an offer by its
   // id; the server finds what it made here, for that subscription, and
   // takes it once.
@@ -589,16 +589,6 @@ export const vAiDocument = v.object({
   removeNamespace: v.optional(v.string()),
 })
 
-/**
- * Metered-stream request plumbing for `setupAi().stream` — the HTTP stream
- * endpoint can't carry Convex args, so `start` records the request (args,
- * billing entity, reservation) and the HTTP dispatcher loads it by stream id.
- * Status mirrors the credit reservation: `reserved` → `streaming` (the
- * one dispatch that claimed it runs the model) → `settled` (event
- * ingested) or `released` (failed — nothing charged). Rows are plumbing, not
- * a usage ledger — the provider event is the durable record; they are safe to
- * prune.
- */
 /** A flag of the safety classifier, as `aiFlags` keeps it beside when it expires. */
 export const vAiFlag = {
   userId: v.optional(v.string()),
@@ -628,8 +618,22 @@ export const vAiFlag = {
   hash: v.optional(v.string()),
   /** The playbook a match follows: `csam` for known child sexual abuse material. */
   playbook: v.optional(v.literal('csam')),
+  /** The policy it was judged under, as `setupAi({ moderation })` set it then. */
+  policy: v.optional(v.string()),
+  /** Kept through an erasure until it expires, under the pseudonym: escalated, or child sexual exploitation refused. */
+  legalHold: v.optional(v.boolean()),
 }
 
+/**
+ * Metered-stream request plumbing for `setupAi().stream` — the HTTP stream
+ * endpoint can't carry Convex args, so `start` records the request (args,
+ * billing entity, reservation) and the HTTP dispatcher loads it by stream id.
+ * Status mirrors the credit reservation: `reserved` → `streaming` (the
+ * one dispatch that claimed it runs the model) → `settled` (event
+ * ingested) or `released` (failed — nothing charged). Rows are plumbing, not
+ * a usage ledger — the provider event is the durable record; they are safe to
+ * prune.
+ */
 export const aiTables = {
   aiRequests: defineTable(vAiRequest)
     .index('streamId', ['streamId'])
@@ -1604,11 +1608,24 @@ export const accessTables = {
     revokedAt: v.optional(v.number()),
     /** The administrator who made it; absent for one made by server code. */
     createdBy: v.optional(v.string()),
+    /**
+     * The member a member ticket belongs to (`access.memberTickets`): an access link the member
+     * reads back and shares while the app is closed. Its token is derived from the member and its
+     * expiry under the auth secret, so only the hash is kept, as for any link.
+     */
+    holder: v.optional(v.string()),
+    /**
+     * A member ticket's `expiresAt` again, so the Access tab lists the member tickets apart and
+     * the maintenance sweep removes each 30 days after it ended. Absent on an administrator's code or link.
+     */
+    heldUntil: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('tokenHash', ['tokenHash'])
     .index('createdAt', ['createdAt'])
     .index('createdBy', ['createdBy'])
+    .index('holder', ['holder', 'createdAt'])
+    .index('heldUntil', ['heldUntil'])
     .index('revokedAt_keyVersion', ['revokedAt', 'keyVersion']),
   accessAdmissions: defineTable({
     /** The address, trimmed and lower-cased. */

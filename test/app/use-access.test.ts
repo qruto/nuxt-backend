@@ -5,7 +5,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { clearNuxtData } from '#app'
 import { backendError } from '../../src/convex/errors'
 import { createBackendMock, resetBackendMock } from '../../src/runtime/test-utils'
-import { useAccessAdmin, useAccessPhase, useInvite } from '../../src/runtime/vue/composables/use-access'
+import { useAccessAdmin, useAccessPhase, useInvite, useMemberTicket } from '../../src/runtime/vue/composables/use-access'
 import { forgetInvite, keepInvite, keptInvite } from '../../src/runtime/vue/utils/kept-invite'
 
 // The launch-access composables over the backend mock: the phase a page
@@ -137,5 +137,39 @@ describe('useAccessAdmin', () => {
     expect(admin.isLoading.value).toBe(false)
     expect(admin.isRefused.value).toBe(false)
     expect(admin.error.value).toBeNull()
+  })
+})
+
+describe('useMemberTicket', () => {
+  const issued = { state: 'issued' as const, token: '0123456789ABCDEFGHJKMNPQRS', uses: 3, left: 2, expiresAt: 1_900_000_000_000 }
+
+  it('reads the ticket of the member and the link to share, on the invite page', async () => {
+    createBackendMock({ user: { name: 'Ada' }, queries: { 'access:getMemberTicket': issued } })
+    const ticket = await inPage(() => useMemberTicket())
+    await flushPromises()
+    expect(ticket.ticket.value).toEqual(issued)
+    expect(ticket.link.value).toMatch(/\/invite#0123456789ABCDEFGHJKMNPQRS$/)
+    expect([ticket.isLoading.value, ticket.error.value]).toEqual([false, null])
+  })
+
+  it('mints one on issue, and shows it until the live read catches up', async () => {
+    const backend = createBackendMock({ user: { name: 'Ada' }, queries: { 'access:getMemberTicket': { state: 'none', uses: 3 } } })
+    backend.stub('access:issueMemberTicket', () => issued)
+    const ticket = await inPage(() => useMemberTicket())
+    await flushPromises()
+    expect(ticket.link.value).toBeNull()
+    expect(await ticket.issue()).toEqual(issued)
+    expect(ticket.ticket.value).toEqual(issued)
+    expect(ticket.link.value).toContain('#0123456789ABCDEFGHJKMNPQRS')
+  })
+
+  it('reads nothing for a visitor, and names the function an app without it re-exports', async () => {
+    createBackendMock()
+    const visitor = await inPage(() => useMemberTicket())
+    await flushPromises()
+    expect(visitor.ticket.value).toBeNull()
+    createBackendMock({ user: { name: 'Ada' } })
+    const bare = await inPage(() => useMemberTicket({ api: {} }))
+    await expect(bare.issue()).rejects.toThrow('`issueMemberTicket`')
   })
 })

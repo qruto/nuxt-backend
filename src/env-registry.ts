@@ -298,8 +298,8 @@ export const DERIVED_DEPLOYMENT_ENV: ReadonlySet<string> = new Set(CONTRACT_ENV_
 /**
  * The variables `0.2.0` removes, each with what replaced it. `env push` never
  * forwards one (none is in the contract), and `doctor` names any still set on
- * a deployment (`deployment-removed-env`). The Environment variables page,
- * the Upgrade page and the rename map carry the same list.
+ * a deployment (`deployment-removed-env`). The Environment variables page
+ * carries the same list.
  */
 export const REMOVED_ENV = {
   EMAIL_TEST_MODE: 'BACKEND_ENVIRONMENT: test mode everywhere but production',

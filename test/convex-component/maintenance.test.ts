@@ -134,6 +134,19 @@ describe('maintenance', () => {
     expect((await rows('invitation')).map(row => row.email).sort()).toEqual(['accepted@example.com', 'expired@example.com'])
   })
 
+  test('removes a member ticket 30 days after it ended, and never an administrator\'s code or link', async () => {
+    const now = Date.now()
+    const row = (label: string, expiresAt: number, holder?: string) => ({ kind: 'link' as const, tokenHash: label, label, maxUses: 3, uses: 0, expiresAt, createdAt: 0, ...(holder ? { holder, heldUntil: expiresAt } : {}) })
+    await t.run(async (ctx) => {
+      await ctx.db.insert('accessInvites', row('member:gone', now - 31 * DAY, 'gone'))
+      await ctx.db.insert('accessInvites', row('member:ended', now - 29 * DAY, 'ended'))
+      await ctx.db.insert('accessInvites', row('member:live', now + DAY, 'live'))
+      await ctx.db.insert('accessInvites', row('cohort', now - 90 * DAY))
+    })
+    await runPass()
+    expect((await t.run(ctx => ctx.db.query('accessInvites').collect())).map(invite => invite.label).sort()).toEqual(['cohort', 'member:ended', 'member:live'])
+  })
+
   test('works through a backlog in batches of at most MAINTENANCE_BATCH rows, rescheduling itself until done', async () => {
     const now = Date.now()
     const total = MAINTENANCE_BATCH * 2 + 17
