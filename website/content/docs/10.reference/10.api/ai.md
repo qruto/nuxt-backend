@@ -20,10 +20,11 @@ continues).
 
 Models are named as `provider/model` ids and called through the AI SDK (an
 optional peer: install `ai` to call one), each call charged at the cost
-the gateway reports. An id goes to the Convex AI Gateway first, on Convex
-Cloud with a paid plan (install `@convex-dev/ai-sdk-provider`), then
-through the Vercel AI Gateway with `AI_GATEWAY_API_KEY`. Without either, a
-call is refused, saying why.
+the gateway reports. An id goes through the gateways `setupAi({ gateway })`
+names, in order: by default the Convex AI Gateway first, on Convex Cloud
+with a paid plan (install `@convex-dev/ai-sdk-provider`), then the Vercel
+AI Gateway with `AI_GATEWAY_API_KEY`. When none answers, a call is refused,
+saying why.
 
 Composes the billing spend reservation (`setupBilling`), the rate limiter,
 and the upstream persistent-text-streaming component — usage recording IS
@@ -379,8 +380,8 @@ reports it: the state its app layer reads.
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="model-1"></a> `model` | `string` \| `null` | **`Experimental`** The model's id (`openai/gpt-5-mini`, or a model object's own); `null` when none is configured. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="state"></a> `state` | `"missing"` \| `"live"` | **`Experimental`** - `live`: calls reach the model: through the Convex AI Gateway on Convex Cloud (a free plan refuses it when called, unless `AI_GATEWAY_API_KEY` is set to fall back on), through the Vercel AI Gateway with `AI_GATEWAY_API_KEY`, or with a model object's own provider key; - `missing`: the key is not set on a deployment the Convex AI Gateway cannot serve, or no model is configured: calls are refused `unavailable` (reason `not_configured`). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="route"></a> `route` | `"provider"` \| `"convex-gateway"` \| `"vercel-gateway"` \| `null` | **`Experimental`** Where calls go first: `convex-gateway` (the Convex AI Gateway, where the deployment can have it; the next route answers when it refuses), `vercel-gateway` (`AI_GATEWAY_API_KEY`), `provider` (a model object's own key), or `null` when calls are refused. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="state"></a> `state` | `"missing"` \| `"live"` | **`Experimental`** - `live`: calls reach the model: through the Convex AI Gateway on Convex Cloud (a free plan refuses it when called, unless the order goes on to the Vercel AI Gateway and `AI_GATEWAY_API_KEY` is set), through the Vercel AI Gateway with `AI_GATEWAY_API_KEY`, or with a model object's own provider key; - `missing`: no gateway in `setupAi({ gateway })`'s order can serve this deployment, or no model is configured: calls are refused `unavailable` (reason `not_configured`). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="route"></a> `route` | `"provider"` \| `"convex-gateway"` \| `"vercel-gateway"` \| `null` | **`Experimental`** Where calls go first: `convex-gateway` (the Convex AI Gateway, where the deployment can have it; the next gateway in the order answers when it refuses), `vercel-gateway` (`AI_GATEWAY_API_KEY`), `provider` (a model object's own key), or `null` when calls are refused. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 
 ***
 
@@ -403,7 +404,8 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
 | <a id="credits"></a> `credits?` | [`AiCreditsConfig`](#aicreditsconfig) | **`Experimental`** Low-balance reactions fired after a spend settles. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="streamtimeout"></a> `streamTimeout?` | `number` \| `false` | **`Experimental`** How long a started stream may hold its reservation before it is released automatically (ms). Default 5 minutes; `false` disables the timer. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="guest"></a> `guest?` | [`AiGuestConfig`](#aiguestconfig) | **`Experimental`** What happens to a visitor's guest jobs (`defineJobQueue({ guest })`) once they sign up. See [AiGuestConfig](#aiguestconfig). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="inferenceregion"></a> `inferenceRegion?` | `"eu"` | **`Experimental`** Pin every model call to providers' endpoints in one region. `'eu'` sends every `provider/model` id through the Vercel AI Gateway with `AI_GATEWAY_API_KEY` (the Convex AI Gateway documents no inference region, so it is never tried), and adds the gateway's `providerOptions.gateway.inferenceRegion: { scope: 'zone', geoRegion: 'eu' }` to every call through `ctx.model()`. A model no provider serves in the region is refused by the gateway, and the run's reservation released. A call that reports running elsewhere logs `ai.region_mismatch`. The pin covers inference only: the deployment's data stays in its Convex region. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="gateway"></a> `gateway?` | [`AiGateway`](#aigateway) \| readonly [`AiGateway`](#aigateway)[] | **`Experimental`** The gateways a `provider/model` id goes through, in order ([AiGateway](#aigateway)): one name for that gateway alone, a list for an order. Default `['convex', 'vercel']`. The next gateway answers only when one cannot serve this deployment: the Convex AI Gateway on a free plan (`AiGatewayDisabled`), an anonymous local or a self-hosted deployment, or without `@convex-dev/ai-sdk-provider`; the Vercel AI Gateway without `AI_GATEWAY_API_KEY`. A spent limit or a provider's refusal refuses the call: it is never routed around. With no gateway left, the call is refused `unavailable` (reason `not_configured`). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="inferenceregion"></a> `inferenceRegion?` | `"eu"` | **`Experimental`** Pin every model call to providers' endpoints in one region. `'eu'` sends every `provider/model` id through the Vercel AI Gateway with `AI_GATEWAY_API_KEY` (the Convex AI Gateway documents no inference region, so it is never tried: a `gateway` order without `'vercel'` is refused), and adds the gateway's `providerOptions.gateway.inferenceRegion: { scope: 'zone', geoRegion: 'eu' }` to every call through `ctx.model()`. A model no provider serves in the region is refused by the gateway, and the run's reservation released. A call that reports running elsewhere logs `ai.region_mismatch`. The pin covers inference only: the deployment's data stays in its Convex region. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="provenance"></a> `provenance?` | [`ProvenanceConfig`](#provenanceconfig) | **`Experimental`** Content credentials on what a model made (EU AI Act Art. 50): every image stored through `ctx.storeImage` gets a C2PA manifest signed with `PROVENANCE_PRIVATE_KEY` and the IPTC `trainedAlgorithmicMedia` digital source type, and a provenance record of the models, the time and its inputs' ids; job results carry `provenance`. `true` for the defaults, `{ name }` for the generator name each manifest shows. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="moderation"></a> `moderation?` | [`ModerationConfig`](#moderationconfig) | **`Experimental`** The safety classifier `ai.moderate`, `ai.requireSafe` and every `moderate` option check content with: a model call through the gateway, on the app's bill, never on the person's credits. Its cost is recorded like any run's, so `spendLimit` counts it. Default `{ model: 'meta-llama/llama-guard-4-12b' }`. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="spendlimit"></a> `spendLimit?` | [`AiSpendLimit`](#aispendlimit) | **`Experimental`** The daily ceiling on what AI costs the whole app ([AiSpendLimit](#aispendlimit)). A `sandbox` deployment, a public demo, refuses every metered call, stream, job and chat reply without one (`not_ready`, reason `no_budget`): anyone may sign up there, and the model calls are real. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
@@ -1128,7 +1130,7 @@ Defined in: [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="model-10"></a> `model?` | `LanguageModel` | **`Experimental`** The classifier, a `provider/model` id or a model object. Default `meta-llama/llama-guard-4-12b`, which the Convex AI Gateway serves and which reads images too. On the Vercel AI Gateway route, name one that gateway serves, such as `openai/gpt-oss-safeguard-20b`, which reads text only: a check with images is then refused as unchecked. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="model-10"></a> `model?` | `LanguageModel` | **`Experimental`** The classifier, a `provider/model` id or a model object, always used when named. By default, the one the gateway that answers serves: `meta-llama/llama-guard-4-12b` through the Convex AI Gateway, which reads images too; `openai/gpt-oss-safeguard-20b` through the Vercel AI Gateway (a pinned `inferenceRegion`, a Vercel-first order with the key, or the Convex one unable to serve the deployment), which reads text only: a check with images is then refused as unchecked. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 
 ***
 
@@ -1244,11 +1246,42 @@ A model to call: a `provider/model` id (`'openai/gpt-5-mini'`), or a model
 object from any AI SDK provider package, called with that provider's own
 key. The AI SDK (`ai`) is an optional peer: install it to name one.
 
-An id goes to the Convex AI Gateway first, on Convex Cloud with a paid plan
-(install `@convex-dev/ai-sdk-provider`, an optional peer too), then
-through the Vercel AI Gateway with the deployment's `AI_GATEWAY_API_KEY`.
-Without either, the call is refused, saying why: no model answers in their
-place.
+An id goes through the gateways `setupAi({ gateway })` names, in order. By
+default that is the Convex AI Gateway first, on Convex Cloud with a paid
+plan (install `@convex-dev/ai-sdk-provider`, an optional peer too), then
+the Vercel AI Gateway with the deployment's `AI_GATEWAY_API_KEY`. When no
+gateway in the order answers, the call is refused, saying why: no model
+answers in their place.
+
+***
+
+### AiGateway
+
+```ts
+type AiGateway = "convex" | "vercel";
+```
+
+Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts)
+
+**`Experimental`**
+
+A gateway a `provider/model` id goes through (`setupAi({ gateway })`):
+
+- `convex`: the Convex AI Gateway. Convex holds the providers' keys and
+  bills the team: no key to keep, paid plans only, no region pinning.
+- `vercel`: the Vercel AI Gateway, with the deployment's
+  `AI_GATEWAY_API_KEY`. Any plan and any host, budgets per key, region
+  pinning, and Vercel's own routing options.
+
+See https://nuxt-backend.dev/docs/services/ai-gateway#choose-a-gateway.
+
+#### Example
+
+```ts
+setupAi(components, { billing, gateway: 'convex' })             // the Convex AI Gateway alone: the key is never read
+setupAi(components, { billing, gateway: 'vercel' })             // the Vercel AI Gateway alone, even on a paid Convex plan
+setupAi(components, { billing, gateway: ['vercel', 'convex'] }) // the Vercel AI Gateway where the key is set, else the Convex one
+```
 
 ***
 
