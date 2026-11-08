@@ -37,15 +37,30 @@ export function appMonitoringDsn(env: Readonly<Record<string, string | undefined
   return env.MONITORING_DSN?.trim() || env[INTEGRATION_DSN_ENV]?.trim() || undefined
 }
 
-/** Whether the SDK resolves from the app's root, as the app's build would find it. */
-export function monitoringSdkInstalled(rootDir: string): boolean {
+/** The SDK's version that resolves from the app's root, as the app's build would find it; `null` when it is not installed. */
+export function monitoringSdkVersion(rootDir: string): string | null {
   try {
-    createRequire(join(rootDir, 'package.json')).resolve(`${MONITORING_SDK}/package.json`)
-    return true
+    const manifest = createRequire(join(rootDir, 'package.json'))(`${MONITORING_SDK}/package.json`) as { version?: unknown }
+    return typeof manifest.version === 'string' ? manifest.version : '0.0.0'
   }
   catch {
-    return false
+    return null
   }
+}
+
+/** Whether the SDK resolves from the app's root, as the app's build would find it. */
+export function monitoringSdkInstalled(rootDir: string): boolean {
+  return monitoringSdkVersion(rootDir) !== null
+}
+
+/** The first SDK version with the managed tunnel: `tunnel: true` in the browser, `serveTunnelIntegration` on the server. */
+export const TUNNEL_SDK_VERSION = '11.10.0'
+
+/** Whether an SDK version has the managed tunnel ({@link TUNNEL_SDK_VERSION}); a version that is no semver has not. */
+export function sdkServesTunnel(version: string | null): boolean {
+  const [major, minor] = (version ?? '').split('.').map(part => Number.parseInt(part, 10))
+  if (!Number.isFinite(major) || !Number.isFinite(minor)) return false
+  return major! > 11 || (major === 11 && minor! >= 10)
 }
 
 /** Whether the app deploys to Vercel: a build there, or a project linked here (`vercel link`). */
@@ -84,7 +99,16 @@ export interface MonitoringCheckInput {
  * Vercel project's env cannot be read from here, and anywhere else the app
  * reports nothing.
  */
-function appFinding(rootDir: string, env: Readonly<Record<string, string | undefined>>, { dsn, sdk, prod }: { dsn: string | undefined, sdk: boolean, prod: boolean }): PreflightFinding {
+function appFinding(rootDir: string, env: Readonly<Record<string, string | undefined>>, { dsn, version, prod }: { dsn: string | undefined, version: string | null, prod: boolean }): PreflightFinding {
+  const sdk = version !== null
+  if (dsn && sdk && !sdkServesTunnel(version)) {
+    return finding(
+      'monitoring-app',
+      'warn',
+      `${MONITORING_SDK} ${version} is older than ${TUNNEL_SDK_VERSION}: the browser reports straight to the ingest, which ad blockers drop, instead of through the managed tunnel on the app's own origin.`,
+      `Upgrade it: npm install ${MONITORING_SDK}@^${TUNNEL_SDK_VERSION}. The module turns the tunnel on at the next build.`,
+    )
+  }
   if (dsn) {
     return sdk
       ? finding('monitoring-app', 'pass', `The browser and the Nuxt server report errors through ${MONITORING_SDK}.`)
@@ -111,8 +135,9 @@ function appFinding(rootDir: string, env: Readonly<Record<string, string | undef
  */
 export function monitoringFindings(rootDir: string, { env, deployed, prod }: MonitoringCheckInput): PreflightFinding[] {
   const dsn = appMonitoringDsn(env)
-  const sdk = monitoringSdkInstalled(rootDir)
-  const findings: PreflightFinding[] = [appFinding(rootDir, env, { dsn, sdk, prod })]
+  const version = monitoringSdkVersion(rootDir)
+  const sdk = version !== null
+  const findings: PreflightFinding[] = [appFinding(rootDir, env, { dsn, version, prod })]
   if (dsn && sdk && deploysToVercel(rootDir, env)) {
     const unset = SOURCE_MAP_ENV.filter(name => !env[name])
     findings.push(unset.length === 0

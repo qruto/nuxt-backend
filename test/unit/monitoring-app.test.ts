@@ -5,8 +5,8 @@ import { createApp, eventHandler, toWebHandler } from 'h3'
 import { makeFunctionReference } from 'convex/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { backendError } from '../../src/convex/errors'
-import { appMonitoringDsn, type DeploymentUsageLimit, monitoringDsnFinding, monitoringFindings, usageAlertsFinding } from '../../src/monitoring'
-import { monitoringDependency, monitoringWiring, resolveMonitoring } from '../../src/nuxt/monitoring'
+import { appMonitoringDsn, type DeploymentUsageLimit, monitoringDsnFinding, monitoringFindings, sdkServesTunnel, usageAlertsFinding } from '../../src/monitoring'
+import { monitoringDependency, monitoringWiring, reportPath, resolveMonitoring } from '../../src/nuxt/monitoring'
 import { localEntry, tagBackendEvent } from '../../src/runtime/monitoring/report'
 
 // The monitoring capability in the Nuxt app: the SDK wired only once it is
@@ -57,9 +57,26 @@ describe('wiring the SDK', () => {
 
   it('wires it only once it is installed and a DSN is set', () => {
     const dsn = { NEXT_PUBLIC_SENTRY_DSN: 'https://b@o.test/2' }
-    expect(resolveMonitoring('/app', dsn, () => true)).toEqual({ dsn: 'https://b@o.test/2', sdk: true, wired: true, env: dsn })
-    expect(resolveMonitoring('/app', dsn, () => false)).toEqual({ dsn: 'https://b@o.test/2', sdk: false, wired: false, env: dsn })
-    expect(resolveMonitoring('/app', {}, () => true)).toEqual({ sdk: true, wired: false, env: {} })
+    expect(resolveMonitoring('/app', dsn, () => '11.11.0')).toEqual({ dsn: 'https://b@o.test/2', sdk: true, tunnel: true, wired: true, env: dsn, version: '11.11.0' })
+    expect(resolveMonitoring('/app', dsn, () => null)).toEqual({ dsn: 'https://b@o.test/2', sdk: false, tunnel: false, wired: false, env: dsn })
+    expect(resolveMonitoring('/app', {}, () => '11.11.0')).toEqual({ sdk: true, tunnel: true, wired: false, env: {}, version: '11.11.0' })
+    expect(resolveMonitoring('/app', dsn, () => '11.9.2')).toMatchObject({ sdk: true, tunnel: false, wired: true })
+  })
+
+  it('takes the managed tunnel from 11.10, the first SDK with it', () => {
+    for (const version of ['11.10.0', '11.11.0', '12.0.0', '11.10.0-beta.1']) expect(sdkServesTunnel(version), version).toBe(true)
+    for (const version of ['11.9.9', '10.40.0', 'next', null]) expect(sdkServesTunnel(version), String(version)).toBe(false)
+  })
+
+  it('sends the browser through the tunnel only when the package\'s server config answers it, and lets the ingest out otherwise', () => {
+    const none = { client: false, server: false }
+    expect(reportPath({ tunnel: true }, none)).toEqual({ tunnel: true, direct: false })
+    // An SDK before 11.10: no tunnel to post to.
+    expect(reportPath({ tunnel: false }, none)).toEqual({ tunnel: false, direct: true })
+    // The app's own server config may answer no tunnel: the package's client goes straight to the ingest.
+    expect(reportPath({ tunnel: true }, { client: false, server: true })).toEqual({ tunnel: false, direct: true })
+    // The app's own client config may set no tunnel: its ingest is let out, the package's server still answers one.
+    expect(reportPath({ tunnel: true }, { client: true, server: false })).toEqual({ tunnel: true, direct: true })
   })
 
   it('decides once per Nuxt instance, so the SDK\'s module and the capture plugins never disagree', () => {
@@ -280,9 +297,9 @@ describe('doctor\'s monitoring findings', () => {
   afterEach(() => rmSync(rootDir, { recursive: true, force: true }))
 
   /** Install a stand-in SDK in the app, as `npm install` would. */
-  const installSdk = () => {
+  const installSdk = (version = '11.11.0') => {
     mkdirSync(join(rootDir, 'node_modules/@sentry/nuxt'), { recursive: true })
-    writeFileSync(join(rootDir, 'node_modules/@sentry/nuxt/package.json'), '{ "name": "@sentry/nuxt", "version": "11.8.0", "exports": { "./package.json": "./package.json" } }\n')
+    writeFileSync(join(rootDir, 'node_modules/@sentry/nuxt/package.json'), `{ "name": "@sentry/nuxt", "version": "${version}", "exports": { "./package.json": "./package.json" } }\n`)
   }
   const byId = (findings: ReturnType<typeof monitoringFindings>) => Object.fromEntries(findings.map(item => [item.id, item.status]))
 
@@ -297,6 +314,15 @@ describe('doctor\'s monitoring findings', () => {
     expect(byId(monitoringFindings(rootDir, { env: { MONITORING_DSN: 'https://a@o.test/1' }, deployed: [], prod: false }))).toEqual({ 'monitoring-app': 'warn' })
     installSdk()
     expect(byId(monitoringFindings(rootDir, { env: { MONITORING_DSN: 'https://a@o.test/1' }, deployed: [], prod: false }))).toEqual({ 'monitoring-app': 'pass' })
+  })
+
+  it('warns an SDK before 11.10, whose browser reports skip the managed tunnel', () => {
+    installSdk('11.8.0')
+    expect(monitoringFindings(rootDir, { env: { MONITORING_DSN: 'https://a@o.test/1' }, deployed: [], prod: false }).find(item => item.id === 'monitoring-app')).toMatchObject({
+      status: 'warn',
+      message: expect.stringContaining('11.8.0 is older than 11.10.0'),
+      fixHint: expect.stringContaining('@sentry/nuxt@^11.10.0'),
+    })
   })
 
   it('warns production when no DSN is visible to the app, unless its env is on Vercel and cannot be read from here', () => {

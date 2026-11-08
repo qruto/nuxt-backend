@@ -14,10 +14,15 @@
 // log lines. `serveTunnelIntegration` answers the browser's managed tunnel
 // (`tunnel: true` in the client config): it forwards the envelopes of its own
 // DSN and of the one the build gave the browser, when the server's env names
-// another, and no other.
+// another, and no other. It ships from 11.10: on an older SDK the export is
+// missing, and the server starts without it (the module then sends the
+// browser straight to the ingest).
 import * as Sentry from '@sentry/nuxt'
 import { useRuntimeConfig } from 'nuxt/server'
 import { DATA_COLLECTION, LOG_LEVELS, SCRUBBING, scrubbingIntegration, tracesSampleRate } from './preset'
+
+/** `serveTunnelIntegration`, which an SDK before 11.10 does not export. */
+const serveTunnel = (Sentry as Partial<typeof Sentry>).serveTunnelIntegration
 
 const built = (useRuntimeConfig().public as { backend?: { monitoring?: { dsn?: string } } }).backend?.monitoring?.dsn
 
@@ -30,6 +35,6 @@ Sentry.init({
   integrations: [
     Sentry.consoleLoggingIntegration({ levels: [...LOG_LEVELS] }),
     scrubbingIntegration(),
-    Sentry.serveTunnelIntegration(built ? { allowedDsns: [built] } : undefined),
+    ...(typeof serveTunnel === 'function' ? [serveTunnel(built ? { allowedDsns: [built] } : undefined)] : []),
   ],
 })
