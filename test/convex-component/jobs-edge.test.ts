@@ -1,9 +1,10 @@
 /// <reference types="vite/client" />
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { componentsGeneric, defineSchema, defineTable, type FunctionReference, internalMutationGeneric, makeFunctionReference, mutationGeneric, queryGeneric } from 'convex/server'
+import { componentsGeneric, defineSchema, defineTable, type FunctionReference, internalActionGeneric, internalMutationGeneric, makeFunctionReference, mutationGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import { generateText } from 'ai'
-import { asUser, defineBackendTestApp } from '../../src/convex/test'
+import backendTest, { asUser, defineBackendTestApp } from '../../src/convex/test'
+import { sweep } from '../../src/convex/components/backend/jobs'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { backendError, getBackendError } from '../../src/convex/errors'
 import { defineJobQueue, type OnJobEnd, setupAi, vJobEnd } from '../../src/convex/integrations/ai'
@@ -85,7 +86,7 @@ const jobs = defineJobQueue(components as never, {
 
 const appSchema = defineSchema({
   strips: defineTable({ workspaceId: v.string(), idea: v.string(), panels: v.array(v.string()), jobId: v.optional(v.string()) }),
-  ends: defineTable({ jobId: v.string(), kind: v.string(), status: v.string(), error: v.optional(v.any()), args: v.any() }),
+  ends: defineTable({ jobId: v.string(), kind: v.string(), status: v.string(), error: v.optional(v.any()), args: v.any(), retries: v.number(), endedAt: v.number() }),
 })
 
 const drawPanel = jobs.step({
@@ -198,6 +199,45 @@ const testApp = defineBackendTestApp(appSchema, {
   './strips.js': () => Promise.resolve({ render, drawPanel, caption, misfire, doomed, negative, priceless, notAKind, create, start, takeTurns, savePanel, ended, peek, stop }),
 })
 type App = ReturnType<typeof testApp>
+
+/** Test-only component functions: the sweep its cron runs, and a job's workflow set by hand. */
+const testing = {
+  sweep,
+  setWorkflow: mutationGeneric({
+    args: { jobId: v.string(), workflowId: v.string() },
+    handler: async (ctx, { jobId, workflowId }) => ctx.db.patch(jobId as never, { workflowId } as never),
+  }),
+}
+const backendTesting = (componentsGeneric() as unknown as { backend: { testing: Record<keyof typeof testing, FunctionReference<'mutation', 'internal'>> } }).backend.testing
+
+/** The app, with the component's test-only module beside its own. */
+function withTesting(t: App): App {
+  t.registerComponent('backend', backendTest.schema, { ...backendTest.modules, './components/backend/testing.ts': () => Promise.resolve(testing) })
+  return t
+}
+
+/** A queue whose onJobEnd is an action, in an app of its own. */
+const heardByAction = defineJobQueue(components as never, { ai, onJobEnd: makeFunctionReference<'action'>('quick:heard') as unknown as OnJobEnd })
+const quick = heardByAction.define({ meter: false, args: { note: v.string() }, handler: async () => null })
+const startQuick = mutationGeneric({ args: {}, handler: async ctx => heardByAction.enqueue(ctx, makeFunctionReference<'mutation'>('quick:quick') as never, { note: 'Quick' }, { billTo: 'app' }) })
+const noteEnd = internalMutationGeneric({
+  args: vJobEnd,
+  handler: async (ctx, end) => {
+    await ctx.db.insert('ends', end)
+  },
+})
+const heard = internalActionGeneric({
+  args: vJobEnd,
+  handler: async (ctx, end) => {
+    await ctx.runMutation(makeFunctionReference<'mutation'>('quick:noteEnd'), end)
+  },
+})
+const actionApp = defineBackendTestApp(appSchema, {
+  './_generated/api.js': () => Promise.resolve({}),
+  './ai.js': () => Promise.resolve(ai.api),
+  './jobs.js': () => Promise.resolve(heardByAction.api),
+  './quick.js': () => Promise.resolve({ quick, startQuick, noteEnd, heard }),
+})
 
 type Page = { page: Array<Record<string, unknown>>, isDone: boolean }
 const firstPage = { numItems: 10, cursor: null }
@@ -642,7 +682,7 @@ describe('onJobEnd', () => {
     await fund(t, ada.workspaceId!, 100)
     const { stripId, jobId } = await ada.mutation(ref.create, { idea: 'Done soon', panels: 1 })
     await drain(t)
-    expect(await endsOf(t, jobId)).toEqual([{ jobId, kind: 'strips:render', status: 'done', args: { stripId, idea: 'Done soon', panels: 1 } }])
+    expect(await endsOf(t, jobId)).toEqual([{ jobId, kind: 'strips:render', status: 'done', args: { stripId, idea: 'Done soon', panels: 1 }, retries: 0, endedAt: expect.any(Number) }])
   })
 
   test('hears once of a failed job, with its error, after its refund was scheduled', async () => {
@@ -651,7 +691,7 @@ describe('onJobEnd', () => {
     await fund(t, ada.workspaceId!, 100)
     const { jobId } = await ada.mutation(ref.start, { kind: 'doomed', args: {} })
     await drain(t)
-    expect(await endsOf(t, jobId)).toEqual([{ jobId, kind: 'strips:doomed', status: 'failed', error: { code: 'unavailable', service: 'ai', reason: 'job_failed' }, args: {} }])
+    expect(await endsOf(t, jobId)).toEqual([{ jobId, kind: 'strips:doomed', status: 'failed', error: { code: 'unavailable', service: 'ai', reason: 'job_failed' }, args: {}, retries: 0, endedAt: expect.any(Number) }])
     expect(provider.refunds).toEqual([{ userId: ada.workspaceId, value: 5 }])
   })
 
@@ -681,6 +721,58 @@ describe('onJobEnd', () => {
     expect(await endsOf(t, waiting)).toEqual([expect.objectContaining({ status: 'canceled' })])
     expect(await endsOf(t, runs)).toEqual([expect.objectContaining({ status: 'canceled' })])
     expect(await balanceOf(t, ada.workspaceId!)).toBe(100)
+  })
+
+  test('hears a retried job twice, its later run ending done', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    const jobId = await running(t, ada)
+    vi.setSystemTime(Date.now() + 6 * MINUTE)
+    await t.mutation(ref.runQueue, { op: 'pick' })
+    await drain(t)
+    // An administrator signed in just now, as retryJob asks.
+    const admin = await asUser(t, { role: 'admin' })
+    await admin.mutation(ref.retryJob, { jobId })
+    await drain(t)
+    const ends = await endsOf(t, jobId)
+    expect(ends.map(({ status, retries }) => ({ status, retries }))).toEqual([{ status: 'failed', retries: 0 }, { status: 'done', retries: 1 }])
+    expect(ends[1]!.endedAt).toBeGreaterThan(ends[0]!.endedAt)
+  })
+
+  test('hears a job that stalls while the line is paused, from the component\'s own sweep', async () => {
+    const t = withTesting(testApp())
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    const jobId = await running(t, ada)
+    await pause(t, true)
+    vi.setSystemTime(Date.now() + 6 * MINUTE)
+    await t.mutation(backendTesting.sweep, {})
+    await drain(t)
+    // Stalled before its charge: failed, and nothing taken.
+    expect(await row(t, jobId)).toMatchObject({ status: 'failed', charged: false })
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(100)
+    expect(await endsOf(t, jobId)).toEqual([expect.objectContaining({ status: 'failed', error: { code: 'unavailable', service: 'ai', reason: 'stalled' } })])
+  })
+
+  test('names a stall as why a job failed, over an error an earlier attempt recorded', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    const jobId = await running(t, ada)
+    await t.mutation(backend.jobs.recordError as unknown as FunctionReference<'mutation'>, { jobId, error: { code: 'unavailable', service: 'billing', reason: 'provider_refused' } })
+    vi.setSystemTime(Date.now() + 6 * MINUTE)
+    await t.mutation(ref.runQueue, { op: 'pick' })
+    await drain(t)
+    expect(await row(t, jobId)).toMatchObject({ status: 'failed', error: { reason: 'stalled' } })
+    expect(await endsOf(t, jobId)).toEqual([expect.objectContaining({ error: { code: 'unavailable', service: 'ai', reason: 'stalled' } })])
+  })
+
+  test('hears through an action as well as a mutation', async () => {
+    const t = actionApp()
+    const { jobId } = await t.mutation(makeFunctionReference<'mutation', Record<string, never>, { jobId: string }>('quick:startQuick'), {})
+    await drain(t as unknown as App)
+    expect(await endsOf(t as unknown as App, jobId)).toEqual([expect.objectContaining({ kind: 'quick:quick', status: 'done', args: { note: 'Quick' }, retries: 0 })])
   })
 
   test('a hook that throws never holds back the job\'s end or its refund', async () => {
@@ -719,6 +811,36 @@ describe('jobs.get and jobs.cancel', () => {
     expect(await balanceOf(t, ada.workspaceId!)).toBe(100)
     await drain(t)
     expect(await endsOf(t, jobId)).toEqual([expect.objectContaining({ status: 'canceled' })])
+  })
+
+  test('cancel a running job without a refund: it stays charged', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    const { jobId } = await ada.mutation(ref.create, { idea: 'Runs', panels: 2 })
+    await t.mutation(ref.runQueue, { op: 'pick' })
+    await t.action(ref.billJob, { op: 'charge', jobId })
+    expect(await t.mutation(ref.stop, { jobId })).toBe('running')
+    await drain(t)
+    expect(await row(t, jobId)).toMatchObject({ status: 'canceled', charged: true, refunded: false })
+    expect(provider.refunds).toEqual([])
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(90)
+    expect(await endsOf(t, jobId)).toEqual([expect.objectContaining({ status: 'canceled' })])
+  })
+
+  test('cancel a job whose workflow already finished without ending it: it ends canceled here, and is heard', async () => {
+    const t = withTesting(testApp())
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    const { jobId } = await ada.mutation(ref.create, { idea: 'Orphaned', panels: 1 })
+    await t.mutation(ref.runQueue, { op: 'pick' })
+    // The workflow is gone, as one whose onComplete threw leaves the job running.
+    await t.mutation(backendTesting.setWorkflow, { jobId, workflowId: 'no-such-workflow' })
+    expect(await t.mutation(ref.stop, { jobId, refund: true })).toBe('running')
+    await drain(t)
+    expect(await row(t, jobId)).toMatchObject({ status: 'canceled' })
+    expect(await endsOf(t, jobId)).toEqual([expect.objectContaining({ status: 'canceled' })])
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(100)
   })
 
   test('cancel a running job, charged unless the app gives it back', async () => {

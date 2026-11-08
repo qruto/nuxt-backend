@@ -129,6 +129,14 @@ export const vJobEnd = {
   error: v.optional(v.any()),
   /** The args it was put in line with. */
   args: v.any(),
+  /**
+   * Which run ended: `0` for the first, one more for each administrator's
+   * retry. Every run ends, and is heard, once: a later run's end is the
+   * newer news, so a retried job's `done` wins over its earlier `failed`.
+   */
+  retries: v.number(),
+  /** When this run ended, in ms since the epoch. */
+  endedAt: v.number(),
 }
 
 /** A job's end as `onJobEnd` receives it ({@link vJobEnd}). */
@@ -138,6 +146,8 @@ export type JobEnd = {
   status: 'done' | 'failed' | 'canceled'
   error?: Record<string, unknown>
   args: unknown
+  retries: number
+  endedAt: number
 }
 
 /**
@@ -179,18 +189,20 @@ export interface DefineJobQueueOptions {
   guest?: GuestJobs
   /**
    * Hear of every job's end: done, failed, stalled, or canceled while it
-   * waited or ran, with its id, kind, args and error. Your internal mutation
-   * or action, by its reference, taking `vJobEnd`: settle what your own
-   * rows say about the job (fail its document, tell its owner) without a
-   * sweep of your own. The queue has already let the job's hold go and
-   * scheduled its refund.
+   * waited or ran, with its id, kind, args, error, run (`retries`) and
+   * `endedAt`. Your internal mutation or action, by its reference, taking
+   * `vJobEnd`: settle what your own rows say about the job (fail its
+   * document, tell its owner) without a sweep of your own. Credits are the
+   * queue's: it lets the hold go and schedules the refund as the job ends,
+   * or, while a charge is still on its way, once that charge lands. Never
+   * settle credits here.
    *
    * @guarantee
    * - Runs: as its own function, scheduled by the transaction that ended the job, once it commits
-   * - Delivery: once per run of a job, whichever way it ended; a mutation runs exactly once, an action at most once
-   * - Order: after the job's row reads its end; ends of different jobs run in no set order
-   * - When it throws: the failure is the hook's own, in the deployment's logs; the job's end, its released hold and its refund stand
-   * - Idempotency: an administrator's retry runs a failed job again, and it ends again: check the state you move before you move it
+   * - Delivery: once per run of a job, whichever way it ended, except a job erased with its owner's account, which ends unheard; a mutation runs exactly once, an action at most once
+   * - Order: after the job's row reads its end; a retried job's runs are heard in turn, `retries` counting up; ends of different jobs run in no set order
+   * - When it throws: the failure is the hook's own, in the deployment's logs; the job's end and the queue's handling of its credits stand
+   * - Idempotency: an administrator's retry runs a failed job again, and it ends again: compare `retries` with the run you last recorded, and let a later run's end win
    */
   onJobEnd?: OnJobEnd
 }
@@ -881,7 +893,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
     const onJobEnd = options.onJobEnd
     if (!onJobEnd || (job.status !== 'done' && job.status !== 'failed' && job.status !== 'canceled')) return
     try {
-      await ctx.scheduler.runAfter(0, onJobEnd as FunctionReference<'mutation', 'internal'>, defined({ jobId: job._id, kind: job.kind, status: job.status, error: job.status === 'failed' ? job.error : undefined, args: job.args }))
+      await ctx.scheduler.runAfter(0, onJobEnd as FunctionReference<'mutation', 'internal'>, defined({ jobId: job._id, kind: job.kind, status: job.status, error: job.status === 'failed' ? job.error : undefined, args: job.args, retries: job.retries, endedAt: job.endedAt ?? Date.now() }))
     }
     catch (error) {
       logBackend('error', 'ai.job_end_unannounced', `Job ${job._id} ended ${job.status}, but onJobEnd could not be scheduled.`, error)
@@ -900,7 +912,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
 
   /** Fail a running job whose lease ran out: refunded, and its workflow canceled. */
   const failStalled = async (ctx: Ctx, { jobId, workflowId }: { jobId: string, workflowId?: string }): Promise<void> => {
-    await ctx.runMutation(queue.recordError, { jobId, error: failure('stalled') })
+    await ctx.runMutation(queue.recordError, { jobId, error: failure('stalled'), replace: true })
     const ended = await ctx.runMutation(queue.finish, { jobId, outcome: 'failed' }) as JobRow | null
     if (ended) await afterEnd(ctx, ended)
     logBackend('error', 'ai.job_stalled', `Job ${jobId} showed no sign of life for ${policy.stallAfter / 1000}s: failed and refunded.`)
@@ -1152,6 +1164,25 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   }
 
   /**
+   * Stop a running job's workflow. One that already finished, though its
+   * end never reached the job (its onComplete threw), cannot be canceled:
+   * the job ends canceled here instead, as the cancel asked.
+   */
+  const cancelRunning = async (ctx: Ctx, job: JobRow): Promise<void> => {
+    // A job whose workflow is not attached yet is canceled as its workflow starts.
+    if (!job.workflowId) return
+    try {
+      await workflow.cancel(ctx, job.workflowId as never)
+      return
+    }
+    catch (error) {
+      logBackend('warn', 'ai.job_cancel_failed', `Job ${job._id}'s workflow could not be canceled, as it is no longer running: the job ends canceled here.`, error)
+    }
+    const ended = await ctx.runMutation(queue.finish, { jobId: job._id, outcome: 'canceled' }) as JobRow | null
+    if (ended) await afterEnd(ctx, ended)
+  }
+
+  /**
    * Cancel a live job, once the caller was checked: a waiting one ends at
    * once, as any end does (its hold back, `onJobEnd` told); a running one
    * is marked, and ends as its workflow's cancel completes it.
@@ -1163,7 +1194,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
       await afterEnd(ctx, { ...out, status: 'canceled' })
       await schedulePick(ctx)
     }
-    if (out?.was === 'running' && job.workflowId) await workflow.cancel(ctx, job.workflowId as never)
+    if (out?.was === 'running') await cancelRunning(ctx, job)
     const was = out?.was === 'queued' || out?.was === 'running' ? out.was : null
     // The trail names the caller, or nobody for the app's own code.
     if (was) await billing.recordEvent(ctx as never, job.owner, { type: 'job.canceled', data: { kind: job.kind, refunded: refund || was === 'queued', running: was === 'running' } } as never)

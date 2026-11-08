@@ -180,7 +180,7 @@ Such a job is a `meter: false` kind; `enqueue` refuses one that charges credits 
 
 ## Hear when a job ends
 
-A job's handler never runs again once the queue ends the job on its own: a stall, a cancel, an administrator's discard. Your rows about the job, such as a strip still marked `drawing`, would wait forever. `onJobEnd` tells you of every end, however it came:
+A job's handler never runs again once the queue ends the job on its own: a stall, or a cancel. Your rows about the job, such as a strip still marked `drawing`, would wait forever. `onJobEnd` tells you of every end, however it came:
 
 ```ts [backend/strips.ts]
 import { vJobEnd } from 'nuxt-backend/ai'
@@ -189,11 +189,12 @@ import { internalMutation } from './_generated/server'
 
 export const ended = internalMutation({
   args: vJobEnd,
-  handler: async (ctx, { status, error, args }) => {
+  handler: async (ctx, { status, error, args, retries }) => {
     const { stripId } = args as { stripId: Id<'strips'> }
     const strip = await ctx.db.get('strips', stripId)
-    if (strip?.status !== 'drawing') return
-    await ctx.db.patch('strips', stripId, status === 'done' ? { status: 'ready' } : { status, failure: error?.code })
+    // An administrator's retry is a later run: its end wins over the one before.
+    if (!strip || (strip.run ?? -1) > retries) return
+    await ctx.db.patch('strips', stripId, status === 'done' ? { status: 'ready', run: retries } : { status, failure: error?.code, run: retries })
   },
 })
 ```
@@ -205,7 +206,12 @@ export const jobs = defineJobQueue(components, {
 })
 ```
 
-It gets the job's `jobId`, its `kind`, how it ended in `status` (`done`, `failed` or `canceled`; a stall is `failed` with reason `stalled`), the `error` a failed job carries, and the `args` it was put in line with. It runs once per end, after the queue let the hold go and scheduled the refund, so it never settles credits itself. A mutation runs exactly once; an action at most once. A failing hook is logged and changes nothing about the job. An administrator's retry runs a failed job again, and it ends again: check the state you move before you move it, as `ended` does here.
+It gets the job's `jobId`, its `kind`, how it ended in `status` (`done`, `failed` or `canceled`; a stall is `failed` with reason `stalled`), the `error` a failed job carries, the `args` it was put in line with, which run ended in `retries` (`0` for the first, one more per administrator's retry), and `endedAt`.
+
+- **Once per run.** A mutation runs exactly once; an action at most once. A failing hook is logged and changes nothing about the job.
+- **A retry ends again.** An administrator's retry runs a failed job again, and that run ends and is heard too. Let a later run win, as `ended` does by keeping the run it last recorded, so a retried strip that ends `done` is `ready`, not left `failed`.
+- **Credits are the queue's.** It lets the hold go and schedules the refund as the job ends, or, while a charge is still on its way, once that charge lands. Never settle credits in the hook.
+- **An erased account's jobs end unheard.** Erasing an account deletes its waiting and running jobs with the rest of its data.
 
 From your own functions, `jobs.get(ctx, jobId)` reads any job, as `getJob` does, with its `owner`, `userId` and `args`, and `jobs.cancel(ctx, jobId, { refund? })` cancels it, as `cancelJob` does. Neither checks the caller: your function decides who may. `jobs.cancel` answers `'queued'` or `'running'` for the job it stopped, and `null` for one that had already ended.
 
