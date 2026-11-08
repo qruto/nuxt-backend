@@ -58,16 +58,26 @@ runs:
         VERSION: ${{ steps.version.outputs.version }}
         ASSET: ${{ steps.version.outputs.asset }}
         DEST: ${{ steps.version.outputs.dir }}
+      # Any failure here (the download, a truncated archive, an archive without
+      # the binary) leaves no partial directory behind: the CLI would take a
+      # directory without its binary as a broken download and start over, but
+      # an unusable binary in place would fail the codegen instead.
       run: |
         tmp=$(mktemp -d)
-        if ! gh release download "$VERSION" --repo get-convex/convex-backend --pattern "$ASSET" --dir "$tmp"; then
+        if ! gh release download "$VERSION" --repo get-convex/convex-backend --pattern "$ASSET" --dir "$tmp" \
+          || ! unzip -q -o "$tmp/$ASSET" -d "$tmp/unzipped" \
+          || [ ! -f "$tmp/unzipped/convex-local-backend" ]; then
+          rm -rf "$tmp"
           echo "::warning::Could not fetch $ASSET for $VERSION; the Convex CLI downloads the binary itself."
           exit 0
         fi
         mkdir -p "$DEST"
-        unzip -q -o "$tmp/$ASSET" -d "$tmp/unzipped"
-        mv "$tmp/unzipped/convex-local-backend" "$DEST/convex-local-backend"
-        chmod +x "$DEST/convex-local-backend"
+        if ! { mv "$tmp/unzipped/convex-local-backend" "$DEST/convex-local-backend" && chmod +x "$DEST/convex-local-backend"; }; then
+          rm -rf "$DEST" "$tmp"
+          echo "::warning::Could not install $ASSET for $VERSION; the Convex CLI downloads the binary itself."
+          exit 0
+        fi
+        rm -rf "$tmp"
         echo "fetched=true" >> "$GITHUB_OUTPUT"
 
     - name: Save the local backend
