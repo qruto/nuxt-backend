@@ -30,15 +30,49 @@ export interface ModerationInput {
   images?: string[]
 }
 
-/** What the classifier said. */
+/** What the classifier said, and what the app's policy makes of it. */
 export interface ModerationVerdict {
   /** Whether it found anything its categories name. */
   flagged: boolean
   /** The classifier's own codes for what it found, such as Llama Guard's `S1` to `S14`; empty when nothing was. */
   categories: string[]
+  /** Whether the policy refuses it (`moderation.block`): what `requireSafe` throws on. */
+  blocked: boolean
+  /** Whether it falls in a category the policy has an administrator look at (`moderation.escalate`). */
+  escalate: boolean
 }
 
-/** `setupAi({ moderation })`: the classifier content is checked with. */
+/** What a check was about, for the flag it records: who the content came from, and what and where. */
+export interface ModerationSubject {
+  /** The account the content came from. Default: who is signed in. */
+  userId?: string
+  /** The billing entity it was checked for: a workspace, or the account under `billTo: 'user'`. */
+  owner?: string
+  /** Your id of what was checked: a document, an upload, a job. */
+  subject?: string
+  /** Where it was checked, in your words: `'title'`, `'upload'`, `'output'`. */
+  stage?: string
+}
+
+/** A flagged check as the Moderation tab lists it (`listModerationFlags`). */
+export interface ModerationFlag extends ModerationSubject {
+  id: string
+  /** When it was checked, in epoch ms. */
+  at: number
+  categories: string[]
+  blocked: boolean
+  escalate: boolean
+  /** The classifier that flagged it. */
+  model: string
+}
+
+/** How long flags are kept, and whether at all (`moderation.log`). */
+export interface ModerationLog {
+  /** Days a flag is kept before the maintenance pass prunes it. Default `90`. */
+  days: number
+}
+
+/** `setupAi({ moderation })`: the classifier content is checked with, and the policy over its verdicts. */
 export interface ModerationConfig {
   /**
    * The classifier, a `provider/model` id or a model object. Default
@@ -48,6 +82,65 @@ export interface ModerationConfig {
    * only: a check with images is then refused as unchecked.
    */
   model?: AiModel
+  /**
+   * The categories that refuse content: `requireSafe`, a `moderate` option
+   * and a job's check throw on them, and `moderate` answers `blocked`. The
+   * rest are recorded and let through. Default `'all'`: any flag refuses.
+   * A flag naming no category is refused under any policy.
+   *
+   * @example
+   * ```ts
+   * // Family photos trip privacy (S7) and intellectual property (S8) without harm.
+   * moderation: { block: ['S1', 'S3', 'S4', 'S9', 'S10', 'S11', 'S12'] }
+   * ```
+   */
+  block?: readonly string[] | 'all'
+  /**
+   * The categories an administrator looks at: their flags read `escalate`,
+   * stand out in the admin console's Moderation tab, and log
+   * `ai.content_escalated` as an error, which reaches your error monitoring.
+   * Default none.
+   */
+  escalate?: readonly string[]
+  /**
+   * Keep a record of every flagged check, categories only, never the
+   * content: who, what, where, and whether it was refused. Default
+   * `{ days: 90 }`; `false` keeps none. An account's erasure deletes the
+   * records about it.
+   */
+  log?: ModerationLog | false
+}
+
+/** How long flags are kept unless `moderation.log` says otherwise, in days. */
+export const DEFAULT_FLAG_DAYS = 90
+
+/** The longest `moderation.log.days` takes: ten years. */
+const MAX_FLAG_DAYS = 3650
+
+/** The backend component's flags, as a check records one. */
+export interface FlagRefs {
+  record: FunctionReference<'mutation', 'internal', { userId?: string, owner?: string, subject?: string, stage?: string, categories: string[], blocked: boolean, escalate: boolean, model: string, days: number }, null>
+}
+
+/** The policy `setupAi({ moderation })` sets, checked where it is set. */
+export function moderationPolicy(config: ModerationConfig | undefined): { judge: (verdict: { flagged: boolean, categories: string[] }) => { blocked: boolean, escalate: boolean }, days: number | false } {
+  const block = config?.block ?? 'all'
+  const escalate = config?.escalate ?? []
+  const isCodes = (list: unknown): list is readonly string[] => Array.isArray(list) && list.every(code => typeof code === 'string' && code.trim() !== '')
+  if (block !== 'all' && !isCodes(block)) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `block` is \'all\' or a list of the classifier\'s category codes, such as [\'S1\', \'S4\'].')
+  if (!isCodes(escalate)) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `escalate` is a list of the classifier\'s category codes, such as [\'S4\'].')
+  const log = config?.log
+  const days = log === false ? false : (log?.days ?? DEFAULT_FLAG_DAYS)
+  if (days !== false && !(Number.isInteger(days) && days >= 1 && days <= MAX_FLAG_DAYS)) throw new TypeError(`[nuxt-backend] setupAi({ moderation }): \`log.days\` is a whole number of days from 1 to ${MAX_FLAG_DAYS}, or \`log: false\` to keep no flags.`)
+  const blocking = block === 'all' ? null : new Set(block.map(code => code.toUpperCase()))
+  const escalating = new Set(escalate.map(code => code.toUpperCase()))
+  return {
+    judge: ({ flagged, categories }) => ({
+      blocked: flagged && (blocking === null || categories.length === 0 || categories.some(code => blocking.has(code.toUpperCase()))),
+      escalate: flagged && categories.some(code => escalating.has(code.toUpperCase())),
+    }),
+    days,
+  }
 }
 
 /** The most images one check reads. */
@@ -108,7 +201,7 @@ const answerBudget = (llamaGuard: boolean) => llamaGuard
 const readsImages = (model: AiModel): boolean => typeof model === 'string' ? /llama-guard-4/i.test(model) : !/safeguard/i.test(modelIdOf(model))
 
 /** Read a classifier's answer: `safe`, or `unsafe` and its codes; `null` for anything else. */
-export function readVerdict(answer: string): ModerationVerdict | null {
+export function readVerdict(answer: string): Pick<ModerationVerdict, 'flagged' | 'categories'> | null {
   const lines = answer.trim().split(/\r?\n/).map(line => line.trim()).filter(Boolean)
   const head = lines[0]?.toLowerCase().replace(/[^a-z]/g, '')
   if (head === 'safe') return { flagged: false, categories: [] }
@@ -151,11 +244,38 @@ function refuseUnreadImages(id: string): never {
  * The check `setupAi` builds: `moderate` answers the verdict, `requireSafe`
  * throws the refusal a flagged prompt gets.
  */
-export function createModeration(config: { moderation?: ModerationConfig, routing: ModelRouting }, storage: StorageBytesRef | undefined, recordCost?: RecordCost) {
+export function createModeration(config: { moderation?: ModerationConfig, routing: ModelRouting }, storage: StorageBytesRef | undefined, recordCost?: RecordCost, flags?: FlagRefs) {
   const model = config.moderation?.model ?? DEFAULT_MODERATION_MODEL
   requireModelId(model, 'setupAi({ moderation })')
   const id = modelIdOf(model)
   const images = readsImages(model)
+  const policy = moderationPolicy(config.moderation)
+
+  /**
+   * Record a flagged check, and say an escalated one in the logs. A record
+   * that fails is logged and never fails the check: the verdict stands.
+   */
+  async function recordFlag(ctx: ModerationCtx, verdict: ModerationVerdict, about: ModerationSubject): Promise<void> {
+    if (verdict.escalate) logBackend('error', 'ai.content_escalated', `The moderation model flagged content in a category escalated to administrators (${verdict.categories.join(', ')})${about.stage ? ` at ${about.stage}` : ''}: see the Moderation tab.`)
+    if (policy.days === false || !flags) return
+    try {
+      const userId = about.userId ?? (await ctx.auth?.getUserIdentity())?.subject
+      await ctx.runMutation(flags.record, {
+        ...(userId ? { userId } : {}),
+        ...(about.owner ? { owner: about.owner } : {}),
+        ...(about.subject ? { subject: about.subject } : {}),
+        ...(about.stage ? { stage: about.stage } : {}),
+        categories: verdict.categories,
+        blocked: verdict.blocked,
+        escalate: verdict.escalate,
+        model: id,
+        days: policy.days,
+      })
+    }
+    catch (error) {
+      logBackend('warn', 'ai.flag_unrecorded', 'A flagged check could not be recorded for the Moderation tab; its verdict stands.', error)
+    }
+  }
 
   /** An image's bytes: an upload in the component's storage first, then a file of the app's own. */
   const readerFor = (ctx: ModerationCtx): ImageReader => async (storageId) => {
@@ -194,7 +314,15 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
     return parts
   }
 
-  const moderate = async (ctx: ModerationCtx, input: ModerationInput): Promise<ModerationVerdict> => {
+  const moderate = async (ctx: ModerationCtx, input: ModerationInput, about: ModerationSubject = {}): Promise<ModerationVerdict> => {
+    const read = await classify(ctx, input)
+    const verdict = { ...read, ...policy.judge(read) }
+    if (verdict.flagged) await recordFlag(ctx, verdict, about)
+    return verdict
+  }
+
+  /** The classifier's own verdict, before the policy. */
+  const classify = async (ctx: ModerationCtx, input: ModerationInput): Promise<{ flagged: boolean, categories: string[] }> => {
     const text = typeof input?.text === 'string' ? input.text.trim() : ''
     const imageIds = Array.isArray(input?.images) ? input.images.filter(image => typeof image === 'string' && image) : []
     if (imageIds.length > 0 && !images) refuseUnreadImages(id)
@@ -240,9 +368,9 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
     return verdict
   }
 
-  const requireSafe = async (ctx: ModerationCtx, input: ModerationInput): Promise<void> => {
-    const verdict = await moderate(ctx, input)
-    if (!verdict.flagged) return
+  const requireSafe = async (ctx: ModerationCtx, input: ModerationInput, about: ModerationSubject = {}): Promise<void> => {
+    const verdict = await moderate(ctx, input, about)
+    if (!verdict.blocked) return
     const field = input.text?.trim() ? 'prompt' : 'images'
     throw backendError('invalid_input', { field, reason: 'content_blocked' }, `[nuxt-backend] The moderation model flagged this content (${verdict.categories.join(', ') || 'no category named'}).`)
   }

@@ -542,6 +542,7 @@
         "billing": "Abrechnung",
         "queue": "Warteschlange",
         "costs": "Kosten",
+        "moderation": "Moderation",
         "webhooks": "Webhooks",
         "suppressions": "Sperrliste",
         "analytics": "Analysen",
@@ -565,6 +566,27 @@
         "tokens": "Tokens ein / aus",
         "tokenCounts": "{input} / {output}",
         "guest": "Besucher vor der Registrierung"
+      },
+      "moderation": {
+        "refused": "Nur Administratoren sehen, was die Sicherheitsprüfung markiert hat.",
+        "intro": "Was der Sicherheitsklassifikator markiert hat, neueste zuerst: seine Kategorien, nie der Inhalt. Blockierte Inhalte wurden abgelehnt; der Rest wurde durchgelassen und erfasst. Eine eskalierte Markierung liegt in einer Kategorie, die die Moderationsrichtlinie an einen Administrator weitergibt.",
+        "filter": "Anzeigen",
+        "all": "Alle Markierungen",
+        "escalated": "Eskaliert",
+        "empty": "Noch nichts wurde markiert.",
+        "emptyEscalated": "Noch nichts wurde eskaliert.",
+        "caption": "Markierte Inhalte",
+        "when": "Wann",
+        "who": "Konto",
+        "what": "Was geprüft wurde",
+        "categories": "Kategorien",
+        "outcome": "Ergebnis",
+        "blocked": "Blockiert",
+        "passed": "Durchgelassen",
+        "escalatedMark": "Eskaliert",
+        "nobody": "Niemand angemeldet",
+        "newer": "Neuere",
+        "older": "Ältere"
       },
       "webhooks": {
         "refused": "Nur Administratoren lesen das Webhook-Protokoll.",
@@ -1817,6 +1839,10 @@
         "aiDocuments": {
           "holds": "Die Wissensdokumente, die ein Konto hinzugefügt hat: Titel, Workspace und Status. Die Textabschnitte und Embeddings liegen in der RAG-Komponente der App.",
           "kept": "Bis ein Mitglied es entfernt oder sein Workspace gelöscht wird."
+        },
+        "aiFlags": {
+          "holds": "Was der Sicherheitsklassifikator in Inhalten eines Kontos markiert hat: die Kategorien, ob sie abgelehnt oder eskaliert wurden, der Klassifikator sowie die ID und Stufe der App für das Geprüfte, nie der Inhalt.",
+          "kept": "So viele Tage, wie die App Markierungen aufbewahrt (moderation.log.days, standardmäßig 90), oder keine mit log: false."
         },
         "aiProvenance": {
           "holds": "Woraus jedes generierte Bild entstanden ist, das die Aufträge eines Workspaces gespeichert haben: die Modelle, der Zeitpunkt und die IDs der Zeilen und Dateien, aus denen es erstellt wurde, nie deren Inhalt.",

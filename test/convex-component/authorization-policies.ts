@@ -79,6 +79,7 @@ export const POLICIES: Record<string, Policy> = {
   // an administrator acting as someone included, reads `null`.
   'ai:transform': { access: 'member', impersonation: 'refused' },
   'ai:getCosts': { access: 'admin', impersonation: 'refused' },
+  'ai:listModerationFlags': { access: 'admin', impersonation: 'refused' },
 
   // audit.ts: the activity trail, each read for its own reader: the
   // account's own, the active workspace's for its owners and admins, every
