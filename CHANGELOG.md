@@ -1,5 +1,52 @@
 # Changelog
 
+## v0.3.0
+
+[compare changes](https://github.com/qruto/nuxt-backend/compare/v0.2.1...v0.3.0)
+
+### 🚀 Enhancements
+
+#### Composables
+
+- Register useReferralInvite and useEmailLink, and read the invite on the server ([#182](https://github.com/qruto/nuxt-backend/pull/182))
+
+### 🩹 Fixes
+
+#### AI
+
+- Give a budget back what a run did not spend ([#184](https://github.com/qruto/nuxt-backend/pull/184))
+
+#### Auth
+
+- Take @convex-dev/better-auth 0.12.7 ([#185](https://github.com/qruto/nuxt-backend/pull/185))
+- ⚠️  Move to Better Auth 1.7 and nuxt-convex-module 0.13 ([#188](https://github.com/qruto/nuxt-backend/pull/188))
+
+#### Security
+
+- Keep the limiter, the upgrade and HSTS off nuxt dev ([#180](https://github.com/qruto/nuxt-backend/pull/180))
+
+#### Labels
+
+- Warn in development when titleYours shadows an override ([#183](https://github.com/qruto/nuxt-backend/pull/183))
+
+#### Monitoring
+
+- Let the browser's error reports through connect-src ([#181](https://github.com/qruto/nuxt-backend/pull/181))
+
+### 🤖 CI
+
+#### Deps
+
+- Bump the actions group across 1 directory with 2 updates ([#186](https://github.com/qruto/nuxt-backend/pull/186))
+
+#### ⚠️ Breaking Changes
+
+- **Auth:** ⚠️  Move to Better Auth 1.7 and nuxt-convex-module 0.13 ([#188](https://github.com/qruto/nuxt-backend/pull/188))
+
+### ❤️ Contributors
+
+- Slava Razum ([@slavarazum](https://github.com/slavarazum))
+
 ## v0.2.1
 
 [compare changes](https://github.com/qruto/nuxt-backend/compare/v0.2.0...v0.2.1)
