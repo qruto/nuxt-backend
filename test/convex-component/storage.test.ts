@@ -12,7 +12,8 @@ import { exifJpeg, jpegSegments, orientationOf } from '../helpers/images'
 // strips module use it: a photo stored with its row in one mutation, an
 // upload claimed and checked in the background, who reads a file's URL,
 // release and the orphan sweep, expiring URLs served by the deployment's
-// route, share links, and a person's files in export and erasure.
+// route, share links, a file given an end, and a person's files in export
+// and erasure.
 
 const HOUR = 60 * 60 * 1000
 const DAY = 24 * HOUR
@@ -26,6 +27,7 @@ const appSchema = defineSchema({
     photoId: v.optional(v.string()),
     coverId: v.optional(v.string()),
   }),
+  shareEvents: defineTable({ stripId: v.string(), by: v.string(), rotated: v.boolean() }),
 })
 
 const storage = setupStorage(components as never, {
@@ -37,7 +39,19 @@ storage.shareable('strips' as never, {
   path: '/s',
   canShare: (ctx, strip) => (strip as { authorId: string }).authorId === ctx.user.id,
   ogImage: strip => (strip as { coverId?: string }).coverId ?? null,
+  // What an app records once a link is on: who shared what, never the link
+  // itself (a bearer secret), which goes on to the author by mail. A strip
+  // titled "Refused" throws, which rolls the link back.
+  onEnable: async (ctx, strip, link) => {
+    const { _id, title } = strip as unknown as { _id: string, title: string }
+    if (title === 'Refused') throw new Error('not this one')
+    await (ctx.db as unknown as { insert: (table: string, row: object) => Promise<string> }).insert('shareEvents', { stripId: _id, by: ctx.user.id, rotated: link.rotated })
+    mailed.push(link.url)
+  },
 })
+
+/** The links `onEnable` handed on, as a mailer would send them: in memory, never in a table. */
+const mailed: string[] = []
 
 /** The caller, as the scaffold's `workspace` tier hands it over. */
 async function caller(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string, activeOrganizationId?: unknown } | null> } }) {
@@ -84,6 +98,15 @@ const remove = mutationGeneric({
     await ctx.db.delete(id)
   },
 })
+const expirePhoto = mutationGeneric({
+  args: { id: v.id('strips'), at: v.union(v.number(), v.null()) },
+  handler: async (ctx, { id, at }) => storage.expire(ctx, (await ctx.db.get(id))!.photoId as string | undefined, at),
+})
+const expireFile = mutationGeneric({
+  args: { fileId: v.string(), at: v.union(v.number(), v.null()) },
+  handler: async (ctx, { fileId, at }) => storage.expire(ctx, fileId, at),
+})
+const shareEvents = queryGeneric({ args: {}, handler: async ctx => ctx.db.query('shareEvents').collect() })
 const shared = queryGeneric({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
@@ -102,8 +125,8 @@ const dropUploadLater = actionGeneric({
   handler: async (ctx, { fileId }) => storage.discard(ctx, fileId),
 })
 const downloadUrl = queryGeneric({
-  args: { storageId: v.string() },
-  handler: async (ctx, { storageId }) => storage.signedUrl(ctx, storageId),
+  args: { storageId: v.string(), ttl: v.optional(v.number()) },
+  handler: async (ctx, { storageId, ttl }) => storage.signedUrl(ctx, storageId, { ttl }),
 })
 
 // Reads and writes of the component's own, for the test: an upload straight
@@ -133,7 +156,7 @@ http.route({ path: '/noop', method: 'GET', handler: httpActionGeneric(async () =
 const testApp = defineBackendTestApp(appSchema, {
   './_generated/api.js': () => Promise.resolve({}),
   './storage.js': () => Promise.resolve(storage.api),
-  './strips.js': () => Promise.resolve({ create, addPhoto, addOwnPhoto, attachFile, remove, shared, downloadUrl, dropUpload, dropUploadLater }),
+  './strips.js': () => Promise.resolve({ create, addPhoto, addOwnPhoto, attachFile, remove, shared, downloadUrl, dropUpload, dropUploadLater, expirePhoto, expireFile, shareEvents }),
   './http.js': () => Promise.resolve({ default: http }),
 })
 type App = ReturnType<typeof testApp>
@@ -152,9 +175,12 @@ const ref = {
   attachFile: makeFunctionReference<'mutation', { id: string, fileId: string }>('strips:attachFile'),
   remove: makeFunctionReference<'mutation', { id: string }>('strips:remove'),
   shared: makeFunctionReference<'query', { token: string }, { title: string, sharedBy: string, ogImageUrl: string | null } | null>('strips:shared'),
-  downloadUrl: makeFunctionReference<'query', { storageId: string }, string | null>('strips:downloadUrl'),
+  downloadUrl: makeFunctionReference<'query', { storageId: string, ttl?: number }, string | null>('strips:downloadUrl'),
   dropUpload: makeFunctionReference<'mutation', { fileId: string }, boolean>('strips:dropUpload'),
   dropUploadLater: makeFunctionReference<'action', { fileId: string }, boolean>('strips:dropUploadLater'),
+  expirePhoto: makeFunctionReference<'mutation', { id: string, at: number | null }, boolean>('strips:expirePhoto'),
+  expireFile: makeFunctionReference<'mutation', { fileId: string, at: number | null }, boolean>('strips:expireFile'),
+  shareEvents: makeFunctionReference<'query', Record<string, never>, Array<{ stripId: string, by: string, rotated: boolean }>>('strips:shareEvents'),
   generateUploadUrl: makeFunctionReference<'mutation', Record<string, never>, string>('storage:generateUploadUrl'),
   getFileUrl: makeFunctionReference<'query', { storageId: string }, string | null>('storage:getFileUrl'),
   getShareLink: makeFunctionReference<'query', { table: string, id: string }, { sharedAt: number } | null>('storage:getShareLink'),
@@ -398,6 +424,65 @@ describe('cleanup', () => {
   })
 })
 
+describe('expire', () => {
+  /** One maintenance pass, run to its end. */
+  async function maintain(t: App) {
+    await t.mutation(backend.maintenance!.run as unknown as FunctionReference<'mutation', 'internal'>, {})
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+  }
+
+  test('a file goes with its record once its end passed, and its bytes leave the quota', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const id = await author.mutation(ref.create, { title: 'Monday' })
+    const photoId = await author.mutation(ref.addPhoto, { id, photo: png() })
+    expect(await author.mutation(ref.expirePhoto, { id, at: Date.now() + 2 * HOUR })).toBe(true)
+
+    await maintain(t)
+    expect(await author.query(ref.getFileUrl, { storageId: photoId })).toMatch(/^https:/)
+
+    vi.advanceTimersByTime(3 * HOUR)
+    await maintain(t)
+    expect(await author.query(ref.getFileUrl, { storageId: photoId })).toBeNull()
+    expect(await exists(t, photoId)).toBe(false)
+    expect(await records(t)).toEqual([])
+    // The quota (three files) counts it no longer.
+    for (let i = 0; i < 3; i++) await author.mutation(ref.addOwnPhoto, { photo: png(i) })
+  })
+
+  test('null keeps a file again; an unknown id, no id or an unkept upload is nothing to expire', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const id = await author.mutation(ref.create, { title: 'Monday' })
+    const photoId = await author.mutation(ref.addPhoto, { id, photo: png() })
+    await author.mutation(ref.expirePhoto, { id, at: Date.now() + HOUR })
+    expect(await author.mutation(ref.expirePhoto, { id, at: null })).toBe(true)
+    vi.advanceTimersByTime(2 * HOUR)
+    await maintain(t)
+    expect(await author.query(ref.getFileUrl, { storageId: photoId })).toMatch(/^https:/)
+
+    // A time at or before the epoch is past: due at the next run, not never.
+    const old = await author.mutation(ref.addOwnPhoto, { photo: png(7) })
+    expect(await author.mutation(ref.expireFile, { fileId: old, at: 0 })).toBe(true)
+    await maintain(t)
+    expect(await exists(t, old)).toBe(false)
+
+    // The component refuses an `at` that is no time, called directly too.
+    const expireDirectly = backend.storage!.expire as unknown as FunctionReference<'mutation', 'internal'>
+    for (const at of [Number.NaN, Number.POSITIVE_INFINITY]) await expect(t.mutation(expireDirectly, { storageId: photoId, at }), String(at)).rejects.toThrow(/is no time|epoch milliseconds/)
+
+    const unclaimed = await upload(t, png())
+    for (const fileId of ['', 'not-an-id', unclaimed]) expect(await author.mutation(ref.expireFile, { fileId, at: Date.now() }), fileId).toBe(false)
+  })
+
+  test('refuses an end that is not a time', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const photoId = await author.mutation(ref.addOwnPhoto, { photo: png() })
+    await expect(author.mutation(ref.expireFile, { fileId: photoId, at: Number.NaN })).rejects.toThrow(/epoch milliseconds or a Date/)
+  })
+})
+
 describe('discard', () => {
   test('deletes an unclaimed upload at once, from a mutation or an action, and answers false the second time', async () => {
     const t = appUnderTest()
@@ -467,6 +552,59 @@ describe('signed URLs', () => {
     const t = appUnderTest()
     expect(await t.query(ref.downloadUrl, { storageId: 'kg2gone' })).toBeNull()
   })
+
+  /** The URL clock's cron, run now. */
+  const tick = (t: App) => t.mutation(backend.storage!.tickUrlClock as unknown as FunctionReference<'mutation', 'internal'>, {})
+  const expiresOf = (url: string | null) => Number(new URL(url!).searchParams.get('expires'))
+
+  test('answer the same URL between two ticks of the URL clock, and a later one after the next', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const photoId = await author.mutation(ref.addOwnPhoto, { photo: png() })
+    // A quarter past: the twenty minutes below cross a half hour with no tick.
+    const half = 30 * 60 * 1000
+    vi.advanceTimersByTime((half / 2 - (Date.now() % half) + half) % half)
+    await tick(t)
+    const tickedAt = Date.now()
+    const first = await t.query(ref.downloadUrl, { storageId: photoId })
+    // Twenty minutes on, no tick: the same URL, so the browser's cache holds.
+    vi.advanceTimersByTime(20 * 60 * 1000)
+    expect(await t.query(ref.downloadUrl, { storageId: photoId })).toBe(first)
+    // It counts from the tick, not from now: at least the hour, half as long again at most.
+    expect(expiresOf(first) - tickedAt).toBeGreaterThanOrEqual(HOUR)
+    expect(expiresOf(first) - tickedAt).toBeLessThanOrEqual(1.5 * HOUR)
+    vi.advanceTimersByTime(10 * 60 * 1000)
+    await tick(t)
+    const second = await t.query(ref.downloadUrl, { storageId: photoId })
+    expect(expiresOf(second) - expiresOf(first)).toBe(30 * 60 * 1000)
+    // Still good past the next tick: never expired on a live page.
+    expect(expiresOf(second) - Date.now()).toBeGreaterThan(30 * 60 * 1000)
+  })
+
+  test('a longer URL changes once a step of half its life, not on every tick', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const photoId = await author.mutation(ref.addOwnPhoto, { photo: png() })
+    const seen = new Set<string>()
+    // Six hours of ticks: a six-hour URL steps every three hours.
+    for (let tickNumber = 0; tickNumber < 12; tickNumber++) {
+      await tick(t)
+      seen.add((await t.query(ref.downloadUrl, { storageId: photoId, ttl: 6 * HOUR }))!)
+      vi.advanceTimersByTime(30 * 60 * 1000)
+    }
+    expect(seen.size).toBeLessThanOrEqual(3)
+  })
+
+  test('a URL of a day or more reads no clock: it counts from now, on the hour, never past its ttl', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const photoId = await author.mutation(ref.addOwnPhoto, { photo: png() })
+    const url = await t.query(ref.downloadUrl, { storageId: photoId, ttl: 7 * 24 * HOUR })
+    expect(expiresOf(url) % HOUR).toBe(0)
+    expect(expiresOf(url) - Date.now()).toBeLessThanOrEqual(7 * 24 * HOUR)
+    await tick(t)
+    expect(await t.query(ref.downloadUrl, { storageId: photoId, ttl: 7 * 24 * HOUR })).toBe(url)
+  })
 })
 
 describe('share links', () => {
@@ -484,6 +622,24 @@ describe('share links', () => {
     await author.mutation(ref.revokeShareLink, { table: 'strips', id })
     expect(await t.query(ref.shared, { token: rotated.token })).toBeNull()
     expect(await author.query(ref.getShareLink, { table: 'strips', id })).toBeNull()
+  })
+
+  test('onEnable runs in the same mutation, with the caller, the row and the link, and a throw rolls the link back', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const id = await author.mutation(ref.create, { title: 'Monday' })
+    mailed.length = 0
+    const first = await author.mutation(ref.enableShareLink, { table: 'strips', id })
+    const second = await author.mutation(ref.enableShareLink, { table: 'strips', id })
+    expect(await t.query(ref.shareEvents, {})).toEqual([
+      expect.objectContaining({ stripId: id, by: author.userId, rotated: false }),
+      expect.objectContaining({ stripId: id, by: author.userId, rotated: true }),
+    ])
+    expect(mailed).toEqual([first.url, second.url])
+
+    const refused = await author.mutation(ref.create, { title: 'Refused' })
+    await expect(author.mutation(ref.enableShareLink, { table: 'strips', id: refused })).rejects.toThrow(/not this one/)
+    expect(await author.query(ref.getShareLink, { table: 'strips', id: refused })).toBeNull()
   })
 
   test('the preview card is an expiring URL of the ogImage file', async () => {

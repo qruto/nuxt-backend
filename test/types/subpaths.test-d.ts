@@ -1,5 +1,5 @@
 import type { ComputedRef } from 'vue'
-import { type AuthConfig, type DataModelFromSchemaDefinition, defineSchema, defineTable, type FunctionReference, type FunctionReturnType, type HttpRouter, internalMutationGeneric, type MutationBuilder, type RegisteredMutation, type RegisteredQuery } from 'convex/server'
+import { type AuthConfig, cronJobs, type DataModelFromSchemaDefinition, defineSchema, defineTable, type FunctionReference, type FunctionReturnType, type HttpRouter, internalMutationGeneric, type MutationBuilder, type RegisteredMutation, type RegisteredQuery } from 'convex/server'
 import { customCtx, customMutation } from 'convex-helpers/server/customFunctions'
 import { type GenericId, v } from 'convex/values'
 import type { WorkflowManager } from '@convex-dev/workflow'
@@ -8,7 +8,7 @@ import type pkg from '../../package.json'
 import backendModule, { type ModuleOptions } from 'nuxt-backend'
 import { setupAuth, type SetupAuthOptions } from 'nuxt-backend/auth'
 import { registerBackendRoutes } from 'nuxt-backend/http'
-import { createFunctions, defineRetention, normalizeEmail, randomToken, RECENT_SIGN_IN_SECONDS, type RetentionResult, SENSITIVE_ACTIONS, sha256Hex } from 'nuxt-backend/functions'
+import { createFunctions, defineRetention, normalizeEmail, randomToken, RECENT_SIGN_IN_SECONDS, type RetentionResult, scheduleRetention, SENSITIVE_ACTIONS, sha256Hex } from 'nuxt-backend/functions'
 import { type BackendEnvironment, backendEnv, backendEnvironment } from 'nuxt-backend/app'
 import { ALL_BILLING_EVENTS, type BillingAccessRule, type BillingEntity, type BillingEntityCtx, defineBillingCatalog, type SetupBillingConfig, setupBilling } from 'nuxt-backend/billing'
 import type { ALL_EMAIL_EVENTS, EmailWebhookEventType } from 'nuxt-backend/email'
@@ -27,7 +27,7 @@ import { type AiRateLimiter, type ImageStoreContext, priceTokens, setupAi, type 
 import { checkIn, MONITORING_TAGS, reportError, reportingErrors } from 'nuxt-backend/monitoring'
 import backendComponent from 'nuxt-backend/convex.config'
 import authConfig, { defineBackendAuthConfig } from 'nuxt-backend/auth.config'
-import backendTest, { asUser, defineBackendTestApp, register, seedWorkspace } from 'nuxt-backend/test'
+import backendTest, { asUser, type BackendTestApp, defineBackendTestApp, drain, register, seedBilling, seedCredits, seedWorkspace, stubStorageFetch, upload } from 'nuxt-backend/test'
 import { BACKEND_ESLINT_RULES, backendEslint } from 'nuxt-backend/eslint'
 import { backendMockProvides, backendTestAliases, type BackendMock, type BackendMockUser, createBackendMock, resetBackendMock } from 'nuxt-backend/test-utils'
 import type { Linter } from 'eslint'
@@ -342,6 +342,11 @@ describe('integrations', () => {
     defineRetention(internalMutation, { fn: 'retention:d', table: 'strips', index: 'by_status_and_updatedAt', match: { photoId: 'x' }, ttl: 0 })
     // @ts-expect-error -- the age is required
     defineRetention(internalMutation, { fn: 'retention:e', table: 'todos', index: 'by_creation_time' })
+    // A rule's schedule is a cron expression or an interval; scheduleRetention starts the scheduled ones from crons.ts.
+    const nightly = defineRetention(internalMutation, { fn: 'retention:f', table: 'todos', index: 'by_creation_time', ttl: 0, schedule: { cron: '10 3 * * *' } })
+    // @ts-expect-error -- a schedule is one of cron or every
+    defineRetention(internalMutation, { fn: 'retention:g', table: 'todos', index: 'by_creation_time', ttl: 0, schedule: { cron: '0 3 * * *', every: { hours: 1 } } })
+    expectTypeOf(scheduleRetention(cronJobs(), { nightly })).toEqualTypeOf<string[]>()
     expectTypeOf(randomToken()).toBeString()
     expectTypeOf(sha256Hex('x')).toEqualTypeOf<Promise<string>>()
     expectTypeOf(normalizeEmail('A@b.c')).toBeString()
@@ -426,6 +431,14 @@ describe('integrations', () => {
     expectTypeOf(asUser).returns.resolves.toHaveProperty('userId')
     expectTypeOf(asUser).returns.resolves.toHaveProperty('query')
     expectTypeOf(seedWorkspace).returns.resolves.toBeString()
+    // An instance uploads; the helpers seed billing, drain the scheduler and answer storage URLs.
+    expectTypeOf(defineBackendTestApp).returns.returns.toExtend<BackendTestApp>()
+    expectTypeOf<BackendTestApp['upload']>().returns.resolves.toBeString()
+    expectTypeOf(upload).returns.resolves.toBeString()
+    expectTypeOf(drain).returns.resolves.toBeVoid()
+    expectTypeOf(seedBilling).returns.resolves.toBeVoid()
+    expectTypeOf(seedCredits).returns.resolves.toBeVoid()
+    expectTypeOf(stubStorageFetch).returns.toEqualTypeOf<() => void>()
   })
 })
 

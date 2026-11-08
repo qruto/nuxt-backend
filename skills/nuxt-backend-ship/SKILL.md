@@ -13,7 +13,7 @@ the rules every change follows. Commands that write production run only when the
 
 - `defineBackendTestApp(schema, modules)` from `nuxt-backend/test` builds the app in
   `convex-test`; `asUser(t, { role, workspace, agent })` signs a caller in with real claims and a
-  personal workspace.
+  personal workspace; `t.upload()`, `drain(t, vi)`, `seedBilling`, `stubStorageFetch()` beside it.
 - Page tests: `createBackendMock()` and `backendTestAliases()` from `nuxt-backend/test-utils`.
 - `backendEslint()` from `nuxt-backend/eslint` applies Convex's lint rules to `backend/`:
   `export default withNuxt(backendEslint())`. It needs `@convex-dev/eslint-plugin` installed.
@@ -145,7 +145,7 @@ recent sign-in and records `flag.changed`. Never flip a switch in production unl
 **Develop**
 
 - [Test pages over a mock backend](https://nuxt-backend.dev/docs/develop/testing/pages): Render your pages and the packaged components over a mock backend and session in Vitest: signed in, signed out, loading and failed, with no deployment and no network.
-- [Test backend functions](https://nuxt-backend.dev/docs/develop/testing/functions): Run your Convex functions in convex-test with every component the scaffold mounts, call them as a signed-in person in a workspace, and assert each refusal by its code.
+- [Test backend functions](https://nuxt-backend.dev/docs/develop/testing/functions): Run your Convex functions in convex-test with every component the scaffold mounts, call them as a signed-in person in a workspace, upload files, seed plans and credits, run scheduled work to the end, and assert each refusal by its code.
 - [Run end-to-end tests](https://nuxt-backend.dev/docs/develop/testing/e2e): Drive the real app in a browser with Playwright: sign in with a code read from the dev inbox as JSON, pay with the test card in Polar's sandbox, and assert what people see.
 - [Check every change in CI](https://nuxt-backend.dev/docs/develop/testing/ci): Run lint, the type check and the function and page tests on every pull request with no secrets, then the end-to-end suite on an account-free deployment, and gate the release on doctor.
 - [Load-test before launch](https://nuxt-backend.dev/docs/develop/testing/load): Find out what your backend handles before launch: which paths to load, a deployment made for the test, a k6 script, the limits that refuse first, and how to read the results.

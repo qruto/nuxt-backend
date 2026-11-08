@@ -6102,6 +6102,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { sharedAt: number; sharedBy: string },
         Name
       >;
+      expire: FunctionReference<
+        "mutation",
+        "internal",
+        { at: number | null; storageId: string },
+        boolean,
+        Name
+      >;
       generateUploadUrl: FunctionReference<
         "mutation",
         "internal",
@@ -6195,6 +6202,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         string | null,
         Name
       >;
+      urlClock: FunctionReference<"query", "internal", {}, number | null, Name>;
     };
     subscriptions: {
       confirmConsent: FunctionReference<

@@ -263,6 +263,7 @@ The options of [defineRetention](#defineretention).
 | <a id="ttl"></a> `ttl` | `number` | How old a row may get, in milliseconds, on the index's time field. `0` deletes a row once that time has passed, for an `expiresAt` field. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
 | <a id="batch"></a> `batch?` | `number` | Rows per transaction. Lower it for large rows or a heavy `onDelete`. Defaults to 100. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
 | <a id="ondelete"></a> `onDelete?` | (`ctx`, `row`) => `void` \| `Promise`\<`void`\> | Runs before each row is deleted, in the same transaction. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
+| <a id="schedule"></a> `schedule?` | [`BackendCronSchedule`](/docs/reference/api/monitoring#backendcronschedule) | When the rule runs: `every` an interval, or on a `cron` expression (five fields, UTC). `scheduleRetention(crons, rules)` in `backend/crons.ts` starts every rule that has one. Without it, start the rule from a cron of your own. | [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts) |
 
 ***
 
@@ -402,6 +403,18 @@ type FunctionsComponents = AuthorizationComponents;
 Defined in: [src/convex/integrations/functions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/functions.ts)
 
 The generated `components` the tiers read the `backend` component's tables through.
+
+***
+
+### RetentionSchedule
+
+```ts
+type RetentionSchedule = BackendCronSchedule;
+```
+
+Defined in: [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts)
+
+When a rule runs, for [scheduleRetention](#scheduleretention): `every` an interval (`{ hours: 24 }`), or on a `cron` expression (five fields, UTC).
 
 ***
 
@@ -1044,8 +1057,9 @@ Defined in: [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt
 
 Delete a table's rows once they pass an age, a batch per transaction,
 until none is left. Returns the rule's internal mutation: export it from
-a file in `backend/`, and start it from a cron (`crons.cron(...,
-internal.retention.pruneDrafts, {})`).
+a file in `backend/`, and give it a `schedule` that
+[scheduleRetention](#scheduleretention) starts from `backend/crons.ts` (or start it
+from a cron of your own: `crons.cron(..., internal.retention.pruneDrafts, {})`).
 
 A pass fixes its cutoff when it starts (the current time minus `ttl`), so
 it always ends: each batch reads up to `batch` rows older than the cutoff
@@ -1099,7 +1113,7 @@ A row whose time field is missing sorts first and is deleted on the first pass.
 
 #### Throws
 
-TypeError when `fn`, `ttl`, `batch` or `index` is malformed, as the module loads.
+TypeError when `fn`, `ttl`, `batch`, `index` or `schedule` is malformed, as the module loads.
 
 #### Example
 
@@ -1115,7 +1129,56 @@ export const pruneDrafts = defineRetention(internalMutation, {
   index: 'by_status_and_updatedAt',
   match: { status: 'draft' },
   ttl: 30 * DAY,
+  schedule: { cron: '20 3 * * *' },
 })
+```
+
+***
+
+### scheduleRetention()
+
+```ts
+function scheduleRetention(crons, rules): string[];
+```
+
+Defined in: [src/convex/integrations/retention.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/retention.ts)
+
+Start every retention rule that has a `schedule` from your
+`backend/crons.ts`: one cron each, named after the rule's `fn`. Pass the
+rules' module (`import * as retention from './retention'`) or an object
+of rules; anything else in it, and a rule with no `schedule`, is left out.
+A rule it schedules needs no cron of yours: one under another name is a
+second cron, and the rule runs twice.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `crons` | `Crons` |
+| `rules` | `Record`\<`string`, `unknown`\> |
+
+#### Returns
+
+`string`[]
+
+The `fn` of each rule it scheduled.
+
+#### Guarantee
+
+Each rule runs on its own `schedule`, under its `fn` as the cron's name: renaming a rule renames its cron.
+
+#### Example
+
+```ts
+// backend/crons.ts
+import { cronJobs } from 'convex/server'
+import { scheduleRetention } from 'nuxt-backend/functions'
+import * as retention from './retention'
+
+const crons = cronJobs()
+scheduleRetention(crons, retention)
+
+export default crons
 ```
 
 ***

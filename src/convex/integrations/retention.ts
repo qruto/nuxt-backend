@@ -1,4 +1,5 @@
 import {
+  type Crons,
   type DocumentByName,
   type FieldTypeFromFieldPath,
   type GenericDataModel,
@@ -13,6 +14,10 @@ import {
 } from 'convex/server'
 import { v } from 'convex/values'
 import { logBackend } from '../log.js'
+import type { BackendCronSchedule } from '../monitoring.js'
+
+/** When a rule runs, for {@link scheduleRetention}: `every` an interval (`{ hours: 24 }`), or on a `cron` expression (five fields, UTC). */
+export type RetentionSchedule = BackendCronSchedule
 
 /** Rows one batch deletes when the rule says nothing. */
 export const DEFAULT_RETENTION_BATCH = 100
@@ -62,7 +67,17 @@ export interface RetentionOptions<
   batch?: number
   /** Runs before each row is deleted, in the same transaction. */
   onDelete?: (ctx: GenericMutationCtx<DM>, row: DocumentByName<DM, T>) => void | Promise<void>
+  /**
+   * When the rule runs: `every` an interval, or on a `cron` expression
+   * (five fields, UTC). `scheduleRetention(crons, rules)` in
+   * `backend/crons.ts` starts every rule that has one. Without it, start the
+   * rule from a cron of your own.
+   */
+  schedule?: RetentionSchedule
 }
+
+/** Each scheduled rule's own function path and schedule, by the mutation `defineRetention` returned. */
+const schedules = new WeakMap<object, { fn: string, schedule: RetentionSchedule }>()
 
 /** The query builder and index range, with the index and its fields named at run time: the types above check them against the schema. */
 interface ByIndex<Row> {
@@ -80,9 +95,20 @@ function fieldsOfIndex(index: string): string[] {
   return named ? named.split('_and_') : []
 }
 
+/** A schedule as a rule takes it: exactly one of `every` or `cron`. */
+function checkSchedule(rule: string, schedule: unknown): void {
+  const given = schedule as { every?: unknown, cron?: unknown } | null
+  const every = given?.every !== undefined && typeof given.every === 'object' && given.every !== null
+  const cron = typeof given?.cron === 'string' && given.cron.trim() !== ''
+  if (!given || typeof given !== 'object' || every === cron) {
+    throw new TypeError(`[nuxt-backend] ${rule}: "schedule" is \`{ every: { hours: 24 } }\` or \`{ cron: '10 3 * * *' }\` (UTC), one of the two.`)
+  }
+}
+
 /** What a rule's options must satisfy, checked when the module loads so a deploy refuses a broken rule. */
-function checkRule(options: { fn: string, table: string, index: string, match?: Record<string, unknown>, ttl: number, batch?: number }): { matched: Array<[string, unknown]>, timeField: string, batch: number } {
+function checkRule(options: { fn: string, table: string, index: string, match?: Record<string, unknown>, ttl: number, batch?: number, schedule?: unknown }): { matched: Array<[string, unknown]>, timeField: string, batch: number } {
   const rule = `defineRetention (${options.fn})`
+  if (options.schedule !== undefined) checkSchedule(rule, options.schedule)
   if (!/^[\w./-]+:\w+$/.test(options.fn)) {
     throw new TypeError(`[nuxt-backend] ${rule}: "fn" is the rule's own function path as \`npx convex run\` takes it, such as 'retention:pruneDrafts'.`)
   }
@@ -107,8 +133,9 @@ function checkRule(options: { fn: string, table: string, index: string, match?: 
 /**
  * Delete a table's rows once they pass an age, a batch per transaction,
  * until none is left. Returns the rule's internal mutation: export it from
- * a file in `backend/`, and start it from a cron (`crons.cron(...,
- * internal.retention.pruneDrafts, {})`).
+ * a file in `backend/`, and give it a `schedule` that
+ * {@link scheduleRetention} starts from `backend/crons.ts` (or start it
+ * from a cron of your own: `crons.cron(..., internal.retention.pruneDrafts, {})`).
  *
  * A pass fixes its cutoff when it starts (the current time minus `ttl`), so
  * it always ends: each batch reads up to `batch` rows older than the cutoff
@@ -130,7 +157,7 @@ function checkRule(options: { fn: string, table: string, index: string, match?: 
  * @guarantee Rows are read through an index, never scanned, so a batch reads at most `batch + 1` rows.
  * @guarantee A row whose time field is missing sorts first and is deleted on the first pass.
  *
- * @throws TypeError when `fn`, `ttl`, `batch` or `index` is malformed, as the module loads.
+ * @throws TypeError when `fn`, `ttl`, `batch`, `index` or `schedule` is malformed, as the module loads.
  *
  * @example
  * ```ts
@@ -145,6 +172,7 @@ function checkRule(options: { fn: string, table: string, index: string, match?: 
  *   index: 'by_status_and_updatedAt',
  *   match: { status: 'draft' },
  *   ttl: 30 * DAY,
+ *   schedule: { cron: '20 3 * * *' },
  * })
  * ```
  */
@@ -166,7 +194,7 @@ export function defineRetention<
     handler: (ctx: GenericMutationCtx<DM>, args: RetentionArgs) => Promise<RetentionResult>
   }) => RegisteredMutation<'internal', RetentionArgs, Promise<RetentionResult>>
 
-  return define({
+  const mutation = define({
     args: { now: v.optional(v.number()) },
     returns: v.object({ deleted: v.number(), more: v.boolean() }),
     handler: async (ctx, { now = Date.now() }) => {
@@ -193,4 +221,44 @@ export function defineRetention<
       return { deleted: rows.length, more }
     },
   })
+  if (options.schedule) schedules.set(mutation, { fn, schedule: options.schedule })
+  return mutation
+}
+
+/**
+ * Start every retention rule that has a `schedule` from your
+ * `backend/crons.ts`: one cron each, named after the rule's `fn`. Pass the
+ * rules' module (`import * as retention from './retention'`) or an object
+ * of rules; anything else in it, and a rule with no `schedule`, is left out.
+ * A rule it schedules needs no cron of yours: one under another name is a
+ * second cron, and the rule runs twice.
+ *
+ * @guarantee Each rule runs on its own `schedule`, under its `fn` as the cron's name: renaming a rule renames its cron.
+ *
+ * @returns The `fn` of each rule it scheduled.
+ *
+ * @example
+ * ```ts
+ * // backend/crons.ts
+ * import { cronJobs } from 'convex/server'
+ * import { scheduleRetention } from 'nuxt-backend/functions'
+ * import * as retention from './retention'
+ *
+ * const crons = cronJobs()
+ * scheduleRetention(crons, retention)
+ *
+ * export default crons
+ * ```
+ */
+export function scheduleRetention(crons: Crons, rules: Record<string, unknown>): string[] {
+  const scheduled: string[] = []
+  for (const rule of Object.values(rules)) {
+    const found = rule !== null && (typeof rule === 'object' || typeof rule === 'function') ? schedules.get(rule) : undefined
+    if (!found) continue
+    const ref = makeFunctionReference<'mutation', RetentionArgs>(found.fn)
+    if (found.schedule.cron !== undefined) crons.cron(found.fn, found.schedule.cron, ref, {})
+    else crons.interval(found.fn, found.schedule.every, ref, {})
+    scheduled.push(found.fn)
+  }
+  return scheduled
 }

@@ -431,6 +431,62 @@ export const isReady = query({
   },
 })
 
+/**
+ * When the URL clock last ticked, `null` before its first tick: what a
+ * short signed URL's expiry counts from. A live query that signs one reads
+ * it, so it runs again on each tick.
+ */
+export const urlClock = query({
+  args: {},
+  returns: v.union(v.number(), v.null()),
+  handler: async ctx => (await ctx.db.query('urlClock').first())?.tickedAt ?? null,
+})
+
+/** Move the URL clock (its cron, every half hour): every live query that signed a short URL runs again. */
+export const tickUrlClock = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const clock = await ctx.db.query('urlClock').first()
+    if (clock) await ctx.db.patch('urlClock', clock._id, { tickedAt: Date.now() })
+    else await ctx.db.insert('urlClock', { tickedAt: Date.now() })
+    return null
+  },
+})
+
+/**
+ * When a file goes: `at` (epoch ms), after which the component's
+ * maintenance deletes it with its record and gives its bytes back to the
+ * quota; `null` keeps it again. A time already past, the epoch or before
+ * included, is due at the next run. An `at` that is no time (`NaN`,
+ * `Infinity`) throws. Returns whether the id names a kept file.
+ */
+export const expire = mutation({
+  args: { storageId: v.string(), at: v.union(v.number(), v.null()) },
+  returns: v.boolean(),
+  handler: async (ctx, { storageId: id, at }) => {
+    if (at !== null && !Number.isFinite(at)) throw new Error(`[nuxt-backend] storage.expire: "at" is when the file goes, epoch milliseconds, or null to keep it; not ${at}.`)
+    const record = await recordById(ctx, id)
+    if (!record) return false
+    // The prune reads the index above 0, so a time at or before the epoch is kept as its first millisecond.
+    await ctx.db.patch('files', record._id, { expiresAt: at === null ? undefined : Math.max(at, 1) })
+    return true
+  },
+})
+
+/**
+ * One batch of expired files: the records whose `expiresAt` passed before
+ * `cutoff`, deleted with their bytes and their count, oldest first.
+ *
+ * @internal
+ */
+export async function pruneExpired(ctx: MutationCtx, cutoff: number, batch: number): Promise<{ pruned: number, done: boolean }> {
+  const due = await ctx.db.query('files').withIndex('expiresAt', q => q.gt('expiresAt', 0).lt('expiresAt', cutoff)).take(batch + 1)
+  const now = due.slice(0, batch)
+  for (const record of now) await deleteFile(ctx, record)
+  return { pruned: now.length, done: due.length <= batch }
+}
+
 /** The id of a file a check may read: any in the component's storage but the ones it keeps for itself (an account's export). */
 export const readable = internalQuery({
   args: { storageId: v.string() },
