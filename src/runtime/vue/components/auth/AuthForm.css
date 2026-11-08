@@ -37,7 +37,7 @@
 
   [data-auth^='input-'] {
     padding: 0.55rem 0.7rem;
-    border: 1px solid var(--auth-edge);
+    border: var(--bk-border-width) solid var(--auth-edge);
     border-radius: var(--auth-radius-control);
     background: transparent;
     color: inherit;
@@ -61,11 +61,13 @@
      it outranked them, and the primary buttons never took the accent. */
   :where([data-auth='form']) button {
     padding: 0.6rem 0.9rem;
-    border: 1px solid var(--auth-edge);
+    border: var(--bk-border-width) solid var(--auth-edge);
+    box-shadow: var(--bk-shadow-control);
     border-radius: var(--auth-radius-control);
     background: transparent;
     color: inherit;
     font: inherit;
+    font-family: var(--bk-font-control, var(--bk-font));
     font-weight: 600;
     cursor: pointer;
   }
@@ -86,7 +88,7 @@
   [data-auth='last-used'] {
     margin-inline-start: 0.5rem;
     padding: 0.05rem 0.45rem;
-    border: 1px solid currentColor;
+    border: var(--bk-border-width) solid currentColor;
     border-radius: 999px;
     font-size: 0.7rem;
     font-weight: 500;

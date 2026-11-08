@@ -91,6 +91,7 @@ const busyList = computed(() => admin.isLoading.value || pages.turning.value !==
 <template>
   <section
     v-if="!admin.isRefused.value"
+    data-backend
     data-admin="workspaces"
     :aria-busy="busyList ? 'true' : undefined"
   >

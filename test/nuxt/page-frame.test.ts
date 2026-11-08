@@ -85,6 +85,8 @@ describe('the module-page frame', () => {
     expect(frame.exists()).toBe(true)
     expect(wrapper.element.tagName).toBe('MAIN')
     expect(wrapper.attributes('data-backend-page')).toBe(key)
+    // The one attribute an app themes every packaged page and component by.
+    expect(wrapper.attributes('data-backend')).toBe('')
     expect(wrapper.find('[data-stub]').exists()).toBe(true)
     const title = toValue((useHead.mock.calls.at(-1)?.[0] as { title: MaybeRefOrGetter<string> }).title)
     expect(title).toBe(frame.props('title'))

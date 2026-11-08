@@ -95,6 +95,7 @@ const context = computed<UpgradePromptSlotContext>(() => ({
   <SingleRoot v-if="!cooled">
     <slot v-bind="context">
       <div
+        data-backend
         data-upgrade="root"
         :aria-busy="context.isLoading ? 'true' : undefined"
         :data-loading="context.isLoading ? '' : undefined"

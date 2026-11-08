@@ -13,7 +13,8 @@
     /* Centred even under a reset that zeroes every margin (a modal centres by `margin: auto`). */
     margin: auto;
     padding: 1.25rem;
-    border: 1px solid var(--confirm-edge);
+    border: var(--bk-border-width) solid var(--confirm-edge);
+    box-shadow: var(--bk-shadow-overlay);
     border-radius: var(--bk-radius);
     background: var(--confirm-surface);
     color: var(--bk-ink);
@@ -46,11 +47,13 @@
   /* The base of both buttons, at the specificity of one attribute (:where adds none), so the hooks below win. */
   :where([data-confirm='dialog']) button {
     padding: 0.6rem 0.9rem;
-    border: 1px solid var(--confirm-edge);
+    border: var(--bk-border-width) solid var(--confirm-edge);
+    box-shadow: var(--bk-shadow-control);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
     font: inherit;
+    font-family: var(--bk-font-control, var(--bk-font));
     font-weight: 600;
     cursor: pointer;
   }

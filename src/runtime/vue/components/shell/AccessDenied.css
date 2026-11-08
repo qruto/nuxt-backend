@@ -53,7 +53,9 @@
     display: inline-flex;
     align-items: center;
     padding: 0.55rem 0.9rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow-control);
+    font-family: var(--bk-font-control, var(--bk-font));
     border-radius: var(--bk-radius-control);
     color: inherit;
     font-weight: 600;

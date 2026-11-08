@@ -215,6 +215,7 @@ const statusText = computed(() => {
 <template>
   <div
     ref="root"
+    data-backend
     data-settings="root"
     :aria-busy="pending ? 'true' : undefined"
   >

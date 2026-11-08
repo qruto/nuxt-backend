@@ -148,6 +148,7 @@ provideAuthFormView({
 <template>
   <div
     ref="root"
+    data-backend
     data-auth="form"
     :data-state="flow.step.value"
     :data-loading="flow.isPending.value ? '' : undefined"

@@ -4,15 +4,32 @@
  * pages. Inside `@layer nuxt-backend`, so any rule of the app's wins.
  */
 @layer nuxt-backend {
+  /* ── The faces ────────────────────────────────────────────────────────────
+     `data-backend` marks the outermost element of every packaged component
+     and page. Its text reads `--bk-font`, its headings `--bk-font-heading`;
+     each component's button rule reads `--bk-font-control`. With a token
+     unset, `var()` leaves the face inherited: the page's. No specificity:
+     every component rule, and every rule of the app's, wins. */
+
+  :where([data-backend]) {
+    font-family: var(--bk-font);
+  }
+
+  :where([data-backend]) :where(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--bk-font-heading, var(--bk-font));
+  }
+
   /* ── Shared element defaults across all families ─────────────────────────── */
 
   :where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-gift='banner'], [data-history='root'], [data-usage='root'], [data-account='root'], [data-audit='root'], [data-admin='users'], [data-admin='workspaces'], [data-admin='system'], [data-admin='console'], [data-impersonation='banner'], [data-credits='banner'], [data-access='root']) :where(button) {
     padding: 0.55rem 0.9rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow-control);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
     font: inherit;
+    font-family: var(--bk-font-control, var(--bk-font));
     font-weight: 600;
     cursor: pointer;
   }
@@ -30,7 +47,7 @@
 
   :where([data-settings='root'], [data-profile='root'], [data-account='root'], [data-admin='users'], [data-admin='workspaces']) :where(input, select) {
     padding: 0.55rem 0.7rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;

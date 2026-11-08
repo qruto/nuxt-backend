@@ -89,6 +89,7 @@ const waitingFor = computed(() => (pending.value ? t('invoiceOpening') : pages.t
 
 <template>
   <div
+    data-backend
     data-history="root"
     :aria-busy="inFlight ? 'true' : undefined"
   >
