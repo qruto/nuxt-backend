@@ -112,7 +112,7 @@ export function modelMode(context: CapabilityContext): CapabilityDetection | nul
   // An order doctor cannot read leaves the route unknown, not missing.
   if (route.message.startsWith(GATEWAY_ORDER_UNREAD)) return null
   // The key is to blame only where it is the fix: an order of the Convex AI Gateway alone never reads it.
-  const why = gatewayKeyIsTheFix(route) && !isSet(context, 'AI_GATEWAY_API_KEY') ? unsetReason(context, ['AI_GATEWAY_API_KEY']) : 'no gateway in setupAi({ gateway }) can serve this deployment'
+  const why = gatewayKeyIsTheFix(route) && !isSet(context, 'AI_GATEWAY_API_KEY') ? unsetReason(context, ['AI_GATEWAY_API_KEY']) : 'no gateway in setupAi({ gateway }) or a route of setupAi({ routes }) can serve this deployment'
   return { state: 'missing', reason: `its models are refused: ${why}` }
 }
 

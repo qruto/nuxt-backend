@@ -1,15 +1,12 @@
 import type { EmbeddingModel } from 'ai'
 import {
   checkRegion,
-  convexGatewayModel,
-  FALLBACK_NAME,
-  gatewayFor,
+  type GatewayLoaders,
+  loadRoute,
   loadSdk,
   type ModelCall,
-  modelRefusal,
   type ModelRoute,
   type ModelRouting,
-  noticeConvexGateway,
   pinProviderOptions,
   reportedUsd,
   requireModelId,
@@ -53,22 +50,10 @@ export function embeddingReachable(model: AiEmbeddingModel, routing: ModelRoutin
   return typeof model !== 'string' || routeEmbedding(model, routing, env).route !== 'missing'
 }
 
-/** The model a route loads, and whether the region pin rides on its calls: the Vercel AI Gateway's and the test's do. */
-async function loadEmbedding(route: ModelRoute<EmbeddingModelObject>, convexReason?: string): Promise<{ model: EmbeddingModelObject, pinned: boolean }> {
-  switch (route.route) {
-    case 'gateway':
-      return { model: gatewayFor(await loadSdk(), route.apiKey).embeddingModel(route.id), pinned: true }
-    case 'own':
-      return { model: route.model, pinned: true }
-    case 'missing':
-      throw modelRefusal(route, convexReason)
-    case 'convex': {
-      const convex = await convexGatewayModel(route.id, provider => provider.convexGateway.embeddingModel(route.id) as EmbeddingModelObject)
-      if ('model' in convex) return { model: convex.model, pinned: false }
-      noticeConvexGateway(route.id, convex.unavailable, FALLBACK_NAME[route.fallback.route])
-      return loadEmbedding(route.fallback, convex.unavailable)
-    }
-  }
+/** How an embedding model loads from each gateway. */
+const EMBEDDING_LOADERS: GatewayLoaders<EmbeddingModelObject> = {
+  convex: (provider, id) => provider.convexGateway.embeddingModel(id) as EmbeddingModelObject,
+  vercel: (gateway, id) => gateway.embeddingModel(id),
 }
 
 /**
@@ -79,7 +64,7 @@ async function loadEmbedding(route: ModelRoute<EmbeddingModelObject>, convexReas
 export async function meteredEmbeddingModel(model: AiEmbeddingModel, calls: ModelCall[], { routing, dimension }: { routing: ModelRouting, dimension?: number }): Promise<EmbeddingModelObject> {
   const sdk = await loadSdk()
   const id = embeddingModelId(model)
-  const { model: base, pinned } = typeof model === 'string' ? await loadEmbedding(routeEmbedding(model, routing, runtimeEnv(), dimension)) : { model, pinned: false }
+  const { model: base, pinned } = typeof model === 'string' ? await loadRoute(routeEmbedding(model, routing, runtimeEnv(), dimension), EMBEDDING_LOADERS) : { model, pinned: false }
   const pin = pinned ? routing.region : undefined
   return sdk.wrapEmbeddingModel({
     model: base as never,

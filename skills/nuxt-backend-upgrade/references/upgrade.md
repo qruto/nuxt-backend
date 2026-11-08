@@ -17,6 +17,12 @@ has the reasons and every step. The core skill's `references/renames.json`, in
 After it, run `npx nuxt-backend doctor`, and `npx nuxt-backend init --agents` to refresh the app's
 agent files and skills.
 
+## [A job step stops its model calls at its timeout](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-step-stops-its-model-calls-at-its-timeout)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `jobs.step` | `jobs.step` | reshaped | a step aborts its model calls at `timeout`, by default 3 minutes or 80% of `stallAfter`; set `timeout` for a longer step, below `stallAfter` |
+
 ## [Members bring friends with a ticket of their own, and the waitlist records the campaign](https://nuxt-backend.dev/docs/ship/releases/upgrade#members-bring-friends-with-a-ticket-of-their-own-and-the-waitlist-records-the-campaign)
 
 | Was | Now | Change | Note |

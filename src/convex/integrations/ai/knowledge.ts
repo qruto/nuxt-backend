@@ -22,7 +22,7 @@ import type { MeteredUsage, RunCtx } from './config.js'
 import type { AiContext } from './context.js'
 import { type AiEmbeddingModel, embeddingModelId, embeddingReachable, meteredEmbeddingModel, requireEmbeddingModel } from './embeddings.js'
 import type { AiMetering } from './metering.js'
-import { type ModelCall, modelRefusal } from './models.js'
+import { type ModelCall, modelRefusal, refusalRouting } from './models.js'
 import { backendError } from '../../errors.js'
 import { logBackend } from '../../log.js'
 
@@ -258,7 +258,7 @@ export function createKnowledge(context: AiContext, metering: AiMetering, ragCom
     }
 
     const requireReachable = () => {
-      if (!embeddingReachable(definition.model, routing)) throw modelRefusal({ id: modelId, ...routing })
+      if (!embeddingReachable(definition.model, routing)) throw modelRefusal(refusalRouting(modelId, routing))
     }
 
     /** The caller's billing entity: a member's, for reading; one who acts in person, for writing. */

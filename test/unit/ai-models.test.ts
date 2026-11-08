@@ -6,9 +6,10 @@ import { MockLanguageModelV4 } from 'ai/test'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setupAi, type AiComponents } from '../../src/convex/integrations/ai'
 import type { Billing, SpendReservation } from '../../src/convex/integrations/billing'
-import { convexGatewayPossible, failedRun, modelRefusal, modelStatusOf, reportedUsd, routeModel, routingOf, TEST_EMBEDDING_MODELS, TEST_MODELS, type ModelCall } from '../../src/convex/integrations/ai/models'
+import { convexGatewayPossible, failedRun, modelRefusal, modelStatusOf, refusalRouting, reportedUsd, routeModel, routingOf, TEST_EMBEDDING_MODELS, TEST_IMAGE_MODELS, TEST_MODELS, type ModelCall } from '../../src/convex/integrations/ai/models'
 import { embeddingReachable } from '../../src/convex/integrations/ai/embeddings'
 import { createModeration, DEFAULT_MODERATION_MODEL, VERCEL_MODERATION_MODEL } from '../../src/convex/integrations/ai/moderation'
+import { meteredImageModel, routeImage } from '../../src/convex/integrations/ai/images'
 import { priceModelCalls } from '../../src/convex/integrations/ai/pricing'
 import { TEST_IMAGE_PNG, TEST_MODEL_USD, TEST_UNSAFE_MARKER, testModel } from '../../src/convex/test-models'
 import { getBackendError } from '../../src/convex/errors'
@@ -1165,5 +1166,111 @@ describe('the default safety classifier, by the gateway that answers', () => {
     const { moderation, called } = check('vercel', DEFAULT_MODERATION_MODEL)
     expect(await moderation.moderate(ctx as never, { text: 'A fox' })).toEqual({ flagged: false, categories: [] })
     expect(called()).toEqual([DEFAULT_MODERATION_MODEL])
+  })
+})
+
+describe('a gateway order for some models (setupAi({ routes }))', () => {
+  const keyed = (url?: string) => ({ AI_GATEWAY_API_KEY: 'k', ...(url ? { CONVEX_CLOUD_URL: url } : {}) })
+  const routing = routingOf({
+    routes: {
+      'google/*': 'vercel',
+      'google/gemini-3-flash': 'convex',
+      'google/gemini-3-flash-*': ['vercel', 'convex'],
+      'openai/gpt-image-2': ['vercel', 'convex', 'vercel'],
+    } as never,
+  })
+
+  it('settles each route as an order: an id beats a pattern, and a longer pattern a shorter one', () => {
+    expect(routing).toEqual({
+      gateways: ['convex', 'vercel'],
+      routes: { 'google/*': ['vercel'], 'google/gemini-3-flash': ['convex'], 'google/gemini-3-flash-*': ['vercel', 'convex'], 'openai/gpt-image-2': ['vercel', 'convex'] },
+    })
+    const order = (id: string) => refusalRouting(id, routing).gateways
+    expect(order('google/gemini-3-flash')).toEqual(['convex'])
+    expect(order('google/gemini-3-flash-lite')).toEqual(['vercel', 'convex'])
+    expect(order('google/gemini-3.1-flash-image-preview')).toEqual(['vercel'])
+    expect(order('openai/gpt-image-2')).toEqual(['vercel', 'convex'])
+    // A model no route names takes setupAi({ gateway })'s order.
+    expect(order('openai/gpt-5-mini')).toEqual(['convex', 'vercel'])
+    expect(routingOf({ gateway: 'vercel', routes: {} })).toEqual({ gateways: ['vercel'] })
+  })
+
+  it('routes an id through its own order, over setupAi({ gateway })', () => {
+    const image = 'google/gemini-3.1-flash-image-preview'
+    expect(routeModel(image, keyed(CLOUD), routing)).toEqual({ route: 'gateway', id: image, apiKey: 'k' })
+    // A route to the Convex AI Gateway alone never reads the key.
+    expect(routeModel('google/gemini-3-flash', keyed(CLOUD), routing)).toEqual({ route: 'convex', id: 'google/gemini-3-flash', fallback: { route: 'missing', id: 'google/gemini-3-flash', gateways: ['convex'], routedBy: 'google/gemini-3-flash' } })
+    expect(routeModel('google/gemini-3-flash', keyed(SELF_HOSTED), routing)).toEqual({ route: 'missing', id: 'google/gemini-3-flash', gateways: ['convex'], routedBy: 'google/gemini-3-flash' })
+    expect(routeModel('openai/gpt-5-mini', keyed(CLOUD), routing)).toEqual({ route: 'convex', id: 'openai/gpt-5-mini', fallback: { route: 'gateway', id: 'openai/gpt-5-mini', apiKey: 'k' } })
+    expect(modelStatusOf(image, keyed(CLOUD), routing)).toEqual({ model: image, state: 'live', route: 'vercel-gateway' })
+    expect(modelStatusOf('google/gemini-3-flash', keyed(SELF_HOSTED), routing)).toEqual({ model: 'google/gemini-3-flash', state: 'missing', route: null })
+    // The refusal names the order the id went through.
+    expect(String(modelRefusal(refusalRouting('google/gemini-3-flash', routing)).message)).toMatch(/setupAi\(\{ routes: \{ 'google\/gemini-3-flash': 'convex' \} \}\) names no other gateway: .* add 'vercel' to its route in `routes`/)
+  })
+
+  it('routes an image model through the same resolver, the test\'s mock last', () => {
+    const id = 'openai/gpt-image-2'
+    expect(routeImage(id, routing, keyed(CLOUD))).toEqual({ route: 'gateway', id, apiKey: 'k' })
+    expect(routeImage(id, routing, { CONVEX_CLOUD_URL: CLOUD })).toEqual({ route: 'convex', id, fallback: { route: 'missing', id, gateways: ['vercel', 'convex'], routedBy: id } })
+    const globals = globalThis as Record<symbol, unknown>
+    const previous = globals[TEST_IMAGE_MODELS]
+    globals[TEST_IMAGE_MODELS] = (model: string) => ({ modelId: model })
+    try {
+      expect(routeImage(id, routing, {})).toMatchObject({ route: 'own', id, double: true })
+    }
+    finally {
+      globals[TEST_IMAGE_MODELS] = previous
+    }
+  })
+
+  it('refuses a route it cannot follow where setupAi is called, as a TypeError', () => {
+    const refused = (routes: unknown) => () => setupAi(components, { billing: makeBilling(), routes: routes as never })
+    expect(refused({ gemini: 'vercel' })).toThrow(TypeError)
+    expect(refused({ gemini: 'vercel' })).toThrow(/'gemini' is no provider\/model id or pattern ending in \*/)
+    expect(refused({ 'google/*': 'openrouter' })).toThrow(/setupAi\(\{ routes: \{ 'google\/\*' \} \}\): 'openrouter' is no gateway; use 'convex' or 'vercel'/)
+    expect(refused({ 'google/*': [] })).toThrow(/setupAi\(\{ routes: \{ 'google\/\*' \} \}\): name at least one gateway/)
+    expect(refused({ 'google/*': 'vercel-gateway' })).toThrow(TypeError)
+    expect(refused(['google/*'])).toThrow(/map model ids or `provider\/\*` patterns/)
+  })
+
+  it('refuses a pinned region when a route leaves out the Vercel AI Gateway, and narrows every route to it otherwise', () => {
+    expect(() => setupAi(components, { billing: makeBilling(), inferenceRegion: 'eu', routes: { 'google/*': 'convex' } })).toThrow(/the route for 'google\/\*' does not name 'vercel'/)
+    expect(routingOf({ inferenceRegion: 'eu', routes: { 'google/*': ['convex', 'vercel'] } })).toEqual({ gateways: ['vercel'], region: 'eu' })
+  })
+})
+
+describe('an image edit (ctx.image() with input images or a mask)', () => {
+  const ID = 'openai/gpt-image-2'
+  const edit = { prompt: 'Make the sky blue', n: 1, files: [{ type: 'file', mediaType: 'image/png', data: TEST_IMAGE_PNG }], size: undefined, aspectRatio: undefined, seed: undefined, providerOptions: {} }
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+    convexGateway.token.mockReset().mockRejectedValue(new Error('AiGatewayUnavailable: this deployment cannot use the AI Gateway'))
+    convexGateway.models.length = 0
+  })
+
+  it('goes through the Vercel AI Gateway under the default order, which the Convex one cannot serve', async () => {
+    vi.stubEnv('CONVEX_CLOUD_URL', CLOUD)
+    vi.stubEnv('AI_GATEWAY_API_KEY', 'k')
+    convexGateway.token.mockResolvedValue('deployment-jwt')
+    const fetch = vi.fn(async () => Response.json({ images: [Buffer.from(TEST_IMAGE_PNG).toString('base64')], warnings: [], providerMetadata: { gateway: { cost: '0.04' } } }))
+    vi.stubGlobal('fetch', fetch)
+    const calls: ModelCall[] = []
+    const result = await meteredImageModel(ID, calls, { routing: routingOf({}) }).doGenerate(edit as never)
+    expect(result.images).toHaveLength(1)
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(convexGateway.token).not.toHaveBeenCalled()
+    expect(calls).toEqual([expect.objectContaining({ model: ID, kind: 'image', state: 'finished', usd: 0.04 })])
+  })
+
+  it('is refused before any call where the order names no Vercel AI Gateway, naming the route to add', async () => {
+    vi.stubEnv('CONVEX_CLOUD_URL', CLOUD)
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+    const calls: ModelCall[] = []
+    await expect(meteredImageModel(ID, calls, { routing: routingOf({ gateway: 'convex' }) }).doGenerate(edit as never)).rejects.toThrow(`setupAi({ routes: { '${ID}': 'vercel' } })`)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(calls).toEqual([expect.objectContaining({ model: ID, state: 'refused' })])
   })
 })
