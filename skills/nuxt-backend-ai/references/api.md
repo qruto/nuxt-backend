@@ -32,12 +32,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `setupAi()` | Configure the AI rails over billing + rate limiting + streaming. |
 | `arachnidShield()` | Project Arachnid Shield (the Canadian Centre for Child Protection): a match of an image's hashes against known child sexual abuse material, free once your organization is vetted. |
 | `azureContentSafety()` | Azure AI Content Safety, on your own Azure resource: text and images, in the region you created it in (processing stays there, and inputs are neither stored nor trained on). |
-| `googleContentSafety()` | Google Cloud's content safety (Vision SafeSearch). |
-| `hive()` | Hive (Deploy since 26 Oct 2026; an annual contract). |
 | `openaiModeration()` | OpenAI's moderation endpoint (`omni-moderation-latest`), free with an OpenAI API key: text and images. |
-| `photodna()` | Microsoft PhotoDNA, a known-abuse hash match. |
-| `rekognition()` | Amazon Rekognition's content moderation. |
-| `sightengine()` | Sightengine. |
 | `DEFAULT_THRESHOLDS` | The score at or above which a category flags the content. |
 | `MODERATION_CATEGORIES` | Every category, in the order a statement of reasons lists them. |
 | `defineJobQueue()` | Declare the app's generation queue, once, in `backend/jobs.ts`: kinds of jobs (`jobs.define`) run their steps (`jobs.step`) in a fair line with tiers from plan features, each model under a limit that adapts to `429`s, credits held while a job waits, charged when it starts and refunded when it fails, and each job's cost reported to the billing provider. |

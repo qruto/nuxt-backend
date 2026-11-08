@@ -1184,6 +1184,7 @@ What a provider is asked to read.
 | ------ | ------ | ------ | ------ |
 | <a id="text-3"></a> `text?` | `string` | **`Experimental`** | [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts) |
 | <a id="images"></a> `images` | [`ModerationImage`](#moderationimage)[] | **`Experimental`** | [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts) |
+| <a id="stage"></a> `stage?` | `string` | **`Experimental`** Where the content is checked (`upload`, `output`…), for a refusal that names it. | [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts) |
 
 ***
 
@@ -1202,6 +1203,7 @@ A provider that scores content in the shared categories.
 | <a id="kind-3"></a> `kind` | `readonly` | `"classifier"` | **`Experimental`** | [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts) |
 | <a id="id-6"></a> `id` | `readonly` | `string` | **`Experimental`** Its id, as a decision records it. | [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts) |
 | <a id="reads"></a> `reads` | `readonly` | readonly (`"text"` \| `"image"`)[] | **`Experimental`** What it reads. | [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts) |
+| <a id="imagecategories"></a> `imageCategories?` | `readonly` | readonly [`ModerationCategory`](#moderationcategory)[] | **`Experimental`** The categories it judges in an image. One it leaves out reads as not judged; without `minors_sexual` here, `setupAi` asks the classifier about the images for it, and has `block` cover `sexual`. | [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts) |
 | <a id="env"></a> `env` | `readonly` | readonly `string`[] | **`Experimental`** The deployment env names it needs: what doctor checks. | [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts) |
 | <a id="region"></a> `region?` | `readonly` | `string` | **`Experimental`** Where it processes content, as the app declares it: named in the record and checked by doctor. | [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts) |
 | <a id="check"></a> `check` | `public` | (`input`, `env`) => `Promise`\<[`ProviderReading`](#providerreading)\> | **`Experimental`** Read the content, or refuse `unavailable` when the provider cannot. | [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts) |
@@ -1340,7 +1342,7 @@ What a check was about, for the flag it records: who the content came from, and 
 | <a id="userid-5"></a> `userId?` | `string` | **`Experimental`** The account the content came from. Default: who is signed in. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 | <a id="owner-2"></a> `owner?` | `string` | **`Experimental`** The billing entity it was checked for: a workspace, or the account under `billTo: 'user'`. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 | <a id="subject"></a> `subject?` | `string` | **`Experimental`** Your id of what was checked: a document, an upload, a job. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
-| <a id="stage"></a> `stage?` | `string` | **`Experimental`** Where it was checked, in your words: `'title'`, `'upload'`, `'output'`. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="stage-1"></a> `stage?` | `string` | **`Experimental`** Where it was checked, in your words: `'title'`, `'upload'`, `'output'`. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 
 ***
 
@@ -1363,7 +1365,7 @@ A flagged check as the Moderation tab lists it (`listModerationFlags`).
 | <a id="userid-6"></a> `userId?` | `string` | **`Experimental`** The account the content came from. Default: who is signed in. | [`ModerationSubject`](#moderationsubject).[`userId`](#userid-5) | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 | <a id="owner-3"></a> `owner?` | `string` | **`Experimental`** The billing entity it was checked for: a workspace, or the account under `billTo: 'user'`. | [`ModerationSubject`](#moderationsubject).[`owner`](#owner-2) | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 | <a id="subject-1"></a> `subject?` | `string` | **`Experimental`** Your id of what was checked: a document, an upload, a job. | [`ModerationSubject`](#moderationsubject).[`subject`](#subject) | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
-| <a id="stage-1"></a> `stage?` | `string` | **`Experimental`** Where it was checked, in your words: `'title'`, `'upload'`, `'output'`. | [`ModerationSubject`](#moderationsubject).[`stage`](#stage) | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="stage-2"></a> `stage?` | `string` | **`Experimental`** Where it was checked, in your words: `'title'`, `'upload'`, `'output'`. | [`ModerationSubject`](#moderationsubject).[`stage`](#stage-1) | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 | <a id="id-8"></a> `id` | `string` | **`Experimental`** | - | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 | <a id="at"></a> `at` | `number` | **`Experimental`** When it was checked, in epoch ms. | - | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 | <a id="categories-1"></a> `categories` | `string`[] | **`Experimental`** | - | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
@@ -1407,7 +1409,7 @@ to appeal, and to whom.
 | <a id="providers-2"></a> `providers` | `string`[] | **`Experimental`** | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 | <a id="policyversion-1"></a> `policyVersion?` | `string` | **`Experimental`** | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 | <a id="subject-2"></a> `subject?` | `string` | **`Experimental`** | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
-| <a id="stage-2"></a> `stage?` | `string` | **`Experimental`** | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="stage-3"></a> `stage?` | `string` | **`Experimental`** | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 
 ***
 
@@ -1861,7 +1863,6 @@ type ModerationCategory =
   | "sexual"
   | "suggestive"
   | "minors_sexual"
-  | "minor_present"
   | "violence"
   | "self_harm"
   | "hate"
@@ -2018,7 +2019,7 @@ Every category, in the order a statement of reasons lists them.
 ### DEFAULT\_THRESHOLDS
 
 ```ts
-const DEFAULT_THRESHOLDS: Readonly<Record<Exclude<ModerationCategory, "minor_present">, number>>;
+const DEFAULT_THRESHOLDS: Readonly<Record<ModerationCategory, number>>;
 ```
 
 Defined in: [src/convex/integrations/ai/moderation-taxonomy.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-taxonomy.ts)
@@ -2029,7 +2030,6 @@ The score at or above which a category flags the content. The defaults
 suit an app that takes no sexual content, as card processors ask of AI
 image generation: anything sexual flags, a suggestive image does not on
 its own, and anything about minors flags at the faintest signal.
-`minor_present` is a signal for the record and never flags alone.
 
 ## Functions
 
@@ -2129,7 +2129,8 @@ neither stored nor trained on). It scores Hate, Sexual, Violence and
 SelfHarm, artwork included, and is no check for child sexual abuse
 material: pair it with `knownAbuse`. Reads `CONTENT_SAFETY_ENDPOINT`
 and `CONTENT_SAFETY_KEY`. An image over 4 MB or 7200 px a side is
-refused `invalid_input` (reason `too_large`): downscale it first.
+refused `invalid_input` (reason `too_large`), naming the stage it was
+checked at: downscale it first, a model's output included.
 
 #### Parameters
 
@@ -2185,92 +2186,12 @@ keeps the image's SHA-256 as evidence, never the image. Reads
 
 Built against Shield's published API: `POST /v1/media/` with the raw
 bytes and basic auth, answering a `classification` of `no-known-match`,
-`csam` or `harmful-abusive-material`. Not yet checked against a live
-account.
+`csam` or `harmful-abusive-material`; any other answer, or none, refuses
+the content as unchecked. Not yet checked against a live account.
 
 #### Returns
 
 [`KnownAbuseProvider`](#knownabuseprovider)
-
-***
-
-### hive()
-
-```ts
-function hive(): ModerationProvider;
-```
-
-Defined in: [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts)
-
-**`Experimental`**
-
-#### Returns
-
-[`ModerationProvider`](#moderationprovider)
-
-***
-
-### photodna()
-
-```ts
-function photodna(): ModerationProvider;
-```
-
-Defined in: [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts)
-
-**`Experimental`**
-
-#### Returns
-
-[`ModerationProvider`](#moderationprovider)
-
-***
-
-### googleContentSafety()
-
-```ts
-function googleContentSafety(): ModerationProvider;
-```
-
-Defined in: [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts)
-
-**`Experimental`**
-
-#### Returns
-
-[`ModerationProvider`](#moderationprovider)
-
-***
-
-### rekognition()
-
-```ts
-function rekognition(): ModerationProvider;
-```
-
-Defined in: [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts)
-
-**`Experimental`**
-
-#### Returns
-
-[`ModerationProvider`](#moderationprovider)
-
-***
-
-### sightengine()
-
-```ts
-function sightengine(): ModerationProvider;
-```
-
-Defined in: [src/convex/integrations/ai/moderation-providers.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation-providers.ts)
-
-**`Experimental`**
-
-#### Returns
-
-[`ModerationProvider`](#moderationprovider)
 
 ***
 

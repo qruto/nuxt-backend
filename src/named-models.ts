@@ -269,7 +269,7 @@ export function chosenRoutes(rootDir: string): Record<string, NamedGateway[]> | 
 
 /** A moderation provider the backend names, and the Azure region it declares, when it does. */
 export interface NamedModerationProvider {
-  id: 'azure-content-safety' | 'openai-moderation' | 'arachnid-shield' | 'photodna'
+  id: 'azure-content-safety' | 'openai-moderation' | 'arachnid-shield'
   /** The env names it needs on the deployment. */
   env: readonly string[]
   /** `azureContentSafety({ region })` as a literal. */
@@ -281,7 +281,6 @@ const MODERATION_FACTORIES: ReadonlyArray<[RegExp, NamedModerationProvider]> = [
   [/\bazureContentSafety\s*\(/, { id: 'azure-content-safety', env: ['CONTENT_SAFETY_ENDPOINT', 'CONTENT_SAFETY_KEY'] }],
   [/\bopenaiModeration\s*\(/, { id: 'openai-moderation', env: ['SECOND_OPINION_KEY'] }],
   [/\barachnidShield\s*\(/, { id: 'arachnid-shield', env: ['KNOWN_ABUSE_KEY'] }],
-  [/\bphotodna\s*\(/, { id: 'photodna', env: ['KNOWN_ABUSE_KEY'] }],
 ]
 
 /** `region: '…'` in an `azureContentSafety({ … })` call. */

@@ -267,6 +267,21 @@ function policyLists(config: ModerationConfig | undefined): { blockEntries: stri
   return { blockEntries, escalate }
 }
 
+/**
+ * Refuse image providers that leave child sexual content unjudged under a
+ * policy that lets sexual content through. No image provider the package
+ * ships judges `minors_sexual` in an image, and a hash list knows only
+ * material seen before: new material is then caught as `sexual`, or by the
+ * classifier where it reads images, so `block` must cover `sexual`.
+ */
+function requireMinorsCovered(config: ModerationConfig | undefined, blockEntries: readonly string[] | null): void {
+  const images = config?.images ?? []
+  if (images.length === 0 || blockEntries === null) return
+  if (images.some(provider => provider.imageCategories?.includes('minors_sexual'))) return
+  if (covers(blockEntries, 'sexual')) return
+  throw new TypeError('[nuxt-backend] setupAi({ moderation }): no image provider judges `minors_sexual` in an image, so new child sexual abuse material is caught as `sexual`: add `sexual` (or `S12`) to `block`, or make it \'all\'.')
+}
+
 /** Refuse a moderation config `setupAi` cannot keep, where it is set: its thresholds, classifier and policy version. */
 function requireModerationConfig(config: ModerationConfig | undefined): void {
   requireThresholds(config?.thresholds)
@@ -287,6 +302,8 @@ export function moderationPolicy(config: ModerationConfig | undefined): { judge:
   requireModerationConfig(config)
   const { blockEntries, escalate } = policyLists(config)
   const days = flagDays(config?.log, escalate.length > 0)
+  requireMinorsCovered(config, blockEntries)
+  if (days === false && config?.knownAbuse) throw new TypeError('[nuxt-backend] setupAi({ moderation }): `knownAbuse` needs the flags `log` keeps, so a match leaves its hash on record: drop `log: false`, or `knownAbuse`.')
   const blocking = blockEntries ? new Set(blockEntries) : null
   const escalating = new Set(escalate)
   // A Llama Guard code beyond S14 is refused, whatever the policy names: it was never weighed.
@@ -439,6 +456,18 @@ async function defaultClassifier(routing: ModelRouting): Promise<Classifier> {
   if (fallback.route === 'gateway') return vercelClassifier(fallback.apiKey)
   if (fallback.route === 'missing') throw modelRefusal(fallback, convex.unavailable)
   return { id: DEFAULT_MODERATION_MODEL, route: fallback }
+}
+
+/**
+ * Whether a decision's statement of reasons is kept from the person the
+ * content came from: a known-abuse match, and a flag on legal hold for
+ * suspected child sexual abuse material (`minors_sexual`, `S4`). Telling
+ * the uploader can warn them off an investigation; an administrator still
+ * reads it.
+ */
+export function withheldFromUploader(flag: Pick<ModerationFlag, 'playbook' | 'legalHold' | 'categories' | 'codes'>): boolean {
+  if (flag.playbook === 'csam') return true
+  return flag.legalHold === true && (flag.categories.includes('minors_sexual') || (flag.codes ?? []).some(code => llamaGuardCode(code) === 'S4'))
 }
 
 /** A decision as its record keeps it: who and what it was about, what was found, and how it was reached. */
@@ -600,11 +629,11 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
     // 1. A known-abuse match first, before any other provider sees the bytes.
     const match = knownAbuse ? await matchKnownAbuse(knownAbuse, images) : undefined
     if (match) return { ...match, decision: { model: knownAbuse!.id, thresholds, hash: match.hash } }
-    const { readings, unsafe, model } = await readingsOf(ctx, text, images, thresholds, chosen)
+    const { readings, unsafe, model } = await readingsOf(ctx, text, images, thresholds, chosen, stage)
     const scores = combineReadings(readings)
     const categories = flaggedCategories(scores, thresholds)
     const codes = [...new Set(readings.flatMap(reading => reading.codes))]
-    return { flagged: categories.length > 0 || unsafe, categories, codes, scores, providers: readings.map(reading => reading.provider), decision: { model, thresholds } }
+    return { flagged: categories.length > 0 || unsafe, categories, codes, scores, providers: [...new Set(readings.map(reading => reading.provider))], decision: { model, thresholds } }
   }
 
   /**
@@ -613,16 +642,33 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
    * when the app names none; and a second opinion only where a score sits
    * just under its threshold, which can raise a score, never lower one.
    */
-  const readingsOf = async (ctx: ModerationCtx, text: string, images: ModerationImage[], thresholds: Record<string, number>, chosen: Classifier | undefined): Promise<{ readings: ProviderReading[], unsafe: boolean, model: string }> => {
+  const readingsOf = async (ctx: ModerationCtx, text: string, images: ModerationImage[], thresholds: Record<string, number>, chosen: Classifier | undefined, stage: string | undefined): Promise<{ readings: ProviderReading[], unsafe: boolean, model: string }> => {
     const readings: ProviderReading[] = []
     const classifierImages = imageProviders.length > 0 ? [] : images
     const read = text || classifierImages.length > 0 ? await askClassifier(ctx, text, classifierImages, chosen) : undefined
     if (read) readings.push(classifierReading(read.model, read.codes))
-    if (images.length > 0) {
-      for (const provider of imageProviders) readings.push(await provider.check({ images }, runtimeEnv()))
-      if (secondOpinion && inGrayBand(combineReadings(readings), thresholds)) readings.push(await secondOpinion.check({ images }, runtimeEnv()))
+    if (images.length > 0 && imageProviders.length > 0) {
+      for (const provider of imageProviders) readings.push(await provider.check({ images, stage }, runtimeEnv()))
+      const minors = await minorsReading(ctx, images)
+      if (minors) readings.push(minors)
+      if (secondOpinion && inGrayBand(combineReadings(readings), thresholds)) readings.push(await secondOpinion.check({ images, stage }, runtimeEnv()))
     }
     return { readings, unsafe: read?.flagged ?? false, model: read?.model ?? modelIdOf(named) ?? DEFAULT_MODERATION_MODEL }
+  }
+
+  /**
+   * The classifier's reading of the images for `minors_sexual` alone, when
+   * no image provider judges it and the classifier reads images (Llama
+   * Guard 4 does): so a sexual image of a minor no hash list knows still
+   * escalates as `S4`. Its other codes are left to the image providers.
+   */
+  const minorsReading = async (ctx: ModerationCtx, images: readonly ModerationImage[]): Promise<ProviderReading | undefined> => {
+    if (imageProviders.some(provider => provider.imageCategories?.includes('minors_sexual'))) return undefined
+    const chosen = await classifier()
+    if (!readsImages(named ?? chosen.id)) return undefined
+    const read = await askClassifier(ctx, '', images, chosen)
+    const reading = classifierReading(read.model, read.codes)
+    return { provider: read.model, scores: { minors_sexual: reading.scores.minors_sexual ?? { score: 0, supported: true } }, codes: read.codes.filter(code => llamaGuardCategory(code) === 'minors_sexual') }
   }
 
   /** The classifier, once it is known to read images: a text-only one is refused, as passing images unread would call them safe. */

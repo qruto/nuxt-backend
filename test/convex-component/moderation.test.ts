@@ -7,7 +7,7 @@ import { MockLanguageModelV4 } from 'ai/test'
 import backendTest, { asUser, defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { backendError, getBackendError } from '../../src/convex/errors'
-import { arachnidShield, azureContentSafety, defineJobQueue, openaiModeration, photodna, setupAi } from '../../src/convex/integrations/ai'
+import { arachnidShield, azureContentSafety, defineJobQueue, openaiModeration, setupAi } from '../../src/convex/integrations/ai'
 import { TEST_MODERATION_PROVIDERS } from '../../src/convex/integrations/ai/moderation-providers'
 import { TEST_FAINT, TEST_KNOWN_ABUSE, TEST_UNSAFE } from '../../src/convex/test-moderation'
 import { MODERATION_TIMEOUT_MS, readVerdict } from '../../src/convex/integrations/ai/moderation'
@@ -152,9 +152,6 @@ const checkProvided = actionGeneric({
   args: { images: v.array(v.string()), stage: v.optional(v.string()) },
   handler: async (ctx, { images, stage }) => provided.moderate(ctx, { images }, { subject: 'upload-1', stage: stage ?? 'upload' }),
 })
-/** A provider not built yet, named in config: refused when asked. */
-const unbuilt = setupAi(components as never, { billing, rateLimiter, moderation: { model: classifier, images: [photodna()] } })
-const checkUnbuilt = actionGeneric({ args: { images: v.array(v.string()) }, handler: async (ctx, { images }) => unbuilt.moderate(ctx, { images }) })
 /** An upload whose bytes carry a marker the providers' fakes read, after a valid PNG; `wide` declares a width Azure refuses. */
 const uploadMarked = mutationGeneric({
   args: { marker: v.string(), wide: v.optional(v.boolean()) },
@@ -242,7 +239,7 @@ const savePanel = mutationGeneric({
 const testApp = defineBackendTestApp(appSchema, {
   './_generated/api.js': () => Promise.resolve({}),
   './jobs.js': () => Promise.resolve(jobs.api),
-  './safety.js': () => Promise.resolve({ check, checkTextOnly, checkById, checkAlone, caption, upload, readBytes, checkPoliced, checkUnlogged, checkProvided, checkUnbuilt, uploadMarked }),
+  './safety.js': () => Promise.resolve({ check, checkTextOnly, checkById, checkAlone, caption, upload, readBytes, checkPoliced, checkUnlogged, checkProvided, uploadMarked }),
   './ai.js': () => Promise.resolve(policed.api),
   './strips.js': () => Promise.resolve({ render, drawPanel, create, savePanel }),
 })
@@ -250,7 +247,6 @@ type App = ReturnType<typeof testApp>
 
 const ref = {
   checkProvided: makeFunctionReference<'action', { images: string[], stage?: string }, Record<string, unknown>>('safety:checkProvided'),
-  checkUnbuilt: makeFunctionReference<'action', { images: string[] }, Record<string, unknown>>('safety:checkUnbuilt'),
   uploadMarked: makeFunctionReference<'mutation', { marker: string, wide?: boolean }, string>('safety:uploadMarked'),
   getModerationStatement: makeFunctionReference<'query', { flagId: string }, Record<string, unknown> | null>('ai:getModerationStatement'),
   check: makeFunctionReference<'action', { text?: string, images?: string[], require?: boolean }, { flagged: boolean, categories: string[] } | null>('safety:check'),
@@ -585,6 +581,14 @@ describe('the moderation policy', () => {
     expect(setup({ block: ['S4'], escalate: ['minors_sexual'] })).not.toThrow()
     expect(setup({ block: ['sexual'], escalate: ['minors_sexual'] })).toThrow(/`escalate` names minors_sexual/)
     expect(setup({ escalate: ['S4'], log: false })).toThrow(/`escalate` needs the flags `log` keeps/)
+    // A known-abuse match leaves its hash on record.
+    expect(setup({ knownAbuse: arachnidShield(), log: false })).toThrow(/`knownAbuse` needs the flags `log` keeps/)
+    // No image provider judges minors in an image: new abuse material is caught as sexual, which block must cover.
+    const azure = azureContentSafety({ region: 'francecentral' })
+    expect(setup({ images: [azure], block: ['S10', 'hate'] })).toThrow(/no image provider judges `minors_sexual`/)
+    expect(setup({ images: [azure], block: ['S10', 'S12'] })).not.toThrow()
+    expect(setup({ images: [azure], block: ['sexual'] })).not.toThrow()
+    expect(setup({ images: [azure] })).not.toThrow()
     expect(setup({ log: { days: 0 } })).toThrow(/log.days/)
     expect(setup({ log: { days: 1.5 } })).toThrow(/log.days/)
   })
@@ -612,10 +616,25 @@ describe('moderation providers', () => {
     const t = appUnderTest()
     const ada = await asUser(t)
     const photo = await ada.mutation(ref.uploadMarked, { marker: '' })
-    expect(await ada.action(ref.checkProvided, { images: [photo] })).toMatchObject({ flagged: false, blocked: false, categories: [], providers: ['azure-content-safety'] })
+    expect(await ada.action(ref.checkProvided, { images: [photo] })).toMatchObject({ flagged: false, blocked: false, categories: [], providers: ['azure-content-safety', 'meta-llama/llama-guard-4-12b'] })
     expect(asked).toEqual(['arachnid-shield', 'azure-content-safety'])
-    // The Llama Guard stand-in never saw the image: the image provider read it.
-    expect(shown).toEqual([])
+    // Azure judges no minors in an image, so the Llama Guard stand-in reads it for that alone.
+    expect(shown).toEqual([{ text: 'An image to check.', media: ['image/png'] }])
+  })
+
+  test('catches a sexual image of a minor no hash list knows through the classifier, holds it, and withholds its statement from the uploader', async () => {
+    const t = appUnderTest()
+    const ada = await asUser(t)
+    const admin = await asUser(t, { role: 'admin' })
+    const photo = await ada.mutation(ref.uploadMarked, { marker: '' })
+    answer = 'unsafe\nS4, S12'
+    const verdict = await ada.action(ref.checkProvided, { images: [photo] })
+    // Only its minors reading is kept: the image provider judges the rest.
+    expect(verdict).toMatchObject({ flagged: true, blocked: true, categories: ['minors_sexual'], codes: ['S4'] })
+    const [row] = await flagRows(t)
+    expect(row).toMatchObject({ categories: ['minors_sexual'], legalHold: true })
+    expect(await ada.query(ref.getModerationStatement, { flagId: String(row!._id) })).toBeNull()
+    expect(await admin.query(ref.getModerationStatement, { flagId: String(row!._id) })).toMatchObject({ decision: 'blocked', categories: ['minors_sexual'] })
   })
 
   test('blocks sexual content the image provider finds, and records the decision with its scores, thresholds and policy', async () => {
@@ -623,10 +642,10 @@ describe('moderation providers', () => {
     const ada = await asUser(t)
     const photo = await ada.mutation(ref.uploadMarked, { marker: TEST_UNSAFE('sexual') })
     const verdict = await ada.action(ref.checkProvided, { images: [photo] })
-    expect(verdict).toMatchObject({ flagged: true, blocked: true, categories: ['sexual'], codes: ['Sexual:6'], providers: ['azure-content-safety'] })
-    expect(verdict.scores).toMatchObject({ sexual: { score: 1, supported: true }, minors_sexual: { supported: false } })
+    expect(verdict).toMatchObject({ flagged: true, blocked: true, categories: ['sexual'], codes: ['Sexual:6'], providers: ['azure-content-safety', 'meta-llama/llama-guard-4-12b'] })
+    expect(verdict.scores).toMatchObject({ sexual: { score: 1, supported: true }, minors_sexual: { score: 0, supported: true } })
     const [row] = await flagRows(t)
-    expect(row).toMatchObject({ categories: ['sexual'], providers: ['azure-content-safety'], policyVersion: '2026-11-08', automated: true, thresholds: { sexual: 0.3, violence: 0.45 } })
+    expect(row).toMatchObject({ categories: ['sexual'], providers: ['azure-content-safety', 'meta-llama/llama-guard-4-12b'], policyVersion: '2026-11-08', automated: true, thresholds: { sexual: 0.3, violence: 0.45 } })
   })
 
   test('blocks a known-abuse match before any other provider sees the image, and keeps its hash, never the image', async () => {
@@ -649,7 +668,7 @@ describe('moderation providers', () => {
     const ada = await asUser(t)
     // Azure's lowest violence (2 of 6) sits in the gray band under this app's 0.45.
     const faint = await ada.mutation(ref.uploadMarked, { marker: TEST_FAINT('violence') })
-    expect(await ada.action(ref.checkProvided, { images: [faint] })).toMatchObject({ flagged: false, providers: ['azure-content-safety', 'openai-moderation'] })
+    expect(await ada.action(ref.checkProvided, { images: [faint] })).toMatchObject({ flagged: false, providers: ['azure-content-safety', 'meta-llama/llama-guard-4-12b', 'openai-moderation'] })
     expect(asked).toEqual(['arachnid-shield', 'azure-content-safety', 'openai-moderation'])
     asked.length = 0
     const clean = await ada.mutation(ref.uploadMarked, { marker: '' })
@@ -681,15 +700,8 @@ describe('moderation providers', () => {
     await ada.action(ref.checkProvided, { images: [photo] })
     const [row] = await flagRows(t)
     const flagId = String(row!._id)
-    expect(await ada.query(ref.getModerationStatement, { flagId })).toEqual({ id: flagId, at: expect.any(Number), decision: 'blocked', automated: true, categories: ['violence'], providers: ['azure-content-safety'], policyVersion: '2026-11-08', subject: 'upload-1', stage: 'upload' })
+    expect(await ada.query(ref.getModerationStatement, { flagId })).toEqual({ id: flagId, at: expect.any(Number), decision: 'blocked', automated: true, categories: ['violence'], providers: ['azure-content-safety', 'meta-llama/llama-guard-4-12b'], policyVersion: '2026-11-08', subject: 'upload-1', stage: 'upload' })
     expect(await stranger.query(ref.getModerationStatement, { flagId })).toBeNull()
     expect(await t.query(ref.getModerationStatement, { flagId })).toBeNull()
-  })
-
-  test('refuses a provider that is planned, not built', async () => {
-    const t = appUnderTest()
-    const ada = await asUser(t)
-    const photo = await ada.mutation(ref.uploadMarked, { marker: '' })
-    expect(await refusal(ada.action(ref.checkUnbuilt, { images: [photo] }))).toMatchObject({ code: 'unavailable', data: { reason: 'not_configured' } })
   })
 })

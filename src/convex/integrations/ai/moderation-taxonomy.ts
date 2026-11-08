@@ -11,7 +11,6 @@ export type ModerationCategory
   = | 'sexual'
     | 'suggestive'
     | 'minors_sexual'
-    | 'minor_present'
     | 'violence'
     | 'self_harm'
     | 'hate'
@@ -30,7 +29,6 @@ export const MODERATION_CATEGORIES: readonly ModerationCategory[] = [
   'hate',
   'weapons',
   'drugs',
-  'minor_present',
 ]
 
 /** One category's reading: how strongly it was found, from 0 to 1, and whether it could be judged at all. */
@@ -53,9 +51,8 @@ export interface ProviderReading {
  * suit an app that takes no sexual content, as card processors ask of AI
  * image generation: anything sexual flags, a suggestive image does not on
  * its own, and anything about minors flags at the faintest signal.
- * `minor_present` is a signal for the record and never flags alone.
  */
-export const DEFAULT_THRESHOLDS: Readonly<Record<Exclude<ModerationCategory, 'minor_present'>, number>> = {
+export const DEFAULT_THRESHOLDS: Readonly<Record<ModerationCategory, number>> = {
   csam_match: 0.01,
   minors_sexual: 0.05,
   sexual: 0.3,
@@ -67,22 +64,27 @@ export const DEFAULT_THRESHOLDS: Readonly<Record<Exclude<ModerationCategory, 'mi
   drugs: 0.7,
 }
 
-/** The categories that read as sexual: on a prompt or a model's output, any signal of them flags. */
+/** The categories that read as sexual: on a prompt or a model's output, any signal of them flags unless the app names its own threshold. */
 const SEXUAL: readonly ModerationCategory[] = ['sexual', 'suggestive', 'minors_sexual']
 
-/** The threshold every sexual category takes at a prompt or an output, where no hash list can help. */
+/** The threshold every sexual category takes by default at a prompt or an output, where no hash list can help. */
 export const STRICT_SEXUAL_THRESHOLD = 0.05
 
 /** How far below a threshold a score still asks for a second opinion. */
 export const GRAY_BAND = 0.15
 
-/** The thresholds one check runs on: the app's over the defaults, the sexual ones strict on a prompt or an output. */
+/**
+ * The thresholds one check runs on. On a prompt or an output the sexual
+ * categories default to the strict 0.05, and a threshold the app names
+ * wins over it, so an app that takes suggestive art can raise
+ * `suggestive`; `minors_sexual` never goes above 0.05 there.
+ */
 export function thresholdsFor(own: Partial<Record<ModerationCategory, number>> | undefined, stage: string | undefined): Record<string, number> {
-  const thresholds: Record<string, number> = { ...DEFAULT_THRESHOLDS, ...own }
-  delete thresholds.minor_present
-  if (stage === 'prompt' || stage === 'output') {
-    for (const category of SEXUAL) thresholds[category] = Math.min(thresholds[category] ?? STRICT_SEXUAL_THRESHOLD, STRICT_SEXUAL_THRESHOLD)
-  }
+  const strict = stage === 'prompt' || stage === 'output'
+  const thresholds: Record<string, number> = { ...DEFAULT_THRESHOLDS }
+  if (strict) for (const category of SEXUAL) thresholds[category] = STRICT_SEXUAL_THRESHOLD
+  Object.assign(thresholds, own)
+  if (strict) thresholds.minors_sexual = Math.min(thresholds.minors_sexual!, STRICT_SEXUAL_THRESHOLD)
   return thresholds
 }
 
@@ -93,8 +95,8 @@ export function requireThresholds(thresholds: unknown): void {
     throw new TypeError('[nuxt-backend] setupAi({ moderation }): `thresholds` maps categories, such as `sexual`, to a score from 0 to 1.')
   }
   for (const [category, value] of Object.entries(thresholds)) {
-    if (!MODERATION_CATEGORIES.includes(category as ModerationCategory) || category === 'minor_present') {
-      throw new TypeError(`[nuxt-backend] setupAi({ moderation }): '${category}' is no category a threshold takes; use one of ${MODERATION_CATEGORIES.filter(name => name !== 'minor_present').join(', ')}.`)
+    if (!MODERATION_CATEGORIES.includes(category as ModerationCategory)) {
+      throw new TypeError(`[nuxt-backend] setupAi({ moderation }): '${category}' is no category a threshold takes; use one of ${MODERATION_CATEGORIES.join(', ')}.`)
     }
     if (typeof value !== 'number' || !(value > 0 && value <= 1)) {
       throw new TypeError(`[nuxt-backend] setupAi({ moderation }): the threshold for '${category}' is a score above 0 and at most 1.`)
@@ -118,7 +120,7 @@ export function combineReadings(readings: readonly ProviderReading[]): Partial<R
   return combined
 }
 
-/** The categories whose score reaches its threshold. `minor_present` never flags alone. */
+/** The categories whose score reaches its threshold. */
 export function flaggedCategories(scores: Partial<Record<ModerationCategory, CategoryScore>>, thresholds: Record<string, number>): ModerationCategory[] {
   return MODERATION_CATEGORIES.filter((category) => {
     const reading = scores[category]
@@ -127,11 +129,12 @@ export function flaggedCategories(scores: Partial<Record<ModerationCategory, Cat
   })
 }
 
-/** Whether a score sits in the gray band below its threshold, where a second opinion is asked for. */
+/** Whether a score above 0 sits in the gray band below its threshold, where a second opinion is asked for. */
 export function inGrayBand(scores: Partial<Record<ModerationCategory, CategoryScore>>, thresholds: Record<string, number>): boolean {
   return Object.entries(scores).some(([category, reading]) => {
     const threshold = thresholds[category]
-    return reading?.supported === true && threshold !== undefined && reading.score < threshold && reading.score >= threshold - GRAY_BAND
+    // A score of 0 is nothing found, never just under a low threshold such as minors_sexual's 0.05.
+    return reading?.supported === true && threshold !== undefined && reading.score > 0 && reading.score < threshold && reading.score >= threshold - GRAY_BAND
   })
 }
 

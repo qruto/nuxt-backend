@@ -781,11 +781,16 @@ function moderationProvidersFinding(rootDir: string): PreflightFinding {
   const id = 'ai-moderation-providers'
   const providers = moderationProviders(rootDir)
   if (providers.length === 0) return finding(id, 'pass', 'The backend names no moderation provider: its safety classifier checks content alone.')
-  const knownAbuse = providers.some(provider => provider.id === 'arachnid-shield' || provider.id === 'photodna')
+  const knownAbuse = providers.some(provider => provider.id === 'arachnid-shield')
   const problems = [unmatchedImages(rootDir, knownAbuse), regionOutsideEu(rootDir, providers)].filter(problem => problem !== undefined)
-  if (problems.length === 0) return finding(id, 'pass', `The backend names ${listed(providers.map(provider => provider.id))}${knownAbuse ? ', a known-abuse match first' : ''}.`)
-  return finding(id, 'warn', problems.map(problem => problem.message).join(' '), problems.map(problem => problem.fix).join(' '))
+  // No image provider the package ships judges minors in an image.
+  const minors = checksImages(rootDir) ? ` ${MINORS_NOTE}` : ''
+  if (problems.length === 0) return finding(id, 'pass', `The backend names ${listed(providers.map(provider => provider.id))}${knownAbuse ? ', a known-abuse match first' : ''}.${minors}`)
+  return finding(id, 'warn', `${problems.map(problem => problem.message).join(' ')}${minors}`, problems.map(problem => problem.fix).join(' '))
 }
+
+/** Where new abuse material in an image is caught, when no image provider judges minors: the classifier, or `sexual`. */
+const MINORS_NOTE = 'No image provider judges minors in an image: child sexual abuse material no hash list knows is caught as `S4` by a classifier that reads images (Llama Guard 4), and otherwise only as `sexual`, which `block` covers.'
 
 /** What one check of the moderation providers found wrong, and its fix. */
 interface ProviderProblem { message: string, fix: string }

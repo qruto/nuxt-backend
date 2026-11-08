@@ -4,7 +4,7 @@ import { DEFAULT_ADMIN_ROLES } from '../../constants.js'
 import { logBackend } from '../../log.js'
 import { type AdapterFindOne, type Administrators, createAccessReads, isAdministratorNow } from '../access.js'
 import type { AiApi, AiComponents, AiCosts } from './config.js'
-import type { ModerationFlag, ModerationStatement } from './moderation.js'
+import { type ModerationFlag, type ModerationStatement, withheldFromUploader } from './moderation.js'
 import type { ModelCall } from './models.js'
 
 // What AI costs per person: every run's model calls are recorded in the
@@ -99,8 +99,8 @@ export function costsApi(components: AiComponents): AiApi {
       if (!flag) return null
       reads ??= createAccessReads(components.backend.adapter.findOne as AdapterFindOne)
       const administrator = await isAdministratorNow(ctx as never, reads, administrators, 'getModerationStatement')
-      // A known-abuse match goes to the authorities, never back to who uploaded it.
-      if (!administrator && (flag.userId !== identity.subject || flag.playbook === 'csam')) return null
+      // Suspected child sexual abuse material goes to the authorities, never back to who uploaded it.
+      if (!administrator && (flag.userId !== identity.subject || withheldFromUploader(flag))) return null
       return statementOf(flag)
     },
   })

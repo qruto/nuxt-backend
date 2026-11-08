@@ -23,6 +23,8 @@ export interface ModerationImage {
 export interface ProviderInput {
   text?: string
   images: ModerationImage[]
+  /** Where the content is checked (`upload`, `output`…), for a refusal that names it. */
+  stage?: string
 }
 
 /** The deployment's env, as a provider reads its keys: `process.env` on a deployment. */
@@ -37,6 +39,12 @@ export interface ModerationProvider {
   readonly id: string
   /** What it reads. */
   readonly reads: readonly ('text' | 'image')[]
+  /**
+   * The categories it judges in an image. One it leaves out reads as not
+   * judged; without `minors_sexual` here, `setupAi` asks the classifier
+   * about the images for it, and has `block` cover `sexual`.
+   */
+  readonly imageCategories?: readonly ModerationCategory[]
   /** The deployment env names it needs: what doctor checks. */
   readonly env: readonly string[]
   /** Where it processes content, as the app declares it: named in the record and checked by doctor. */
@@ -70,22 +78,42 @@ export interface ProviderRequest {
   body: unknown
 }
 
-/** Send a request to a provider, or to the fake `nuxt-backend/test` installed. Refuses the provider's error as `unavailable`. */
+/** A provider that did not answer, or answered nothing a check reads: the content is refused as unchecked, and may pass when tried again. */
+export function providerRefused(provider: string, why: string): Error {
+  return backendError('unavailable', { service: 'ai', reason: 'provider_refused' }, `[nuxt-backend] The moderation provider ${provider} ${why}: the content is refused as unchecked.`)
+}
+
+/**
+ * Send a request to a provider, or to the fake `nuxt-backend/test`
+ * installed. Every way it can fail (a network error, the timeout, an error
+ * status, a body that is not JSON) is refused `unavailable` with reason
+ * `provider_refused`, never thrown as it is.
+ */
 async function send(provider: string, request: ProviderRequest): Promise<unknown> {
   const fake = (globalThis as Record<symbol, unknown>)[TEST_MODERATION_PROVIDERS]
   if (typeof fake === 'function') return (fake as (provider: string, request: ProviderRequest) => unknown)(provider, request)
   const raw = request.body instanceof Uint8Array
-  // fallow-ignore-next-line security-sink -- the URL is an adapter's literal, or Azure's built from CONTENT_SAFETY_ENDPOINT, which only the deployment's owner sets; no request input reaches it; verified 2026-11-08
-  const response = await fetch(request.url, {
-    method: 'POST',
-    headers: { ...(raw ? {} : { 'content-type': 'application/json' }), ...request.headers },
-    body: raw ? request.body as BodyInit : JSON.stringify(request.body),
-    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-  })
-  if (!response.ok) {
-    throw backendError('unavailable', { service: 'ai', reason: 'provider_refused' }, `[nuxt-backend] The moderation provider ${provider} answered ${response.status}: the content is refused as unchecked.`)
+  let response: Response
+  try {
+    // fallow-ignore-next-line security-sink -- the URL is an adapter's literal, or Azure's built from CONTENT_SAFETY_ENDPOINT, which only the deployment's owner sets; no request input reaches it; verified 2026-11-08
+    response = await fetch(request.url, {
+      method: 'POST',
+      headers: { ...(raw ? {} : { 'content-type': 'application/json' }), ...request.headers },
+      body: raw ? request.body as BodyInit : JSON.stringify(request.body),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+    })
   }
-  return await response.json()
+  catch (error) {
+    const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
+    throw providerRefused(provider, timedOut ? `did not answer within ${PROVIDER_TIMEOUT_MS / 1000} s` : `could not be reached (${error instanceof Error ? error.message : String(error)})`)
+  }
+  if (!response.ok) throw providerRefused(provider, `answered ${response.status}`)
+  try {
+    return await response.json()
+  }
+  catch {
+    throw providerRefused(provider, 'answered something other than JSON')
+  }
 }
 
 /** How long a check waits for a provider: past it, the content is refused as unchecked. */
@@ -145,15 +173,21 @@ export interface AzureContentSafetyOptions {
   region: string
 }
 
-/** Refuse an image Azure AI Content Safety would refuse: too large, too long a side, or too small. */
-function requireAzureImage(image: ModerationImage): void {
+/**
+ * Refuse an image Azure AI Content Safety would refuse: too large, too long
+ * a side, or too small. The refusal names the stage: at `output` the image
+ * is one a model made, which the app downscales before it checks it.
+ */
+function requireAzureImage(image: ModerationImage, stage: string | undefined): void {
   const size = imageSize(image.bytes)
+  const what = stage ? `The image checked at ${stage}` : 'The image'
+  const fix = stage === 'output' ? 'Downscale what the model made before you check it.' : 'Downscale it before you check it.'
   const tooLarge = image.bytes.length > AZURE_IMAGE_LIMITS.bytes || (size !== null && Math.max(size.width, size.height) > AZURE_IMAGE_LIMITS.side)
   if (tooLarge) {
-    throw backendError('invalid_input', { field: 'images', reason: 'too_large' }, `[nuxt-backend] The image is too large to check: Azure AI Content Safety reads up to 4 MB and ${AZURE_IMAGE_LIMITS.side} px a side. Downscale it before you check it.`)
+    throw backendError('invalid_input', { field: 'images', reason: 'too_large' }, `[nuxt-backend] ${what} is too large to check: Azure AI Content Safety reads up to 4 MB and ${AZURE_IMAGE_LIMITS.side} px a side. ${fix}`)
   }
   if (size !== null && Math.min(size.width, size.height) < AZURE_IMAGE_LIMITS.minSide) {
-    throw backendError('invalid_input', { field: 'images', reason: 'too_small' }, `[nuxt-backend] The image is too small to check: Azure AI Content Safety reads ${AZURE_IMAGE_LIMITS.minSide} px a side at least.`)
+    throw backendError('invalid_input', { field: 'images', reason: 'too_small' }, `[nuxt-backend] ${what} is too small to check: Azure AI Content Safety reads ${AZURE_IMAGE_LIMITS.minSide} px a side at least.`)
   }
 }
 
@@ -185,7 +219,8 @@ export function azureReading(analysis: ReadonlyArray<{ category: string, severit
  * SelfHarm, artwork included, and is no check for child sexual abuse
  * material: pair it with `knownAbuse`. Reads `CONTENT_SAFETY_ENDPOINT`
  * and `CONTENT_SAFETY_KEY`. An image over 4 MB or 7200 px a side is
- * refused `invalid_input` (reason `too_large`): downscale it first.
+ * refused `invalid_input` (reason `too_large`), naming the stage it was
+ * checked at: downscale it first, a model's output included.
  */
 export function azureContentSafety(options: AzureContentSafetyOptions): ModerationProvider {
   const id = 'azure-content-safety'
@@ -199,13 +234,14 @@ export function azureContentSafety(options: AzureContentSafetyOptions): Moderati
     kind: 'classifier',
     id,
     reads: ['text', 'image'],
+    imageCategories: ['sexual', 'suggestive', 'violence', 'self_harm', 'hate'],
     env: ['CONTENT_SAFETY_ENDPOINT', 'CONTENT_SAFETY_KEY'],
     region: options.region.trim(),
-    check: async ({ text, images }, env) => {
+    check: async ({ text, images, stage }, env) => {
       const readings: ProviderReading[] = []
       if (text) readings.push(azureReading((await call(env, 'text:analyze', { text, outputType: 'EightSeverityLevels' })).categoriesAnalysis ?? [], 'text'))
       for (const image of images) {
-        requireAzureImage(image)
+        requireAzureImage(image, stage)
         readings.push(azureReading((await call(env, 'image:analyze', { image: { content: base64(image.bytes) }, outputType: 'FourSeverityLevels' })).categoriesAnalysis ?? [], 'image'))
       }
       return mergeReadings(id, readings)
@@ -278,6 +314,7 @@ export function openaiModeration(): ModerationProvider {
     kind: 'classifier',
     id,
     reads: ['text', 'image'],
+    imageCategories: ['sexual', 'violence', 'self_harm'],
     env: ['SECOND_OPINION_KEY'],
     check: async ({ text, images }, env) => {
       const readings: ProviderReading[] = []
@@ -303,8 +340,8 @@ export function openaiModeration(): ModerationProvider {
  *
  * Built against Shield's published API: `POST /v1/media/` with the raw
  * bytes and basic auth, answering a `classification` of `no-known-match`,
- * `csam` or `harmful-abusive-material`. Not yet checked against a live
- * account.
+ * `csam` or `harmful-abusive-material`; any other answer, or none, refuses
+ * the content as unchecked. Not yet checked against a live account.
  */
 export function arachnidShield(): KnownAbuseProvider {
   const id = 'arachnid-shield'
@@ -318,36 +355,12 @@ export function arachnidShield(): KnownAbuseProvider {
         url: 'https://shield.projectarachnid.com/v1/media/',
         headers: { 'authorization': `Basic ${btoa(credentials)}`, 'content-type': image.mediaType },
         body: image.bytes,
-      }) as { classification?: string }
-      const classification = answer.classification ?? 'no-known-match'
+      }) as { classification?: unknown } | null
+      // Only an explicit no-match clears an image: a missing or unknown classification is no answer.
+      const classification = answer?.classification
       if (classification === 'no-known-match') return { matched: false }
-      return { matched: true, code: classification }
+      if (classification === 'csam' || classification === 'harmful-abusive-material') return { matched: true, code: classification }
+      throw providerRefused(id, `answered no classification it knows (${typeof classification === 'string' ? classification : 'none'})`)
     },
   }
 }
-
-// ── Planned providers: the config shape is fixed; each adapter comes later ──
-
-/** A provider whose adapter is planned: named in config now, refused when a check calls it. */
-function planned(id: string, env: readonly string[]): ModerationProvider {
-  return {
-    kind: 'classifier',
-    id,
-    reads: ['image'],
-    env,
-    check: async () => {
-      throw backendError('unavailable', { service: 'ai', reason: 'not_configured' }, `[nuxt-backend] The moderation provider ${id} is planned, not built yet: use azureContentSafety() or openaiModeration() for images.`)
-    },
-  }
-}
-
-/** Hive (Deploy since 26 Oct 2026; an annual contract). Planned. */
-export const hive = (): ModerationProvider => planned('hive', ['IMAGE_CHECK_KEY'])
-/** Microsoft PhotoDNA, a known-abuse hash match. Planned. */
-export const photodna = (): ModerationProvider => planned('photodna', ['KNOWN_ABUSE_KEY'])
-/** Google Cloud's content safety (Vision SafeSearch). Planned. */
-export const googleContentSafety = (): ModerationProvider => planned('google-content-safety', ['IMAGE_CHECK_KEY'])
-/** Amazon Rekognition's content moderation. Planned. */
-export const rekognition = (): ModerationProvider => planned('rekognition', ['IMAGE_CHECK_KEY'])
-/** Sightengine. Planned. */
-export const sightengine = (): ModerationProvider => planned('sightengine', ['IMAGE_CHECK_KEY'])

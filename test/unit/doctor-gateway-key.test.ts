@@ -480,6 +480,8 @@ describe('doctor\'s moderation providers', () => {
     expect(capabilityStatus('ai', context).missingEnv).toEqual(expect.arrayContaining(['CONTENT_SAFETY_ENDPOINT', 'CONTENT_SAFETY_KEY']))
     expect(capabilityStatus('ai', context).missingEnv).not.toContain('SECOND_OPINION_KEY')
     expect(await providersFinding()).toMatchObject({ status: 'pass', message: expect.stringContaining('a known-abuse match first') })
+    // No image provider judges minors in an image: doctor says where new material is caught.
+    expect((await providersFinding()).message).toContain('caught as `S4` by a classifier that reads images (Llama Guard 4), and otherwise only as `sexual`')
   })
 
   it('warns when the backend checks images with no known-abuse match', async () => {

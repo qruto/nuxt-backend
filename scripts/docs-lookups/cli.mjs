@@ -319,7 +319,7 @@ export const FINDING_DOCS = {
     fix: 'Add `SECOND_OPINION_KEY` to `.env.local` and run `npx nuxt-backend env push` (`--prod` for production). See [Choose moderation providers](/docs/build/ai/content-safety/providers).',
   },
   'deployment-known-abuse-key': {
-    checks: '`KNOWN_ABUSE_KEY` is set on the deployment, once a backend file names `arachnidShield() or photodna()` in `setupAi({ moderation })`. With no provider that reads it, nothing needs it.',
+    checks: '`KNOWN_ABUSE_KEY` is set on the deployment, once a backend file names `arachnidShield()` in `setupAi({ moderation })`. With no provider that reads it, nothing needs it.',
     why: 'The provider that reads it refuses every check it is asked for (`unavailable`, reason `not_configured`), and the content it would check is refused as unchecked.',
     fix: 'Add `KNOWN_ABUSE_KEY` to `.env.local` and run `npx nuxt-backend env push` (`--prod` for production). See [Choose moderation providers](/docs/build/ai/content-safety/providers).',
   },
