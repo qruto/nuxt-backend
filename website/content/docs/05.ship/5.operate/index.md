@@ -23,7 +23,7 @@ Once your app is live, a few places tell you how it is doing, each for one kind 
 | What the backend logged | The Convex dashboard's logs, searched by log code | [Log codes](/docs/ship/operate/troubleshooting#log-codes) |
 | Whether a purchase or an email event arrived | The webhook delivery log | [Register webhooks](/docs/ship/security/webhooks#the-delivery-log) |
 | Who did what | The activity trail | [Activity trail](/docs/build/auth/admin/audit-log) |
-| How the business is doing | The billing provider's dashboard; the admin console's analytics arrive in `0.2.0` | [Run the admin console](/docs/build/auth/admin) |
+| How the business is doing | The billing provider's dashboard, and the admin console's revenue and growth views | [Run the admin console](/docs/build/auth/admin) |
 | Whether mail reaches inboxes | `doctor --prod`'s reputation and quota checks, and the email provider's dashboard | [Get email into inboxes](/docs/build/email/delivery/deliverability) |
 
 ## Check the capabilities
@@ -78,7 +78,7 @@ Some incidents are best met by switching something off while you fix it. The kil
   :::
 
   :::card{icon="i-lucide-settings-2" title="Apply the provider settings" to="/docs/services#recommended-settings"}
-  Planned: `doctor --fix` sets the billing settings its findings recommend, and keeps both webhook endpoints healthy.
+  `doctor --fix` sets the billing settings its findings recommend, and keeps both webhook endpoints healthy.
   :::
 
   :::card{icon="i-lucide-message-circle-question" title="Get help" to="/docs/ship/operate/help"}

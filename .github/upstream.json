@@ -57,14 +57,7 @@
       "unblocks": "#94 — the docs site on @nuxt/fonts 1 (lift the @nuxt/fonts hold in dependabot.yml): social cards that read its fonts, and app.css fallback faces reworked for the ones it writes itself"
     }
   ],
-  "decisions": [
-    {
-      "id": "A1s",
-      "title": "Agent OAuth on @better-auth/oauth-provider",
-      "state": "go after Better Auth 1.7",
-      "note": "Decided 2026-10-14: A1a folds into UP1. Better Auth 1.7 removes the mcp plugin and reshapes the provider again. Decided 2026-10-27 (DEFER): 0.2.0 ships no end-user MCP endpoint and no OAuth tables; the endpoint returns in the release after it, on Better Auth 1.7's own MCP plugin."
-    }
-  ],
+  "decisions": [],
   "asks": [
     {
       "ask": "Create the Convex client lazily, on first use",
@@ -77,12 +70,6 @@
       "owner": "qruto/nuxt-convex-module",
       "blocks": "PERF (the auth client out of the starter's entry chunk)",
       "fallback": "The client stays eager with every plugin registered; the passkey ceremony loads on first use through the package's own passkey plugin, and the starter budget holds the rest"
-    },
-    {
-      "ask": "No WebSocket during SSR or prerender",
-      "owner": "qruto/nuxt-convex-module",
-      "blocks": "C3, R3, A15 (useConvexConnectionState reads the client on the server, which opens its socket there)",
-      "fallback": "Client-only guards around the live parts; <ConnectionStatus> reads the connection state in the browser only"
     },
     {
       "ask": "Read the connection state without opening the connection: a useConvexConnectionState (or a client.started signal) that waits for the client's first query, mutation or sign-in instead of creating the socket",
@@ -227,12 +214,6 @@
       "owner": "polarsource/polar",
       "blocks": "PROMO, REF",
       "fallback": "Read the discount off order.paid"
-    },
-    {
-      "ask": "lastLoginMethod's default resolver names the email OTP sign-in (/sign-in/email-otp)",
-      "owner": "better-auth/better-auth",
-      "blocks": "F5",
-      "fallback": "The package passes a customResolveMethod that names it email-otp"
     },
     {
       "ask": "An AbortSignal for the passkey client's signIn.passkey({ autoFill })",

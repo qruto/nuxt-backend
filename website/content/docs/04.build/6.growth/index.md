@@ -18,15 +18,15 @@ Open the doors in phases: early access with a waitlist, then invite only, then p
 
 ::card-group
   :::card{icon="i-lucide-door-open" title="Launch in phases" to="/docs/build/growth/launch"}
-  Planned: three phases switched from the admin console with no deploy, and what admits a new address in each.
+  Three phases switched from the admin console with no deploy, and what admits a new address in each.
   :::
 
   :::card{icon="i-lucide-list-checks" title="Run a waitlist" to="/docs/build/growth/launch/waitlist"}
-  Planned: double opt-in, a public position, a referral boost, and admission in waves.
+  Double opt-in, a public position, a referral boost, and admission in waves.
   :::
 
   :::card{icon="i-lucide-ticket" title="Hand out invite codes and access links" to="/docs/build/growth/launch/invites"}
-  Planned: shareable codes with limits and personal links that admit one address.
+  Shareable codes with limits and personal links that admit one address.
   :::
 ::
 
@@ -52,11 +52,11 @@ Turn your catalog into offers people can act on: a launch discount, a link from 
   :::
 
   :::card{icon="i-lucide-calendar-heart" title="Gift a plan as a pass" to="/docs/build/growth/offers/plan-passes"}
-  Planned: a plan for 1, 3 or 12 months with no card and no renewal, and the reverse trial built on it.
+  A plan for 1, 3 or 12 months with no card and no renewal, and the reverse trial built on it.
   :::
 
   :::card{icon="i-lucide-share-2" title="Run a referral program" to="/docs/build/growth/offers/referrals"}
-  Planned: a code per person, rewards once the first payment clears, and the share loop on share pages.
+  A code per person, rewards once the first payment clears, and the share loop on share pages.
   :::
 ::
 
@@ -70,7 +70,7 @@ Send the right message at the right moment, and let people go cleanly when they 
   :::
 
   :::card{icon="i-lucide-sparkles" title="Guide people to their first result" to="/docs/build/growth/engage/activation"}
-  Planned: the first run at `/welcome` and an activation checklist.
+  The first run at `/welcome` and an activation checklist.
   :::
 
   :::card{icon="i-lucide-list-ordered" title="Send lifecycle emails" to="/docs/build/growth/engage/lifecycle-emails"}
@@ -78,7 +78,7 @@ Send the right message at the right moment, and let people go cleanly when they 
   :::
 
   :::card{icon="i-lucide-door-closed" title="Handle cancellations and win people back" to="/docs/build/growth/engage/cancel-flow"}
-  Planned: one question, one save offer by reason, and a lawful exit.
+  One question, one save offer by reason, and a lawful exit.
   :::
 ::
 
@@ -88,7 +88,7 @@ Count what works inside your deployment, with no tracking script.
 
 ::card-group
   :::card{icon="i-lucide-filter" title="Measure growth" to="/docs/build/growth/measure"}
-  Planned: the funnel from waitlist to paid, attribution, "How did you hear about us?" and cohorts.
+  The funnel from waitlist to paid, attribution, "How did you hear about us?" and cohorts.
   :::
 
   :::card{icon="i-lucide-chart-line" title="Read revenue and usage" to="/docs/build/growth/measure/revenue"}
@@ -96,7 +96,7 @@ Count what works inside your deployment, with no tracking script.
   :::
 
   :::card{icon="i-lucide-flask-conical" title="Run an experiment" to="/docs/build/growth/measure/experiments"}
-  Planned: variant flags, exposure, results with guardrails, and price tests as disclosed discounts.
+  Variant flags, exposure, results with guardrails, and price tests as disclosed discounts.
   :::
 ::
 
@@ -110,12 +110,12 @@ Count what works inside your deployment, with no tracking script.
 | Acquire | Promotions, server discounts and campaign links | Available | [Run a promotion](/docs/build/growth/offers) |
 | Acquire | Credit gifts | Available | [Send, receive and manage gifts](/docs/build/growth/offers/gifts) |
 | Acquire | Plan passes, the reverse trial and referrals | Available | [Gift a plan as a pass](/docs/build/growth/offers/plan-passes), [Run a referral program](/docs/build/growth/offers/referrals) |
-| Convert | Upgrade prompts with a cool-down, quota gates, local prices at checkout | Available and planned | [Gate features by plan](/docs/build/billing/subscriptions/feature-gating), [Open checkout and the portal](/docs/build/billing/subscriptions/checkout) |
+| Convert | Upgrade prompts with a cool-down, quota gates, local prices at checkout | Available | [Gate features by plan](/docs/build/billing/subscriptions/feature-gating), [Open checkout and the portal](/docs/build/billing/subscriptions/checkout) |
 | Engage | Email sequences | Available | [Send lifecycle emails](/docs/build/growth/engage/lifecycle-emails) |
-| Engage | Ready-made lifecycle flows, the activation checklist, announcements and automations | Planned | [Keep people engaged](/docs/build/growth/engage) |
+| Engage | Ready-made lifecycle flows, the activation checklist, announcements and automations | Available | [Keep people engaged](/docs/build/growth/engage) |
 | Retain | Cancel with a reason, pause and resume | Available | [Manage subscriptions](/docs/build/billing/subscriptions) |
-| Retain | Save offers by reason and win-back emails | Planned | [Handle cancellations and win people back](/docs/build/growth/engage/cancel-flow) |
-| Measure | The funnel, attribution, revenue and experiments | Planned | [Measure growth](/docs/build/growth/measure) |
+| Retain | Save offers by reason and win-back emails | Available | [Handle cancellations and win people back](/docs/build/growth/engage/cancel-flow) |
+| Measure | The funnel, attribution, revenue and experiments | Available | [Measure growth](/docs/build/growth/measure) |
 
 ## The rules they keep
 

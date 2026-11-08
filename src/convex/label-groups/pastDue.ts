@@ -1,6 +1,6 @@
 import type { LabelTree } from '../label-format.js'
 
-/** The past-due notice of `<BackendNotices>` (LIFECYCLE), for the billing managers while a renewal payment is retried. */
+/** The past-due notice of `<BackendNotices>`, for the billing managers while a renewal payment is retried. */
 const PAST_DUE_LABELS = {
   // The banner's accessible name.
   label: 'Payment failed',

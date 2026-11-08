@@ -174,7 +174,7 @@ What the package ships for this part of the app today, generated from the code: 
 ## Not included
 
 - **Another database.** The data lives in your Convex deployment, which is what makes every query live. The package has no adapter for SQL or another store.
-- **Who is online.** Presence is a collaboration feature and no part of `0.2.0`: the [Roadmap](/docs/start/roadmap) says what to use instead.
+- **Who is online.** Presence is a collaboration feature and no part of the package: the [Roadmap](/docs/start/roadmap) says what to use instead.
 - **Wrappers over Convex components.** Counters, aggregates, cached actions, queues and migrations come straight from their components, as the recipes above show.
 
 ## Next

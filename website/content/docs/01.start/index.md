@@ -1,6 +1,6 @@
 ---
 title: Introduction
-description: What nuxt-backend is, the backend of a client app on Nuxt in twelve capabilities, the services behind it, who it is for, what waits for the next release, and what your app has on day one.
+description: What nuxt-backend is, the backend of a client app on Nuxt in twelve capabilities, the services behind it, who it is for, what waits for a later release, and what your app has on day one.
 kind: landing
 navigation:
   icon: i-lucide-info
@@ -46,7 +46,7 @@ A Nuxt developer, or a small team, building a client app. A tool that turns phot
 
 ## What it is not
 
-- **Not a platform for service providers, yet.** API keys, outgoing webhooks, an MCP endpoint for your users' agents, custom workspace roles and ownership transfer wait for the next release. The [Roadmap](/docs/start/roadmap) says why each one waits.
+- **Not a platform for service providers, yet.** API keys, outgoing webhooks, an MCP endpoint for your users' agents, custom workspace roles and ownership transfer wait for a later release. The [Roadmap](/docs/start/roadmap) says why each one waits.
 - **Not a hosted service.** It runs in your Convex deployment and your Nuxt app, on your provider accounts: the data and the customers are yours.
 - **Not a Nuxt layer or a template you fork.** It is one module in `modules`, a dependency you upgrade: `npx nuxt-backend upgrade` repairs the scaffold and runs the package's data migrations.
 - **Not a kit of optional parts.** Every capability ships in the package and starts working once its key or catalog exists. Until then it stays off, or runs on its development stand-in, such as sign-in codes printed in your terminal.
@@ -118,7 +118,7 @@ Read the Start tab top to bottom on a first visit, then keep the concepts at han
 - **Install.** [Installation](/docs/start/installation): one command, an agent prompt, or by hand. [Templates and examples](/docs/start/templates): the starter, Panels and the examples.
 - **Try.** [Try the demo](/docs/start/playground): Panels, the tutorial's app, live on this site in sandbox mode. [Try everything](/docs/start/playground/try-everything): the same on your machine, with personas and a checklist.
 - **Build.** [Build a creative app](/docs/start/tutorial): the tutorial, from the starter to production.
-- **Plan.** [Feature map](/docs/start/feature-map): every feature with its status. [Roadmap](/docs/start/roadmap): what waits for the next release.
+- **Plan.** [Feature map](/docs/start/feature-map): every feature with its status. [Roadmap](/docs/start/roadmap): what waits for a later release.
 - **Understand.** [How it works](/docs/start/concepts/how-it-works), [Capabilities](/docs/start/concepts/capabilities), [Principles](/docs/start/concepts/principles), [Environments](/docs/start/concepts/environments), [nuxt-backend and nuxt-convex-module](/docs/start/concepts/nuxt-convex-module) and [Choosing nuxt-backend](/docs/start/concepts/choosing).
 
 ## The docs, tab by tab
@@ -155,7 +155,7 @@ The tabs run from general to detailed: what it is, how to connect each service, 
 
 These docs describe the `0.2.x` line. Patch releases never change the public surface. A minor release may change it, through a deprecation first, and each change is on the [Upgrade page](/docs/ship/releases/upgrade). [Stability](/docs/ship/releases/stability) lists what counts as the surface, and which parts are still experimental.
 
-Two chips mark a page ahead of the code. **Planned** means the feature arrives in `0.2.0` and is not built yet. **Changing** means it is built, and the page already shows the API as `0.2.0` reshapes it. The [Feature map](/docs/start/feature-map#statuses) explains both and names the unit of work behind each.
+Two chips mark a page ahead of the code. **Planned** means the feature arrives in the next release and is not built yet. **Changing** means it is built, and the page already shows the API as the next release reshapes it. The [Feature map](/docs/start/feature-map#statuses) explains both and names the unit of work behind each.
 
 ## Try it first
 

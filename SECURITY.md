@@ -1,7 +1,7 @@
 # Security Policy
 
 > Looking for how to **secure an app built with this package** — the CSP, the auth proxy, the
-> webhook policy, the agent surface, and a production checklist? That's the
+> webhook policy, sign-in limits, and a production checklist? That's the
 > [security guide](https://nuxt-backend.dev/docs/ship/security) and the
 > [launch checklist](https://nuxt-backend.dev/docs/ship/checklist). This file covers reporting
 > vulnerabilities *in* the package.
@@ -141,7 +141,7 @@ shrinks a failure to the smallest case that still fails:
 is the thorough one: a free regex scan, then an AI stage that reads each candidate in context, then
 a revalidation stage. The free scan runs before every release; the AI stages when a candidate needs
 a judgement call rather than a glance, or after touching a request handler (the webhook routes, the
-auth proxy, the agent exchange):
+auth proxy):
 
 ```bash
 cd .deepsec
@@ -265,9 +265,8 @@ traced on 2026-10-18 or later (re-checked against
 ### What the package ships to apps
 
 Everything above protects *this repository*. What the package does for an application built on
-it — the fail-closed webhook policy, the OAuth-gated agent surface, the Convex-aware CSP, the
-passwordless flows and their rate limits — is documented in the
-[security guide](https://nuxt-backend.dev/docs/ship/security).
+it — the fail-closed webhook policy, the Convex-aware CSP, the passwordless flows and their rate
+limits — is documented in the [security guide](https://nuxt-backend.dev/docs/ship/security).
 
 ### The 0.2.0 surface checkpoint
 
@@ -558,11 +557,10 @@ what was decided:
   without spending a token), in a bucket of the route's own, kept in memory per server instance;
   the XSS validator is off on that route because tool arguments carry component tags
   (`<PricingTable>`), which the server never renders. On the docs host the middleware answers
-  `/mcp` and hands it on in-process, never to another origin, ahead of the package's OAuth gate,
-  which keeps `/mcp` on every other host; it answers 404 for OAuth metadata and `/mcp/*`, so the host
-  never claims to need sign-in, serves its own MCP server card (the docs MCP, no sign-in; rendered
-  per request, never prerendered, so each host answers its own), and sends every other path to
-  the site's own host with a 308, so sign-in and cookies stay on one origin. **New.** Pinned by
+  `/mcp` and hands it on in-process, never to another origin; it answers 404 for OAuth metadata and
+  `/mcp/*`, so the host never claims to need sign-in, serves its own MCP server card (the docs MCP,
+  no sign-in; rendered per request, never prerendered, so each host answers its own), and sends
+  every other path to the site's own host with a 308, so sign-in and cookies stay on one origin. **New.** Pinned by
   `test/docs/docs-mcp.test.ts` and `scripts/check-website-agents.mjs`.
 - **Docs assistant** (the website: `/__docus__/assistant`; 2026-10-19). Public and anonymous,
   and every question is a billed model call, so it exists only in a build that holds a credential:
@@ -587,7 +585,7 @@ what was decided:
   renders answers as Markdown and never echoes a question as HTML. **New.** Pinned by
   `test/docs/site-vercel.test.ts`.
 - **Edge rate limits** (the website: `server/middleware/0.firewall.ts`; 2026-10-19). On Vercel it
-  asks the Firewall about the assistant, `/mcp` on both hosts and the docs MCP's route
+  asks the Firewall about the assistant, `/mcp` on the docs host and the docs MCP's route
   `/api/docs-mcp` before any other handler runs, keyed by the edge's `x-real-ip`, which a caller
   cannot set; a trailing slash, which the router ignores, does not slip past it. A request the
   server makes to itself (Nitro's `localFetch`: the docs host's hand-off, the assistant's tool
@@ -884,11 +882,11 @@ what was decided:
   map, `/.well-known/mcp/server-card.json`; 2026-10-19). The documents are prerendered from the docs
   and the package's own files. The twin handler and the Markdown 404 still answer an unknown path
   at request time, and the MCP card is a runtime route too: they read the public content database
-  and the site's own config, never a user or a session. The playground and the app pages at the root (`/login`,
-  `/accept-invitation`, `/oauth/consent`) are kept out, so an agent gets those pages, never a
-  document built from them. The MCP card used to say `/mcp` needed no sign-in; it now says the
-  endpoint is OAuth-gated, and claims no tools it cannot see. The docs assistant stays off, so
-  nothing answers questions on the site's behalf. **New.** Pinned by
+  and the site's own config, never a user or a session. The playground and the app pages at the root
+  (`/login`, `/accept-invitation`) are kept out, so an agent gets those pages, never a document
+  built from them. The MCP card describes the docs MCP: its endpoint, no sign-in, and the tools it
+  has, never one it cannot see. The docs assistant stays off, so nothing answers questions on the
+  site's behalf. **New.** Pinned by
   `test/docs/agent-surfaces.test.ts` and, against every build and the live site weekly,
   `scripts/check-website-agents.mjs`.
 - **Codes and email change** (`/email-otp/*`, `/change-email`; 2026-10-15). Codes were stored

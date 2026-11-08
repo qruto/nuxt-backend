@@ -118,14 +118,14 @@ OUTPUT: the component's tab, tier, summary, entry (Markdown) and URL; for a name
 const getUpgradeGuide = defineMcpTool({
   description: `The rename map: every public name a release renamed, reshaped or removed, each with what replaced it and the section of the Upgrade page that explains it.
 
-WHEN TO USE: a name from 0.1 or an older preview (in code, a tutorial or your memory) is not in the current docs. Pass it to find what it became; pass nothing to list the Upgrade page's sections.
+WHEN TO USE: a name from an older release (in code, a tutorial or your memory) is not in the current docs. Pass it to find what it became; pass nothing to list the Upgrade page's sections. The previews of main before 0.2.0 are not in it: their renames are on the Upgrade page as 0.2.1 published it.
 
 OUTPUT: with a name, every entry it is the old or new side of (\`from\`, \`to\`, \`change\`, \`section\`, \`note\`, \`url\`); without one, the sections and how many names each one moves.`,
   annotations: READ_ONLY,
   inputSchema: {
-    name: z.string().max(200).optional().describe('An old or new name, such as `useBilling().products` or `doctor --only deployment`'),
+    name: z.string().max(200).optional().describe('An old or new name as your code spells it: a composable such as `useCredits()`, a member such as `useCredits().balance`, or a command with its flag such as `doctor --prod`'),
   },
-  inputExamples: [{ name: 'doctor --only deployment' }, {}],
+  inputExamples: [{ name: 'useCredits()' }, {}],
   handler: ({ name }) => upgradeGuide(name, siteOf(useEvent())),
 })
 

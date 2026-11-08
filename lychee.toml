@@ -50,6 +50,14 @@ exclude = [
   # every law the compliance pages cite. The ELI addresses are permanent
   # identifiers, so a real move is not what this would catch.
   "^https?://eur-lex\\.europa\\.eu/eli/",
+  # The German Federal Ministry of Justice's statute site stalls on GitHub's
+  # runners now and then: the run of 2026-11-02 timed out on it (20 s, two
+  # retries), the run before passed, and a browser gets it at once. lychee
+  # has no timeout per host (a `[hosts]` table takes concurrency, interval,
+  # headers and accept), and raising `timeout` above would make every dead
+  # link slower to report. A section's address (`/bgb/__312k.html`, the
+  # cancellation button) is fixed by the statute's name and number.
+  "^https?://(www\\.)?gesetze-im-internet\\.de/",
   # GitHub settings pages answer a logged-out client with 404, not 403, so
   # `accept` below cannot cover them (RELEASE.md links the Actions settings).
   "^https?://github\\.com/.*/settings(/|$)",
