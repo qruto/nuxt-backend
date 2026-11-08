@@ -59,6 +59,7 @@ const external = (to: string): boolean => /^https:/i.test(to)
 
 <template>
   <div
+    data-backend
     data-activation="wrapper"
     :aria-busy="activation.isLoading.value || activation.isPending.value ? 'true' : undefined"
   >

@@ -57,6 +57,7 @@ const heading = computed(() => props.title ?? t('title'))
 
 <template>
   <div
+    data-backend
     data-usage="root"
     :aria-busy="busy ? 'true' : undefined"
   >

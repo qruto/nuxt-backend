@@ -8,7 +8,7 @@
     display: grid;
     gap: 0.5rem;
     padding: 0.75rem;
-    border: 1px dashed var(--bk-edge);
+    border: var(--bk-border-width) dashed var(--bk-edge);
     border-radius: var(--bk-radius);
     background: var(--bk-surface);
     color: var(--bk-ink);
@@ -35,11 +35,13 @@
   [data-upload='choose'],
   [data-upload='cancel'] {
     padding: 0.4rem 0.8rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow-control);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
     font: inherit;
+    font-family: var(--bk-font-control, var(--bk-font));
     cursor: pointer;
   }
 

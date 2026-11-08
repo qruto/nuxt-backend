@@ -120,6 +120,7 @@ const cancel = () => reauth.cancel()
   <dialog
     v-if="open"
     ref="dialog"
+    data-backend
     data-reauthenticate="dialog"
     data-state="open"
     :aria-labelledby="titleId"

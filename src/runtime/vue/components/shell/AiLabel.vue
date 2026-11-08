@@ -39,7 +39,10 @@ const { t } = label.labels
 </script>
 
 <template>
-  <span v-bind="label.bind.root.value">
+  <span
+    data-backend
+    v-bind="label.bind.root.value"
+  >
     <template v-if="label.hasDetails.value">
       <button v-bind="label.bind.trigger.value">
         <slot>{{ t('label') }}</slot>

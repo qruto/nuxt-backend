@@ -202,6 +202,7 @@ provideProfileView({
 <template>
   <div
     ref="root"
+    data-backend
     data-profile="root"
     :aria-busy="savingName || emailChange.isPending.value ? 'true' : undefined"
   >

@@ -207,6 +207,7 @@ provideSecurityView({
 <template>
   <div
     ref="root"
+    data-backend
     data-security="root"
     :aria-busy="running.length > 0 ? 'true' : undefined"
   >
