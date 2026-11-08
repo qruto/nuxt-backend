@@ -4854,6 +4854,22 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       get: FunctionReference<"query", "internal", { jobId: string }, any, Name>;
+      holdTaken: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          hold: {
+            externalId: string;
+            meter?: string;
+            meterId?: string;
+            reserved: boolean;
+            value: number;
+          };
+          jobId: string;
+        },
+        boolean,
+        Name
+      >;
       join: FunctionReference<
         "mutation",
         "internal",
@@ -4912,7 +4928,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       mark: FunctionReference<
         "mutation",
         "internal",
-        { charged: true; jobId: string },
+        { charged: true; jobId: string; price?: number },
         { refund: boolean },
         Name
       >;

@@ -243,12 +243,12 @@ describe('templates/panels/backend', () => {
     expect(await refusal(ada.mutation(fn<'mutation'>('strips:create'), { idea: 'no' }))).toMatchObject({ code: 'invalid_input', data: { field: 'idea' } })
   })
 
-  test('generate is refused without credits, and the strip stays a draft', async () => {
-    // A new workspace's balance has not reached the deployment yet.
+  test('generate joins on a balance not read yet, is refused past the credits it can hold, and that strip stays a draft', async () => {
+    // A new workspace's balance has not reached the deployment yet: the strip joins holding nothing, and its job's first step reads the balance.
     const grace = await asUser(t)
     const first = await grace.mutation(fn<'mutation'>('strips:create'), { idea: 'A cat learns to surf' }) as string
-    expect(await refusal(grace.mutation(fn<'mutation'>('strips:generate'), { id: first }))).toMatchObject({ code: 'not_ready', data: { reason: 'not_synced' } })
-    expect(await strip(grace, first)).toMatchObject({ status: 'draft' })
+    await grace.mutation(fn<'mutation'>('strips:generate'), { id: first })
+    expect(await strip(grace, first)).toMatchObject({ status: 'queued', jobId: expect.any(String) })
 
     // 100 credits hold three strips of 30; the fourth waits for more.
     const ada = await withCredits('delivered+credits@resend.dev')
