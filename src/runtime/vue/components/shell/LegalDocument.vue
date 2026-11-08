@@ -75,7 +75,7 @@ const { t, details, app, paths } = legal
         </p>
         <LegalCompany
           :legal="legal"
-          :fields="['address', 'registration', 'vat', 'contact', 'dpo']"
+          :fields="['address', 'phone', 'registration', 'vat', 'contact', 'dpo']"
         />
       </section>
       <section data-legal="section">
@@ -182,7 +182,10 @@ const { t, details, app, paths } = legal
           </NuxtLink>
         </p>
       </section>
-      <section data-legal="section">
+      <section
+        v-if="paths.report.value"
+        data-legal="section"
+      >
         <h2 data-legal="title">
           {{ t('moderation.title') }}
         </h2>
@@ -212,13 +215,13 @@ const { t, details, app, paths } = legal
         <h2 data-legal="title">
           {{ t('terms.contactTitle') }}
         </h2>
-        <LegalContactPoints />
         <p v-if="details.contact">
           {{ t('terms.contact', { contact: details.contact }) }}
         </p>
+        <LegalContactPoints :except="legal.usersIsContact.value ? ['users'] : []" />
         <LegalCompany
           :legal="legal"
-          :fields="['address', 'registration', 'vat']"
+          :fields="['address', 'phone', 'registration', 'capital', 'vat', 'director', 'host']"
         />
         <p>{{ t('terms.changes') }}</p>
       </section>

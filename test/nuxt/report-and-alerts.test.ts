@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, defineComponent, h, ref } from 'vue'
+import { computed, defineComponent, h, nextTick, reactive, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { ConvexAuthStateKey } from 'nuxt-convex-module/client'
@@ -27,7 +27,9 @@ vi.mock('nuxt-convex-module/client', async importOriginal => ({
   useMutation: () => report,
   useAction: () => notice,
 }))
-mockNuxtImport('useRequestURL', () => () => new URL('https://panels.example/s/strip_1#appeal=secret'))
+// The page the form is on: a strip's own page unless a test moves it.
+mockNuxtImport('useRoute', () => () => route)
+mockNuxtImport('useRequestURL', () => () => new URL(`https://panels.example${route.fullPath}#appeal=secret`))
 vi.mock('../../src/runtime/vue/composables/use-human-check', () => ({ useHumanCheck: () => ({ token: async () => 'human-token' }) }))
 vi.mock('../../src/runtime/vue/composables/use-backend-page-path', () => ({ useBackendPagePath: () => computed(() => '/report') }))
 vi.mock('../../src/runtime/vue/components/account/security-alerts', async importOriginal => ({
@@ -42,7 +44,9 @@ vi.mock('../../src/runtime/vue/composables/use-sessions', () => ({
   useSessions: () => ({ sessions: computed(() => sessions.value), revoke }),
 }))
 
+const route = reactive({ path: '/s/strip_1', fullPath: '/s/strip_1', query: {} as Record<string, string> })
 const signedIn = ref(true)
+const sessionLoading = ref(false)
 
 /** Mount a composable inside a component, signed in or out. */
 function withComposable<T>(setup: () => T): T {
@@ -52,7 +56,7 @@ function withComposable<T>(setup: () => T): T {
       result = setup()
       return () => h('div')
     },
-  }), { global: { provide: { [ConvexAuthStateKey as symbol]: { isAuthenticated: signedIn, isLoading: ref(false) } } } })
+  }), { global: { provide: { [ConvexAuthStateKey as symbol]: { isAuthenticated: signedIn, isLoading: sessionLoading } } } })
   return result
 }
 
@@ -62,6 +66,8 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
 
 beforeEach(() => {
   vi.clearAllMocks()
+  Object.assign(route, { path: '/s/strip_1', fullPath: '/s/strip_1', query: {} })
+  sessionLoading.value = false
   signedIn.value = true
   alerts.value = undefined
   sessions.value = []
@@ -153,16 +159,40 @@ describe('useReportForm: a notice (DSA Art. 16)', () => {
     expect(form.url.value).toBe('https://panels.example/s/other')
   })
 
-  it('carries the honeypot, which the deployment files nothing for', async () => {
+  it('carries the honeypot in a hidden wrapper, under a name no browser fills, and promises no decision for it', async () => {
     const form = withComposable(() => useReportForm(strip, { api }))
-    form.reason.value = 'child_abuse'
+    form.reason.value = 'abuse'
     form.details.value = 'A bot fills every field.'
+    form.name.value = 'Bot'
+    form.email.value = 'bot@example.com'
     form.goodFaith.value = true
     form.website.value = 'https://spam.example'
-    expect(form.bind.honeypotInput.value['aria-hidden']).toBe('true')
-    expect(form.bind.honeypotInput.value.tabindex).toBe(-1)
+    expect(form.bind.honeypot.value).toMatchObject({ 'hidden': true, 'aria-hidden': 'true' })
+    expect(form.bind.honeypotInput.value).toMatchObject({ 'name': 'nuxt-backend-trap', 'autocomplete': 'off', 'tabindex': -1, 'aria-hidden': 'true' })
     await form.send()
     expect(notice).toHaveBeenCalledWith(expect.objectContaining({ website: 'https://spam.example' }))
+    expect(form.announcement.value).toBe('Thanks. We received your report.')
+  })
+
+  it('names the address the report page was opened with, and never the report page\'s own', () => {
+    Object.assign(route, { path: '/report', fullPath: '/report?url=https%3A%2F%2Fpanels.example%2Fs%2Fstrip_9', query: { url: 'https://panels.example/s/strip_9' } })
+    expect(withComposable(() => useReportForm(null, { api })).url.value).toBe('https://panels.example/s/strip_9')
+    Object.assign(route, { path: '/report', fullPath: '/report?table=strips&id=strip_9', query: { table: 'strips', id: 'strip_9' } })
+    expect(withComposable(() => useReportForm(null, { api })).url.value).toBe('')
+  })
+
+  it('follows the page, and the item an app names, as they change', async () => {
+    const id = ref('strip_1')
+    const form = withComposable(() => useReportForm(() => ({ table: 'strips', id: id.value }), { api }))
+    expect(form.url.value).toBe('https://panels.example/s/strip_1')
+    Object.assign(route, { path: '/s/strip_2', fullPath: '/s/strip_2' })
+    await nextTick()
+    expect(form.url.value).toBe('https://panels.example/s/strip_2')
+    // A feed shows several strips: each form names its strip's own permalink.
+    const feed = withComposable(() => useReportForm(() => ({ table: 'strips', id: id.value }), { url: () => `https://panels.example/s/${id.value}`, api }))
+    id.value = 'strip_3'
+    await nextTick()
+    expect(feed.url.value).toBe('https://panels.example/s/strip_3')
   })
 
   it('holds the limit\'s wait in seconds after a rate_limited refusal', async () => {
@@ -195,7 +225,22 @@ describe('useReportForm: a quick report', () => {
     await form.send()
     expect(report).not.toHaveBeenCalled()
     expect(form.error.value?.code).toBe('unauthenticated')
-    expect(form.noticePath.value).toBe('/report?table=strips&id=strip_1')
+    // The report page fills its link field from the address the link carries.
+    expect(form.noticePath.value).toBe('/report?table=strips&id=strip_1&url=https%3A%2F%2Fpanels.example%2Fs%2Fstrip_1')
+  })
+
+  it('waits for the session before it decides who is reporting', async () => {
+    sessionLoading.value = true
+    signedIn.value = false
+    const form = withComposable(() => useReportForm(strip, { mode: 'quick', api }))
+    expect(form.isLoading.value).toBe(true)
+    form.reason.value = 'spam'
+    const sent = form.send()
+    expect(form.state.value).toBe('pending')
+    signedIn.value = true
+    sessionLoading.value = false
+    await expect(sent).resolves.toBe(true)
+    expect(report).toHaveBeenCalledWith({ subject: strip, reason: 'spam' })
   })
 })
 

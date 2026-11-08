@@ -83,7 +83,8 @@ export function installIcons(publicDir: string, options: InstallableOptions = {}
 /** The maskable pair, or `null` for none. */
 export function maskableIcons(publicDir: string, options: InstallableOptions = {}): InstallIcons | null {
   if (options.maskable === true) return installIcons(publicDir, options)
-  if (options.maskable) return options.maskable
+  // A pair of the app's that `public/` does not hold is left out: a manifest never names a missing icon.
+  if (options.maskable) return present(publicDir, options.maskable) ? options.maskable : null
   if (options.maskable === false) return null
   return present(publicDir, MASKABLE_ICONS) ? MASKABLE_ICONS : null
 }
@@ -97,9 +98,10 @@ export function installableGaps(publicDir: string, brand: BackendBrand | null, o
   ]
 }
 
-/** Whether the app ships a manifest of its own, in `public/` or from a PWA module: then the module adds none. */
-export function ownsManifest(publicDir: string, modules: readonly string[]): boolean {
-  return OWN_MANIFESTS.some(file => existsSync(join(publicDir, file))) || modules.some(name => MANIFEST_MODULES.includes(name))
+/** Whether the app ships a manifest of its own: a file in `public/`, a PWA module, or a `<link rel="manifest">` in `app.head`. Then the module adds none. */
+export function ownsManifest(publicDir: string, modules: readonly string[], links: readonly unknown[] = []): boolean {
+  const linked = links.some(link => typeof link === 'object' && link !== null && String((link as { rel?: unknown }).rel).split(/\s+/).includes('manifest'))
+  return linked || OWN_MANIFESTS.some(file => existsSync(join(publicDir, file))) || modules.some(name => MANIFEST_MODULES.includes(name))
 }
 
 /** The light theme colour of an option, the one the manifest carries. */
@@ -140,8 +142,8 @@ export function themeColorMeta(color: InstallableOptions['themeColor']): Array<{
  * push` generates them for every app). Nothing for an app with a manifest
  * of its own, or with `installable: false`.
  */
-export function installableFinding(publicDir: string, brand: BackendBrand | null, { modules, pushKeys, options }: { modules: readonly string[], pushKeys: boolean, options?: InstallableOptions | false }): PreflightFinding[] {
-  if (options === false || ownsManifest(publicDir, modules)) return []
+export function installableFinding(publicDir: string, brand: BackendBrand | null, { modules, pushKeys, options, links }: { modules: readonly string[], pushKeys: boolean, options?: InstallableOptions | false, links?: readonly unknown[] }): PreflightFinding[] {
+  if (options === false || ownsManifest(publicDir, modules, links)) return []
   const gaps = installableGaps(publicDir, brand, options)
   if (gaps.length === 0) return [finding('installable', 'pass', `The app is installable: the module serves ${MANIFEST_ROUTE} for ${brand!.name}, with both icons.`)]
   const icons = installIcons(publicDir, options)
@@ -149,4 +151,47 @@ export function installableFinding(publicDir: string, brand: BackendBrand | null
   const message = `The module adds no web app manifest: ${gaps.join(' and ')} ${gaps.length === 1 ? 'is' : 'are'} missing.${pushKeys ? ' iPhone and iPad take web push only once the app is on the Home Screen.' : ''}`
   const fix = `Add two square PNG icons with a solid background to public/ (${INSTALL_SIZES.map(size => icons[size].slice(1)).join(' and ')}), and set backend.brand.name in app.config.`
   return [finding('installable', reaching ? 'warn' : 'pass', reaching ? message : `Not installable yet (optional): ${gaps.join(' and ')} ${gaps.length === 1 ? 'is' : 'are'} missing.`, reaching ? fix : '')]
+}
+
+/** A CSS colour as the manifest and the `theme-color` tag take it: a hex, a named colour, or a colour function. */
+const COLOR = /^(?:#[\da-f]{3,4}|#[\da-f]{6}|#[\da-f]{8}|[a-z]+|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^()]*\))$/i
+
+/** A path on this site that maps into `public/`: one leading `/`, no other origin, no way out of the folder. */
+function isPublicPath(value: unknown): value is string {
+  return typeof value === 'string' && /^\/(?![/\\])/.test(value) && !/^[a-z][\w+.-]*:/i.test(value) && !value.split(/[/\\]/).includes('..')
+}
+
+/** What is wrong with an icon pair: both sizes, each a path into `public/`. */
+function pairProblems(key: string, pair: unknown): string[] {
+  if (!pair || typeof pair !== 'object' || Array.isArray(pair)) return [`\`installable.${key}\` takes \`{ 192: '/icon-192.png', 512: '/icon-512.png' }\`.`]
+  return INSTALL_SIZES.flatMap((size) => {
+    const path = (pair as Record<number, unknown>)[size]
+    if (path === undefined) return [`\`installable.${key}\` has no ${size} px icon: give both sizes.`]
+    return isPublicPath(path) ? [] : [`\`installable.${key}[${size}]\` is ${JSON.stringify(path)}: give a path of a file in \`public/\`, with one leading \`/\`, never another origin.`]
+  })
+}
+
+/**
+ * Why the `installable` option cannot be used, one sentence each; empty
+ * when it can. `assertModuleOptions` refuses the build with them, so a
+ * mistake shows at the start and never as a broken manifest.
+ */
+export function installableProblems(value: unknown): string[] {
+  if (value === undefined || value === false) return []
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return ['`installable` takes an object of options, or `false` for no manifest.']
+  const options = value as Record<string, unknown>
+  const color = (key: string, color: unknown) => (typeof color === 'string' && COLOR.test(color.trim()) ? [] : [`\`installable.${key}\` is ${JSON.stringify(color)}: give a CSS colour, such as '#ffb900'.`])
+  const theme = options.themeColor
+  return [
+    ...(theme === undefined ? [] : typeof theme === 'object' && theme !== null ? [...color('themeColor.light', (theme as Record<string, unknown>).light), ...color('themeColor.dark', (theme as Record<string, unknown>).dark)] : color('themeColor', theme)),
+    ...(options.backgroundColor === undefined ? [] : color('backgroundColor', options.backgroundColor)),
+    ...(options.description === undefined || typeof options.description === 'string' ? [] : ['`installable.description` takes a string.']),
+    ...(options.icons === undefined ? [] : pairProblems('icons', options.icons)),
+    ...(options.maskable === undefined || typeof options.maskable === 'boolean' ? [] : pairProblems('maskable', options.maskable)),
+  ]
+}
+
+/** Whether `public/` holds both icons of a pair. */
+export function iconsPresent(publicDir: string, icons: InstallIcons): boolean {
+  return present(publicDir, icons)
 }

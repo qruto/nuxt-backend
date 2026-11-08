@@ -939,10 +939,6 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "useReportForm",
-          "to": "/docs/reference/nuxt/composables#at-a-glance"
-        },
-        {
           "name": "useAiStream",
           "to": "/docs/reference/api/use-ai-stream"
         },
@@ -1412,6 +1408,10 @@
         {
           "name": "useFlagAdmin",
           "to": "/docs/reference/api/use-flags"
+        },
+        {
+          "name": "useReportForm",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
           "name": "useExperiment",

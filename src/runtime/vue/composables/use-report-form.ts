@@ -1,6 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, type ComputedRef, inject, type MaybeRefOrGetter, ref, type Ref, toValue, useId, watch } from 'vue'
-import { useRequestURL } from '#imports'
+import { useRequestURL, useRoute } from '#imports'
 import { ConvexAuthStateKey, useAction, useMutation } from 'nuxt-convex-module/client'
 import { backendError } from '../../../convex/errors.js'
 import type { NoticeInput } from '../../../convex/integrations/reports.js'
@@ -42,7 +42,12 @@ export interface ReportFormApiRefs {
 export interface UseReportFormOptions {
   /** `notice` (the default): a notice anyone may send, which the law asks a host to accept. `quick`: a signed-in person's one-click report. */
   mode?: ReportFormMode
-  /** The content's exact address. Default: the address of the page the form is on. */
+  /**
+   * The item's own permalink: the exact address a notice names. Give it
+   * wherever one page shows several items, such as a feed with a form per
+   * item. Default: the `?url=` the report page was opened with, else the
+   * page the form is on, never the report page itself.
+   */
   url?: MaybeRefOrGetter<string | undefined>
   /** The reasons to offer, in order. Default: every reason, in the order the report page lists them. */
   reasons?: MaybeRefOrGetter<readonly ReportReason[] | undefined>
@@ -65,13 +70,15 @@ export interface UseReportFormReturn {
   isPending: ComputedRef<boolean>
   /** Whether a person is signed in. A quick report needs one; signed out, `noticePath` is where to go. */
   signedIn: ComputedRef<boolean>
+  /** `true` while the session is still being read: render a quick report once it is `false`, and a press before then waits for it. */
+  isLoading: ComputedRef<boolean>
   /** The reasons offered, in order. */
   reasons: ComputedRef<readonly ReportReason[]>
   /** The reason picked; `null` until one is. */
   reason: Ref<ReportReason | null>
   /** Why the content is illegal or breaks the terms: required in a notice, optional in a quick report. Up to 4,000 characters. */
   details: Ref<string>
-  /** The content's exact address, filled in from the page. A notice requires it. */
+  /** The item's exact address: `options.url`, else filled in from the page, and followed as the route or the item changes. A notice requires it. */
   url: Ref<string>
   /** The reporter's name and address, for the receipt and the decision. A notice requires both, except about child sexual abuse material. */
   name: Ref<string>
@@ -92,13 +99,13 @@ export interface UseReportFormReturn {
   errorField: ComputedRef<ReportField | null>
   /** How long to wait before another report, in seconds, after a `rate_limited` refusal. */
   retryAfter: ComputedRef<number | null>
-  /** The public report page, with this thing in its address: where a quick report sends someone signed out. `null` when the app turned the page off. */
+  /** The public report page, with the thing and its address in its query (`?table=&id=&url=`), which the page fills its form from: where a quick report sends someone signed out. `null` when the app turned the page off. */
   noticePath: ComputedRef<string | null>
   /** Check and send the report. Resolves `true` once the deployment filed it, `false` otherwise; never rejects. */
   send: () => Promise<boolean>
   /** Clear what the person wrote and the confirmation, to report again. The address stays. */
   reset: () => void
-  /** What the live region says: the report is on its way, or was received (a notice with an address adds that the decision follows by email). */
+  /** What the live region says: the report is on its way, or was received (a notice with an address adds that the decision follows by email; one that filled the honeypot never does). */
   announcement: ComputedRef<string>
   /** The form's words, for markup of your own: `labels.t(\`reasons.${reason}\`)` names a reason. */
   labels: UseLabelsReturn<'report'>
@@ -128,7 +135,9 @@ export interface UseReportFormReturn {
     goodFaithInput: ComputedRef<Record<string, unknown>>
     /** The signature `<input>`, required while `signatureRequired`: render it only then. */
     signatureInput: ComputedRef<Record<string, unknown>>
-    /** The hidden honeypot field; render it inside an element with the `hidden` attribute. */
+    /** The honeypot's wrapper: `hidden` and `aria-hidden`, so people and assistive technology never meet the field. */
+    honeypot: ComputedRef<Record<string, unknown>>
+    /** The honeypot field, inside `honeypot`: a name no browser fills on its own, no autocomplete, out of the tab order. */
     honeypotInput: ComputedRef<Record<string, unknown>>
     /** The submit button, `aria-disabled` while the report is on its way. */
     submit: ComputedRef<Record<string, unknown>>
@@ -143,6 +152,12 @@ export interface UseReportFormReturn {
 const isRefusal = (error: BackendError): boolean => ['invalid_input', 'forbidden', 'rate_limited', 'unauthenticated'].includes(error.code)
 
 const FIELDS: readonly ReportField[] = ['reason', 'details', 'url', 'name', 'email', 'goodFaith', 'signature']
+
+/** A short query value of an address, or `undefined`. */
+function queryText(value: unknown): string | undefined {
+  const text = Array.isArray(value) ? value[0] : value
+  return typeof text === 'string' && text.trim() && text.length <= 2048 ? text.trim() : undefined
+}
 
 /** The address of the page the form is on, without its fragment (an appeal token travels there). */
 function pageAddress(): string {
@@ -204,12 +219,27 @@ export function useReportForm(subject?: MaybeRefOrGetter<ReportFormSubject | nul
   const human = useHumanCheck()
   const activeLocale = useActiveLocale()
   const reportPage = useBackendPagePath('report')
+  const route = useRoute()
   const id = useId() ?? `report-${Math.random().toString(36).slice(2)}`
   const idOf = (part: string) => `${id}-${part}`
 
   const reason = ref<ReportReason | null>(null)
   const details = ref('')
-  const url = ref(toValue(options.url) ?? pageAddress())
+  /**
+   * The item's address when the person has not typed one: the app's own
+   * (`options.url`, the item's permalink), else the `?url=` the report page
+   * was opened with, else the page the form is on, but never the report
+   * page itself, which is no item's address.
+   */
+  function defaultAddress(): string {
+    const given = toValue(options.url)?.trim()
+    if (given) return given
+    const asked = queryText(route.query.url)
+    if (asked) return asked
+    return reportPage.value && route.path === reportPage.value ? '' : pageAddress()
+  }
+
+  const url = ref(defaultAddress())
   const name = ref('')
   const email = ref('')
   const goodFaith = ref(false)
@@ -220,6 +250,8 @@ export function useReportForm(subject?: MaybeRefOrGetter<ReportFormSubject | nul
   const anonymous = ref(false)
 
   const signedIn = computed(() => auth?.isAuthenticated.value === true)
+  /** The session is still being read: a quick report waits for it. */
+  const sessionLoading = computed(() => auth?.isLoading.value === true)
   const reasons = computed<readonly ReportReason[]>(() => {
     const chosen = toValue(options.reasons)
     return chosen?.length ? REPORT_REASONS.filter(each => chosen.includes(each)).sort((a, b) => chosen.indexOf(a) - chosen.indexOf(b)) : REPORT_REASONS
@@ -238,17 +270,23 @@ export function useReportForm(subject?: MaybeRefOrGetter<ReportFormSubject | nul
     const page = reportPage.value
     const thing = toValue(subject)
     if (!page) return null
-    return thing ? `${page}?${new URLSearchParams({ table: thing.table, id: thing.id })}` : page
+    const address = url.value.trim()
+    const query = new URLSearchParams({ ...(thing ? { table: thing.table, id: thing.id } : {}), ...(address ? { url: address } : {}) }).toString()
+    return query ? `${page}?${query}` : page
   })
 
-  watch(() => toValue(options.url), (next) => {
-    if (next) url.value = next
+  // Another item's address, or another page: the address follows it.
+  watch([() => toValue(options.url), () => route.fullPath], () => {
+    url.value = defaultAddress()
   })
-  // Another thing is another report: the form starts over.
+  // Another thing is another report: the form starts over, its address included.
   watch(() => {
     const thing = toValue(subject)
     return thing ? `${thing.table}:${thing.id}` : ''
-  }, () => reset())
+  }, () => {
+    reset()
+    url.value = defaultAddress()
+  })
 
   function fail(failure: BackendError): false {
     error.value = failure
@@ -294,13 +332,31 @@ export function useReportForm(subject?: MaybeRefOrGetter<ReportFormSubject | nul
       ...(website.value ? { website: website.value } : {}),
       human: await human.token('report', address ? address.toLowerCase() : undefined),
     })
-    anonymous.value = !address
+    // A form that filled the honeypot is told it was received, never that a decision will follow.
+    anonymous.value = !address || Boolean(website.value)
+  }
+
+  /** Resolves once the session has been read. */
+  function sessionRead(): Promise<void> {
+    if (!sessionLoading.value) return Promise.resolve()
+    return new Promise((resolve) => {
+      const stop = watch(sessionLoading, (loading) => {
+        if (loading) return
+        stop()
+        resolve()
+      })
+    })
   }
 
   async function send(): Promise<boolean> {
     if (phase.value === 'pending') return false
     error.value = null
     const thing = toValue(subject)
+    if (mode === 'quick' && sessionLoading.value) {
+      // Pressed before the session was read: wait for it, rather than refuse a signed-in person.
+      phase.value = 'pending'
+      await sessionRead()
+    }
     if (mode === 'quick' && !signedIn.value) return fail(failureOf(backendError('unauthenticated', {}, '[nuxt-backend] Sign in to report content, or use the report form.')))
     if (mode === 'quick' && !thing) return fail(failureOf(backendError('invalid_input', { field: 'subject' }, '[nuxt-backend] A quick report names the thing: pass it as `{ table, id }`.')))
     if (problem() === false) return false
@@ -387,8 +443,10 @@ export function useReportForm(subject?: MaybeRefOrGetter<ReportFormSubject | nul
       },
     })),
     signatureInput: computed(() => ({ 'id': idOf('signature'), 'name': 'signature', 'type': 'text', 'autocomplete': 'name', 'required': signatureRequired.value, 'data-report': 'input-signature', 'aria-invalid': invalid('signature'), 'aria-describedby': described('signature'), 'value': signature.value, 'onInput': typed(signature) })),
+    honeypot: computed(() => ({ 'hidden': true, 'aria-hidden': 'true', 'data-report': 'trap' })),
     honeypotInput: computed(() => ({
-      'name': 'website',
+      // A name no browser or password manager fills on its own, so a person's notice never trips it.
+      'name': 'nuxt-backend-trap',
       'type': 'text',
       'tabindex': -1,
       'autocomplete': 'off',
@@ -408,6 +466,7 @@ export function useReportForm(subject?: MaybeRefOrGetter<ReportFormSubject | nul
     state: computed(() => phase.value),
     isPending: computed(() => phase.value === 'pending'),
     signedIn,
+    isLoading: sessionLoading,
     reasons,
     reason,
     details,

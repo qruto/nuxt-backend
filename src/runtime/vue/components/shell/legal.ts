@@ -23,7 +23,7 @@ interface Health {
 }
 
 /** The details a page shows, in the order it shows them. */
-const DETAIL_KEYS = ['company', 'address', 'contact', 'dpo', 'registration', 'vat'] as const satisfies ReadonlyArray<keyof LegalDetails>
+const DETAIL_KEYS = ['company', 'address', 'contact', 'dpo', 'registration', 'vat', 'phone', 'director', 'capital'] as const satisfies ReadonlyArray<keyof LegalDetails>
 
 /** The details a page names as missing in development: the ones every page needs. */
 const NEEDED_KEYS = ['company', 'address', 'contact'] as const satisfies ReadonlyArray<keyof LegalDetails>
@@ -92,7 +92,17 @@ export function useLegalDocument(page: LegalPageKey, health: Ref<Health | null |
   /** The app as the pages name it: the brand, else "this app". */
   const app = computed(() => config.brand?.name || labels.t('thisApp'))
   /** The `appConfig.backend.legal` keys still unset that this page would show. */
-  const missing = computed(() => (page === 'subprocessors' ? [] : NEEDED_KEYS.filter(key => !details.value[key])))
+  const missing = computed(() => {
+    if (page === 'subprocessors') return []
+    const keys: string[] = NEEDED_KEYS.filter(key => !details.value[key])
+    // A host that takes reports names its points of contact under the Digital Services Act (Art. 11 and 12), with their languages.
+    if (page === 'terms' && paths.report.value) {
+      const points = config.legal?.contactPoints
+      if (!points?.authorities?.trim()) keys.push('contactPoints.authorities')
+      if (!points?.languages?.some(code => code.trim())) keys.push('contactPoints.languages')
+    }
+    return keys
+  })
 
   const groups: ComputedRef<DataMapGroup[]> = computed(() => dataMap(inUse))
   // An app on another host names it, where it runs the app and its agreement, in place of Vercel's row.
@@ -100,6 +110,8 @@ export function useLegalDocument(page: LegalPageKey, health: Ref<Health | null |
     const { name, location, agreement } = config.legal?.host ?? {}
     return name?.trim() && location?.trim() ? { name: name.trim(), location: location.trim(), agreement: agreement?.trim() || null } : null
   })
+  /** The host as a legal notice names it: its name, address and phone, once the app gives an address or a phone. */
+  const hostLine = computed(() => hostLineOf(config.legal?.host))
   const processors = computed<LegalProcessor[]>(() => [
     ...subprocessorsInUse(inUse).map((key): LegalProcessor => {
       const processes = labels.t(`processors.${key}.processes`)
@@ -116,6 +128,11 @@ export function useLegalDocument(page: LegalPageKey, health: Ref<Health | null |
     }),
     ...(config.legal?.storage ?? []).filter(row => row.name?.trim()).map((row, index): LegalStoredItem => ({ key: `own:${index}`, name: row.name, kind: row.kind, consent: row.consent ?? 'necessary', why: row.why, lasts: row.lasts })),
   ])
+  /** The users' point of contact is `legal.contact` itself: the terms page names it once, in a sentence. */
+  const usersIsContact = computed(() => {
+    const users = config.legal?.contactPoints?.users?.trim()
+    return !users || users === config.legal?.contact?.trim()
+  })
   /** The consumer mediator, while the app names one. */
   const mediator = computed(() => {
     const name = config.legal?.mediator?.name?.trim()
@@ -154,6 +171,8 @@ export function useLegalDocument(page: LegalPageKey, health: Ref<Health | null |
     billing,
     ai,
     mediator,
+    usersIsContact,
+    hostLine,
     /** The version of this page's document, as `setupAccount({ consents })` declares it; null without one. */
     version: computed(() => (page === 'privacy' || page === 'terms' ? versions.version(page) : null)),
     /** The merchant of record's name and its terms for buyers, while billing is in use. */
@@ -208,7 +227,13 @@ export function useLegalTable(labels: () => LabelGroupOverrides<'legal'> | undef
 }
 
 /** A detail `<LegalDetail>` prints. */
-export type LegalDetailField = 'company' | 'address' | 'contact' | 'dpo' | 'registration' | 'vat' | 'mediator'
+export type LegalDetailField = 'company' | 'address' | 'contact' | 'dpo' | 'registration' | 'vat' | 'phone' | 'director' | 'capital' | 'mediator' | 'host'
+
+/** The host's name, address and phone in one line, once the app gives an address or a phone; `null` otherwise. */
+export function hostLineOf(host: { name?: string, address?: string, phone?: string } | undefined): string | null {
+  const parts = [host?.name, host?.address, host?.phone].map(part => part?.trim()).filter((part): part is string => Boolean(part))
+  return host?.address?.trim() || host?.phone?.trim() ? parts.join(', ') : null
+}
 
 /** A contact as a link: an address as `mailto:`, a URL as itself, anything else none. */
 function contactHref(contact: string): string | null {
@@ -239,6 +264,10 @@ export function useLegalDetail(field: () => LegalDetailField, overrides: () => L
     const legal = config.legal ?? {}
     const key = field()
     const unset: LegalDetailView = { text: null, href: null, external: false, unsetNote: import.meta.dev ? t('unset', { fields: key }) : null }
+    if (key === 'host') {
+      const text = hostLineOf(legal.host)
+      return text ? { text, href: null, external: false, unsetNote: null } : unset
+    }
     if (key === 'mediator') {
       const name = legal.mediator?.name?.trim()
       const url = legal.mediator?.url?.trim() || null
@@ -246,7 +275,7 @@ export function useLegalDetail(field: () => LegalDetailField, overrides: () => L
     }
     const text = legal[key]?.trim()
     if (!text) return unset
-    const href = key === 'contact' || key === 'dpo' ? contactHref(text) : null
+    const href = key === 'contact' || key === 'dpo' ? contactHref(text) : key === 'phone' ? `tel:${text.replace(/[^+\d]/g, '')}` : null
     return { text, href, external: Boolean(href?.startsWith('http')), unsetNote: null }
   })
 }
@@ -284,7 +313,7 @@ export interface LegalContactPoint {
  *
  * @internal
  */
-export function useContactPoints(overrides: () => LabelGroupOverrides<'legal'> | undefined) {
+export function useContactPoints(overrides: () => LabelGroupOverrides<'legal'> | undefined, except: () => ReadonlyArray<LegalContactPoint['key']> = () => []) {
   const config = useBackendConfig()
   const labels = useLabels('legal', overrides)
   const points = computed<LegalContactPoint[]>(() => {
@@ -292,7 +321,7 @@ export function useContactPoints(overrides: () => LabelGroupOverrides<'legal'> |
     const found: Array<[LegalContactPoint['key'], string | undefined]> = [['authorities', declared?.authorities], ['users', declared?.users ?? config.legal?.contact]]
     return found.flatMap(([key, value]) => {
       const contact = value?.trim()
-      return contact ? [{ key, contact, href: contactHref(contact) }] : []
+      return contact && !except().includes(key) ? [{ key, contact, href: contactHref(contact) }] : []
     })
   })
   const languages = computed(() => (config.legal?.contactPoints?.languages ?? []).flatMap((code) => {

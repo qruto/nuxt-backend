@@ -154,3 +154,28 @@ describe('redirects.afterSignIn', () => {
     expect(refusal({ redirects: '/app' }).message).toContain('`backend.redirects` is')
   })
 })
+
+describe('the installable option', () => {
+  it('takes the shapes it documents, and false', () => {
+    expect(() => assertModuleOptions({ installable: false })).not.toThrow()
+    expect(() => assertModuleOptions({ installable: { themeColor: { light: '#ffb900', dark: 'oklch(0.3 0.1 270)' }, backgroundColor: 'white', icons: { 192: '/brand/app-192.png', 512: '/brand/app-512.png' }, maskable: true } })).not.toThrow()
+  })
+
+  it('stops the build on a colour, a path or a pair it cannot make a manifest from', () => {
+    const refusal = (installable: unknown) => {
+      try {
+        assertModuleOptions({ installable })
+        return ''
+      }
+      catch (error) {
+        return (error as Error).message
+      }
+    }
+    expect(refusal({ themeColor: 'not a colour;' })).toContain('`installable.themeColor`')
+    expect(refusal({ icons: { 192: 'https://cdn.example/icon.png', 512: '/icon-512.png' } })).toContain('`installable.icons[192]`')
+    expect(refusal({ icons: { 192: '/icon-192.png' } })).toContain('no 512 px icon')
+    expect(refusal({ maskable: { 192: '//cdn.example/m.png', 512: '/m-512.png' } })).toContain('`installable.maskable[192]`')
+    expect(refusal({ icons: { 192: '/../secret.png', 512: '/icon-512.png' } })).toContain('`installable.icons[192]`')
+    expect(refusal('yes')).toContain('takes an object of options')
+  })
+})

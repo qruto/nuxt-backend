@@ -61,7 +61,7 @@ export const COMPOSABLE_AREAS = {
   useBackendPagePath: 'ui',
   useEmailStatus: 'email',
   useContactForm: 'email',
-  useReportForm: 'ai',
+  useReportForm: 'ship',
   useSignInAlerts: 'auth',
   useInboxAdmin: 'email',
   useOnboarding: 'auth',

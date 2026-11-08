@@ -1675,7 +1675,11 @@
         "contact": "Kontakt: {contact}",
         "dpo": "Datenschutzbeauftragte(r): {dpo}",
         "registration": "Registernummer: {registration}",
-        "vat": "Umsatzsteuer: {vat}"
+        "vat": "Umsatzsteuer: {vat}",
+        "phone": "Telefon: {phone}",
+        "capital": "Stammkapital: {capital}",
+        "director": "Verantwortlich für die Veröffentlichung: {director}",
+        "host": "Hosting: {host}"
       },
       "privacy": {
         "intro": "Diese Erklärung beschreibt, was {app} über Sie speichert, wie lange, wer die Daten für uns verarbeitet und wie Sie eine Kopie erhalten oder die Daten löschen lassen.",

@@ -1675,7 +1675,11 @@
         "contact": "Contact: {contact}",
         "dpo": "Data protection officer: {dpo}",
         "registration": "Registration number: {registration}",
-        "vat": "VAT: {vat}"
+        "vat": "VAT: {vat}",
+        "phone": "Phone: {phone}",
+        "capital": "Share capital: {capital}",
+        "director": "Publication director: {director}",
+        "host": "Host: {host}"
       },
       "contactPoints": {
         "title": "Points of contact",

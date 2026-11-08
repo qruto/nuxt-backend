@@ -55,6 +55,10 @@ export interface LegalHost {
   location: string
   /** Its data processing agreement. */
   agreement?: string
+  /** Its postal address, which some laws ask the legal notice to name (France's LCEN). */
+  address?: string
+  /** Its phone number, likewise. */
+  phone?: string
 }
 
 /** The consumer mediator a company joined, which a consumer may turn to for free once they wrote to it (`appConfig.backend.legal.mediator`). */
@@ -172,15 +176,23 @@ export interface BackendAppConfig {
     /** Your data protection officer's contact, when you must appoint one (GDPR Art. 37); leave it out otherwise. */
     dpo?: string
     /**
-     * The host the app runs on, when it is not Vercel: its name, where it
-     * runs the app, and its data processing agreement. The pages list it
-     * in place of Vercel's row.
+     * The host the app runs on: its name, where it runs the app, its data
+     * processing agreement, and its address and phone, which a legal notice
+     * names in some countries. With a name and a location, the pages list
+     * it in place of Vercel's row; with an address or a phone, the terms
+     * name it as the host.
      */
     host?: LegalHost
     /** Your company's registration number, as its register writes it: a SIREN, a company number. */
     registration?: string
     /** Your VAT number, or the line that says why you charge none. */
     vat?: string
+    /** Your phone number. */
+    phone?: string
+    /** The person responsible for what the app publishes (France's directeur de la publication). */
+    director?: string
+    /** Your share capital, as your register states it. */
+    capital?: string
     /** The consumer mediator you joined, `{ name, url }`: the terms page names it under Disputes. */
     mediator?: LegalMediator
     /**
@@ -272,6 +284,9 @@ export const BACKEND_APP_CONFIG_KEYS = [
   'legal.host',
   'legal.registration',
   'legal.vat',
+  'legal.phone',
+  'legal.director',
+  'legal.capital',
   'legal.mediator',
   'legal.locations',
   'legal.processors',

@@ -38,6 +38,10 @@ const LEGAL_LABELS = {
     dpo: 'Data protection officer: {dpo}',
     registration: 'Registration number: {registration}',
     vat: 'VAT: {vat}',
+    phone: 'Phone: {phone}',
+    capital: 'Share capital: {capital}',
+    director: 'Publication director: {director}',
+    host: 'Host: {host}',
   },
   // The single points of contact the Digital Services Act asks a host to name (<LegalContactPoints>, the terms page).
   contactPoints: {

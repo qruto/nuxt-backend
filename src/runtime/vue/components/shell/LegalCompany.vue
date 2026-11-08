@@ -4,8 +4,9 @@ import type { LegalDocument } from './legal'
 
 /**
  * The company's details as a legal page prints them, one line each: its
- * postal address, registration number, VAT line, contact and data
- * protection officer, the ones the page asks for that app config sets.
+ * postal address, phone, registration number, share capital, VAT line,
+ * publication director, contact, data protection officer and host, the
+ * ones the page asks for that app config sets.
  *
  * Internal: a section of `LegalDocument`, built on `useLegalDocument`.
  *
@@ -15,11 +16,11 @@ const props = defineProps<{
   /** The page's state, from `useLegalDocument`. */
   legal: LegalDocument
   /** The details to print, in order. */
-  fields: ReadonlyArray<'address' | 'registration' | 'vat' | 'contact' | 'dpo'>
+  fields: ReadonlyArray<'address' | 'phone' | 'registration' | 'capital' | 'vat' | 'director' | 'contact' | 'dpo' | 'host'>
 }>()
 
 const lines = computed(() => props.fields.flatMap((field) => {
-  const value = props.legal.details.value[field]
+  const value = field === 'host' ? props.legal.hostLine.value : props.legal.details.value[field]
   return value ? [{ field, text: props.legal.t(`controller.${field}`, { [field]: value }) }] : []
 }))
 </script>

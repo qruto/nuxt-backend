@@ -119,7 +119,8 @@ async function installableFindings(rootDir: string, appConfig: () => Promise<App
   })
   const publicDir = join(rootDir, (config as { dir?: { public?: string } }).dir?.public ?? 'public')
   const options = (pathsSourceOf(config) as { installable?: InstallableOptions | false }).installable
-  return installableFinding(publicDir, await appBrandOf(config as never), { modules, pushKeys, options })
+  const links = (config as { app?: { head?: { link?: unknown[] } } }).app?.head?.link ?? []
+  return installableFinding(publicDir, await appBrandOf(config as never), { modules, pushKeys, options, links })
 }
 
 /** Whether the app serves docs for agents: nuxt-llms is configured, or listed as a module. */

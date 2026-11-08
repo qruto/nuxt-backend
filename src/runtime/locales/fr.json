@@ -1675,7 +1675,11 @@
         "contact": "Contact : {contact}",
         "dpo": "Délégué à la protection des données : {dpo}",
         "registration": "Numéro d’immatriculation : {registration}",
-        "vat": "TVA : {vat}"
+        "vat": "TVA : {vat}",
+        "phone": "Téléphone : {phone}",
+        "capital": "Capital social : {capital}",
+        "director": "Directeur de la publication : {director}",
+        "host": "Hébergeur : {host}"
       },
       "privacy": {
         "intro": "Cette politique indique ce que {app} conserve à votre sujet, pendant combien de temps, qui le traite pour notre compte, et comment en obtenir une copie ou le faire supprimer.",

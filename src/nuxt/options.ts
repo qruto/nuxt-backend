@@ -1,3 +1,4 @@
+import { installableProblems } from '../installable'
 import { pagesOptionProblems } from '../pages'
 
 // The `backend` options a 0.1 config may still hold: refused before anything
@@ -59,6 +60,12 @@ export function assertModuleOptions(options: unknown): void {
   if (!options || typeof options !== 'object') return
   const values = options as Record<string, unknown>
   assertRedirects(values.redirects)
+  const installable = installableProblems(values.installable)
+  if (installable.length > 0) {
+    const error = new Error(`nuxt-backend: \`backend.installable\` cannot make a manifest:\n${installable.map(problem => `  - ${problem}`).join('\n')}\nSee https://nuxt-backend.dev/docs/build/email/notifications/installable#colours-maskable-icons-and-other-paths`)
+    error.name = 'BackendOptionsError'
+    throw error
+  }
   const removed = Object.entries(REMOVED_OPTIONS).filter(([key]) => values[key] !== undefined)
   const problems = [
     ...pagesOptionProblems(values.pages),

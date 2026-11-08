@@ -2154,5 +2154,9 @@
   "legal.moderation.checks": [],
   "legal.moderation.decides": [],
   "legal.moderation.decidesAlone": [],
-  "legal.moderation.flagsOnly": []
+  "legal.moderation.flagsOnly": [],
+  "legal.controller.phone": ["phone"],
+  "legal.controller.capital": ["capital"],
+  "legal.controller.director": ["director"],
+  "legal.controller.host": ["host"]
 }

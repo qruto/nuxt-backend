@@ -24,9 +24,11 @@ defineOptions({ name: 'LegalContactPoints' })
 const props = defineProps<{
   /** Copy for this list, over `appConfig.backend.labels.legal` and the translations. */
   labels?: LabelGroupOverrides<'legal'>
+  /** Points to leave out, for a page that names them already: the terms page leaves out the users' point when it is `legal.contact`, which it names in a sentence. */
+  except?: ReadonlyArray<'authorities' | 'users'>
 }>()
 
-const contacts = useContactPoints(() => props.labels)
+const contacts = useContactPoints(() => props.labels, () => props.except ?? [])
 const { t } = contacts
 </script>
 

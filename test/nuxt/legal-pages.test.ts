@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { clearNuxtData } from '#imports'
+import { defineComponent, h, ref } from 'vue'
+import { clearNuxtData, useRuntimeConfig } from '#imports'
 import { HEALTH_ROUTE } from '../../src/convex/constants'
 import { LABELS } from '../../src/convex/labels'
 import { BROWSER_STORAGE } from '../../src/convex/legal'
@@ -9,6 +10,7 @@ import LegalDetail from '../../src/runtime/vue/components/shell/LegalDetail.vue'
 import LegalDocument from '../../src/runtime/vue/components/shell/LegalDocument.vue'
 import LegalProcessors from '../../src/runtime/vue/components/shell/LegalProcessors.vue'
 import LegalStorage from '../../src/runtime/vue/components/shell/LegalStorage.vue'
+import { useLegalDocument } from '../../src/runtime/vue/components/shell/legal'
 import { registerComponents } from '../helpers/register-components'
 
 // The packaged legal pages (LEGAL): filled from appConfig.backend.legal and
@@ -147,13 +149,63 @@ describe('the operator\'s details and rows of its own', () => {
     } }
     const terms = await mountSuspended(LegalDocument, { props: { page: 'terms' } })
     expect(terms.find('[data-audience="authorities"] a').attributes('href')).toBe('mailto:dsa@panels.example')
-    // The users' point is the contact unless the app names another.
-    expect(terms.find('[data-audience="users"] a').attributes('href')).toBe('mailto:support@panels.example')
+    // The users' point is the contact, which the Contact section names once, in its sentence.
+    expect(terms.find('[data-audience="users"]').exists()).toBe(false)
+    expect(terms.text().split('support@panels.example')).toHaveLength(2)
     expect(terms.find('[data-audience="languages"] dd').text()).toBe('English, French')
     expect(terms.find('[data-legal="moderation-review"]').text()).toBe(LABELS.legal.moderation.review)
     const tool = terms.find('[data-legal="tool"]')
     expect(tool.attributes('data-decides')).toBe('alone')
     expect(tool.find('[data-legal="decides"]').text()).toBe(LABELS.legal.moderation.decidesAlone)
+  })
+
+  it('lists the users\' point once the app names one apart from the contact', async () => {
+    appConfig.backend = { ...appConfig.backend, legal: { contact: 'support@panels.example', contactPoints: { users: 'help@panels.example' } } }
+    const terms = await mountSuspended(LegalDocument, { props: { page: 'terms' } })
+    expect(terms.find('[data-audience="users"] a').attributes('href')).toBe('mailto:help@panels.example')
+  })
+
+  it('claims no moderation process while the app takes no reports', async () => {
+    const config = useRuntimeConfig().public as { backend?: { pages?: Record<string, unknown> } }
+    const previous = config.backend
+    config.backend = { ...previous, pages: { ...previous?.pages, report: false } }
+    try {
+      const terms = await mountSuspended(LegalDocument, { props: { page: 'terms' } })
+      expect(terms.text()).not.toContain(LABELS.legal.moderation.title)
+    }
+    finally {
+      config.backend = previous
+    }
+  })
+
+  it('names the DSA contacts still unset, for the development note of a terms page that takes reports', async () => {
+    const Missing = defineComponent({ setup: () => {
+      const legal = useLegalDocument('terms', ref(null))
+      return () => h('p', legal.missing.value.join(','))
+    } })
+    appConfig.backend = { ...appConfig.backend, legal: { company: 'Panels Studio Ltd', address: '1 Example Street', contact: 'support@panels.example' } }
+    expect((await mountSuspended(Missing)).text()).toBe('contactPoints.authorities,contactPoints.languages')
+    appConfig.backend = { ...appConfig.backend, legal: { company: 'Panels Studio Ltd', address: '1 Example Street', contact: 'support@panels.example', contactPoints: { authorities: 'dsa@panels.example', languages: ['fr'] } } }
+    expect((await mountSuspended(Missing)).text()).toBe('')
+  })
+
+  it('names what a French legal notice asks for: phone, share capital, publication director and the host', async () => {
+    appConfig.backend = { ...appConfig.backend, legal: {
+      company: 'Panels Studio SAS',
+      phone: '+33 1 23 45 67 89',
+      capital: '1 000 EUR',
+      director: 'Ada Lovelace',
+      host: { name: 'Vercel Inc.', address: '440 N Barranca Ave #4133, Covina, CA 91723, USA', phone: '+1 951-383-6898' },
+    } }
+    const terms = await mountSuspended(LegalDocument, { props: { page: 'terms' } })
+    const company = terms.find('[data-legal="controller"]').text()
+    expect(company).toContain('Phone: +33 1 23 45 67 89')
+    expect(company).toContain('Share capital: 1 000 EUR')
+    expect(company).toContain('Publication director: Ada Lovelace')
+    expect(company).toContain('Host: Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, USA, +1 951-383-6898')
+    const phone = await mountSuspended(LegalDetail, { props: { field: 'phone' } })
+    expect(phone.find('a').attributes('href')).toBe('tel:+33123456789')
+    expect((await mountSuspended(LegalDetail, { props: { field: 'host' } })).text()).toContain('Vercel Inc.')
   })
 
   it('says a person decides even with no automated tool named', async () => {

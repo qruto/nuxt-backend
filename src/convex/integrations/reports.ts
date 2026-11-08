@@ -469,7 +469,10 @@ export function createReports(components: { backend: unknown, rateLimiter?: unkn
       const identity = await ctx.auth.getUserIdentity()
       if (!identity) throw backendError('unauthenticated', {}, '[nuxt-backend] Sign in to report content, or use the report form.')
       // The honeypot, a field people never see: a form that filled it is a bot's, and files nothing.
-      if (args.website?.trim()) return null
+      if (args.website?.trim()) {
+        logBackend('info', 'reports.honeypot', 'A report filled the honeypot; nothing was filed.')
+        return null
+      }
       // A report is the person's own: an administrator visiting the account makes none.
       refuseCaller(identity as unknown as Record<string, unknown>, { impersonation: 'refused' }, 'reportContent')
       const account = await reads.account(ctx, identity.subject)
@@ -500,7 +503,10 @@ export function createReports(components: { backend: unknown, rateLimiter?: unkn
     returns: v.null(),
     handler: async (ctx, input) => {
       // The honeypot: a form that filled it is a bot's. It is told nothing went wrong, and nothing is filed, mailed or counted.
-      if (input.website?.trim()) return null
+      if (input.website?.trim()) {
+        logBackend('info', 'reports.honeypot', 'A notice filled the honeypot; nothing was filed, mailed or counted.')
+        return null
+      }
       const notice = checkedNotice(input)
       const address = notice.notifier.email
       // The bot check first: a refused call spends none of the limits.

@@ -53,6 +53,7 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const REPORTS_LEGAL = 'Report forms send notices, and the legal pages fill your own'
 const TUNNEL = 'Browser error reports go through a tunnel on the app\'s own origin'
 const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
 const ONE_WAY = 'One way to do each thing'
@@ -95,6 +96,8 @@ const SESSIONS = 'Sessions are listed and revoked by id'
 
 /** Every rename, newest section first, as the Upgrade page orders them. */
 export const RENAMES: readonly Rename[] = [
+  // The report form is a composable: a notice by default, the one-click report as a mode.
+  { from: 'useMutation(api.admin.reportContent)', to: 'useReportForm(subject, { mode: \'quick\' })', change: 'reshaped', section: REPORTS_LEGAL, note: 'or `useReportForm(subject)` for a notice (DSA Art. 16) through `sendNotice`, with the fields it requires' },
   // The managed tunnel needs a newer SDK: the peer range moves.
   { from: '@sentry/nuxt', to: '@sentry/nuxt@^11.10.0', change: 'reshaped', section: TUNNEL, note: 'the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn' },
   // One attribute marks every packaged component, in place of a list of families.

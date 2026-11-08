@@ -3,7 +3,8 @@ import { join, resolve } from 'node:path'
 import { addServerHandler, hasNuxtModule, type Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import { appBrandOf } from '../brand-file'
-import { APPLE_TOUCH_ICON, type InstallableOptions, installableGaps, installIcons, MANIFEST_MODULES, MANIFEST_ROUTE, maskableIcons, ownsManifest, themeColorMeta, webAppManifest } from '../installable'
+import { logger } from './logger'
+import { APPLE_TOUCH_ICON, iconsPresent, type InstallableOptions, installableGaps, installIcons, MANIFEST_MODULES, MANIFEST_ROUTE, maskableIcons, ownsManifest, themeColorMeta, webAppManifest } from '../installable'
 import { PUSH_WORKER_URL } from '../convex/web-push'
 
 /**
@@ -23,10 +24,13 @@ export function registerInstallable(resolver: Resolver, nuxt: Nuxt, options: Ins
   if (options === false) return
   const publicDir = resolve(nuxt.options.rootDir, nuxt.options.dir?.public ?? 'public')
   nuxt.hook('modules:done', async () => {
-    if (ownsManifest(publicDir, MANIFEST_MODULES.filter(name => hasNuxtModule(name, nuxt)))) return
+    if (ownsManifest(publicDir, MANIFEST_MODULES.filter(name => hasNuxtModule(name, nuxt)), nuxt.options.app.head.link ?? [])) return
     const brand = await appBrandOf(nuxt.options as never)
     if (!brand?.name || installableGaps(publicDir, brand, options).length > 0) return
     const icons = installIcons(publicDir, options)
+    if (typeof options.maskable === 'object' && !iconsPresent(publicDir, options.maskable)) {
+      logger.warn('`installable.maskable` names ' + options.maskable[192] + ' and ' + options.maskable[512] + ', and public/ does not hold both: the manifest lists no maskable icon.')
+    }
     ;(nuxt.options.runtimeConfig as Record<string, unknown>).backendManifest = webAppManifest(brand.name, { ...options, icons, maskable: maskableIcons(publicDir, options) })
     addServerHandler({ route: MANIFEST_ROUTE, method: 'get', handler: { nuxt: resolver.resolve('./runtime/server/manifest') } })
     const head = nuxt.options.app.head

@@ -76,6 +76,20 @@ describe('the web app manifest', () => {
     expect(installableFinding(publicDir, null, { modules: [], pushKeys: true })).toEqual([])
   })
 
+  it('leaves an app alone that links a manifest of its own in app.head', () => {
+    expect(ownsManifest(publicDir, [], [{ rel: 'icon', href: '/favicon.svg' }])).toBe(false)
+    expect(ownsManifest(publicDir, [], [{ rel: 'manifest', href: '/app.webmanifest' }])).toBe(true)
+    icons('icon-192.png')
+    expect(installableFinding(publicDir, { name: 'Panels' }, { modules: [], pushKeys: true, links: [{ rel: 'manifest', href: '/app.webmanifest' }] })).toEqual([])
+  })
+
+  it('leaves out a maskable pair public/ does not hold', () => {
+    icons('icon-192.png', 'icon-512.png')
+    expect(maskableIcons(publicDir, { maskable: { 192: '/m-192.png', 512: '/m-512.png' } })).toBeNull()
+    icons('m-192.png', 'm-512.png')
+    expect(maskableIcons(publicDir, { maskable: { 192: '/m-192.png', 512: '/m-512.png' } })).toEqual({ 192: '/m-192.png', 512: '/m-512.png' })
+  })
+
   it('says nothing for an app that turned the manifest off', () => {
     icons('icon-192.png')
     expect(installableFinding(publicDir, { name: 'Panels' }, { modules: [], pushKeys: true, options: false })).toEqual([])
