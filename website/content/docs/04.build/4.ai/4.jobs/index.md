@@ -117,6 +117,7 @@ export const drawPanel = jobs.step({
     const { files } = await generateText({
       model: ctx.model(),
       prompt: `Panel ${panel} of a comic strip about ${idea}. Flat colors, bold ink outlines.`,
+      ...ctx.callSettings,
     })
     const image = files.find(file => file.mediaType.startsWith('image/'))
     const storageId = await ctx.storeImage(image!, { inputs: [stripId] })
@@ -127,6 +128,8 @@ export const drawPanel = jobs.step({
 
 - **`jobs.define({ meter, cost, args, handler })`** holds `cost` credits from `meter` while the job waits. `cost` is a number, or `(args) => number`. `meter: false` makes a job free. `charge: 'output'` charges what the job made instead, with `job.charge(n)` ([Charge for what a job made](/docs/build/ai/jobs/credits#charge-for-what-a-job-made)). The `handler` runs as a durable workflow: the result of each `job.run` and `job.progress` is saved, so a restart or a deploy picks the job up after its last finished step. What the handler returns becomes the job's result. Keep it small, such as ids, and save the work itself in your own tables, as `savePanel`, an internal mutation of yours, does here.
 - **`jobs.step({ model, args, handler })`** is an internal action whose `ctx.model()` returns the model it names, through the same route as every model call. Before your handler runs, the step takes a turn from that model's limit. Its calls are paid for by the job's price, so they settle nothing on their own. `ctx.job.id` names the job it runs for.
+- **`ctx.image(model?)`** returns an image model for the AI SDK's `generateImage`: the step's own, or another by id or object, through the same route as `ctx.model()`. Its calls are metered the same way: their cost reaches the job's cost report, the Costs tab and the spend limit, and `ctx.storeImage` names the model in the image's provenance.
+- **`jobs.step({ timeout })`** aborts the step's model calls after `timeout` ms: 3 minutes by default, or 80% of `stallAfter` when that is less, and always shorter than `stallAfter`. Every `ctx.model()` and `ctx.image()` call gets the deadline, `ctx.signal`, unless it brings its own. A timed-out attempt is tried again. Spread `ctx.callSettings` into a call to add it with `maxRetries: 0`: the queue retries the step under the model's limit, so the AI SDK's own retries only spend the deadline.
 - **`ctx.storeImage(file, { inputs })`** stores a generated image with its content credentials as a file of the job's owner, which the storage quota counts and an erasure deletes, and records what made it. Read its URL with `storage.fileUrl` ([Label AI-generated content](/docs/build/ai/provenance#label-a-result)).
 - **`job.run(step, args)`** runs a step and returns what it returned. When the step finds no free turn, or its model answers `429`, a timeout or a passing provider error, `job.run` waits and runs it again. See [Keep models under their limits](/docs/build/ai/jobs/model-limits).
 - **`job.progress({ done, total, label? })`** reports how far the job got. `useJob` shows it, and it also tells the queue the job is alive.

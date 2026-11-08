@@ -2,12 +2,13 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { componentsGeneric, defineSchema, defineTable, type FunctionReference, internalActionGeneric, internalMutationGeneric, makeFunctionReference, mutationGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
-import { generateText } from 'ai'
+import { generateImage, generateText } from 'ai'
+import { MockImageModelV4 } from 'ai/test'
 import backendTest, { asUser, defineBackendTestApp } from '../../src/convex/test'
 import { sweep } from '../../src/convex/components/backend/jobs'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { backendError, getBackendError } from '../../src/convex/errors'
-import { defineJobQueue, type OnJobEnd, setupAi, vJobEnd } from '../../src/convex/integrations/ai'
+import { defineJobQueue, type OnJobEnd, retryable, setupAi, vJobEnd } from '../../src/convex/integrations/ai'
 import type { Billing } from '../../src/convex/integrations/billing'
 import { setupRateLimiter } from '../../src/convex/integrations/rate-limit'
 
@@ -111,6 +112,35 @@ const render = jobs.define({
   },
 })
 
+/** How the cover step goes: drawn, past its deadline, or with no image to give. */
+const cover = { mode: 'draw' as 'draw' | 'hang' | 'empty' }
+
+/** A model that answers only when its call is aborted: the step's deadline is what ends it. */
+const hanging = new MockImageModelV4({
+  provider: 'test',
+  modelId: 'test/slow-image',
+  doGenerate: ({ abortSignal }) => new Promise((_, reject) => abortSignal?.addEventListener('abort', () => reject(abortSignal.reason))),
+})
+
+/** A step that draws an image with an image model, metered, and stores it. */
+const drawCover = jobs.step({
+  model: 'openai/gpt-image-2',
+  timeout: 30_000,
+  args: { idea: v.string() },
+  handler: async (ctx, { idea }) => {
+    if (cover.mode === 'empty') throw retryable('The model returned no image.')
+    const { image } = await generateImage({ model: cover.mode === 'hang' ? ctx.image(hanging) : ctx.image(), prompt: `A cover for ${idea}`, ...ctx.callSettings })
+    return image.uint8Array.length
+  },
+})
+
+/** A free kind with one cover to draw. */
+const covered = jobs.define({
+  meter: false,
+  args: { idea: v.string() },
+  handler: async (job, { idea }) => job.run(makeFunctionReference<'action'>('strips:drawCover') as unknown as FunctionReference<'action', 'internal'>, { idea }),
+})
+
 /** A step that names no model, in an app whose setupAi names none either. */
 const caption = jobs.step({
   args: { idea: v.string() },
@@ -196,7 +226,7 @@ const testApp = defineBackendTestApp(appSchema, {
   './_generated/api.js': () => Promise.resolve({}),
   './ai.js': () => Promise.resolve(ai.api),
   './jobs.js': () => Promise.resolve(jobs.api),
-  './strips.js': () => Promise.resolve({ render, drawPanel, caption, misfire, doomed, negative, priceless, notAKind, create, start, takeTurns, savePanel, ended, peek, stop }),
+  './strips.js': () => Promise.resolve({ render, drawPanel, caption, misfire, doomed, negative, priceless, notAKind, create, start, takeTurns, savePanel, ended, peek, stop, drawCover, covered }),
 })
 type App = ReturnType<typeof testApp>
 
@@ -308,6 +338,7 @@ beforeEach(() => {
   misbehave.report = false
   misbehave.plans = 'pro'
   misbehave.hook = false
+  cover.mode = 'draw'
   provider.charges.length = 0
   provider.refunds.length = 0
   provider.costs.length = 0
@@ -856,5 +887,43 @@ describe('jobs.get and jobs.cancel', () => {
     expect(await row(t, jobId)).toMatchObject({ status: 'canceled', refunded: true })
     expect(provider.refunds).toEqual([{ userId: ada.workspaceId, value: 10 }])
     expect(await endsOf(t, jobId)).toEqual([expect.objectContaining({ status: 'canceled' })])
+  })
+})
+
+describe('an image step', () => {
+  test('draws through ctx.image(), metered: its cost and its model reach the job\'s usage and its cost report', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    const { jobId } = await ada.mutation(ref.start, { kind: 'covered', args: { idea: 'A fox' } })
+    await drain(t)
+    const job = await row(t, jobId)
+    expect(job).toMatchObject({ status: 'done', result: expect.any(Number), usage: { usd: 0.04, input: 10, output: 100, models: ['openai/gpt-image-2'] } })
+    expect(provider.costs).toEqual([expect.objectContaining({ cents: 4, llm: expect.objectContaining({ vendor: 'openai', model: 'openai/gpt-image-2' }) })])
+  })
+
+  test('past its timeout is aborted and tried again as a timeout, then fails the job provider_refused', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    cover.mode = 'hang'
+    const { jobId } = await ada.mutation(ref.start, { kind: 'covered', args: { idea: 'Slow' } })
+    await drain(t)
+    expect(await row(t, jobId)).toMatchObject({ status: 'failed', attempts: 4, error: { code: 'unavailable', reason: 'provider_refused' }, lastError: expect.stringContaining('timed out after 30s') })
+  })
+
+  test('that throws retryable() is tried again instead of failing at once', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    cover.mode = 'empty'
+    const { jobId } = await ada.mutation(ref.start, { kind: 'covered', args: { idea: 'Blank' } })
+    await drain(t)
+    expect(await row(t, jobId)).toMatchObject({ status: 'failed', attempts: 4, lastError: expect.stringContaining('no image') })
+  })
+
+  test('refuses a timeout the stall sweep would cut short, where the step is defined', () => {
+    expect(() => jobs.step({ timeout: 5 * MINUTE, args: {}, handler: async () => null })).toThrow(/below the queue's `stallAfter`/)
+    expect(() => jobs.step({ timeout: 0, args: {}, handler: async () => null })).toThrow(/above 0/)
   })
 })

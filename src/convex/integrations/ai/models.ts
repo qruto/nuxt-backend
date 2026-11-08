@@ -4,7 +4,7 @@ import { backendError, getBackendError } from '../../errors.js'
 import { logBackend } from '../../log.js'
 import type { AiGateway, AiModel, InferenceRegion, MeteredModel, ModelStatus, SetupAiConfig } from './config.js'
 import { upstreamErrorOf } from './job-errors.js'
-import { MODEL_ID } from './model-id.js'
+import { MODEL_ID, routeKeyFor } from './model-id.js'
 import type { TokenUsage } from './pricing.js'
 
 // Where a model id goes, and what each call through it cost. A `provider/model`
@@ -62,6 +62,8 @@ export type FallbackRoute<M = ModelObject>
       region?: InferenceRegion
       /** The order `setupAi({ gateway })` named, when it is not the default one: what the refusal says was allowed. */
       gateways?: readonly AiGateway[]
+      /** The `setupAi({ routes })` key the order came from, when one did. */
+      routedBy?: string
     }
 
 /**
@@ -75,11 +77,13 @@ export type ModelRoute<M = ModelObject>
 
 /**
  * The gateways a `provider/model` id may go through, in order, and the
- * region every call is pinned to: `setupAi`'s `gateway` and
+ * region every call is pinned to: `setupAi`'s `gateway`, `routes` and
  * `inferenceRegion`, as {@link routingOf} settles them.
  */
 export interface ModelRouting {
   gateways: readonly AiGateway[]
+  /** The orders `setupAi({ routes })` gives some ids, by id or `provider/*` pattern, over `gateways`. */
+  routes?: Readonly<Record<string, readonly AiGateway[]>>
   region?: InferenceRegion
 }
 
@@ -96,24 +100,72 @@ const isDefaultOrder = (gateways: readonly AiGateway[]): boolean =>
   gateways.length === DEFAULT_GATEWAYS.length && gateways.every((gateway, at) => gateway === DEFAULT_GATEWAYS[at])
 
 /**
- * `setupAi`'s `gateway` and `inferenceRegion`, settled once: the order with
- * each gateway once, narrowed to the Vercel AI Gateway by a region pin,
- * which the Convex AI Gateway documents none of. Refuses a gateway it does
- * not know, an empty order, and a pin with no `'vercel'` to serve it.
+ * One order, each gateway once: `where` names the setting in a refusal, and
+ * `Refusal` is the error a gateway it does not know or an empty order throws.
  */
-export function routingOf(config: Pick<SetupAiConfig, 'gateway' | 'inferenceRegion'>): ModelRouting {
-  const { gateway, inferenceRegion: region } = config
-  const named: readonly unknown[] = gateway === undefined ? DEFAULT_GATEWAYS : Array.isArray(gateway) ? gateway : [gateway]
-  if (named.length === 0) throw new Error('[nuxt-backend] setupAi({ gateway }): name at least one gateway, \'convex\' or \'vercel\'.')
+function orderOf(value: unknown, where: string, Refusal: ErrorConstructor): AiGateway[] {
+  const named: readonly unknown[] = Array.isArray(value) ? value : [value]
+  if (named.length === 0) throw new Refusal(`[nuxt-backend] setupAi(${where}): name at least one gateway, 'convex' or 'vercel'.`)
   for (const name of named) {
-    if (typeof name !== 'string' || !GATEWAY_NAMES.has(name)) throw new Error(`[nuxt-backend] setupAi({ gateway }): '${String(name)}' is no gateway; use 'convex' or 'vercel'.`)
+    if (typeof name !== 'string' || !GATEWAY_NAMES.has(name)) throw new Refusal(`[nuxt-backend] setupAi(${where}): '${String(name)}' is no gateway; use 'convex' or 'vercel'.`)
   }
-  const gateways = [...new Set(named as AiGateway[])]
-  if (region === undefined) return { gateways }
+  return [...new Set(named as AiGateway[])]
+}
+
+/** A `routes` key: a `provider/model` id, or a pattern ending in `*`: every model of a provider (`google/*`), or of a family (`google/gemini-3-*`). */
+const ROUTE_KEY = /^[a-z0-9][\w.-]*\/(?:[\w.:@-]*\*|[\w.:@-]+)$/i
+
+/** `setupAi({ routes })`, each order settled; `undefined` when it names none. */
+function routesOf(routes: unknown): Record<string, AiGateway[]> | undefined {
+  if (routes === undefined) return undefined
+  if (typeof routes !== 'object' || routes === null || Array.isArray(routes)) {
+    throw new TypeError('[nuxt-backend] setupAi({ routes }): map model ids or `provider/*` patterns to a gateway, \'convex\' or \'vercel\', or to a list of them for an order.')
+  }
+  const settled: Record<string, AiGateway[]> = {}
+  for (const [key, order] of Object.entries(routes)) {
+    if (!ROUTE_KEY.test(key)) throw new TypeError(`[nuxt-backend] setupAi({ routes }): '${key}' is no provider/model id or pattern ending in *, such as 'google/*'.`)
+    settled[key] = orderOf(order, `{ routes: { '${key}' } }`, TypeError)
+  }
+  return Object.keys(settled).length === 0 ? undefined : settled
+}
+
+/**
+ * `setupAi`'s `gateway`, `routes` and `inferenceRegion`, settled once:
+ * each order with each gateway once, narrowed to the Vercel AI Gateway by a
+ * region pin, which the Convex AI Gateway documents none of. Refuses a
+ * gateway it does not know, an empty order, a `routes` key that is no id or
+ * pattern, and a pin with no `'vercel'` to serve it, in `gateway` or in
+ * any route.
+ */
+export function routingOf(config: Pick<SetupAiConfig, 'gateway' | 'inferenceRegion' | 'routes'>): ModelRouting {
+  const { gateway, inferenceRegion: region } = config
+  const gateways = gateway === undefined ? [...DEFAULT_GATEWAYS] : orderOf(gateway, '{ gateway }', Error)
+  const routes = routesOf(config.routes)
+  if (region === undefined) return { gateways, ...(routes ? { routes } : {}) }
   if (!gateways.includes('vercel')) {
     throw new Error(`[nuxt-backend] setupAi({ gateway, inferenceRegion }): only the Vercel AI Gateway pins inference to a region, and the Convex AI Gateway documents none. Add 'vercel' to \`gateway\`, or drop \`inferenceRegion\`.`)
   }
+  const unpinned = Object.entries(routes ?? {}).find(([, order]) => !order.includes('vercel'))
+  if (unpinned) {
+    throw new Error(`[nuxt-backend] setupAi({ routes, inferenceRegion }): only the Vercel AI Gateway pins inference to a region, and the route for '${unpinned[0]}' does not name 'vercel'. Add 'vercel' to that route, or drop \`inferenceRegion\`.`)
+  }
+  // Every order names 'vercel', and the pin narrows each to it: no route is left to choose.
   return { gateways: ['vercel'], region }
+}
+
+/**
+ * The order an id goes through, and the `routes` key it came from: its own
+ * key, else the longest pattern ending in `*` it matches, else
+ * `setupAi({ gateway })`'s order.
+ */
+function orderFor(id: string, routing: ModelRouting): { gateways: readonly AiGateway[], routedBy?: string } {
+  const key = routing.routes ? routeKeyFor(id, routing.routes) : undefined
+  return key === undefined ? { gateways: routing.gateways } : { gateways: routing.routes![key]!, routedBy: key }
+}
+
+/** What the refusal of an id names: the order it went through, where that order came from, and the pinned region. */
+export function refusalRouting(id: string, routing: ModelRouting): { id: string, gateways: readonly AiGateway[], routedBy?: string, region?: InferenceRegion } {
+  return { id, ...orderFor(id, routing), ...(routing.region === undefined ? {} : { region: routing.region }) }
 }
 
 /** One model call a metered run made: the model, how it ended, the cost it reported in US dollars, and its tokens. */
@@ -197,6 +249,9 @@ export const TEST_MODELS = Symbol.for('nuxt-backend.testModels')
 /** The same, for an embedding model's id (`ai.knowledge`). */
 export const TEST_EMBEDDING_MODELS = Symbol.for('nuxt-backend.testEmbeddingModels')
 
+/** The same, for an image model's id (`ctx.image()` in a job step). */
+export const TEST_IMAGE_MODELS = Symbol.for('nuxt-backend.testImageModels')
+
 /** The model a test installed for an id, when one did. */
 function testDouble(id: string): ModelObject | undefined {
   const make = (globalThis as Record<symbol, unknown>)[TEST_MODELS]
@@ -226,24 +281,28 @@ function resolveGateways<M>(id: string, gateways: readonly AiGateway[], env: Env
 
 /**
  * Where a `provider/model` id goes on this deployment, for a model of any
- * kind: `double` is the model a test installed for it, the last to answer.
- * A pinned region (`routing.region`) is named on a refusal; the order on
- * one when it is not the default.
+ * kind: through its order (its `routes` key, else
+ * `setupAi({ gateway })`'s), with `double`, the model a test installed for
+ * it, last. A pinned region (`routing.region`) is named on a refusal; the
+ * order on one when it is not the default.
  */
 export function routeId<M>(id: string, env: Env, routing: ModelRouting, double: (id: string) => M | undefined): ModelRoute<M> {
-  const { gateways, region } = routing
+  const { region } = routing
+  const { gateways, routedBy } = orderFor(id, routing)
   return resolveGateways<M>(id, gateways, env, () => {
     const model = double(id)
     if (model !== undefined) return { route: 'own', id, model, double: true }
-    return { route: 'missing', id, ...(region === undefined ? isDefaultOrder(gateways) ? {} : { gateways } : { region }) }
+    if (region !== undefined) return { route: 'missing', id, region }
+    return { route: 'missing', id, ...(routedBy === undefined ? isDefaultOrder(gateways) ? {} : { gateways } : { gateways, routedBy }) }
   })
 }
 
 /**
  * Where a model goes on this deployment: a model object of your own as it
- * is; an id through `setupAi({ gateway })`'s order (default: the Convex AI
- * Gateway where {@link convexGatewayPossible}, then the Vercel AI Gateway
- * with the key), and nowhere past it. A pinned inference region narrows the
+ * is; an id through its route in `setupAi({ routes })`, else
+ * `setupAi({ gateway })`'s order (default: the Convex AI Gateway where
+ * {@link convexGatewayPossible}, then the Vercel AI Gateway with the key),
+ * and nowhere past it. A pinned inference region narrows the
  * order to the Vercel AI Gateway, which pins it ({@link routingOf}).
  */
 export function routeModel(model: AiModel, env: Env = runtimeEnv(), routing: ModelRouting = DEFAULT_ROUTING): ModelRoute {
@@ -277,17 +336,23 @@ export function modelStatusOf(model: AiModel | undefined, env: Env = runtimeEnv(
 /** The fix a refusal names when the Vercel AI Gateway's key is what is missing. */
 const KEY_FIX = 'add it to .env.local and run `npx nuxt-backend env push` (production takes a key of its own: `npx convex env set --prod AI_GATEWAY_API_KEY`), or pass a model object with your provider\'s own key.'
 
+/** What a refusal knows of an id's route: the order it went through, where that order came from, and the pinned region. */
+type RefusedRoute = { id: string, region?: InferenceRegion, gateways?: readonly AiGateway[], routedBy?: string }
+
 /** Why a model with no route is refused, and the fix, by the order it went through. */
-function refusalReason(route: { id: string, region?: InferenceRegion, gateways?: readonly AiGateway[] }, convexReason?: string): string {
-  const { id, region, gateways = DEFAULT_GATEWAYS } = route
+function refusalReason(route: RefusedRoute, convexReason?: string): string {
+  const { id, region, gateways = DEFAULT_GATEWAYS, routedBy } = route
+  // The setting that named the order, and the one a fix adds 'vercel' to.
+  const named = (gateway: AiGateway) => routedBy === undefined ? `setupAi({ gateway: '${gateway}' })` : `setupAi({ routes: { '${routedBy}': '${gateway}' } })`
+  const setting = routedBy === undefined ? '`gateway`' : `its route in \`routes\``
   if (region) return `${id} is pinned to the '${region}' inference region, which only the Vercel AI Gateway serves, and ${GATEWAY_KEY_ENV} is not set on this deployment: ${KEY_FIX}`
   if (!gateways.includes('vercel')) {
     const why = convexReason
       ? `The Convex AI Gateway did not answer ${id} (${convexReason})`
       : `${id} goes through the Convex AI Gateway, which this deployment cannot use (a self-hosted deployment, or none)`
-    return `${why}, and setupAi({ gateway: 'convex' }) names no other gateway: call it on a deployment the Convex AI Gateway serves (Convex Cloud, or a local deployment linked to a project, on a paid plan, with ${CONVEX_GATEWAY_PROVIDER} installed), or add 'vercel' to \`gateway\` and set ${GATEWAY_KEY_ENV}.`
+    return `${why}, and ${named('convex')} names no other gateway: call it on a deployment the Convex AI Gateway serves (Convex Cloud, or a local deployment linked to a project, on a paid plan, with ${CONVEX_GATEWAY_PROVIDER} installed), or add 'vercel' to ${setting} and set ${GATEWAY_KEY_ENV}.`
   }
-  if (!gateways.includes('convex')) return `${id} goes through the Vercel AI Gateway (setupAi({ gateway: 'vercel' })), and ${GATEWAY_KEY_ENV} is not set on this deployment: ${KEY_FIX}`
+  if (!gateways.includes('convex')) return `${id} goes through the Vercel AI Gateway (${named('vercel')}), and ${GATEWAY_KEY_ENV} is not set on this deployment: ${KEY_FIX}`
   if (convexReason) return `The Convex AI Gateway did not answer ${id} (${convexReason}), and ${GATEWAY_KEY_ENV} is not set on this deployment: ${KEY_FIX}`
   return `${id} needs ${GATEWAY_KEY_ENV} on this deployment, which cannot use the Convex AI Gateway: ${KEY_FIX}`
 }
@@ -297,7 +362,7 @@ function refusalReason(route: { id: string, region?: InferenceRegion, gateways?:
  * the Convex AI Gateway did not answer it when it was tried, and what the
  * order (`setupAi({ gateway })`) allowed instead.
  */
-export function modelRefusal(route: { id: string, region?: InferenceRegion, gateways?: readonly AiGateway[] }, convexReason?: string): Error {
+export function modelRefusal(route: RefusedRoute, convexReason?: string): Error {
   return backendError('unavailable', { service: 'ai', reason: 'not_configured' }, `[nuxt-backend] ${refusalReason(route, convexReason)}`)
 }
 
@@ -374,6 +439,35 @@ export function noticeConvexGateway(id: string, unavailable: string, fallback: s
 
 /** What a fallback route is called in the log. */
 export const FALLBACK_NAME = { missing: 'nothing, and is refused', gateway: 'the Vercel AI Gateway', own: 'the model a test installed' } as const
+
+/** How a model of one kind loads from each gateway: an embedding model, an image model. */
+export interface GatewayLoaders<M> {
+  convex: (provider: ConvexProvider, id: string) => M
+  vercel: (gateway: ReturnType<Sdk['createGateway']>, id: string) => M
+}
+
+/**
+ * The model a route of any kind loads, and whether the region pin rides on
+ * its calls (the Vercel AI Gateway's and a test's do): the Convex AI
+ * Gateway's, or its fallback's when this deployment cannot use it (said once
+ * per isolate), or the refusal when there is none.
+ */
+export async function loadRoute<M>(route: ModelRoute<M>, load: GatewayLoaders<M>, convexReason?: string): Promise<{ model: M, pinned: boolean }> {
+  switch (route.route) {
+    case 'gateway':
+      return { model: load.vercel(gatewayFor(await loadSdk(), route.apiKey), route.id), pinned: true }
+    case 'own':
+      return { model: route.model, pinned: true }
+    case 'missing':
+      throw modelRefusal(route, convexReason)
+    case 'convex': {
+      const convex = await convexGatewayModel(route.id, provider => load.convex(provider, route.id))
+      if ('model' in convex) return { model: convex.model, pinned: false }
+      noticeConvexGateway(route.id, convex.unavailable, FALLBACK_NAME[route.fallback.route])
+      return loadRoute(route.fallback, load, convex.unavailable)
+    }
+  }
+}
 
 /**
  * The Convex AI Gateway's model for a `convex` route, or its fallback's when
@@ -478,10 +572,19 @@ export function checkRegion(id: string, metadata: unknown, region: InferenceRegi
  * part, which carries the usage and the cost, or `failed` at an error part.
  * A stream the handler stops reading stays `open`: its cost is unknown.
  */
-function recordCalls(id: string, calls: ModelCall[], region?: InferenceRegion): LanguageModelMiddleware {
+function recordCalls(id: string, calls: ModelCall[], region?: InferenceRegion, signal?: AbortSignal): LanguageModelMiddleware {
   return {
     specificationVersion: 'v4',
-    ...(region === undefined ? {} : { transformParams: async ({ params }) => ({ ...params, providerOptions: pinProviderOptions(params.providerOptions, region) as typeof params.providerOptions }) }),
+    ...(region === undefined && signal === undefined
+      ? {}
+      : {
+          transformParams: async ({ params }) => ({
+            ...params,
+            ...(region === undefined ? {} : { providerOptions: pinProviderOptions(params.providerOptions, region) as typeof params.providerOptions }),
+            // A job step's deadline, for a call that brings none of its own.
+            ...(signal === undefined || params.abortSignal ? {} : { abortSignal: signal }),
+          }),
+        }),
     wrapGenerate: async ({ doGenerate }) => {
       const result = await doGenerate()
       checkRegion(id, result.providerMetadata, region)
@@ -524,14 +627,14 @@ async function recordRefusal<T>(id: string, calls: ModelCall[], call: () => Prom
  * once and loaded on its first call, that records every call into `calls`. A
  * model this deployment cannot reach refuses each call `unavailable`.
  */
-export function meteredModel(route: ModelRoute, calls: ModelCall[], region?: InferenceRegion): MeteredModel {
+export function meteredModel(route: ModelRoute, calls: ModelCall[], region?: InferenceRegion, signal?: AbortSignal): MeteredModel {
   let loaded: Promise<MeteredModel> | undefined
   const load = () => (loaded ??= (async () => {
     if (route.route === 'missing') throw modelRefusal(route)
     const sdk = await loadSdk()
     // The pin rides on every call to an id; a model object of your own has no gateway to pin.
     const pin = route.route === 'own' && !route.double ? undefined : region
-    return sdk.wrapLanguageModel({ model: await baseModel(sdk, route), middleware: recordCalls(route.id, calls, pin) })
+    return sdk.wrapLanguageModel({ model: await baseModel(sdk, route), middleware: recordCalls(route.id, calls, pin, signal) })
   })())
   const provider = route.route === 'own' ? route.model.provider : route.route === 'convex' ? 'convexGateway' : route.route
   return {

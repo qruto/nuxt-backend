@@ -391,7 +391,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './account': ['ACCOUNT_DATA_SOURCES', 'setupAccount'],
   './admin': ['IMPERSONATION_SESSION_SECONDS', 'setupAdmin', 'setupWebhooks'],
   './flags': ['BACKEND_FLAGS', 'FLAG_TARGETS_MAX', 'MAINTENANCE_MESSAGE_MAX', 'ROLLOUT_BUCKETS', 'defineFlags', 'flagBucket', 'setupFlags'],
-  './ai': ['defineJobQueue', 'priceTokens', 'setupAi', 'vJobEnd'],
+  './ai': ['defineJobQueue', 'priceTokens', 'retryable', 'setupAi', 'vJobEnd'],
   './storage': ['DEFAULT_ACCEPTED_TYPES', 'DEFAULT_MAX_FILE_SIZE', 'SIGNED_URL_TTL_MAX_MS', 'SIGNED_URL_TTL_MS', 'setupStorage', 'sniffContentType', 'stripImageMetadata'],
   './notifications': ['setupNotifications'],
   './monitoring': ['MONITORING_TAGS', 'checkIn', 'checkingIn', 'isReportable', 'reportError', 'reportingErrors'],

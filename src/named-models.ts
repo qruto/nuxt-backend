@@ -206,6 +206,39 @@ export function namesModerationModel(rootDir: string): boolean {
   })
 }
 
+/** `routes: { … }` with no object inside it: a literal map of model ids or patterns to gateways. */
+const ROUTES_MAP = /\broutes\s*:\s*\{([^{}]*)\}/
+/** One route: a quoted id or pattern, and a quoted gateway or a list of them. */
+const ROUTE_ENTRY = /\s*(['"`])([^'"`/]+\/[^'"`]+)\1\s*:\s*(?:(['"`])(convex|vercel)\3|\[([^\]]*)\])\s*(?:,|$)/y
+
+/** A routes map's entries, when it holds nothing but literal routes. */
+function routeEntries(body: string): Record<string, NamedGateway[]> | undefined {
+  const routes: Record<string, NamedGateway[]> = {}
+  ROUTE_ENTRY.lastIndex = 0
+  while (ROUTE_ENTRY.lastIndex < body.length && body.slice(ROUTE_ENTRY.lastIndex).trim() !== '') {
+    const at = ROUTE_ENTRY.lastIndex
+    const match = ROUTE_ENTRY.exec(body)
+    if (!match || match.index !== at || (match[5] !== undefined && !GATEWAY_LIST.test(match[5]))) return undefined
+    const names = match[4] ? [match[4]] : [...match[5]!.matchAll(GATEWAY_NAME)].map(([, name]) => name!)
+    routes[match[2]!] = [...new Set(names as NamedGateway[])]
+  }
+  return Object.keys(routes).length === 0 ? undefined : routes
+}
+
+/**
+ * The gateway orders the backend in `rootDir` gives some models
+ * (`setupAi({ routes })`), when it names them as a literal map;
+ * `undefined` when it names none, or builds them at run time.
+ */
+export function chosenRoutes(rootDir: string): Record<string, NamedGateway[]> | undefined {
+  for (const code of backendSources(rootDir)) {
+    const match = ROUTES_MAP.exec(code.replace(STRINGS_AND_COMMENTS, token => token.startsWith('/') ? '' : token))
+    const routes = match ? routeEntries(match[1]!) : undefined
+    if (routes) return routes
+  }
+  return undefined
+}
+
 /** `setupAi({ provenance })` turned on (anything but `false`), or a `ctx.storeImage(…)` call. */
 const PROVENANCE_ON = /\bprovenance\s*:(?!\s*(?:false|undefined)\b)|\.storeImage\s*\(/
 

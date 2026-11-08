@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { actionGeneric, componentsGeneric, defineSchema, defineTable, type FunctionReference, makeFunctionReference, mutationGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
-import { generateText } from 'ai'
+import { generateImage, generateText } from 'ai'
 import backendTest, { asUser, defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { backendError, getBackendError } from '../../src/convex/errors'
@@ -64,6 +64,25 @@ const drawPanel = jobs.step({
   },
 })
 
+/** A panel drawn by an image model through ctx.image(), and stored with what made it. */
+const drawImage = jobs.step({
+  model: 'openai/gpt-image-2',
+  args: { stripId: v.id('strips'), photoId: v.string() },
+  handler: async (ctx, { stripId, photoId }) => {
+    const { image } = await generateImage({ model: ctx.image(), prompt: 'Panel 1 of a strip about a fox.', ...ctx.callSettings })
+    const storageId = await ctx.storeImage(image, { inputs: [stripId, photoId] })
+    await ctx.runMutation(makeFunctionReference<'mutation'>('strips:savePanel'), { stripId, storageId })
+  },
+})
+
+const illustrate = jobs.define({
+  meter: false,
+  args: { stripId: v.id('strips'), photoId: v.string() },
+  handler: async (job, args) => {
+    await job.run(makeFunctionReference<'action'>('strips:drawImage') as unknown as FunctionReference<'action', 'internal'>, args)
+  },
+})
+
 const render = jobs.define({
   meter: false,
   args: { stripId: v.id('strips'), photoId: v.string() },
@@ -73,10 +92,10 @@ const render = jobs.define({
 })
 
 const create = mutationGeneric({
-  args: {},
-  handler: async (ctx) => {
+  args: { kind: v.optional(v.literal('illustrate')) },
+  handler: async (ctx, { kind }) => {
     const stripId = await ctx.db.insert('strips', { idea: 'A fox who wants to fly', photoId: 'photo_1', panels: [] })
-    const { jobId } = await jobs.enqueue(ctx, makeFunctionReference<'mutation'>('strips:render') as never, { stripId, photoId: 'photo_1' })
+    const { jobId } = await jobs.enqueue(ctx, makeFunctionReference<'mutation'>(`strips:${kind ?? 'render'}`) as never, { stripId, photoId: 'photo_1' })
     await ctx.db.patch(stripId, { jobId })
     return { stripId, jobId }
   },
@@ -134,7 +153,7 @@ const unprovenanced = plain.meteredAction({
 const testApp = defineBackendTestApp(appSchema, {
   './_generated/api.js': () => Promise.resolve({}),
   './jobs.js': () => Promise.resolve(jobs.api),
-  './strips.js': () => Promise.resolve({ render, paid, seed, drawPanel, create, savePanel, get, provenanceOf, cover, unprovenanced, addPhoto, fileUrl }),
+  './strips.js': () => Promise.resolve({ render, illustrate, drawImage, paid, seed, drawPanel, create, savePanel, get, provenanceOf, cover, unprovenanced, addPhoto, fileUrl }),
   './storage.js': () => Promise.resolve(storage.api),
 })
 type App = ReturnType<typeof testApp>
@@ -163,7 +182,7 @@ function appUnderTest(): App {
 }
 
 const ref = {
-  create: makeFunctionReference<'mutation', Record<string, never>, { stripId: string, jobId: string }>('strips:create'),
+  create: makeFunctionReference<'mutation', { kind?: 'illustrate' }, { stripId: string, jobId: string }>('strips:create'),
   seed: makeFunctionReference<'mutation', { kind?: 'paid' }, { stripId: string, jobId: string }>('strips:seed'),
   get: makeFunctionReference<'query', { id: string }, { panels: string[] } | null>('strips:get'),
   getJob: makeFunctionReference<'query', { jobId: string }, Record<string, unknown> | null>('jobs:getJob'),
@@ -226,6 +245,19 @@ describe('ctx.storeImage in a job step', () => {
 
     // The record, as a query of the app's own reads it.
     expect(await ada.query(ref.provenanceOf, { storageId: storageId! })).toEqual({ models: ['test/image'], finishedAt: expect.any(Number), inputs: [stripId, 'photo_1'] })
+  })
+})
+
+describe('an image model in a job step', () => {
+  test('ctx.image() draws through the gateway route, and the stored image names the image model it came from', async () => {
+    const t = appUnderTest()
+    const ada = await asUser(t)
+    const { stripId, jobId } = await ada.mutation(ref.create, { kind: 'illustrate' })
+    await drain(t)
+    const [storageId] = (await ada.query(ref.get, { id: stripId }))!.panels
+    expect(await stored(t, storageId!)).toContain('openai/gpt-image-2')
+    expect(await ada.query(ref.getJob, { jobId })).toMatchObject({ status: 'done', provenance: { models: ['openai/gpt-image-2'] } })
+    expect(await ada.query(ref.provenanceOf, { storageId: storageId! })).toEqual({ models: ['openai/gpt-image-2'], finishedAt: expect.any(Number), inputs: [stripId, 'photo_1'] })
   })
 })
 

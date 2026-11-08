@@ -39,6 +39,7 @@ export type {
   AiCreditsConfig,
   AiModel,
   AiGateway,
+  ModelRoutes,
   InferenceRegion,
   MeteredModel,
   ModelStatus,
@@ -88,3 +89,5 @@ export type {
   StepResult,
 } from './ai/jobs.js'
 export { defineJobQueue, vJobEnd } from './ai/jobs.js'
+export { retryable } from './ai/job-errors.js'
+export type { AiImageModel } from './ai/images.js'

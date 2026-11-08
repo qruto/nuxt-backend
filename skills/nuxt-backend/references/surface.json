@@ -586,6 +586,7 @@
       "values": [
         "defineJobQueue",
         "priceTokens",
+        "retryable",
         "setupAi",
         "vJobEnd"
       ],
@@ -600,6 +601,7 @@
         "AiEmbeddingModel",
         "AiGateway",
         "AiGuestConfig",
+        "AiImageModel",
         "AiModel",
         "AiRateLimiter",
         "AiSpendLimit",
@@ -645,6 +647,7 @@
         "MeteredStreamConfig",
         "MeteredUsage",
         "ModelPrice",
+        "ModelRoutes",
         "ModelStatus",
         "ModerationConfig",
         "ModerationCtx",
