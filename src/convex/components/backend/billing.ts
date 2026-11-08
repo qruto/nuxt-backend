@@ -454,12 +454,16 @@ export const credit = mutation({
 /**
  * Take a person's one welcome grant for a billing entity: `true` when the
  * address (its hash) has none yet, or this entity already holds it (a retry,
- * a second start of the same entity); `false` once another entity has it.
+ * a second start of the same entity); `false` once another entity has it,
+ * and for an entity an account's erasure is deleting: its mark is set
+ * before the erasure runs, so no row it already cleared can name the entity
+ * again.
  */
 export const claimWelcome = mutation({
   args: { address: v.string(), entityId: v.string() },
   returns: v.boolean(),
   handler: async (ctx, { address, entityId }) => {
+    if (await ctx.db.query('billingDeletions').withIndex('entityId', q => q.eq('entityId', entityId)).first()) return false
     const taken = await ctx.db.query('billingWelcomes').withIndex('address', q => q.eq('address', address)).first()
     if (taken) return taken.entityId === entityId
     await ctx.db.insert('billingWelcomes', { address, entityId, at: Date.now() })

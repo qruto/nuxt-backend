@@ -11,14 +11,15 @@ import type { RunWriteCtx } from './types/base.js'
 
 // Welcome credits (`credits: { meter, units, once: true }` on the free
 // plan): granted once per person, as the first workspace of an owner (or an
-// account, with `billTo: 'user'`) first starts on the free plan, after the
-// reverse trial. The person is their address, tags and dots taken out, kept
-// as a hash, as the reverse trial keys it: a second workspace of the same
-// owner, or an account made again, gets none. The grant is a refund-shaped
-// usage event keyed `welcome:<entityId>`: the provider drops a second event
-// under the same key, so a retried grant, or a second start that raced the
-// first, gives nothing more. It runs on the free plan's workpool, apart from
-// the start, so a provider that refuses it retries the grant alone.
+// account, with `billTo: 'user'`) first starts on the free plan, as soon as
+// the reverse trial begins, not when it ends. The person is their address,
+// tags and dots taken out, kept as a hash, as the reverse trial keys it: a
+// second workspace of the same owner, or an account made again, gets none.
+// The grant is a refund-shaped usage event keyed `welcome:<entityId>`: the
+// provider drops a second event under the same key, so a retried grant, or a
+// second start that raced the first, gives nothing more. It runs on the free
+// plan's workpool, apart from the start, so a provider that refuses it
+// retries the grant alone.
 
 /** How long after the grant its balance is read back: past the window the cache keeps the credit in, by half a minute. */
 const WELCOME_CHECK_DELAY_MS = PENDING_CREDIT_TTL_MS + 30_000
@@ -40,8 +41,9 @@ export function createWelcomeCredits(
   /**
    * Queue an entity's welcome credits for its owner, when the catalog grants
    * some and the owner's address has none yet (another entity of theirs
-   * took them): the claim is the person's one grant. Never fails the start
-   * it follows: a claim or a queue that refuses is logged.
+   * took them): the claim is the person's one grant, and is refused for an
+   * entity an erasure is deleting. Never fails the start it follows: a claim
+   * or a queue that refuses is logged.
    */
   const queue = async (ctx: RunWriteCtx, entityId: string, owner: { userId: string, email: string }): Promise<void> => {
     // An owner with no address is no person to count once, as the reverse trial skips one.
@@ -78,8 +80,7 @@ export function createWelcomeCredits(
       }
       return 'granted_before'
     }
-    // A grant that runs before the first sync has no cached row to hold its credit: read the provider first.
-    if (!await ctx.runQuery(cache.getByUser, { userId: entityId })) await refreshEntitlements(ctx, entityId)
+    // A grant that runs before the first sync has no cached row to hold its credit: the refund reads the provider first.
     let fresh: boolean
     try {
       fresh = await refund(ctx, { userId: entityId, meter: grant.meter, value: grant.units, externalId: welcomeKey(entityId), metadata: { reason: 'welcome' } })

@@ -143,9 +143,11 @@ describe('ai-gateway-budget', () => {
     // A route sends the named model through the Vercel AI Gateway, whose key production holds.
     app({ 'ai.ts': `export const ai = setupAi(components, { billing, gateway: 'convex', routes: { 'openai/gpt-5-mini': 'vercel' } })\n${DRAFT}` })
     expect((await prodFinding('production'))!.message).toContain('go through the Vercel AI Gateway')
-    // A region pin goes through the Vercel AI Gateway, whatever answers first otherwise.
+    // A region pin goes through the Vercel AI Gateway, whatever answers first otherwise, once production holds its key.
     app({ 'ai.ts': `export const ai = setupAi(components, { billing, inferenceRegion: 'eu' })\n${DRAFT}` })
-    expect((await prodFinding('production', ['AUTH_SECRET', 'SITE_URL']))!.message).toContain('the Vercel AI Gateway')
+    expect((await prodFinding('production'))!.message).toContain('go through the Vercel AI Gateway')
+    // Without it every pinned call is refused, which the key's finding says: no budget to name.
+    expect(await prodFinding('production', ['AUTH_SECRET', 'SITE_URL'])).toBeUndefined()
   })
 
   it('says nothing on a sandbox (ai-spend-limit\'s), without setupAi, with no model named, or when no gateway answers', async () => {

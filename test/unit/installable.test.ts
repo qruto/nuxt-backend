@@ -1,8 +1,8 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { installableFinding, installableGaps, installIcons, maskableIcons, ownsManifest, themeColorMeta, webAppManifest } from '../../src/installable'
+import { installableFinding, installableGaps, installIcons, maskableIcons, namedIconWarnings, ownsManifest, themeColorMeta, webAppManifest } from '../../src/installable'
 import { PUSH_WORKER_SOURCE } from '../../src/runtime/server/push-worker-source'
 
 // The installable app: a manifest from the brand name and two icons, what
@@ -88,6 +88,19 @@ describe('the web app manifest', () => {
     expect(maskableIcons(publicDir, { maskable: { 192: '/m-192.png', 512: '/m-512.png' } })).toBeNull()
     icons('m-192.png', 'm-512.png')
     expect(maskableIcons(publicDir, { maskable: { 192: '/m-192.png', 512: '/m-512.png' } })).toEqual({ 192: '/m-192.png', 512: '/m-512.png' })
+  })
+
+  it('warns at build time for a pair the option names that public/ lacks, icons or maskable', () => {
+    const named = { icons: { 192: '/brand/app-192.png', 512: '/brand/app-512.png' }, maskable: { 192: '/m-192.png', 512: '/m-512.png' } } as const
+    expect(namedIconWarnings(publicDir, named)).toEqual([
+      '`installable.icons` names /brand/app-192.png and /brand/app-512.png, and public/ does not hold both: the module serves no manifest.',
+      '`installable.maskable` names /m-192.png and /m-512.png, and public/ does not hold both: the manifest lists no maskable icon.',
+    ])
+    // Icons missing under the module's own names are doctor's to name, not the build's.
+    expect(namedIconWarnings(publicDir)).toEqual([])
+    mkdirSync(join(publicDir, 'brand'))
+    icons('brand/app-192.png', 'brand/app-512.png', 'm-192.png', 'm-512.png')
+    expect(namedIconWarnings(publicDir, named)).toEqual([])
   })
 
   it('says nothing for an app that turned the manifest off', () => {

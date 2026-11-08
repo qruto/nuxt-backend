@@ -1002,17 +1002,20 @@ const GATEWAY_CAP: Readonly<Record<NamedGateway, { name: string, cap: string, fi
 /**
  * The gateways production's model calls go through: in each order
  * `setupAi({ gateway, routes })` gives the backend's models, the first that
- * answers there; the Vercel AI Gateway alone for calls pinned to a region.
- * None when no model is named, the order is no literal doctor reads, or
- * nothing answers (the route finding says each of those).
+ * answers there; the Vercel AI Gateway alone for calls pinned to a region,
+ * once production holds its key. None when no model is named, the order is
+ * no literal doctor reads, or nothing answers (the route finding says each
+ * of those).
  */
 function productionGateways(rootDir: string, deployed: readonly string[], cloud: boolean): NamedGateway[] {
   const models = namedModels(rootDir)
   const order = chosenGateways(rootDir)
   const routes = chosenRoutes(rootDir)
   if (models.length === 0 || order === 'unread' || routes === 'unread') return []
-  if (pinnedRegion(rootDir) !== undefined) return ['vercel']
-  const facts = { keyed: deployed.includes('AI_GATEWAY_API_KEY'), convex: cloud && convexGatewayProviderInstalled(rootDir) }
+  const keyed = deployed.includes('AI_GATEWAY_API_KEY')
+  // A pinned call takes the Vercel AI Gateway or nothing: without its key, every one is refused.
+  if (pinnedRegion(rootDir) !== undefined) return keyed ? ['vercel'] : []
+  const facts = { keyed, convex: cloud && convexGatewayProviderInstalled(rootDir) }
   const answering = routedGroups(models, order ?? ['convex', 'vercel'], routes).map(group => answeringGateway(group.order, facts))
   return [...new Set(answering.filter((gateway): gateway is NamedGateway => gateway !== undefined))]
 }

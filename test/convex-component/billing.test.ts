@@ -333,6 +333,12 @@ describe('credits ahead of the provider (component)', () => {
     expect(await t.mutation(api.billing.claimWelcome, { address: 'hash-ada', entityId: 'ws_2' })).toBe(false)
     expect(await t.mutation(api.billing.claimWelcome, { address: 'hash-grace', entityId: 'ws_2' })).toBe(true)
   })
+
+  test('a welcome grant is never claimed for an entity an erasure is deleting, so nothing names it after the erasure', async () => {
+    await t.run(ctx => ctx.db.insert('billingDeletions', { entityId: 'ws_gone', at: Date.now() }))
+    expect(await t.mutation(api.billing.claimWelcome, { address: 'hash-ada', entityId: 'ws_gone' })).toBe(false)
+    expect(await t.run(ctx => ctx.db.query('billingWelcomes').collect())).toEqual([])
+  })
 })
 
 describe('benefit metadata snapshots', () => {

@@ -22,7 +22,7 @@
       "to": "credits: { meter, units, once: true }",
       "change": "reshaped",
       "section": "A production checkout waits for billing to launch, and welcome credits come from the catalog",
-      "note": "welcome credits on the free plan, granted once after the reverse trial; drop the hand-rolled grant",
+      "note": "welcome credits on the free plan, granted once per person on the first start, as soon as the reverse trial begins; drop the hand-rolled grant",
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-production-checkout-waits-for-billing-to-launch-and-welcome-credits-come-from-the-catalog"
     },
     {

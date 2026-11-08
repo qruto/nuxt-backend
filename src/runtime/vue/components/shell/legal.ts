@@ -318,7 +318,8 @@ export function useContactPoints(overrides: () => LabelGroupOverrides<'legal'> |
   const labels = useLabels('legal', overrides)
   const points = computed<LegalContactPoint[]>(() => {
     const declared = config.legal?.contactPoints
-    const found: Array<[LegalContactPoint['key'], string | undefined]> = [['authorities', declared?.authorities], ['users', declared?.users ?? config.legal?.contact]]
+    // A blank users' point is `legal.contact`, as `usersIsContact` reads it.
+    const found: Array<[LegalContactPoint['key'], string | undefined]> = [['authorities', declared?.authorities], ['users', declared?.users?.trim() || config.legal?.contact]]
     return found.flatMap(([key, value]) => {
       const contact = value?.trim()
       return contact && !except().includes(key) ? [{ key, contact, href: contactHref(contact) }] : []
