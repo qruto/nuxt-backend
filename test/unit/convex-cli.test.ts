@@ -248,3 +248,26 @@ describe('forwardStopSignals', () => {
     expect(target.listenerCount('SIGINT')).toBe(0)
   })
 })
+
+describe('listedComponents', () => {
+  // What `convex run --component <unknown>` prints (convex 1.49), the paths grey.
+  const refusal = (paths: string[]) => [
+    '✖ Component path "__nuxt_backend_component_listing__" was not found.',
+    '',
+    'Available components:',
+    ...paths.map(path => `• \u001B[90m${path}\u001B[39m`),
+    'Omit `--component` to target the app root.',
+  ].join('\n')
+
+  it('reads every component path the refusal lists, nested ones included', async () => {
+    const { listedComponents } = await import('../../src/convex-cli')
+    expect(listedComponents(refusal(['backend', 'backend/resend/emailWorkpool', 'workpool', 'workpool/batchWorker'])))
+      .toEqual(['backend', 'backend/resend/emailWorkpool', 'workpool', 'workpool/batchWorker'])
+  })
+
+  it('reads none on a deployment that mounts none, and null for any other failure', async () => {
+    const { listedComponents } = await import('../../src/convex-cli')
+    expect(listedComponents('✖ Component path "x" was not found.\n\nThis deployment has no mounted components.\nOmit `--component` to target the app root.')).toEqual([])
+    expect(listedComponents('✖ Could not find function for \'migrations:status\'.')).toBeNull()
+  })
+})

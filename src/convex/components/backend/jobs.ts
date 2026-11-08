@@ -465,7 +465,8 @@ export const pick = mutation({
 
 /**
  * The component's own sweep (crons.ts), every minute: wake the app's queue
- * when a running job's lease ran out, or when jobs wait beside a free slot
+ * when a running job's lease ran out, paused or not, so a stall still ends
+ * and is heard, or when jobs wait beside a free slot in a line that runs
  * (a switch turned back on, a plan that changed). It reads and returns
  * otherwise, and does nothing in an app with no queue.
  */
@@ -474,13 +475,13 @@ export const sweep = internalMutation({
   returns: v.null(),
   handler: async (ctx) => {
     const row = await queueRow(ctx)
-    if (!row?.wake || row.paused) return null
+    if (!row?.wake) return null
     const now = Date.now()
     const running = await runningJobs(ctx)
     const stalled = running.some(job => job.leaseUntil !== undefined && job.leaseUntil < now)
     const waiting = await ctx.db.query('jobs').withIndex('by_status_and_score', q => q.eq('status', 'queued')).first()
     const free = (row.concurrency ?? Number.POSITIVE_INFINITY) > running.length
-    if (stalled || (waiting && free)) await ctx.scheduler.runAfter(0, row.wake as FunctionHandle<'mutation', { op: 'pick' }>, { op: 'pick' })
+    if (stalled || (!row.paused && waiting && free)) await ctx.scheduler.runAfter(0, row.wake as FunctionHandle<'mutation', { op: 'pick' }>, { op: 'pick' })
     return null
   },
 })
@@ -528,14 +529,18 @@ export const touch = mutation({
   },
 })
 
-/** Record why a running job is about to fail, before its workflow does: what the person sees. */
+/**
+ * Record why a running job is about to fail, before its workflow does: what
+ * the person sees. The first reason stands, unless `replace` says this one
+ * is why it ends (a stall).
+ */
 export const recordError = mutation({
-  args: { jobId: v.string(), error: v.any(), lastError: v.optional(v.string()) },
+  args: { jobId: v.string(), error: v.any(), lastError: v.optional(v.string()), replace: v.optional(v.boolean()) },
   returns: v.null(),
-  handler: async (ctx, { jobId, error, lastError }) => {
+  handler: async (ctx, { jobId, error, lastError, replace }) => {
     const id = ctx.db.normalizeId('jobs', jobId)
     const job = id ? await ctx.db.get('jobs', id) : null
-    if (!job || job.error !== undefined) return null
+    if (!job || (job.error !== undefined && replace !== true)) return null
     await ctx.db.patch('jobs', job._id, { error, ...(lastError === undefined ? {} : { lastError: lastError.slice(0, 500) }) })
     return null
   },

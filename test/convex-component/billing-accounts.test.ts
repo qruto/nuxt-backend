@@ -2,7 +2,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { PolarCore } from '@polar-sh/sdk/core.js'
 import { customersCreate } from '@polar-sh/sdk/funcs/customersCreate.js'
-import { defineSchema, makeFunctionReference, mutationGeneric, type FunctionReference } from 'convex/server'
+import { componentsGeneric, defineSchema, makeFunctionReference, mutationGeneric, queryGeneric, type FunctionReference } from 'convex/server'
+import { v } from 'convex/values'
 import type { TestConvex } from 'convex-test'
 import { syncBillingCatalog } from '../../src/cli/billing/sync'
 import { createPolarFake, type PolarFake, routeToFake } from '../fixtures/polar-fake/server'
@@ -16,7 +17,8 @@ import { signingSecret } from '../helpers/secrets'
 // fake provider: every account starts on its own free plan, adopting the
 // customer its proven email already had and leaving alone one another
 // account's customer holds; the backfill pages the accounts, not their
-// workspaces; and a quota refuses in an account's words.
+// workspaces; the entitlement resync pages them too, and rebuilds every
+// account's cache from the provider; and a quota refuses in an account's words.
 
 const SCAFFOLD = '../fixtures/registration/backend/'
 const FAKE = 'http://127.0.0.1:4764'
@@ -75,6 +77,14 @@ const testApp = defineBackendTestApp(defineSchema({}), {
   [`${SCAFFOLD}projects.ts`]: async () => {
     const { billing } = await import('../fixtures/registration/backend/billing') as unknown as { billing: Billing }
     return { create: mutationGeneric({ args: {}, handler: ctx => billing.requireQuota(ctx, 'projects') }) }
+  },
+  // The backend component's entitlement cache, read and emptied as a test sees it.
+  [`${SCAFFOLD}cache.ts`]: async () => {
+    const components = componentsGeneric() as unknown as { backend: { billing: { getByUser: FunctionReference<'query', 'internal'>, clear: FunctionReference<'mutation', 'internal'> } } }
+    return {
+      read: queryGeneric({ args: { userId: v.string() }, handler: (ctx, { userId }) => ctx.runQuery(components.backend.billing.getByUser, { userId }) }),
+      clear: mutationGeneric({ args: {}, handler: ctx => ctx.runMutation(components.backend.billing.clear, {}) }),
+    }
   },
 })
 
@@ -192,6 +202,31 @@ describe('the free plan, per account', { timeout: 30_000 }, () => {
 
     for (const account of accounts) expect(subscriptionsOf(account.userId), account.email).toEqual([expect.objectContaining({ productId: ids.products.free })])
     expect(Object.values(fake.state.customers).map(customer => customer.externalId).sort()).toEqual(accounts.map(account => account.userId).sort())
+  })
+})
+
+describe('the entitlement resync, per account', { timeout: 30_000 }, () => {
+  const cached = (userId: string) => t.query(fn<'query'>('cache:read'), { userId }) as Promise<{ activeProductIds: string[] } | null>
+
+  test('rebuilds every account\'s cache from the provider, a page at a time, on the queue', async () => {
+    const accounts = [await asUser(t, { email: 'ada@example.com' }), await asUser(t, { email: 'grace@example.com' })]
+    for (const account of accounts) expect(await start(account.userId)).toBe('started')
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    await fake.idle()
+    // The cache is lost: missed webhooks, a restored backup.
+    await t.mutation(fn<'mutation'>('cache:clear'), {})
+    for (const account of accounts) expect(await cached(account.userId)).toBeNull()
+
+    expect(await t.action(internalFn('billing:resyncEntitlements'), {})).toEqual({ queued: 2, more: false })
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+
+    for (const account of accounts) expect(await cached(account.userId), account.email).toMatchObject({ activeProductIds: [ids.products.free] })
+  })
+
+  test('reads one account again: one never billed caches nothing held', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    expect(await t.action(internalFn('billing:resyncEntitlements'), { entityId: ada.userId })).toBe('synced')
+    expect(await cached(ada.userId)).toMatchObject({ activeProductIds: [] })
   })
 })
 

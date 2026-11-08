@@ -60,6 +60,12 @@ agent files and skills.
 | ``not_ready` (reason `no_catalog`) from a production checkout` | ``unavailable` (reason `not_launched`)` | reshaped | a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog` |
 | `billing.refundCredits in onUserCreated` | `credits: { meter, units, once: true }` | reshaped | welcome credits on the free plan, granted once after the reverse trial; drop the hand-rolled grant |
 
+## [Browser error reports go through a tunnel on the app's own origin](https://nuxt-backend.dev/docs/ship/releases/upgrade#browser-error-reports-go-through-a-tunnel-on-the-apps-own-origin)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `@sentry/nuxt` | `@sentry/nuxt@^11.10.0` | reshaped | the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn |
+
 ## [The packaged UI reads its faces, lines and shadows from tokens](https://nuxt-backend.dev/docs/ship/releases/upgrade#the-packaged-ui-reads-its-faces-lines-and-shadows-from-tokens)
 
 | Was | Now | Change | Note |

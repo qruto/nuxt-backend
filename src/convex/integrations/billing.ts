@@ -14,6 +14,7 @@ import { createLifecycle } from './billing/lifecycle.js'
 import { createPricing } from './billing/pricing.js'
 import { createPurchaseRules } from './billing/purchase.js'
 import { createReferralOrders } from './billing/referral-orders.js'
+import { createResync } from './billing/resync.js'
 import { createRevenue } from './billing/revenue.js'
 import { createQuotas } from './billing/quotas.js'
 import { BILLING_REWARDS, createRewards } from './billing/rewards.js'
@@ -121,7 +122,7 @@ export type { ReferralCaps, ReferralRewards, ReferralState, ReferralTerms, Refer
  * export const {
  *   generateCheckoutLink, generateCustomerPortalUrl, getConfiguredProducts, getPricing, giftCheckout,
  *   getCurrentSubscription, getFeatures, getCredits, syncEntitlements,
- *   startFreePlan, getReceivedGifts, claimGift,
+ *   startFreePlan, resyncEntitlements, getReceivedGifts, claimGift,
  * } = billing.api
  * ```
  */
@@ -175,6 +176,7 @@ export function setupBilling(
   const { generateCheckoutLink, checkout } = createCheckout(context, rules, customers, freePlan, catalogDiscounts, lifecycle)
   const { giftCheckout, claimGift, getReceivedGifts, getSentGifts, resendGift, changeGiftRecipient, rescheduleGift, cancelGift, runGiftSweep } = gifts
   const functions = createBillingFunctions(context, entitlements, subscriptions, history, customers, quotas, freePlan, lifecycle, revenue)
+  const { resyncEntitlements } = createResync(context, entitlements, freePlan)
   const { webhookEvents, webhookHandler } = createWebhooks(context, entitlements, gifts, customers, subscriptions, freePlan, lifecycle, createReferralOrders(context, rewards))
   const { hasFeature, requireFeature, activePlans } = createFeatures(context, pricing)
   // The counts first: they are found by the grants the cache still holds.
@@ -202,6 +204,7 @@ export function setupBilling(
       syncEntitlements: functions.syncEntitlements,
       syncProducts: functions.syncProducts,
       startFreePlan: functions.startFreePlan,
+      resyncEntitlements,
       getReceivedGifts,
       claimGift,
       getSentGifts,

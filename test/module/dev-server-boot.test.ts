@@ -162,12 +162,30 @@ describe('a Vercel build that reports errors', () => {
     expect(nuxt.options.nitro.routeRules?.['/**']?.headers).toHaveProperty('Strict-Transport-Security')
   })
 
-  it('adds the DSN\'s origin after the base module narrows connect-src, whose plugin runs its hook first', () => {
-    const plugins = nitroPlugins(boot.nuxt())
-    const narrows = plugins.findIndex(plugin => /nuxt-convex-module[\\/].*[\\/]nuxt[\\/]security/.test(plugin))
-    const allows = plugins.findIndex(plugin => /server[\\/]monitoring[\\/]csp/.test(plugin))
-    expect(narrows).toBeGreaterThanOrEqual(0)
-    expect(allows).toBeGreaterThan(narrows)
+  it('sends the browser through the SDK\'s tunnel on the app\'s origin, and adds no source to connect-src for it', () => {
+    const nuxt = boot.nuxt()
+    expect((nuxt.options.runtimeConfig.public.backend as { monitoring: { tunnel: boolean } }).monitoring.tunnel).toBe(true)
+    expect(nitroPlugins(nuxt).filter(plugin => /server[\\/]monitoring[\\/]csp/.test(plugin))).toEqual([])
+    expect(boot.output()).not.toContain('straight to the ingest')
+  })
+})
+
+describe('a Vercel build whose app has its own Sentry server config', () => {
+  beforeAll(() => {
+    vi.stubEnv('VERCEL', '1')
+    vi.stubEnv('MONITORING_DSN', 'https://public-key@o7.ingest.monitor.test/42')
+  })
+  afterAll(() => {
+    vi.stubEnv('VERCEL', '')
+    vi.stubEnv('MONITORING_DSN', '')
+  })
+  const boot = useBoot({ extends: [posix.join(repoRoot, 'test/fixtures/sentry-server-layer')] }, { dev: false })
+
+  it('sends the package\'s browser config straight to the ingest, lets its origin out, and says so', () => {
+    const nuxt = boot.nuxt()
+    expect((nuxt.options.runtimeConfig.public.backend as { monitoring: { tunnel: boolean } }).monitoring.tunnel).toBe(false)
+    expect(nitroPlugins(nuxt).filter(plugin => /server[\\/]monitoring[\\/]csp/.test(plugin))).toHaveLength(1)
+    expect(boot.output()).toContain('the app has its own sentry.server.config')
   })
 })
 

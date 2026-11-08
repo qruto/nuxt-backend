@@ -8,6 +8,7 @@ import { type DataReport, migrateData } from './upgrade/data'
 import { unifiedDiff } from './upgrade/diff'
 import { ejectedChanges, type EjectedChange, formatEjected } from './upgrade/ejected'
 import { formatUpgrade } from './upgrade/format'
+import { backfillPools, type PoolsReport } from './upgrade/pools'
 import { planRepairs } from './upgrade/scaffold'
 
 /** What `upgrade --json` prints. */
@@ -20,6 +21,8 @@ export interface UpgradeReport {
   /** The ejected files whose stamp names an older version, with the count of upstream changes since. */
   ejected: EjectedChange[]
   data: DataReport
+  /** The workpool backfill, on every pool the deployment mounts. */
+  pools: PoolsReport
   /** The commands to run next, in order. */
   next: string[]
 }
@@ -66,7 +69,11 @@ export async function runUpgrade(rootDir: string, options: UpgradeOptions): Prom
   const ejected = await ejectedChanges(rootDir)
   options.print(`[nuxt-backend] upgrade: the package's data migrations, ${options.prod ? 'production' : 'dev'} deployment…`)
   const data = await migrateData(rootDir, { prod: options.prod, dryRun: options.dryRun, print: options.print })
-  const report = { to, dryRun: options.dryRun, scaffold, ejected, data }
+  // The same deployment: one that did not answer the migrations is not asked again.
+  const pools: PoolsReport = data.state === 'skipped'
+    ? { state: 'skipped', pools: [], failed: [], ...(data.reason ? { reason: data.reason } : {}) }
+    : await backfillPools(rootDir, { prod: options.prod, dryRun: options.dryRun })
+  const report = { to, dryRun: options.dryRun, scaffold, ejected, data, pools }
   return { ...report, next: nextCommands(rootDir, report, options.prod) }
 }
 
@@ -83,10 +90,10 @@ function refusal(rootDir: string, args: { 'prod': boolean, 'yes': boolean, 'dry-
   return undefined
 }
 
-/** Whether the run failed: a migration that failed, or production left unmigrated. */
+/** Whether the run failed: a migration or a pool's backfill that failed, or production left unmigrated. */
 function failed(report: UpgradeReport, prod: boolean): boolean {
   const productionLeft = prod && !['done', 'none', 'running', 'pending'].includes(report.data.state)
-  return report.data.state === 'failed' || productionLeft
+  return report.data.state === 'failed' || report.pools.state === 'failed' || productionLeft
 }
 
 export const upgrade = withContract('upgrade', {
@@ -96,13 +103,13 @@ export const upgrade = withContract('upgrade', {
     '--diff': ['reads only'],
     '--prod --yes': ['writes project files', 'writes production'],
   },
-  json: '`{ to, dryRun, scaffold: { written, changes, diffs }, ejected: [{ target, file, from, to, changes }], data: { deployment, state, reason, migrations }, next }`: `data.state` is `done`, `running`, `pending`, `none`, `skipped`, `needs-push` or `failed`; `scaffold.diffs` comes with `--dry-run` only; with `--diff`, `[{ target, file, from, to, changes, diff }]` alone; progress goes to stderr',
+  json: '`{ to, dryRun, scaffold: { written, changes, diffs }, ejected: [{ target, file, from, to, changes }], data: { deployment, state, reason, migrations }, pools: { state, pools, failed: [{ component, reason }], reason }, next }`: `data.state` is `done`, `running`, `pending`, `none`, `skipped`, `needs-push` or `failed`; `pools.state` is `started`, `none`, `pending`, `skipped` or `failed`; `scaffold.diffs` comes with `--dry-run` only; with `--diff`, `[{ target, file, from, to, changes, diff }]` alone; progress goes to stderr',
   exitCodes: {
-    0: 'done: the scaffold repaired; the data migrated, still migrating, waiting for a push, or skipped with no dev deployment',
-    1: 'refused, a data migration failed, or with `--prod`, production could not be migrated',
+    0: 'done: the scaffold repaired; the data migrated, still migrating, waiting for a push, or skipped with no dev deployment; the workpool backfill started on every pool, or none needs it',
+    1: 'refused, a data migration or a pool\'s backfill failed, or with `--prod`, production could not be migrated',
   },
 }, defineCommand({
-  meta: { name: 'upgrade', description: 'Move the app to the installed version: repair the scaffold as doctor --fix does, and run the package\'s data migrations. It rewrites none of the app\'s code' },
+  meta: { name: 'upgrade', description: 'Move the app to the installed version: repair the scaffold as doctor --fix does, run the package\'s data migrations, and start the workpool backfill on every pool. It rewrites none of the app\'s code' },
   args: {
     'cwd': { type: 'string', description: 'Project directory', default: '.' },
     'dry-run': { type: 'boolean', description: 'Show what the scaffold repairs would change, as diffs, and where the data migrations stand; write nothing', default: false },

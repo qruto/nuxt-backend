@@ -64,8 +64,15 @@ export class ConvexCliError extends Error {
    * whole stderr: the lines the message quotes are its list of the ones it has.
    */
   readonly missingFunction: boolean
+  /**
+   * `convex run --component` named a component path the deployment does not
+   * mount: the paths it does mount, read off the whole stderr, where the CLI
+   * lists them (`[]` for a deployment that mounts none). `null` for any
+   * other failure.
+   */
+  readonly components: string[] | null
 
-  constructor(message: string, details: { code: number | null, signal: NodeJS.Signals | null, timedOut: boolean, stderrTail: string, missingFunction?: boolean }) {
+  constructor(message: string, details: { code: number | null, signal: NodeJS.Signals | null, timedOut: boolean, stderrTail: string, missingFunction?: boolean, components?: string[] | null }) {
     super(message)
     this.name = 'ConvexCliError'
     this.code = details.code
@@ -73,7 +80,21 @@ export class ConvexCliError extends Error {
     this.timedOut = details.timedOut
     this.stderrTail = details.stderrTail
     this.missingFunction = details.missingFunction === true
+    this.components = details.components ?? null
   }
+}
+
+/**
+ * The component paths a `convex run --component <unknown path>` lists: one
+ * `• <path>` a line after "Available components:", none when the
+ * deployment "has no mounted components". `null` when the stderr is not
+ * that refusal.
+ */
+export function listedComponents(stderr: string): string[] | null {
+  const text = stripVTControlCharacters(stderr)
+  if (!/Component path ".*" was not found/.test(text)) return null
+  const [, listing = ''] = text.split(/Available components:/)
+  return listing.split(/\r?\n/).map(line => /^\s*•\s*(\S+)\s*$/.exec(line)?.[1]).filter((path): path is string => Boolean(path))
 }
 
 /** The subcommands whose next word names the command too (`env set`, `env default set`). */
@@ -194,7 +215,7 @@ export function runConvex(rootDir: string, args: string[], options: RunConvexOpt
     }, timeout)
     const fail = (how: string, code: number | null, signal: NodeJS.Signals | null) => {
       const tail = stderrTail(stderr, options.input)
-      reject(new ConvexCliError(tail ? `${command} ${how}: ${tail}` : `${command} ${how}`, { code, signal, timedOut, stderrTail: tail, missingFunction: /Could not find function for /.test(stderr) }))
+      reject(new ConvexCliError(tail ? `${command} ${how}: ${tail}` : `${command} ${how}`, { code, signal, timedOut, stderrTail: tail, missingFunction: /Could not find function for /.test(stderr), components: listedComponents(stderr) }))
     }
     child.on('error', (error: NodeJS.ErrnoException) => {
       clearTimeout(timer)

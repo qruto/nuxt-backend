@@ -16,6 +16,7 @@ const HOOK_SOURCES = [
   ['setupEmail', 'src/convex/integrations/inbound.ts', 'InboundOptions', 'inbound.'],
   ['setupAi', 'src/convex/integrations/ai/config.ts', 'AiCreditsConfig', 'credits.'],
   ['setupAudit', 'src/convex/integrations/audit.ts', 'SetupAuditOptions', ''],
+  ['defineJobQueue', 'src/convex/integrations/ai/jobs.ts', 'DefineJobQueueOptions', ''],
 ]
 
 /** The items every `@guarantee` tag states, in the order the page shows them. */

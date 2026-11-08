@@ -226,6 +226,11 @@ export const FINDING_DOCS = {
     why: 'A workspace\'s owner and admins manage its billing through the customer\'s members.',
     fix: 'Turn on team customers, and give the token the member and customer-session scopes.',
   },
+  'billing-checkout-links': {
+    checks: 'No checkout link made in the provider\'s dashboard sells a product of the catalog (an archived product sells nothing). The package never makes one. No finding when the token may not read the organization\'s checkout links.',
+    why: 'A purchase through such a link names no billing entity: the provider makes a customer of the buyer\'s email, which the app maps to nobody, so the buyer pays and the app grants nothing, or a second plan lands beside the free one.',
+    fix: 'Delete those links in the provider\'s dashboard, and link to the app\'s pricing page instead: its checkout names the billing entity.',
+  },
   'billing-gift-twins': {
     checks: 'Every pack has a private gift product with no benefits, at its pack\'s live prices in every currency. A pack or twin with no live fixed price warns too.',
     why: 'A gift buys the pack\'s twin; without one, gifts of that pack are refused, sold at the wrong price or in the wrong currency, or grant a benefit twice.',
@@ -538,9 +543,9 @@ export const FINDING_DOCS = {
     fix: 'Add the DSN to `.env.local` and push it: `npx nuxt-backend env push --prod`, or `doctor --fix` on a dev deployment.',
   },
   'monitoring-app': {
-    checks: 'Where a DSN is visible to the app (`MONITORING_DSN`, or the `NEXT_PUBLIC_SENTRY_DSN` Sentry\'s Vercel integration sets), that `@sentry/nuxt` is installed for the module to wire it. Without a DSN it passes in dev; under `--prod` it warns, unless the app deploys to Vercel and its env is not here to read.',
-    why: 'A DSN without the SDK, or no DSN at all, reports nothing from the browser or the Nuxt server.',
-    fix: 'Install it: `npm install @sentry/nuxt`, and set the DSN where the app runs. The module wires it at the next build ([Monitoring](/docs/ship/operate/monitoring)).',
+    checks: 'Where a DSN is visible to the app (`MONITORING_DSN`, or the `NEXT_PUBLIC_SENTRY_DSN` Sentry\'s Vercel integration sets), that `@sentry/nuxt` is installed for the module to wire it, at 11.10 or later, the first with the managed tunnel: an older one warns. Without a DSN it passes in dev; under `--prod` it warns, unless the app deploys to Vercel and its env is not here to read.',
+    why: 'A DSN without the SDK, or no DSN at all, reports nothing from the browser or the Nuxt server; an SDK before 11.10 reports from the browser straight to the ingest, which ad blockers drop.',
+    fix: 'Install it, `npm install @sentry/nuxt@^11.10.0`, and set the DSN where the app runs. The module wires it at the next build ([Monitoring](/docs/ship/operate/monitoring)).',
   },
   'monitoring-source-maps': {
     checks: 'Reported only for an app that deploys to Vercel (a Vercel build, or a project linked with `vercel link`) with a DSN and the SDK: that `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` are visible, the names Sentry\'s Vercel integration sets.',

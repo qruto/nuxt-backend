@@ -114,6 +114,48 @@ export interface GuestJobs {
   perVisitor: number
 }
 
+/**
+ * How a job ended, as `onJobEnd` receives it: use these as your function's
+ * `args` (`internalMutation({ args: vJobEnd, handler })`).
+ */
+export const vJobEnd = {
+  /** The job's id, as `jobs.enqueue` returned it. */
+  jobId: v.string(),
+  /** Its `jobs.define` export, as `module:name`. */
+  kind: v.string(),
+  /** How it ended. A stall is `failed`, its `error` reason `stalled`. */
+  status: v.union(v.literal('done'), v.literal('failed'), v.literal('canceled')),
+  /** Why it failed, as a catalog error payload: `{ code, ...fields }`. */
+  error: v.optional(v.any()),
+  /** The args it was put in line with. */
+  args: v.any(),
+  /**
+   * Which run ended: `0` for the first, one more for each administrator's
+   * retry. Every run ends, and is heard, once: a later run's end is the
+   * newer news, so a retried job's `done` wins over its earlier `failed`.
+   */
+  retries: v.number(),
+  /** When this run ended, in ms since the epoch. */
+  endedAt: v.number(),
+}
+
+/** A job's end as `onJobEnd` receives it ({@link vJobEnd}). */
+export type JobEnd = {
+  jobId: string
+  kind: string
+  status: 'done' | 'failed' | 'canceled'
+  error?: Record<string, unknown>
+  args: unknown
+  retries: number
+  endedAt: number
+}
+
+/**
+ * Your internal mutation, or action, that hears of every job's end: taking
+ * `vJobEnd` as its args, passed by its reference (`internal.prints.ended`).
+ */
+export type OnJobEnd = FunctionReference<'mutation' | 'action', 'internal', JobEnd>
+
 /** Where a model's limit starts, and the range it adapts within, in calls a minute. */
 export interface JobModelLimit {
   perMinute: number
@@ -145,6 +187,24 @@ export interface DefineJobQueueOptions {
    * that signs up in their browser. Needs setupAi's `rateLimiter`.
    */
   guest?: GuestJobs
+  /**
+   * Hear of every job's end: done, failed, stalled, or canceled while it
+   * waited or ran, with its id, kind, args, error, run (`retries`) and
+   * `endedAt`. Your internal mutation or action, by its reference, taking
+   * `vJobEnd`: settle what your own rows say about the job (fail its
+   * document, tell its owner) without a sweep of your own. Credits are the
+   * queue's: it lets the hold go and schedules the refund as the job ends,
+   * or, while a charge is still on its way, once that charge lands. Never
+   * settle credits here.
+   *
+   * @guarantee
+   * - Runs: as its own function, scheduled by the transaction that ended the job, once it commits
+   * - Delivery: once per run of a job, whichever way it ended, except a job erased with its owner's account, which ends unheard; a mutation runs exactly once, an action at most once
+   * - Order: after the job's row reads its end; a retried job's runs are heard in turn, `retries` counting up; ends of different jobs run in no set order
+   * - When it throws: the failure is the hook's own, in the deployment's logs; the job's end and the queue's handling of its credits stand
+   * - Idempotency: an administrator's retry runs a failed job again, and it ends again: compare `retries` with the run you last recorded, and let a later run's end win
+   */
+  onJobEnd?: OnJobEnd
 }
 
 /** How far a job got, as `job.progress` reports it. */
@@ -242,6 +302,22 @@ export interface JobView {
   provenance?: JobProvenance
 }
 
+/** A job as `jobs.get` reads it for your own functions: `getJob`'s view, with who owns it and its args. */
+export interface JobRecord extends Omit<JobView, 'canCancel'> {
+  /** Who pays for it: a billing entity, `guest:<visitor>` or `app`. */
+  owner: string
+  /** Who put it in line, when somebody signed in did. */
+  userId?: string
+  /** The args it was put in line with. */
+  args: unknown
+}
+
+/** What `jobs.cancel` takes. */
+export interface CancelOptions {
+  /** Give a running job's charged credits back as well. Default `false`: a running job stays charged for what it made so far. */
+  refund?: boolean
+}
+
 /** A job as the admin console lists it. */
 export interface AdminJobView {
   id: string
@@ -314,6 +390,20 @@ export interface JobQueue {
    * deleted with `storage.release`. Decide in your mutation who may start it.
    */
   enqueue: <Kind extends FunctionReference<'mutation', 'internal'>>(ctx: GenericMutationCtx<GenericDataModel>, job: Kind, args: Record<string, unknown>, options?: EnqueueOptions) => Promise<{ jobId: string }>
+  /**
+   * Read a job from a query or mutation of yours, whoever owns it: `getJob`'s
+   * view, with its owner and args, and its place in line while it waits.
+   * `null` for an id that is no job. Decide in your function who may see it.
+   */
+  get: (ctx: GenericQueryCtx<GenericDataModel>, jobId: string) => Promise<JobRecord | null>
+  /**
+   * Cancel a job from a mutation of yours, whoever started it: a waiting job
+   * leaves the line and its hold goes back; a running one stops after its
+   * current step, charged unless `refund`. Resolves with how it was, or
+   * `null` for a job that had already ended or is none. `onJobEnd` hears of
+   * the end. Decide in your mutation who may cancel it.
+   */
+  cancel: (ctx: GenericMutationCtx<GenericDataModel>, jobId: string, options?: CancelOptions) => Promise<'queued' | 'running' | null>
   api: JobQueueApi
 }
 
@@ -794,18 +884,35 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
 
   // ── The queue's own functions ───────────────────────────────────────────
 
-  /** After a job ended: its hold let go, its credits refunded, its cost reported, as its end asks. */
+  /**
+   * The app's `onJobEnd`, scheduled in the transaction that ended the job.
+   * Scheduling never fails the end: a refusal is logged, and the hold's
+   * release and the refund stand.
+   */
+  const announceEnd = async (ctx: Ctx, job: JobRow): Promise<void> => {
+    const onJobEnd = options.onJobEnd
+    if (!onJobEnd || (job.status !== 'done' && job.status !== 'failed' && job.status !== 'canceled')) return
+    try {
+      await ctx.scheduler.runAfter(0, onJobEnd as FunctionReference<'mutation', 'internal'>, defined({ jobId: job._id, kind: job.kind, status: job.status, error: job.status === 'failed' ? job.error : undefined, args: job.args, retries: job.retries, endedAt: job.endedAt ?? Date.now() }))
+    }
+    catch (error) {
+      logBackend('error', 'ai.job_end_unannounced', `Job ${job._id} ended ${job.status}, but onJobEnd could not be scheduled.`, error)
+    }
+  }
+
+  /** After a job ended: its hold let go, its credits refunded, its cost reported, as its end asks, and the app told. */
   const afterEnd = async (ctx: Ctx, job: JobRow): Promise<void> => {
     const hold = reservationOf(job)
     // A charge on its way settles the hold, or lets it go, itself.
     if (hold && !job.charged && job.charging === undefined) await billing.releaseSpend(ctx as never, hold)
     if (job.refundOwed === 'pending') await scheduleRefund(ctx, job._id)
     if (job.status !== 'canceled' && job.usage && job.startedAt !== undefined) await ctx.scheduler.runAfter(0, BILL_JOB, { op: 'report', jobId: job._id })
+    await announceEnd(ctx, job)
   }
 
   /** Fail a running job whose lease ran out: refunded, and its workflow canceled. */
   const failStalled = async (ctx: Ctx, { jobId, workflowId }: { jobId: string, workflowId?: string }): Promise<void> => {
-    await ctx.runMutation(queue.recordError, { jobId, error: failure('stalled') })
+    await ctx.runMutation(queue.recordError, { jobId, error: failure('stalled'), replace: true })
     const ended = await ctx.runMutation(queue.finish, { jobId, outcome: 'failed' }) as JobRow | null
     if (ended) await afterEnd(ctx, ended)
     logBackend('error', 'ai.job_stalled', `Job ${jobId} showed no sign of life for ${policy.stallAfter / 1000}s: failed and refunded.`)
@@ -1027,22 +1134,72 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   const mayRead = async (ctx: ReadCtx & { auth: Auth }, job: JobRow, userId: string): Promise<boolean> =>
     job.userId === userId || (await callerEntity(ctx)) === job.owner || await isAdmin(ctx, 'getJob')
 
+  /** A job as its readers see it: its standing while it waits, its provenance once done. */
+  const viewOf = async (ctx: ReadCtx, job: JobRow, canCancel: boolean): Promise<JobView> => {
+    const standing = job.status === 'queued'
+      ? await ctx.runQuery(queue.standing, { jobId: job._id, policy, pausedAi: await paused(ctx, 'ai'), now: Date.now() })
+      : null
+    const view = jobViewOf(job, standing, canCancel)
+    if (job.status !== 'done' || !aiConfig.provenance) return view
+    const inputs = await ctx.runQuery(provenanceRows.jobProvenanceInputs, { jobId: job._id })
+    return { ...view, provenance: { models: job.usage?.models ?? [], finishedAt: job.endedAt ?? job.joinedAt, inputs } }
+  }
+
   const getJob = queryGeneric({
     args: { jobId: v.string() },
     handler: async (ctx, { jobId }): Promise<JobView | null> => {
       const identity = await ctx.auth.getUserIdentity()
       const job = identity ? await ctx.runQuery(queue.get, { jobId }) as JobRow | null : null
       if (!identity || !job || !await mayRead(ctx, job, identity.subject)) return null
-      const standing = job.status === 'queued'
-        ? await ctx.runQuery(queue.standing, { jobId, policy, pausedAi: await paused(ctx, 'ai'), now: Date.now() })
-        : null
       const live = job.status === 'queued' || job.status === 'running'
-      const view = jobViewOf(job, standing, live && await mayCancel(ctx, job, identity.subject))
-      if (job.status !== 'done' || !aiConfig.provenance) return view
-      const inputs = await ctx.runQuery(provenanceRows.jobProvenanceInputs, { jobId: job._id })
-      return { ...view, provenance: { models: job.usage?.models ?? [], finishedAt: job.endedAt ?? job.joinedAt, inputs } }
+      return await viewOf(ctx, job, live && await mayCancel(ctx, job, identity.subject))
     },
   })
+
+  const get: JobQueue['get'] = async (ctx, jobId) => {
+    const job = await ctx.runQuery(queue.get, { jobId }) as JobRow | null
+    if (!job) return null
+    const { canCancel: _, ...view } = await viewOf(ctx, job, false)
+    return defined({ ...view, owner: job.owner, userId: job.userId, args: job.args })
+  }
+
+  /**
+   * Stop a running job's workflow. One that already finished, though its
+   * end never reached the job (its onComplete threw), cannot be canceled:
+   * the job ends canceled here instead, as the cancel asked.
+   */
+  const cancelRunning = async (ctx: Ctx, job: JobRow): Promise<void> => {
+    // A job whose workflow is not attached yet is canceled as its workflow starts.
+    if (!job.workflowId) return
+    try {
+      await workflow.cancel(ctx, job.workflowId as never)
+      return
+    }
+    catch (error) {
+      logBackend('warn', 'ai.job_cancel_failed', `Job ${job._id}'s workflow could not be canceled, as it is no longer running: the job ends canceled here.`, error)
+    }
+    const ended = await ctx.runMutation(queue.finish, { jobId: job._id, outcome: 'canceled' }) as JobRow | null
+    if (ended) await afterEnd(ctx, ended)
+  }
+
+  /**
+   * Cancel a live job, once the caller was checked: a waiting one ends at
+   * once, as any end does (its hold back, `onJobEnd` told); a running one
+   * is marked, and ends as its workflow's cancel completes it.
+   */
+  const cancelLive = async (ctx: Ctx, job: JobRow, by: string, refund: boolean): Promise<'queued' | 'running' | null> => {
+    if (job.status !== 'queued' && job.status !== 'running') return null
+    const out = await ctx.runMutation(queue.cancel, { jobId: job._id, by, refund }) as (JobRow & { was: string }) | null
+    if (out?.was === 'queued') {
+      await afterEnd(ctx, { ...out, status: 'canceled' })
+      await schedulePick(ctx)
+    }
+    if (out?.was === 'running') await cancelRunning(ctx, job)
+    const was = out?.was === 'queued' || out?.was === 'running' ? out.was : null
+    // The trail names the caller, or nobody for the app's own code.
+    if (was) await billing.recordEvent(ctx as never, job.owner, { type: 'job.canceled', data: { kind: job.kind, refunded: refund || was === 'queued', running: was === 'running' } } as never)
+    return was
+  }
 
   const cancelJob = mutationGeneric({
     args: { jobId: v.string(), refund: v.optional(v.boolean()) },
@@ -1053,19 +1210,18 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
       const job = await ctx.runQuery(queue.get, { jobId }) as JobRow | null
       if (!job || !await mayCancel(ctx, job, identity.subject)) throw backendError('forbidden', { reason: 'not_allowed' }, '[nuxt-backend] cancelJob: this job is not yours to cancel.')
       if (refund) await requireAdministrator(ctx, 'cancelJob({ refund })')
-      if (job.status !== 'queued' && job.status !== 'running') return null
-      const out = await ctx.runMutation(queue.cancel, { jobId, by: identity.subject, refund: refund === true }) as (JobRow & { was: string }) | null
-      const hold = reservationOf(job)
-      if (out?.was === 'queued') {
-        if (hold && !job.charged) await billing.releaseSpend(ctx as never, hold)
-        if (out.refundOwed === 'pending') await scheduleRefund(ctx, jobId)
-        await schedulePick(ctx)
-      }
-      if (out?.was === 'running' && job.workflowId) await workflow.cancel(ctx, job.workflowId as never)
-      await billing.recordEvent(ctx as never, job.owner, { type: 'job.canceled', actor: identity.subject, data: { kind: job.kind, refunded: refund === true || out?.was === 'queued', running: out?.was === 'running' } } as never)
+      await cancelLive(ctx, job, identity.subject, refund === true)
       return null
     },
   })
+
+  const cancel: JobQueue['cancel'] = async (ctx, jobId, cancelOptions = {}) => {
+    const job = await ctx.runQuery(queue.get, { jobId }) as JobRow | null
+    if (!job) return null
+    // The app's own mutation decided who may: the caller, when somebody signed in, is who canceled it.
+    const caller = (await ctx.auth.getUserIdentity())?.subject
+    return await cancelLive(ctx, job, caller ?? APP_OWNER, cancelOptions.refund === true)
+  }
 
   const getQueue = queryGeneric({
     args: {},
@@ -1143,6 +1299,8 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
     define,
     step,
     enqueue,
+    get,
+    cancel,
     api: { getJob, cancelJob, getQueue, listJobs, setQueue, retryJob, discardJob, runQueue, billJob } as unknown as JobQueueApi,
   }
 }

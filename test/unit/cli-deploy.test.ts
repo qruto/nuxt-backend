@@ -3,9 +3,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { deployKeyOf } from '../../src/cli/deploy'
-import { buildCmd, runBuild } from '../../src/cli/deploy/build'
+import { buildCmd, PREVIEW_PRODUCT_SYNC, runBuild } from '../../src/cli/deploy/build'
 import { EMAIL_WEBHOOK_EVENTS, ensureEmailWebhook, type EmailWebhookClient } from '../../src/cli/deploy/email-webhook'
 import { buildCommandAdvice, deployHost, vercelEnvNames, type DeployHost } from '../../src/cli/deploy/host'
+import { packageManagerOf, type PackageManager } from '../../src/cli/deploy/package-manager'
 import { productionOrigin, runDeploy, type DeployDeps, type DeployReport } from '../../src/cli/deploy/run'
 import { ALL_EMAIL_EVENTS } from '../../src/convex/integrations/email'
 import type { BackendEnvironment } from '../../src/convex/environment'
@@ -333,11 +334,11 @@ describe('nuxt-backend deploy', () => {
 })
 
 describe('deploy --build', () => {
-  const build = (env: Record<string, string>, names: string[] = []) => {
+  const build = (env: Record<string, string>, names: string[] = [], packageManager: PackageManager = 'npm') => {
     const production = fakeProduction({ names })
     const convexDeploy = vi.fn(async () => 0)
     const printed: string[] = []
-    return { production, convexDeploy, printed, run: () => runBuild({ backend: production.backend, convexDeploy, env, print: line => printed.push(line) }) }
+    return { production, convexDeploy, printed, run: () => runBuild({ backend: production.backend, convexDeploy, env, packageManager, print: line => printed.push(line) }) }
   }
 
   it('puts the env the first push needs on production, then ships both halves', async () => {
@@ -357,11 +358,41 @@ describe('deploy --build', () => {
   })
 
   it('fills a preview\'s env inside the push, where the preview exists', async () => {
-    const { production, convexDeploy, run } = build({ CONVEX_DEPLOY_KEY: 'preview:team:app|secret', VERCEL_BRANCH_URL: 'app-git-x.vercel.app' })
+    const { production, convexDeploy, printed, run } = build({ CONVEX_DEPLOY_KEY: 'preview:team:app|secret', VERCEL_BRANCH_URL: 'app-git-x.vercel.app' })
     expect(await run()).toBe(0)
     expect(production.calls.set).toEqual([])
     expect(convexDeploy).toHaveBeenCalledWith(['deploy', '--cmd', 'npx nuxt-backend env push --preview --site-url "https://$VERCEL_BRANCH_URL" && npm run build', '--cmd-url-env-var-name', 'NUXT_PUBLIC_BACKEND_URL'])
     expect(buildCmd(true, {})).toBe('npx nuxt-backend env push --preview && npm run build')
+    // No billing token in the build: no product sync, which would be refused and fail the build.
+    expect(printed.join('\n')).toContain('the preview\'s products are not loaded')
+  })
+
+  it('names a deployment made outside Git by its own URL', () => {
+    expect(buildCmd(true, { VERCEL_URL: 'app-abc123.vercel.app' })).toBe('npx nuxt-backend env push --preview --site-url "https://$VERCEL_URL" && npm run build')
+    expect(buildCmd(true, { VERCEL_URL: 'app-abc123.vercel.app', VERCEL_BRANCH_URL: 'app-git-x.vercel.app' })).toContain('"https://$VERCEL_BRANCH_URL"')
+  })
+
+  it('loads a new preview\'s products when the build holds the billing token', async () => {
+    const { convexDeploy, printed, run } = build({ CONVEX_DEPLOY_KEY: 'preview:team:app|secret', BILLING_ACCESS_TOKEN: 'polar_oat_sandbox' })
+    expect(await run()).toBe(0)
+    expect(convexDeploy).toHaveBeenCalledWith(['deploy', '--cmd', 'npx nuxt-backend env push --preview && npm run build', '--cmd-url-env-var-name', 'NUXT_PUBLIC_BACKEND_URL', '--preview-run', PREVIEW_PRODUCT_SYNC])
+    expect(printed).toEqual([])
+    // Production loads its products through deploy's billing sync, never here.
+    const production = build({ CONVEX_DEPLOY_KEY: DEPLOY_KEY, BILLING_ACCESS_TOKEN: 'polar_oat_live' }, ['AUTH_SECRET', 'SITE_URL'])
+    expect(await production.run()).toBe(0)
+    expect(production.convexDeploy).toHaveBeenCalledWith(expect.not.arrayContaining(['--preview-run']))
+  })
+
+  it.each([
+    ['npm', 'npm run build', 'npx nuxt-backend env push --preview && npm run build'],
+    ['pnpm', 'pnpm run build', 'pnpm exec nuxt-backend env push --preview && pnpm run build'],
+    ['yarn', 'yarn run build', 'yarn nuxt-backend env push --preview && yarn run build'],
+    ['bun', 'bun run build', 'bunx nuxt-backend env push --preview && bun run build'],
+  ] as const)('builds a %s project with %s', async (manager, production, preview) => {
+    const prod = build({ CONVEX_DEPLOY_KEY: DEPLOY_KEY }, ['AUTH_SECRET', 'SITE_URL'], manager)
+    expect(await prod.run()).toBe(0)
+    expect(prod.convexDeploy).toHaveBeenCalledWith(['deploy', '--cmd', production, '--cmd-url-env-var-name', 'NUXT_PUBLIC_BACKEND_URL'])
+    expect(buildCmd(true, {}, manager)).toBe(preview)
   })
 
   it('refuses a build with no deploy key, or a dev one', async () => {
@@ -378,6 +409,46 @@ describe('deploy --build', () => {
     expect(await run()).toBe(1)
     expect(convexDeploy).not.toHaveBeenCalled()
     expect(printed.join('\n')).toContain('no SITE_URL')
+  })
+})
+
+describe('the project\'s package manager', () => {
+  let root: string | undefined
+  afterEach(() => {
+    if (root) rmSync(root, { recursive: true, force: true })
+    root = undefined
+  })
+
+  /** A project with these files, under a repository root; the app in `app/` when `nested`. */
+  function project(files: Record<string, string>, { nested = false } = {}): string {
+    root = mkdtempSync(join(tmpdir(), 'nuxt-backend-pm-'))
+    mkdirSync(join(root, '.git'))
+    for (const [name, text] of Object.entries(files)) writeFileSync(join(root, name), text)
+    if (!nested) return root
+    mkdirSync(join(root, 'app'))
+    writeFileSync(join(root, 'app', 'package.json'), '{ "name": "app" }')
+    return join(root, 'app')
+  }
+
+  it.each([
+    ['package-lock.json', 'npm'],
+    ['npm-shrinkwrap.json', 'npm'],
+    ['pnpm-lock.yaml', 'pnpm'],
+    ['yarn.lock', 'yarn'],
+    ['bun.lock', 'bun'],
+    ['bun.lockb', 'bun'],
+  ] as const)('reads %s as %s', (lockfile, manager) => {
+    expect(packageManagerOf(project({ 'package.json': '{}', [lockfile]: '' }))).toBe(manager)
+  })
+
+  it('takes the package manager package.json pins over a lockfile', () => {
+    expect(packageManagerOf(project({ 'package.json': JSON.stringify({ packageManager: 'pnpm@11.26.0+sha512.abc' }), 'package-lock.json': '' }))).toBe('pnpm')
+    expect(packageManagerOf(project({ 'package.json': JSON.stringify({ packageManager: 'yarn@4.9.1' }) }))).toBe('yarn')
+  })
+
+  it('finds a workspace\'s lockfile at its root, and never looks above the repository', () => {
+    expect(packageManagerOf(project({ 'package.json': '{}', 'pnpm-lock.yaml': '' }, { nested: true }))).toBe('pnpm')
+    expect(packageManagerOf(project({ 'package.json': '{}' }, { nested: true }))).toBe('npm')
   })
 })
 

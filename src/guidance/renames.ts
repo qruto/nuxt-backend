@@ -54,6 +54,7 @@ export function sectionUrl(section: string): string {
 }
 
 const LAUNCH = 'A production checkout waits for billing to launch, and welcome credits come from the catalog'
+const TUNNEL = 'Browser error reports go through a tunnel on the app\'s own origin'
 const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
 const ONE_WAY = 'One way to do each thing'
 const ENVIRONMENT = 'One variable says what kind of deployment this is'
@@ -100,6 +101,8 @@ export const RENAMES: readonly Rename[] = [
   { from: '`not_ready` (reason `no_catalog`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog`' },
   { from: 'billing.refundCredits in onUserCreated', to: 'credits: { meter, units, once: true }', change: 'reshaped', section: LAUNCH, note: 'welcome credits on the free plan, granted once after the reverse trial; drop the hand-rolled grant' },
 
+  // The managed tunnel needs a newer SDK: the peer range moves.
+  { from: '@sentry/nuxt', to: '@sentry/nuxt@^11.10.0', change: 'reshaped', section: TUNNEL, note: 'the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn' },
   // One attribute marks every packaged component, in place of a list of families.
   { from: '[data-auth=\'form\'], [data-pricing=\'table\'], [data-admin]', to: '[data-backend]', change: 'reshaped', section: UI_TOKENS, note: 'the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root' },
   // One way per action. The boundaries, the banners, the auth members and

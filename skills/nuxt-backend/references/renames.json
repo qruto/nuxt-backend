@@ -26,6 +26,14 @@
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-production-checkout-waits-for-billing-to-launch-and-welcome-credits-come-from-the-catalog"
     },
     {
+      "from": "@sentry/nuxt",
+      "to": "@sentry/nuxt@^11.10.0",
+      "change": "reshaped",
+      "section": "Browser error reports go through a tunnel on the app's own origin",
+      "note": "the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#browser-error-reports-go-through-a-tunnel-on-the-apps-own-origin"
+    },
+    {
       "from": "[data-auth='form'], [data-pricing='table'], [data-admin]",
       "to": "[data-backend]",
       "change": "reshaped",
