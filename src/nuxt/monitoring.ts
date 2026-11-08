@@ -91,21 +91,40 @@ export interface MonitoringPublicConfig {
 /** The SDK's config files of one kind in the app, as the SDK's module finds them: at the root of any layer, the app's own first. */
 const CONFIG_EXTENSIONS = ['ts', 'js', 'mjs', 'cjs', 'mts', 'cts']
 
-/** Whether the app (or one of its layers) has its own `sentry.<kind>.config.*`, which the SDK uses in place of the package's. */
-export function ownSdkConfig(nuxt: Pick<Nuxt, 'options'>, kind: 'client' | 'server'): boolean {
+/**
+ * Whether the app has its own `sentry.<kind>.config.*`, which the SDK uses in
+ * place of the package's: at the root of any layer, or in a
+ * `sentry.configDir` of the app's own, the SDK's fallback. The package's
+ * own directory (`packageDir`, the default it gives `configDir`) is never
+ * the app's.
+ */
+export function ownSdkConfig(nuxt: Pick<Nuxt, 'options'>, kind: 'client' | 'server', packageDir?: string): boolean {
   const roots = nuxt.options._layers?.map(layer => layer.cwd) ?? [nuxt.options.rootDir]
+  const configDir = (nuxt.options as { sentry?: { configDir?: unknown } }).sentry?.configDir
+  if (typeof configDir === 'string' && configDir) {
+    const dir = resolve(nuxt.options.rootDir, configDir)
+    if (!packageDir || dir !== resolve(packageDir)) roots.push(dir)
+  }
   return roots.some(root => CONFIG_EXTENSIONS.some(extension => existsSync(resolve(root, `sentry.${kind}.config.${extension}`))))
+}
+
+/** Whether the build is static files (`nuxt generate`, or Nitro's `static`): no server answers a tunnel there. */
+export function staticBuild(nuxt: Pick<Nuxt, 'options'>): boolean {
+  const options = nuxt.options as { _generate?: boolean, nitro?: { static?: boolean } }
+  return Boolean(options._generate || options.nitro?.static)
 }
 
 /**
  * How the browser's reports leave: through the managed tunnel, when the SDK
  * has it and the package's own server config answers it; otherwise straight
- * to the ingest, which needs the DSN's origin in `connect-src`. An app's own
+ * to the ingest, which needs the DSN's origin in `connect-src`: an SDK before
+ * 11.10, an app's own server config, or a static build, which has no server
+ * to answer the tunnel. An app's own
  * client config may or may not set `tunnel`, so its DSN's origin is let out
  * too.
  */
-export function reportPath(wiring: Pick<MonitoringWiring, 'tunnel'>, own: { client: boolean, server: boolean }): { tunnel: boolean, direct: boolean } {
-  const tunnel = wiring.tunnel && !own.server
+export function reportPath(wiring: Pick<MonitoringWiring, 'tunnel'>, own: { client: boolean, server: boolean }, isStatic = false): { tunnel: boolean, direct: boolean } {
+  const tunnel = wiring.tunnel && !own.server && !isStatic
   return { tunnel, direct: !tunnel || own.client }
 }
 
@@ -116,8 +135,10 @@ export function reportPath(wiring: Pick<MonitoringWiring, 'tunnel'>, own: { clie
  */
 export function registerMonitoring(resolver: Resolver, nuxt: Nuxt, wiring: MonitoringWiring = monitoringWiring(nuxt)): void {
   const { env } = wiring
-  const own = wiring.wired ? { client: ownSdkConfig(nuxt, 'client'), server: ownSdkConfig(nuxt, 'server') } : { client: false, server: false }
-  const path = reportPath(wiring, own)
+  const packageDir = resolver.resolve(SDK_DIR)
+  const own = wiring.wired ? { client: ownSdkConfig(nuxt, 'client', packageDir), server: ownSdkConfig(nuxt, 'server', packageDir) } : { client: false, server: false }
+  const isStatic = staticBuild(nuxt)
+  const path = reportPath(wiring, own, isStatic)
   const runtimeConfig = nuxt.options.runtimeConfig
   runtimeConfig.public.backend = {
     ...(runtimeConfig.public.backend as Record<string, unknown> | undefined),
@@ -184,7 +205,7 @@ function warnOnDirectReports(wiring: MonitoringWiring, own: { client: boolean, s
     logger.warn('Monitoring: the app has its own sentry.server.config, so the package\'s browser config sends its reports straight to the ingest (its origin let out in connect-src) rather than through a tunnel nothing may answer. For the tunnel, add Sentry.serveTunnelIntegration() to your server config and a sentry.client.config with tunnel: true.')
   }
   else if (own.client) {
-    logger.warn('Monitoring: the app has its own sentry.client.config: the security headers let its DSN\'s ingest out in connect-src. Set tunnel: true in it to report through the managed tunnel' + (own.server ? ', with Sentry.serveTunnelIntegration() in your server config.' : ', which the package\'s server config answers.'))
+    logger.warn('Monitoring: the app has its own sentry.client.config: the security headers let the ingest of the DSN the module reads (MONITORING_DSN) out in connect-src; a DSN of another origin in your config needs that origin listed there. Set tunnel: true in it to report through the managed tunnel' + (own.server ? ', with Sentry.serveTunnelIntegration() in your server config.' : ', which the package\'s server config answers.'))
   }
 }
 

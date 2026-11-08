@@ -6,7 +6,7 @@ import { makeFunctionReference } from 'convex/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { backendError } from '../../src/convex/errors'
 import { appMonitoringDsn, type DeploymentUsageLimit, monitoringDsnFinding, monitoringFindings, sdkServesTunnel, usageAlertsFinding } from '../../src/monitoring'
-import { monitoringDependency, monitoringWiring, reportPath, resolveMonitoring } from '../../src/nuxt/monitoring'
+import { monitoringDependency, monitoringWiring, ownSdkConfig, reportPath, resolveMonitoring, staticBuild } from '../../src/nuxt/monitoring'
 import { localEntry, tagBackendEvent } from '../../src/runtime/monitoring/report'
 
 // The monitoring capability in the Nuxt app: the SDK wired only once it is
@@ -77,6 +77,38 @@ describe('wiring the SDK', () => {
     expect(reportPath({ tunnel: true }, { client: false, server: true })).toEqual({ tunnel: false, direct: true })
     // The app's own client config may set no tunnel: its ingest is let out, the package's server still answers one.
     expect(reportPath({ tunnel: true }, { client: true, server: false })).toEqual({ tunnel: true, direct: true })
+    // Static files: no server answers the tunnel.
+    expect(reportPath({ tunnel: true }, none, true)).toEqual({ tunnel: false, direct: true })
+  })
+
+  it('tells a static build, which no server answers a tunnel for', () => {
+    expect(staticBuild({ options: { _generate: true } } as never)).toBe(true)
+    expect(staticBuild({ options: { nitro: { static: true } } } as never)).toBe(true)
+    expect(staticBuild({ options: { nitro: {} } } as never)).toBe(false)
+  })
+
+  describe('the app\'s own SDK config', () => {
+    let root: string
+    beforeEach(() => {
+      root = mkdtempSync(join(tmpdir(), 'sentry-config-'))
+    })
+    afterEach(() => rmSync(root, { recursive: true, force: true }))
+    const nuxtAt = (sentry?: { configDir: string }) => ({ options: { rootDir: root, _layers: [{ cwd: root }], ...sentry ? { sentry } : {} } }) as never
+
+    it('is found at a layer\'s root, or in a sentry.configDir of the app\'s own, never in the package\'s', () => {
+      const packageDir = join(root, 'package-sdk')
+      mkdirSync(packageDir)
+      writeFileSync(join(packageDir, 'sentry.client.config.ts'), '')
+      expect(ownSdkConfig(nuxtAt({ configDir: packageDir }), 'client', packageDir)).toBe(false)
+
+      mkdirSync(join(root, 'monitoring'))
+      writeFileSync(join(root, 'monitoring/sentry.client.config.ts'), '')
+      expect(ownSdkConfig(nuxtAt({ configDir: 'monitoring' }), 'client', packageDir)).toBe(true)
+      expect(ownSdkConfig(nuxtAt({ configDir: 'monitoring' }), 'server', packageDir)).toBe(false)
+
+      writeFileSync(join(root, 'sentry.server.config.mjs'), '')
+      expect(ownSdkConfig(nuxtAt(), 'server', packageDir)).toBe(true)
+    })
   })
 
   it('decides once per Nuxt instance, so the SDK\'s module and the capture plugins never disagree', () => {
