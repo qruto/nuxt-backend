@@ -13,6 +13,18 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 |---|---|
 | `useFlag()` | Whether a feature flag is on for whoever is looking: their account, their active workspace and their plan, as `backend/flags.ts` declares the flag and the admin console overrides it. |
 | `useFlagAdmin()` | The admin console's Flags tab, as data: every flag with its default and its override, and the change an administrator makes, through `listFlags` and `setFlag` of `backend/flags.ts`. |
+| `useReportForm()` | A report about content of the app's, without its markup. |
+
+## Components
+
+| Component | What it renders |
+|---|---|
+| `<LegalProcessors>` | The processors an app on the package hands personal data to, as a table: who, what each handles, where, and its agreement. |
+| `<LegalStorage>` | Every cookie and storage key the package writes for the capabilities the app uses, then the app's own (`appConfig.backend.legal.storage`), as a table: its name, where it lives, what it is for, how long it lasts, and whether it waits for the person's permission. |
+| `<LegalDetail>` | One of the company details `appConfig.backend.legal` holds, inside a sentence of yours: the company, its address, the contact, the data protection officer, the registration number, the VAT line or the consumer mediator. |
+| `<LegalVersion>` | The version of one of your documents, as `setupAccount({ consents })` declares it in `backend/account.ts`: the version the consent ledger records when someone agrees, so the page and the record never disagree. |
+| `<LegalContactPoints>` | The single points of contact the EU Digital Services Act asks every host to name: one for the authorities of the member states, the Commission and the Board (Art. 11), one for the people who use the app (Art. 12, `legal.contact` unless you name another), and the languages you answer in, from `appConfig.backend.legal.contactPoints`. |
+| `<LegalModeration>` | How content is moderated, as the EU Digital Services Act asks a host's terms to say (Art. 14): a person on your team decides every report, every notice and every appeal, through the admin console's Reports tab; and the automated tools that check content (`appConfig.backend.legal.moderation`), each with what it checks and whether its verdict takes effect on its own or waits for a person. |
 
 ## Import paths
 

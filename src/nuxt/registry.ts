@@ -27,7 +27,7 @@ export function registerSaasComposables(resolver: Resolver): void {
   // (src/ui/registry.ts). A part is registered too: an app component of the
   // same name replaces it everywhere, since its parent renders it by name.
   for (const entry of REGISTERED_UI) {
-    const component = { name: entry.name, export: 'default', filePath: resolver.resolve(`./runtime/vue/components/${uiPath(entry)}.vue`) }
+    const component = { name: entry.name, export: 'default', filePath: resolver.resolve(`./runtime/vue/components/${uiPath(entry)}.vue`), ...(entry.global ? { global: true } : {}) }
     addComponent(entry.lazy ? lazily(component) : component)
   }
 
@@ -52,6 +52,7 @@ export function registerSaasComposables(resolver: Resolver): void {
     { name: 'useReferralAdmin', from: resolver.resolve('./runtime/vue/composables/use-referral-admin') },
     { name: 'usePasskeys', from: resolver.resolve('./runtime/vue/composables/use-passkeys') },
     { name: 'useSessions', from: resolver.resolve('./runtime/vue/composables/use-sessions') },
+    { name: 'useSignInAlerts', from: resolver.resolve('./runtime/vue/composables/use-sign-in-alerts') },
     { name: 'useReauthentication', from: resolver.resolve('./runtime/vue/composables/use-reauthentication') },
     { name: 'useAuditLog', from: resolver.resolve('./runtime/vue/composables/use-audit-log') },
     { name: 'useAccount', from: resolver.resolve('./runtime/vue/composables/use-account') },
@@ -74,6 +75,7 @@ export function registerSaasComposables(resolver: Resolver): void {
     { name: 'useAnnouncements', from: resolver.resolve('./runtime/vue/composables/use-announcements') },
     { name: 'useAnnouncementsAdmin', from: resolver.resolve('./runtime/vue/composables/use-announcements') },
     { name: 'useContactForm', from: resolver.resolve('./runtime/vue/composables/use-contact-form') },
+    { name: 'useReportForm', from: resolver.resolve('./runtime/vue/composables/use-report-form') },
     { name: 'useOnboarding', from: resolver.resolve('./runtime/vue/composables/use-onboarding') },
     { name: 'useActivation', from: resolver.resolve('./runtime/vue/composables/use-activation') },
     { name: 'useExperiment', from: resolver.resolve('./runtime/vue/composables/use-experiment') },

@@ -8,15 +8,17 @@
  * development, a note names the `appConfig.backend.legal` keys still unset.
  *
  * Internal: the body of the `privacy`, `terms`, `subprocessors` and
- * `accessibility` pages, built on `useLegalDocument`. Replace a page with
- * your own at its path to write it yourself.
+ * `accessibility` pages, built on `useLegalDocument`. It renders the
+ * public parts by name (`<LegalProcessors>`, `<LegalStorage>`,
+ * `<LegalModeration>`, `<LegalContactPoints>`), so a
+ * component of the app's under either name replaces it here too. Replace
+ * a page with your own at its path to write it yourself.
  *
  * @internal
  */
 import type { LegalPageKey } from '../../../../convex/legal'
+import LegalCompany from './LegalCompany.vue'
 import LegalDataMap from './LegalDataMap.vue'
-import LegalProcessors from './LegalProcessors.vue'
-import LegalStorage from './LegalStorage.vue'
 import { useLegalDocument, useLegalHealth } from './legal'
 
 const props = defineProps<{
@@ -49,6 +51,13 @@ const { t, details, app, paths } = legal
       {{ t('unset', { fields: legal.missing.value.join(', ') }) }}
     </p>
 
+    <p
+      v-if="legal.version.value"
+      data-legal="version-line"
+    >
+      {{ t('version', { version: legal.version.value }) }}
+    </p>
+
     <template v-if="page === 'privacy'">
       <p data-legal="intro">
         {{ t('privacy.intro', { app }) }}
@@ -64,14 +73,10 @@ const { t, details, app, paths } = legal
         <p v-else>
           {{ t('privacy.controller') }}
         </p>
-        <address
-          v-if="details.address || details.contact || details.dpo"
-          data-legal="controller"
-        >
-          <span v-if="details.address">{{ t('controller.address', { address: details.address }) }}</span>
-          <span v-if="details.contact">{{ t('controller.contact', { contact: details.contact }) }}</span>
-          <span v-if="details.dpo">{{ t('controller.dpo', { dpo: details.dpo }) }}</span>
-        </address>
+        <LegalCompany
+          :legal="legal"
+          :fields="['address', 'registration', 'vat', 'contact', 'dpo']"
+        />
       </section>
       <section data-legal="section">
         <h2 data-legal="title">
@@ -85,7 +90,7 @@ const { t, details, app, paths } = legal
           {{ t('privacy.processorsTitle') }}
         </h2>
         <p>{{ t('privacy.processorsIntro') }}</p>
-        <LegalProcessors :legal="legal" />
+        <LegalProcessors />
         <p v-if="paths.subprocessors.value">
           <NuxtLink :to="paths.subprocessors.value">
             {{ t('privacy.processorsLink') }}
@@ -97,7 +102,7 @@ const { t, details, app, paths } = legal
           {{ t('privacy.storageTitle') }}
         </h2>
         <p>{{ t('privacy.storageIntro') }}</p>
-        <LegalStorage :legal="legal" />
+        <LegalStorage />
       </section>
       <section data-legal="section">
         <h2 data-legal="title">
@@ -177,6 +182,12 @@ const { t, details, app, paths } = legal
           </NuxtLink>
         </p>
       </section>
+      <section data-legal="section">
+        <h2 data-legal="title">
+          {{ t('moderation.title') }}
+        </h2>
+        <LegalModeration />
+      </section>
       <section
         v-if="legal.ai.value"
         data-legal="section"
@@ -201,10 +212,35 @@ const { t, details, app, paths } = legal
         <h2 data-legal="title">
           {{ t('terms.contactTitle') }}
         </h2>
+        <LegalContactPoints />
         <p v-if="details.contact">
           {{ t('terms.contact', { contact: details.contact }) }}
         </p>
+        <LegalCompany
+          :legal="legal"
+          :fields="['address', 'registration', 'vat']"
+        />
         <p>{{ t('terms.changes') }}</p>
+      </section>
+      <section
+        v-if="legal.mediator.value"
+        data-legal="section"
+      >
+        <h2 data-legal="title">
+          {{ t('terms.disputesTitle') }}
+        </h2>
+        <p data-legal="mediator">
+          {{ t('terms.disputes') }}
+          <a
+            v-if="legal.mediator.value.url"
+            :href="legal.mediator.value.url"
+            rel="noopener"
+            target="_blank"
+          >{{ legal.mediator.value.name }}</a>
+          <template v-else>
+            {{ legal.mediator.value.name }}
+          </template>
+        </p>
       </section>
     </template>
 
@@ -212,7 +248,7 @@ const { t, details, app, paths } = legal
       <p data-legal="intro">
         {{ t('subprocessors.intro', { app }) }}
       </p>
-      <LegalProcessors :legal="legal" />
+      <LegalProcessors />
     </template>
 
     <template v-else>

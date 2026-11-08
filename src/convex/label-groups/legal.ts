@@ -36,7 +36,31 @@ const LEGAL_LABELS = {
     address: 'Postal address: {address}',
     contact: 'Contact: {contact}',
     dpo: 'Data protection officer: {dpo}',
+    registration: 'Registration number: {registration}',
+    vat: 'VAT: {vat}',
   },
+  // The single points of contact the Digital Services Act asks a host to name (<LegalContactPoints>, the terms page).
+  contactPoints: {
+    title: 'Points of contact',
+    authorities: 'For authorities of the EU member states, the Commission and the Board',
+    users: 'For people who use {app}',
+    languages: 'Languages we answer in',
+  },
+  // How content is moderated (<LegalModeration>, the terms page): who decides, and the automated tools that check content.
+  moderation: {
+    title: 'How we moderate content',
+    review: 'A person on our team decides every report and every notice about content, and every appeal against a decision.',
+    tools: 'These automated tools check content too:',
+    tool: 'Tool',
+    checks: 'What it checks',
+    decides: 'How it decides',
+    decidesAlone: 'On its own; a person reviews it if you appeal',
+    flagsOnly: 'It flags content for a person to decide',
+  },
+  // Under the title of the privacy policy and the terms, once `setupAccount({ consents })` declares their kind.
+  version: 'Version {version}',
+  // In development only, where <LegalVersion> names a consent kind backend/account.ts does not declare.
+  versionUnset: 'No version: declare the {kind} consent in backend/account.ts.',
   privacy: {
     intro: 'This policy says what {app} keeps about you, for how long, who processes it for us, and how you get a copy of it or have it deleted.',
     controller: 'We decide what happens to your personal data: we are its controller.',
@@ -81,6 +105,9 @@ const LEGAL_LABELS = {
     contactTitle: 'Contact',
     contact: 'Questions about these terms: {contact}.',
     changes: 'We tell you before a change to these terms takes effect.',
+    // Once appConfig.backend.legal names a consumer mediator: the mediator's name follows, linking its site.
+    disputesTitle: 'Disputes',
+    disputes: 'Write to us first. If we cannot settle it, you can take the dispute to our consumer mediator, free of charge:',
   },
   subprocessors: {
     intro: 'The services that process personal data for {app}, what each one handles and where it keeps it.',

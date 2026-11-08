@@ -19,7 +19,7 @@ import { backendError } from '../errors.js'
 import { EVENT_VALUE_MAX } from '../events.js'
 import { logBackend } from '../log.js'
 import { randomToken, sha256Hex } from '../tokens.js'
-import { APPEAL_FRAGMENT, REMOVAL_DEADLINE_MS, REPORT_REASONS, type ReportReason } from '../report-rules.js'
+import { APPEAL_FRAGMENT, REMOVAL_DEADLINE_MS, REPORT_DETAILS_MAX, REPORT_REASONS, type ReportReason } from '../report-rules.js'
 import { addressDigest, mailboxOf } from '../waitlist-rules.js'
 import { type AdapterFindOne, type Administrators, createAccessReads, isAdministratorNow, refuseCaller, requireAdministratorInPerson } from './access.js'
 import { setupAudit } from './audit.js'
@@ -187,12 +187,14 @@ export type NoticeInput = {
   locale?: string
   /** The bot check's token (`useHumanCheck().token('report', email)`). */
   human?: string | null
+  /** The honeypot, a field people never see: filled, the notice is a bot's, and nothing is filed or sent. */
+  website?: string
 }
 
 /** The report functions `backend/admin.ts` re-exports beside the console's reads. */
 export interface ReportsApi {
-  /** Report a thing, signed in: one open report per person and thing, at most 10 an hour (the `report` limit). */
-  reportContent: RegisteredMutation<'public', { subject: { table: string, id: string }, reason: ReportReason, details?: string }, Promise<null>>
+  /** Report a thing, signed in: one open report per person and thing, at most 10 an hour (the `report` limit). A filled `website`, the honeypot, files nothing. */
+  reportContent: RegisteredMutation<'public', { subject: { table: string, id: string }, reason: ReportReason, details?: string, website?: string }, Promise<null>>
   /** The public notice form's send, for anyone: the bot check, the `report` limit per address and `reportGlobal`, and a receipt by email. */
   sendNotice: RegisteredAction<'public', NoticeInput, Promise<null>>
   /** A decision by its appeal link's token; `null` for a token no decision has. */
@@ -210,7 +212,7 @@ export interface ReportsApi {
 }
 
 /** The longest text each field keeps. */
-const MAX = { url: 2048, details: 4000, name: 200, email: 320, signature: 200, reason: 2000, note: 500, appeal: 4000, table: 64, id: 128 } as const
+const MAX = { url: 2048, details: REPORT_DETAILS_MAX, name: 200, email: 320, signature: 200, reason: 2000, note: 500, appeal: 4000, table: 64, id: 128 } as const
 
 const vReason = v.union(...REPORT_REASONS.map(reason => v.literal(reason)))
 const vSubject = v.object({ table: v.string(), id: v.string() })
@@ -461,11 +463,13 @@ export function createReports(components: { backend: unknown, rateLimiter?: unkn
   }
 
   const reportContent = mutationGeneric({
-    args: { subject: vSubject, reason: vReason, details: v.optional(v.string()) },
+    args: { subject: vSubject, reason: vReason, details: v.optional(v.string()), website: v.optional(v.string()) },
     returns: v.null(),
     handler: async (ctx, args) => {
       const identity = await ctx.auth.getUserIdentity()
       if (!identity) throw backendError('unauthenticated', {}, '[nuxt-backend] Sign in to report content, or use the report form.')
+      // The honeypot, a field people never see: a form that filled it is a bot's, and files nothing.
+      if (args.website?.trim()) return null
       // A report is the person's own: an administrator visiting the account makes none.
       refuseCaller(identity as unknown as Record<string, unknown>, { impersonation: 'refused' }, 'reportContent')
       const account = await reads.account(ctx, identity.subject)
@@ -491,9 +495,12 @@ export function createReports(components: { backend: unknown, rateLimiter?: unkn
       subject: v.optional(vSubject),
       locale: v.optional(v.string()),
       human: v.optional(v.union(v.string(), v.null())),
+      website: v.optional(v.string()),
     },
     returns: v.null(),
     handler: async (ctx, input) => {
+      // The honeypot: a form that filled it is a bot's. It is told nothing went wrong, and nothing is filed, mailed or counted.
+      if (input.website?.trim()) return null
       const notice = checkedNotice(input)
       const address = notice.notifier.email
       // The bot check first: a refused call spends none of the limits.

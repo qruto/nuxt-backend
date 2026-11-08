@@ -129,6 +129,12 @@ Generated from the contract's rows, which the contract tests render every compon
 | `<ActivationChecklist>` | `data-activation` | `activation` | `task`, `congratulations` | `dismissed`, `completed` | ready, loading, empty, pending, done, refused |
 | `<HowDidYouHear>` | `data-source` | `source` | `option` | `done`, `error` | ready, loading, pending, error, done, answered, refused |
 | `<AiLabel>` | `data-ai-label` | `ai` | `default` | none | ready, done |
+| `<LegalProcessors>` | `data-legal` | `legal` | none | none | ready |
+| `<LegalStorage>` | `data-legal` | `legal` | none | none | ready |
+| `<LegalDetail>` | `data-legal` | `legal` | none | none | ready, missing |
+| `<LegalVersion>` | `data-legal` | `legal` | none | none | ready, empty |
+| `<LegalContactPoints>` | `data-legal` | `legal` | none | none | ready, empty |
+| `<LegalModeration>` | `data-legal` | `legal` | none | none | ready |
 
 <!-- /generated:contract -->
 
@@ -175,6 +181,12 @@ Each component has a section on its family's page: the page that renders it, its
 | [`<ContactForm>`](/docs/reference/components/shell#contactform) | Shell, gates and notices | A contact form for visitors, and a feedback form for signed-in people: the same component. |
 | [`<AppShell>`](/docs/reference/components/shell#appshell) | Shell, gates and notices | The frame of a signed-in app, for your layout: a header with your brand and links, the workspace switcher, the notification bell and the account menu, then the app-wide notices, then your page in the `<main>` landmark, with the consent dialog and the connection status closing it. |
 | [`<AiLabel>`](/docs/reference/components/shell#ailabel) | Shell, gates and notices | The visible "AI-generated" label the EU AI Act (Art. 50) asks for, beside an image or a text a model made. |
+| [`<LegalProcessors>`](/docs/reference/components/shell#legalprocessors) | Shell, gates and notices | The processors an app on the package hands personal data to, as a table: who, what each handles, where, and its agreement. |
+| [`<LegalStorage>`](/docs/reference/components/shell#legalstorage) | Shell, gates and notices | Every cookie and storage key the package writes for the capabilities the app uses, then the app's own (`appConfig.backend.legal.storage`), as a table: its name, where it lives, what it is for, how long it lasts, and whether it waits for the person's permission. |
+| [`<LegalDetail>`](/docs/reference/components/shell#legaldetail) | Shell, gates and notices | One of the company details `appConfig.backend.legal` holds, inside a sentence of yours: the company, its address, the contact, the data protection officer, the registration number, the VAT line or the consumer mediator. |
+| [`<LegalVersion>`](/docs/reference/components/shell#legalversion) | Shell, gates and notices | The version of one of your documents, as `setupAccount({ consents })` declares it in `backend/account.ts`: the version the consent ledger records when someone agrees, so the page and the record never disagree. |
+| [`<LegalContactPoints>`](/docs/reference/components/shell#legalcontactpoints) | Shell, gates and notices | The single points of contact the EU Digital Services Act asks every host to name: one for the authorities of the member states, the Commission and the Board (Art. 11), one for the people who use the app (Art. 12, `legal.contact` unless you name another), and the languages you answer in, from `appConfig.backend.legal.contactPoints`. |
+| [`<LegalModeration>`](/docs/reference/components/shell#legalmoderation) | Shell, gates and notices | How content is moderated, as the EU Digital Services Act asks a host's terms to say (Art. 14): a person on your team decides every report, every notice and every appeal, through the admin console's Reports tab; and the automated tools that check content (`appConfig.backend.legal.moderation`), each with what it checks and whether its verdict takes effect on its own or waits for a person. |
 
 <!-- /generated:families -->
 

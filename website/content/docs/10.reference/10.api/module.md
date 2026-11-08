@@ -12,6 +12,25 @@ navigation:
 
 ## Interfaces
 
+### InstallableOptions
+
+Defined in: [src/installable.ts](https://github.com/qruto/nuxt-backend/blob/main/src/installable.ts)
+
+`backend.installable` in nuxt.config: what the manifest says beyond the
+brand's name, or `false` for no manifest at all.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="themecolor"></a> `themeColor?` | \| `string` \| \{ `light`: `string`; `dark`: `string`; \} | The colour of the browser's title bar and the task switcher for the installed app, and of the address bar on Android: one colour, or one per scheme (`{ light, dark }`), which the pages also carry as `theme-color` meta tags. Default: none, the browser's own. | [src/installable.ts](https://github.com/qruto/nuxt-backend/blob/main/src/installable.ts) |
+| <a id="backgroundcolor"></a> `backgroundColor?` | `string` | The splash screen's background while the installed app opens. Default: the theme colour, its light one. | [src/installable.ts](https://github.com/qruto/nuxt-backend/blob/main/src/installable.ts) |
+| <a id="description"></a> `description?` | `string` | One line on what the app does, in the install dialog. | [src/installable.ts](https://github.com/qruto/nuxt-backend/blob/main/src/installable.ts) |
+| <a id="icons"></a> `icons?` | `Readonly`\<`Record`\<`192` \| `512`, `string`\>\> | The two icons, by their path on the site (`/icons/app-192.png`) when they are not where the module looks: `icon-192.png` and `icon-512.png` in `public/`, else RealFaviconGenerator's `web-app-manifest-192x192.png` and `web-app-manifest-512x512.png`. | [src/installable.ts](https://github.com/qruto/nuxt-backend/blob/main/src/installable.ts) |
+| <a id="maskable"></a> `maskable?` | `boolean` \| `Readonly`\<`Record`\<`192` \| `512`, `string`\>\> | Maskable icons: full-bleed artwork a platform crops to its own shape. Their two paths; or `true` when the two icons are full-bleed already, so each is listed for both purposes. Default: `icon-maskable-192.png` and `icon-maskable-512.png` when `public/` holds them, else none. | [src/installable.ts](https://github.com/qruto/nuxt-backend/blob/main/src/installable.ts) |
+
+***
+
 ### ModuleRedirectsOptions
 
 Defined in: [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts)
@@ -40,6 +59,7 @@ Defined in: [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/
 | <a id="redirects"></a> `redirects?` | [`ModuleRedirectsOptions`](#moduleredirectsoptions) | Where the ready-made pages send a person once they are done. See [ModuleRedirectsOptions](#moduleredirectsoptions). | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="devtools"></a> `devtools?` | `boolean` | The Backend tab in Nuxt DevTools (dev only): the deployment and its env names, live checks and doctor on demand, the signed-in account, billing, email and the webhook delivery log. Enabled by default whenever Nuxt DevTools is; set `false` to disable just the Backend tab. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="css"></a> `css?` | `boolean` | The package's stylesheets (default `true`): the `--bk-*` tokens on `:root` and the styles of each detected capability's components, inside `@layer nuxt-backend`, so any rule of the app's wins. `false` loads no package CSS: the components keep their markup, `data-*` hooks and accessibility attributes, unstyled. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
+| <a id="installable"></a> `installable?` | `false` \| [`InstallableOptions`](#installableoptions) | The web app manifest the module serves once `public/` holds two icons and app config names the brand: its theme and background colours, a description, the icons' paths and maskable icons. `false` serves none. See [InstallableOptions](#installableoptions). | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 
 ***
 

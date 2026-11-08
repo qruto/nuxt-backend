@@ -1,4 +1,5 @@
 import type { StoragePurpose } from '../convex/consent-rules.js'
+import type { SubprocessorKey } from '../convex/legal.js'
 import type { BackendLabels, LabelOverrides } from '../convex/labels.js'
 
 /**
@@ -54,6 +55,60 @@ export interface LegalHost {
   location: string
   /** Its data processing agreement. */
   agreement?: string
+}
+
+/** The consumer mediator a company joined, which a consumer may turn to for free once they wrote to it (`appConfig.backend.legal.mediator`). */
+export interface LegalMediator {
+  /** Its name, as it writes it. */
+  name: string
+  /** Its site, where a consumer files a dispute. */
+  url?: string
+}
+
+/** A processor of the app's own, listed after the package's (`appConfig.backend.legal.processors`), in the words of the app's language. */
+export interface LegalProcessorRow {
+  /** Who it is, as its makers write it. */
+  name: string
+  /** What it processes, in a sentence a privacy notice can carry. */
+  processes: string
+  /** Where it keeps the data. */
+  location: string
+  /** Its data processing agreement, or the terms that stand for one. */
+  agreement?: string
+}
+
+/** A cookie or storage key of the app's own, listed after the package's (`appConfig.backend.legal.storage`), in the words of the app's language. */
+export interface LegalStorageRow {
+  /** Its name, as the browser shows it. */
+  name: string
+  /** Where it lives. A cookie the page's scripts cannot read is `httpOnly`. */
+  kind: 'cookie' | 'httpOnly' | 'localStorage' | 'sessionStorage' | 'push'
+  /** What it is for. */
+  why: string
+  /** How long it lasts. */
+  lasts: string
+  /** `necessary` (the default), or the purpose of optional storage it waits for. */
+  consent?: 'necessary' | StoragePurpose
+}
+
+/** The single points of contact the EU Digital Services Act asks every host to name (`appConfig.backend.legal.contactPoints`, Art. 11 and 12). */
+export interface LegalContactPoints {
+  /** Where the authorities of the member states, the Commission and the Board reach you (Art. 11): an email address or a URL. */
+  authorities?: string
+  /** Where the people who use the app reach you (Art. 12): an email address or a URL. Default: `legal.contact`. */
+  users?: string
+  /** The languages you answer in, as language codes: `['en', 'fr']`. */
+  languages?: string[]
+}
+
+/** One automated tool that checks content (`appConfig.backend.legal.moderation`, DSA Art. 14), in the words of the app's language. */
+export interface LegalModerationTool {
+  /** Who makes it, as its makers write it. */
+  name: string
+  /** What it checks, in a sentence the terms can carry. */
+  checks: string
+  /** `true`: its verdict takes effect on its own, such as a refused upload, which a person reviews on appeal. Default `false`: it flags content for a person to decide. */
+  decides?: boolean
 }
 
 export interface BackendAppConfig {
@@ -122,6 +177,26 @@ export interface BackendAppConfig {
      * in place of Vercel's row.
      */
     host?: LegalHost
+    /** Your company's registration number, as its register writes it: a SIREN, a company number. */
+    registration?: string
+    /** Your VAT number, or the line that says why you charge none. */
+    vat?: string
+    /** The consumer mediator you joined, `{ name, url }`: the terms page names it under Disputes. */
+    mediator?: LegalMediator
+    /**
+     * Where a processor of the package's keeps the data, as you state it, by
+     * its key: `{ deployment: 'The EU (Dublin)' }`. The pages print yours in
+     * place of the processor's general sentence.
+     */
+    locations?: Partial<Record<SubprocessorKey, string>>
+    /** Processors of your own, after the package's: a model provider, an analytics tool. */
+    processors?: LegalProcessorRow[]
+    /** Cookies and storage keys of your own, after the package's. */
+    storage?: LegalStorageRow[]
+    /** Your single points of contact under the Digital Services Act, for authorities and for the people who use the app, with the languages you answer in. */
+    contactPoints?: LegalContactPoints
+    /** The automated tools that check content, which the terms name with how each decides (DSA Art. 14). */
+    moderation?: LegalModerationTool[]
   }
   brand: {
     /** Product name used in shipped page copy. */
@@ -195,6 +270,14 @@ export const BACKEND_APP_CONFIG_KEYS = [
   'legal.contact',
   'legal.dpo',
   'legal.host',
+  'legal.registration',
+  'legal.vat',
+  'legal.mediator',
+  'legal.locations',
+  'legal.processors',
+  'legal.storage',
+  'legal.contactPoints',
+  'legal.moderation',
   'brand.name',
   'brand.logo',
   'brand.address',

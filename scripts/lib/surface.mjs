@@ -331,6 +331,40 @@ export function typeMembers(file, name, depth = 0) {
   return [...new Set([...statement.members.filter(member => member.name).map(member => member.name.getText()), ...inherited])]
 }
 
+/** How a member's type reads a binding: a computed ref, a function of an item, or a plain attribute object. */
+function bindingKind(node) {
+  if (ts.isFunctionTypeNode(node)) return 'function'
+  if (ts.isTypeReferenceNode(node) && ['ComputedRef', 'Ref', 'ShallowRef'].includes(node.typeName.getText())) return 'ref'
+  return 'object'
+}
+
+/** The members of a type node, each with its type node: a literal's own, or the interface a reference names. */
+function typedMembersOf(file, node, depth) {
+  if (ts.isTypeLiteralNode(node)) return node.members.filter(member => member.name && member.type).map(member => ({ name: member.name.getText(), type: member.type, method: ts.isMethodSignature(member) }))
+  if (!ts.isTypeReferenceNode(node) || depth > 8) return []
+  const found = typeDeclaration(file, node.typeName.getText(), depth + 1)
+  if (!found) return []
+  const { statement } = found
+  if (ts.isTypeAliasDeclaration(statement)) return typedMembersOf(found.file, statement.type, depth + 1)
+  return statement.members.filter(member => member.name).map(member => ({ name: member.name.getText(), type: member.type, method: ts.isMethodSignature(member) }))
+}
+
+/**
+ * The `bind` of a composable's `Use<Name>Return`, by how each binding is
+ * read: `ref` (a computed ref: `bind.root.value`), `function` (of an item:
+ * `bind.reason('spam')`) or `object` (an attribute object, spread as is:
+ * `bind.submit`). `undefined` when it returns no `bind`.
+ */
+export function bindingsOf(file, returnType) {
+  const found = typeDeclaration(file, returnType)
+  if (!found || ts.isTypeAliasDeclaration(found.statement)) return undefined
+  const bind = found.statement.members.find(member => member.name?.getText() === 'bind')
+  if (!bind?.type) return undefined
+  const kinds = { ref: [], function: [], object: [] }
+  for (const member of typedMembersOf(found.file, bind.type, 0)) kinds[member.method ? 'function' : bindingKind(member.type)].push(member.name)
+  return kinds
+}
+
 // --- The module's registrations ----------------------------------------------
 
 /** A property of an object literal, by name. */

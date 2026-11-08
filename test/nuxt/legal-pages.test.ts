@@ -5,13 +5,20 @@ import { HEALTH_ROUTE } from '../../src/convex/constants'
 import { LABELS } from '../../src/convex/labels'
 import { BROWSER_STORAGE } from '../../src/convex/legal'
 import { coolDown, coolingDown } from '../../src/runtime/vue/components/billing/upgrade-prompt'
+import LegalDetail from '../../src/runtime/vue/components/shell/LegalDetail.vue'
 import LegalDocument from '../../src/runtime/vue/components/shell/LegalDocument.vue'
+import LegalProcessors from '../../src/runtime/vue/components/shell/LegalProcessors.vue'
+import LegalStorage from '../../src/runtime/vue/components/shell/LegalStorage.vue'
+import { registerComponents } from '../helpers/register-components'
 
 // The packaged legal pages (LEGAL): filled from appConfig.backend.legal and
 // the capabilities the app's health route reports, each under the "not
 // legal advice" note. A capability that is `missing` drops its rows, its
 // processor and its stored items; a health route that cannot be read
 // leaves every capability in.
+
+// The pages render the public tables by name, as an app's same-named component would replace them.
+await registerComponents('LegalProcessors', 'LegalStorage', 'LegalDetail', 'LegalVersion', 'LegalContactPoints', 'LegalModeration')
 
 let health: { status: string, capabilities: Record<string, string> } | null = null
 registerEndpoint(HEALTH_ROUTE, () => health ?? { status: 'failing', capabilities: { data: 'failing' } })
@@ -116,6 +123,80 @@ describe('the other legal pages', () => {
     const wrapper = await mountSuspended(LegalDocument, { props: { page: 'accessibility' } })
     expect(wrapper.text()).toContain('Tell us at privacy@panels.example what you tried to do')
     expect(wrapper.findAll('[data-legal="links"] a').map(link => link.attributes('href'))).toEqual(['/legal/privacy', '/legal/terms', '/legal/subprocessors'])
+  })
+})
+
+describe('the operator\'s details and rows of its own', () => {
+  it('names the registration number, the VAT line and the consumer mediator', async () => {
+    appConfig.backend = { ...appConfig.backend, legal: { company: 'Panels Studio EI', address: '1 rue Example, Paris', contact: 'support@panels.example', registration: 'SIREN 123 456 789', vat: 'VAT not applicable, art. 293 B of the CGI', mediator: { name: 'Example Mediation', url: 'https://mediation.example' } } }
+    const privacy = await mountSuspended(LegalDocument, { props: { page: 'privacy' } })
+    expect(privacy.find('[data-legal="controller"]').text()).toContain('Registration number: SIREN 123 456 789')
+    expect(privacy.find('[data-legal="controller"]').text()).toContain('VAT: VAT not applicable, art. 293 B of the CGI')
+    const terms = await mountSuspended(LegalDocument, { props: { page: 'terms' } })
+    expect(terms.text()).toContain('SIREN 123 456 789')
+    expect(terms.find('[data-legal="mediator"]').text()).toContain(LABELS.legal.terms.disputes)
+    expect(terms.find('[data-legal="mediator"] a').attributes('href')).toBe('https://mediation.example')
+  })
+
+  it('names the points of contact the Digital Services Act asks for, and how content is moderated', async () => {
+    appConfig.backend = { ...appConfig.backend, legal: {
+      company: 'Panels Studio Ltd',
+      contact: 'support@panels.example',
+      contactPoints: { authorities: 'dsa@panels.example', languages: ['en', 'fr'] },
+      moderation: [{ name: 'Llama Guard', checks: 'Photos and titles, as they are added.', decides: true }],
+    } }
+    const terms = await mountSuspended(LegalDocument, { props: { page: 'terms' } })
+    expect(terms.find('[data-audience="authorities"] a').attributes('href')).toBe('mailto:dsa@panels.example')
+    // The users' point is the contact unless the app names another.
+    expect(terms.find('[data-audience="users"] a').attributes('href')).toBe('mailto:support@panels.example')
+    expect(terms.find('[data-audience="languages"] dd').text()).toBe('English, French')
+    expect(terms.find('[data-legal="moderation-review"]').text()).toBe(LABELS.legal.moderation.review)
+    const tool = terms.find('[data-legal="tool"]')
+    expect(tool.attributes('data-decides')).toBe('alone')
+    expect(tool.find('[data-legal="decides"]').text()).toBe(LABELS.legal.moderation.decidesAlone)
+  })
+
+  it('says a person decides even with no automated tool named', async () => {
+    const terms = await mountSuspended(LegalDocument, { props: { page: 'terms' } })
+    expect(terms.text()).toContain(LABELS.legal.moderation.review)
+    expect(terms.find('[data-legal="moderation-table"]').exists()).toBe(false)
+  })
+
+  it('leaves Disputes out while no mediator is named', async () => {
+    const terms = await mountSuspended(LegalDocument, { props: { page: 'terms' } })
+    expect(terms.text()).not.toContain(LABELS.legal.terms.disputesTitle)
+  })
+
+  it('lists the app\'s own processors and stored items after the package\'s, and a processor where the app says it keeps the data', async () => {
+    appConfig.backend = { ...appConfig.backend, legal: {
+      company: 'Panels Studio Ltd',
+      locations: { deployment: 'The United States.' },
+      processors: [{ name: 'Google (Gemini)', processes: 'Draws the panels from your photos.', location: 'The United States.' }],
+      storage: [{ name: 'sound-enabled', kind: 'cookie', why: 'Remembers your sound setting.', lasts: '1 year.' }],
+    } }
+    const processors = await mountSuspended(LegalProcessors)
+    expect(processors.attributes('data-backend')).toBe('')
+    expect(processors.find('[data-processor="deployment"] [data-legal="location"]').text()).toBe('The United States.')
+    const own = processors.find('[data-processor="own:0"]')
+    expect(own.find('th').text()).toBe('Google (Gemini)')
+    expect(own.find('[data-legal="processes"]').text()).toBe('Draws the panels from your photos.')
+    expect(own.find('a').exists()).toBe(false)
+    const storage = await mountSuspended(LegalStorage)
+    const item = storage.find('[data-storage="own:0"]')
+    expect(item.find('code').text()).toBe('sound-enabled')
+    expect(item.attributes('data-consent')).toBe('necessary')
+    expect(item.find('[data-legal="lasts"]').text()).toBe('1 year.')
+  })
+
+  it('prints one detail inside a sentence, the contact as a link, and nothing for an unset one', async () => {
+    const contact = await mountSuspended(LegalDetail, { props: { field: 'contact' } })
+    expect(contact.find('a').attributes('href')).toBe('mailto:privacy@panels.example')
+    expect(contact.text()).toBe('privacy@panels.example')
+    const company = await mountSuspended(LegalDetail, { props: { field: 'company' } })
+    expect(company.text()).toBe('Panels Studio Ltd')
+    expect(company.find('a').exists()).toBe(false)
+    const vat = await mountSuspended(LegalDetail, { props: { field: 'vat' } })
+    expect(vat.html()).not.toContain('data-legal')
   })
 })
 

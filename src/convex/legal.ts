@@ -34,6 +34,10 @@ export interface LegalDetails {
   contact?: string
   /** The data protection officer's contact, when one must be appointed (GDPR Art. 37). */
   dpo?: string
+  /** Its registration number, as its register writes it: a SIREN, a company number. */
+  registration?: string
+  /** Its VAT number, or the line that says why it charges none. */
+  vat?: string
 }
 
 /** One processor an app on the package hands personal data to, once its capability is in use. */

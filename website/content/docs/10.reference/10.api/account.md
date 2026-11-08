@@ -174,6 +174,7 @@ The required consents of an app, as a sign-in form names them.
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="terms"></a> `terms` | \{ `kind`: `string`; `version`: `string`; `url?`: `string`; `title?`: `string`; \}[] | The required kinds, in the order the app declares them. | [src/convex/integrations/account.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/account.ts) |
+| <a id="documents"></a> `documents` | \{ `kind`: `string`; `version`: `string`; `url?`: `string`; `required`: `boolean`; \}[] | Every declared kind, required or not, in the order the app declares them, with its current version: what a legal page prints as its version. | [src/convex/integrations/account.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/account.ts) |
 | <a id="minimumage-2"></a> `minimumAge` | `number` \| `null` | The minimum age the app sets, `null` for none. | [src/convex/integrations/account.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/account.ts) |
 
 ***
