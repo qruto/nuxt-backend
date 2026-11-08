@@ -2,6 +2,7 @@ import { cronJobs } from 'convex/server'
 import { internal } from './_generated/api.js'
 import { ALERTS_JOB } from './alerts.js'
 import { MAINTENANCE_INTERVAL_MS, MAINTENANCE_JOB } from './maintenance.js'
+import { SIGNED_URL_REFRESH_MS } from '../../files.js'
 
 // The component's own schedule: it runs wherever the component is mounted,
 // so an app never schedules the backend's housekeeping itself. Each pass is
@@ -22,5 +23,8 @@ crons.interval('gift sweep', { hours: 1 }, internal.gifts.sweep, {})
 
 // Referrals: the rewards whose hold has ended. A read and nothing more without a program.
 crons.interval('referral sweep', { hours: 1 }, internal.referrals.sweep, {})
+
+// The URL clock: a live query that signed a file's URL runs again, so its page never holds an expired one. One write.
+crons.interval('signed URL clock', { minutes: SIGNED_URL_REFRESH_MS / 60_000 }, internal.storage.tickUrlClock, {})
 
 export default crons

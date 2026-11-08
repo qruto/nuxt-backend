@@ -13,7 +13,7 @@ import { ALERT_RETENTION_MS } from './alerts.js'
 import { AI_COST_RETENTION_MS } from './costs.js'
 import { KNOWN_DEVICE_RETENTION_MS } from './devices.js'
 import { LIFTED_SUPPRESSION_RETENTION_MS } from './suppressions.js'
-import { sweepUnclaimed } from './storage.js'
+import { pruneExpired, sweepUnclaimed } from './storage.js'
 import { ANNOUNCEMENT_RETENTION_MS, pruneAnnouncements } from './announcements.js'
 import { LIFECYCLE_RUN_RETENTION_MS, pruneLifecycleRuns } from './lifecycle.js'
 import { NOTIFICATION_READ_RETENTION_MS, NOTIFICATION_UNREAD_RETENTION_MS } from '../../notifications.js'
@@ -273,6 +273,10 @@ export const MAINTENANCE_TASKS = {
     if (row && batch.cursor !== row.cursor) await ctx.db.patch('maintenanceTasks', row._id, { cursor: batch.cursor })
     return { pruned: batch.pruned, done: batch.done }
   },
+
+  // Files the app gave an end (`storage.expire`), once it passed: each
+  // with its record, its served copy and its count.
+  expiredFiles: async (ctx: MutationCtx, startedAt: number): Promise<Batch> => pruneExpired(ctx, startedAt, MAINTENANCE_BATCH),
 
   // The job queue's finished jobs, dead letters included, 30 days on. A
   // guest's done job stays counted in its browser's `guestTries`.

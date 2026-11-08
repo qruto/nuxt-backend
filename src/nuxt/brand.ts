@@ -22,3 +22,19 @@ export function registerBrandFile(nuxt: Nuxt): void {
     }
   })
 }
+
+/**
+ * The path of the brand's logo when the app serves it itself (`/logo.png`),
+ * without its query or fragment; `null` for no logo, or one on another
+ * host. Email clients and link unfurls load it from other sites.
+ */
+export function brandLogoPath(logo: string | undefined): string | null {
+  if (!logo || !logo.startsWith('/') || logo.startsWith('//')) return null
+  const path = logo.split(/[?#]/, 1)[0]!
+  return path.length > 1 ? path : null
+}
+
+/** The app's own brand logo path, read from its `app.config` files ({@link brandLogoPath}). */
+export async function appBrandLogoPath(nuxt: Pick<Nuxt, 'options'>): Promise<string | null> {
+  return brandLogoPath((await appBrandOf(nuxt.options as never))?.logo)
+}

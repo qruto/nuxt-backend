@@ -1,15 +1,19 @@
 /// <reference types="vite/client" />
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { componentsGeneric, defineSchema, type FunctionReference, makeFunctionReference, queryGeneric } from 'convex/server'
-import { asUser, defineBackendTestApp, seedWorkspace } from '../../src/convex/test'
+import { actionGeneric, componentsGeneric, defineSchema, type FunctionReference, makeFunctionReference, mutationGeneric, queryGeneric } from 'convex/server'
+import { v } from 'convex/values'
+import workflow from '@convex-dev/workflow/test'
+import { asUser, defineBackendTestApp, drain, seedBilling, seedCredits, seedWorkspace, stubStorageFetch, TEST_PNG, TEST_STORAGE_URL, upload } from '../../src/convex/test'
+import { setupStorage } from '../../src/convex/integrations/storage'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { setupEmail } from '../../src/convex/integrations/email'
 import { createAuthorization } from '../../src/convex/integrations/authorization'
 import { setupBilling } from '../../src/convex/integrations/billing'
 
 // nuxt-backend/test as an app uses it: the app's functions over every
-// component the scaffold mounts, and callers who carry the claims a real
-// session token carries.
+// component the scaffold mounts, callers who carry the claims a real
+// session token carries, uploads, scheduled work run to the end, billing
+// state as a sync leaves it, and storage URLs answered with no network.
 
 const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'> }
 const whoami = queryGeneric({ args: {}, handler: async ctx => await ctx.auth.getUserIdentity() })
@@ -20,16 +24,42 @@ const { requireMember } = createAuthorization(components as never)
 const billing = setupBilling(components as never, { email })
 const membership = queryGeneric({ args: {}, handler: async ctx => await requireMember(ctx as never) })
 const billingEntity = queryGeneric({ args: {}, handler: async ctx => await billing.resolveEntity(ctx) })
+const env = queryGeneric({ args: {}, handler: async () => ({ AUTH_SECRET: process.env.AUTH_SECRET, SITE_URL: process.env.SITE_URL, CONVEX_SITE_URL: process.env.CONVEX_SITE_URL }) })
+const feature = queryGeneric({ args: { userId: v.string(), key: v.string() }, handler: async (ctx, { userId, key }) => billing.hasFeature(ctx, key, { userId }) })
+// Storage as an app keeps a photo: an upload claimed, then checked and stripped in the background.
+const storage = setupStorage(components as never)
+const claim = mutationGeneric({
+  args: { fileId: v.string() },
+  handler: async (ctx, { fileId }) => {
+    const identity = (await ctx.auth.getUserIdentity())!
+    await storage.claim(ctx, fileId, { userId: identity.subject })
+  },
+})
+const fileUrl = queryGeneric({ args: { fileId: v.string() }, handler: async (ctx, { fileId }) => storage.fileUrl(ctx, fileId) })
+const download = actionGeneric({
+  args: { url: v.string() },
+  handler: async (_ctx, { url }) => {
+    const response = await fetch(url)
+    return { status: response.status, type: response.headers.get('content-type'), size: (await response.arrayBuffer()).byteLength }
+  },
+})
 const testApp = defineBackendTestApp(defineSchema({}), {
   './_generated/api.js': () => Promise.resolve({}),
-  './whoami.js': () => Promise.resolve({ whoami, membership, billingEntity }),
-})
+  './whoami.js': () => Promise.resolve({ whoami, membership, billingEntity, env, feature }),
+  './files.js': () => Promise.resolve({ claim, fileUrl, download }),
+}, { mounts: { generation: workflow } })
 const whoamiRef = makeFunctionReference<'query'>('whoami:whoami')
 const membershipRef = makeFunctionReference<'query'>('whoami:membership')
 const billingEntityRef = makeFunctionReference<'query'>('whoami:billingEntity')
+const envRef = makeFunctionReference<'query', Record<string, never>, Record<string, string | undefined>>('whoami:env')
+const featureRef = makeFunctionReference<'query', { userId: string, key: string }, boolean>('whoami:feature')
+const claimRef = makeFunctionReference<'mutation', { fileId: string }>('files:claim')
+const fileUrlRef = makeFunctionReference<'query', { fileId: string }, string | null>('files:fileUrl')
+const downloadRef = makeFunctionReference<'action', { url: string }, { status: number, type: string | null, size: number }>('files:download')
 
 afterEach(() => {
   vi.unstubAllEnvs()
+  vi.useRealTimers()
 })
 
 async function rows(t: ReturnType<typeof testApp>, model: string) {
@@ -60,6 +90,137 @@ describe('defineBackendTestApp', () => {
   test('gives each call a fresh instance', async () => {
     await asUser(testApp())
     await expect(rows(testApp(), 'user')).resolves.toEqual([])
+  })
+
+  test('sets the deployment variables the test file left unset, and a stubbed one wins', async () => {
+    vi.stubEnv('SITE_URL', 'https://panels.test')
+    const values = await testApp().query(envRef, {})
+    expect(values).toMatchObject({ SITE_URL: 'https://panels.test', CONVEX_SITE_URL: expect.stringMatching(/^https:/) })
+    expect(values.AUTH_SECRET!.length).toBeGreaterThanOrEqual(32)
+  })
+
+  test('a variable stubbed to undefined stays unset, and unstubAllEnvs puts the default back', async () => {
+    vi.stubEnv('SITE_URL', undefined)
+    expect((await testApp().query(envRef, {})).SITE_URL).toBeUndefined()
+    vi.unstubAllEnvs()
+    expect((await testApp().query(envRef, {})).SITE_URL).toBe('https://app.test')
+  })
+
+  test('registers a component the app mounts under a name of its own', async () => {
+    const t = testApp()
+    const generation = (componentsGeneric() as unknown as { generation: { workflow: { list: FunctionReference<'query', 'internal'> } } }).generation
+    await expect(t.query(generation.workflow.list, { order: 'desc', paginationOpts: { numItems: 1, cursor: null } } as never)).resolves.toMatchObject({ page: [] })
+  })
+
+  test('refuses a mount that is no test helper', () => {
+    expect(() => defineBackendTestApp(defineSchema({}), {}, { mounts: { generation: {} as never } })).toThrow(/mounts\.generation/)
+  })
+})
+
+describe('upload, drain and stubStorageFetch', () => {
+  test('an upload is claimed, checked in the background, and served with its bytes', async () => {
+    vi.useFakeTimers()
+    const restore = stubStorageFetch()
+    try {
+      const t = testApp()
+      const ada = await asUser(t)
+      const fileId = await t.upload()
+      await ada.mutation(claimRef, { fileId })
+      // Checked in the background: no URL until the scheduled check ran.
+      expect(await t.query(fileUrlRef, { fileId })).toBeNull()
+      await drain(t, vi)
+      const url = (await t.query(fileUrlRef, { fileId }))!
+      expect(await t.action(downloadRef, { url })).toEqual({ status: 200, type: 'image/png', size: expect.any(Number) })
+    }
+    finally {
+      restore()
+    }
+  })
+
+  test('upload takes bytes, a Blob or text, as the standalone helper too', async () => {
+    const t = testApp()
+    const ids = [
+      await upload(t, TEST_PNG),
+      await t.upload(new Blob([TEST_PNG], { type: 'image/png' })),
+      await t.upload('not a photo', { type: 'text/plain' }),
+    ]
+    expect(new Set(ids).size).toBe(3)
+  })
+
+  test('upload sends a Node Buffer\'s own bytes, not the pool it is a window on', async () => {
+    const t = testApp()
+    const buffer = Buffer.from(btoa(String.fromCharCode(...TEST_PNG)), 'base64')
+    expect(buffer.buffer.byteLength).toBeGreaterThan(buffer.byteLength)
+    const fileId = await t.upload(buffer)
+    const stored = await t.action(components.backend.storage.bytes as unknown as FunctionReference<'action', 'internal'>, { storageId: fileId }) as ArrayBuffer
+    expect(new Uint8Array(stored)).toEqual(TEST_PNG)
+  })
+
+  test('stubStorageFetch refuses any other request, unless network answers it, and puts fetch back', async () => {
+    const original = globalThis.fetch
+    const restore = stubStorageFetch()
+    await expect(fetch('https://example.com/')).rejects.toThrow(/No network under test: GET https:\/\/example\.com\//)
+    expect((await fetch('https://some-deployment.convex.cloud/api/storage/unknown')).status).toBe(404)
+    restore()
+    expect(globalThis.fetch).toBe(original)
+    const answering = stubStorageFetch({ network: () => new Response('hi') })
+    expect(await (await fetch('https://example.com/')).text()).toBe('hi')
+    answering()
+  })
+
+  test('stubStorageFetch serves the latest instance\'s files only: a new instance forgets the earlier ones', async () => {
+    const restore = stubStorageFetch()
+    try {
+      const urlOf = async (bytes: string) => TEST_STORAGE_URL + encodeURIComponent(btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(bytes))))))
+      await testApp().upload('first instance')
+      expect((await fetch(await urlOf('first instance'))).status).toBe(200)
+      await testApp().upload('second instance')
+      expect((await fetch(await urlOf('first instance'))).status).toBe(404)
+      expect(await (await fetch(await urlOf('second instance'))).text()).toBe('second instance')
+    }
+    finally {
+      restore()
+    }
+  })
+
+  test('drain refuses to run without fake timers', async () => {
+    await expect(drain(testApp(), vi)).rejects.toThrow(/vi\.useFakeTimers/)
+  })
+})
+
+describe('seedBilling and seedCredits', () => {
+  const getByUser = components.backend.billing.getByUser as unknown as FunctionReference<'query', 'internal', { userId: string }, { customerId: string | null, activeProductIds: string[], meters: Array<{ meterId: string, balance: number }> } | null>
+
+  test('leave the entitlement cache a sync would: products, features and balances', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await seedBilling(t, ada.workspaceId!, { products: ['prod_pro'], features: ['export'], credits: { meter_coins: 5 } })
+    expect(await t.query(featureRef, { userId: ada.workspaceId!, key: 'export' })).toBe(true)
+    expect(await t.query(featureRef, { userId: ada.workspaceId!, key: 'print' })).toBe(false)
+    expect(await t.query(getByUser, { userId: ada.workspaceId! })).toMatchObject({ customerId: null, activeProductIds: ['prod_pro'], meters: [{ meterId: 'meter_coins', balance: 5 }] })
+
+    // One meter set, the rest kept.
+    await seedCredits(t, ada.workspaceId!, 'meter_pages', 12)
+    await seedCredits(t, ada.workspaceId!, 'meter_coins', 2)
+    const cached = await t.query(getByUser, { userId: ada.workspaceId! })
+    expect(cached?.meters).toEqual(expect.arrayContaining([expect.objectContaining({ meterId: 'meter_coins', balance: 2 }), expect.objectContaining({ meterId: 'meter_pages', balance: 12 })]))
+    expect(await t.query(featureRef, { userId: ada.workspaceId!, key: 'export' })).toBe(true)
+  })
+
+  test('make the provider\'s customer when asked, and keep it through seedCredits', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await seedBilling(t, ada.workspaceId!, { customer: true })
+    const polar = (componentsGeneric() as unknown as { polar: { lib: { getCustomerByUserId: FunctionReference<'query', 'internal'> } } }).polar
+    const customer = await t.query(polar.lib.getCustomerByUserId, { userId: ada.workspaceId! } as never) as { id: string } | null
+    expect(customer?.id).toMatch(/^cus_test_/)
+    await seedCredits(t, ada.workspaceId!, 'meter_coins', 3)
+    expect((await t.query(getByUser, { userId: ada.workspaceId! }))?.customerId).toBe(customer?.id)
+    // Seeded again, the entity is still the same customer, in both caches.
+    await seedBilling(t, ada.workspaceId!, { customer: true, products: ['prod_pro'] })
+    expect((await t.query(getByUser, { userId: ada.workspaceId! }))?.customerId).toBe(customer?.id)
+    await seedBilling(t, ada.workspaceId!, { customer: customer!.id })
+    await expect(seedBilling(t, ada.workspaceId!, { customer: 'cus_other' })).rejects.toThrow(/one customer/)
   })
 })
 

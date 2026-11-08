@@ -28,7 +28,8 @@ const personMessage = v.optional(v.string())
  *   `not_billing_manager`, `provider_owner_only`, `gift_refused`,
  *   `gift_refunded`, `not_recipient`, `no_email`, `bot_check`,
  *   `other_account`, `flag_off`, `sole_owner`, `paid_subscription`, `ticket_required`, `invitation_refused`,
- *   `consent_required`, `age_required`, `under_age`, `passkey_only_admin`). A `consent_required` refusal
+ *   `consent_required`, `age_required`, `under_age`, `passkey_only_admin`). A `banned` refusal of a
+ *   sign-in also carries `until`, when the ban ends (epoch ms), for a ban that ends. A `consent_required` refusal
  *   also carries `kind`, the required consent not yet accepted at its latest version. A
  *   `ticket_required` refusal also carries `phase`, the launch phase that
  *   asks for a ticket, and `invite`, how the invite code given checked
@@ -69,7 +70,7 @@ const personMessage = v.optional(v.string())
  */
 export const BACKEND_ERRORS = {
   unauthenticated: { status: 401, data: v.object({ message: personMessage }) },
-  forbidden: { status: 403, data: v.object({ reason: v.string(), message: personMessage, phase: v.optional(v.string()), invite: v.optional(v.string()), kind: v.optional(v.string()), waitlist: v.optional(v.object({ position: v.number(), total: v.number(), token: v.string() })) }) },
+  forbidden: { status: 403, data: v.object({ reason: v.string(), message: personMessage, phase: v.optional(v.string()), invite: v.optional(v.string()), kind: v.optional(v.string()), until: v.optional(v.number()), waitlist: v.optional(v.object({ position: v.number(), total: v.number(), token: v.string() })) }) },
   reauthentication_required: { status: 403, data: v.object({ message: personMessage }) },
   no_workspace: { status: 409, data: v.object({ message: personMessage }) },
   rate_limited: {
@@ -158,13 +159,23 @@ function labelFor(code: BackendErrorCode, data: Record<string, unknown>, t: Tran
   return (own && sentenceFor(code, data, own)) ?? sentenceFor(code, data, t) ?? code
 }
 
+/** A label through `t`, or `undefined` when `t` has none by that name. */
+type FindLabel = (name: string, params?: Record<string, string | number>) => string | undefined
+
 /** The first label the chain finds through `t`, or `undefined` when `t` has none of them. */
 function sentenceFor(code: BackendErrorCode, data: Record<string, unknown>, t: Translate): string | undefined {
-  const label = (name: string, params?: Record<string, string | number>): string | undefined => {
+  const label: FindLabel = (name, params) => {
     const key = `errors.${name}`
     const text = t(key, params)
     return text === key ? undefined : text
   }
+  const byReason = typeof data.reason === 'string' ? label(`${code}_${data.reason}`) : undefined
+  const byField = code === 'invalid_input' && typeof data.field === 'string' ? label(`${code}_${data.field}`) : undefined
+  return sentenceWithNumbers(code, data, label) ?? byReason ?? byField ?? label(code)
+}
+
+/** The sentence of a refusal that names a number (a wait, an amount, a date), when every number it needs is there. */
+function sentenceWithNumbers(code: BackendErrorCode, data: Record<string, unknown>, label: FindLabel): string | undefined {
   // The job queue's budget resets with its window, hours away: said in minutes.
   const budget = code === 'rate_limited' && data.limit === 'jobBudget' && typeof data.retryAfter === 'number'
     ? label('rate_limited_job_budget', { count: Math.max(1, Math.ceil(data.retryAfter / 60_000)) })
@@ -175,9 +186,46 @@ function sentenceFor(code: BackendErrorCode, data: Record<string, unknown>, t: T
   const amounts = code === 'insufficient_credits' && typeof data.balance === 'number' && typeof data.need === 'number'
     ? label('insufficient_credits_amounts', { balance: data.balance, need: data.need })
     : undefined
-  const byReason = typeof data.reason === 'string' ? label(`${code}_${data.reason}`) : undefined
-  const byField = code === 'invalid_input' && typeof data.field === 'string' ? label(`${code}_${data.field}`) : undefined
-  return budget ?? timed ?? amounts ?? byReason ?? byField ?? label(code)
+  const bannedUntil = code === 'forbidden' && data.reason === 'banned' && typeof data.until === 'number' && Number.isFinite(data.until)
+    ? label('forbidden_banned_until', { date: banEndText(data.until) })
+    : undefined
+  return budget ?? timed ?? amounts ?? bannedUntil
+}
+
+/**
+ * When a ban ends, as the `errors` labels say it: the minute, in UTC
+ * (`2026-12-01 14:30 UTC`), rounded up, so a person who tries again at the
+ * minute named is let in. The sentence is built where no locale or time
+ * zone is known, so it names UTC rather than guess one.
+ */
+function banEndText(until: number): string {
+  const minute = Math.ceil(until / 60_000) * 60_000
+  return `${new Date(minute).toISOString().slice(0, 16).replace('T', ' ')} UTC`
+}
+
+/** The moment a ban's sentence ({@link bannedSentence}) names, as an ISO timestamp. */
+const BAN_END = /until (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z)/
+
+/**
+ * The sentence Better Auth's admin plugin refuses a banned account's sign-in
+ * with (its `bannedUserMessage`): when the ban ends, as an ISO timestamp,
+ * for a ban that ends. Better Auth's refusal carries a code and a message and
+ * nothing else, so the message is what brings the end to the reader, which
+ * takes it back out as the `forbidden` refusal's `until`; the person reads
+ * the `errors` label, in their language.
+ *
+ * @internal
+ */
+export function bannedSentence(user: { banExpires?: Date | string | number | null }): string {
+  const ends = user.banExpires == null ? Number.NaN : new Date(user.banExpires).getTime()
+  return Number.isFinite(ends) ? `This account is banned until ${new Date(ends).toISOString()}.` : 'This account is banned.'
+}
+
+/** The end of a ban a refusal's message names ({@link bannedSentence}), in epoch ms. */
+function banEnd(message: unknown): number | undefined {
+  const found = typeof message === 'string' ? BAN_END.exec(message) : null
+  const ends = found ? Date.parse(found[1]!) : Number.NaN
+  return Number.isFinite(ends) ? ends : undefined
 }
 
 /**
@@ -341,6 +389,12 @@ const PASSKEY_SIGN_IN_REFUSALS = ['PASSKEY_NOT_FOUND', 'AUTHENTICATION_FAILED']
  */
 const STALE_SESSION_CODES = ['SESSION_NOT_FRESH', 'SESSION_EXPIRED']
 
+/** A Better Auth 403 as `forbidden`: its reason, and when a ban ends for a banned account's sign-in. */
+function forbiddenFromAuth(code: string | undefined, message: unknown): BackendError {
+  if (!code) return read('forbidden', { reason: 'forbidden' })
+  return read('forbidden', { reason: authReason(code), until: code === 'BANNED_USER' ? banEnd(message) : undefined })
+}
+
 /** The input a Better Auth 400 code refuses, the passkey plugin's `ERROR_*` codes included. */
 function authInput(code: string): { field: string, reason?: string } | undefined {
   return AUTH_INPUTS[code] ?? (code.startsWith('ERROR_') ? { field: 'passkey' } : undefined)
@@ -362,7 +416,7 @@ function fromAuthBody(body: Record<string, unknown>, status: unknown): BackendEr
   const input = code && (status === 400 || (status === 401 && PASSKEY_SIGN_IN_REFUSALS.includes(code))) ? authInput(code) : undefined
   if (input) return read('invalid_input', input)
   if (status === 401) return read('unauthenticated', {})
-  if (status === 403) return read('forbidden', { reason: code ? authReason(code) : 'forbidden' })
+  if (status === 403) return forbiddenFromAuth(code, body.message)
   if (status === 429) return read('rate_limited', { retryAfter: body.retryAfter })
   return null
 }

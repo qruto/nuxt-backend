@@ -99,6 +99,7 @@ const DEFAULT_LIMITS: {
      kind: "fixed window";
      rate: 300;
      period: number;
+     applyUpdates: "asynchronously";
   };
   emailOtpAttempt: {
      kind: "token bucket";
@@ -133,6 +134,7 @@ const DEFAULT_LIMITS: {
      kind: "fixed window";
      rate: 300;
      period: number;
+     applyUpdates: "asynchronously";
   };
   admin: {
      kind: "token bucket";
@@ -173,6 +175,7 @@ const DEFAULT_LIMITS: {
      kind: "fixed window";
      rate: 3000;
      period: number;
+     applyUpdates: "asynchronously";
   };
   signUpOtpGlobal: {
      kind: "fixed window";
@@ -277,6 +280,21 @@ limits — and `passkeySignIn`/
 `passkeySignInGlobal` the routes anyone may call without a session. The package is passwordless: there are no password limits, and an
 app that turns passwords on brings its own.
 
+The three busiest deployment-wide ceilings, `emailOtpGlobal`, `aiGlobal`
+and `passkeySignInGlobal`, apply their updates asynchronously
+(`applyUpdates: 'asynchronously'`): a request checks the window on a
+snapshot and queues its token, so the requests that spend one never
+conflict over the window's single row. Under a burst the ceiling lets
+through every request that read the window before the queue caught up,
+so more than its rate. The queue then applies every queued spend, without
+stopping at zero, so the window ends below zero and the overshoot is
+taken from the next windows: a flood keeps the ceiling closed for longer
+than one window. Nothing in front of it bounds a flood either: a sign-in
+code is limited per address, and a flood rotates addresses.
+An override of one of these three replaces its whole config: without
+`applyUpdates` it is transactional again, and may be sharded; an
+asynchronous limit can't be.
+
 ## Covering other auth routes
 
 These names throttle the routes the package wires itself. Better Auth's own
@@ -308,10 +326,11 @@ count per identity and are enforced before the route runs.
 | `emailOtp.rate` | `5` | `5` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailOtp.period` | `number` | `MINUTE` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailOtp.capacity` | `5` | `5` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
-| <a id="property-emailotpglobal"></a> `emailOtpGlobal` | \{ `kind`: `"fixed window"`; `rate`: `300`; `period`: `number`; \} | - | Email OTP sends across the whole deployment — 300 per hour, a fixed window. The backstop the per-address limit cannot be: an attacker rotating addresses to probe an invite gate or run up the email bill hits this ceiling. Raise it when a launch legitimately signs in more than that. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-emailotpglobal"></a> `emailOtpGlobal` | \{ `kind`: `"fixed window"`; `rate`: `300`; `period`: `number`; `applyUpdates`: `"asynchronously"`; \} | - | Email OTP sends across the whole deployment — 300 per hour, a fixed window. The backstop the per-address limit cannot be: an attacker rotating addresses to probe an invite gate or run up the email bill hits this ceiling. Raise it when a launch legitimately signs in more than that. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailOtpGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailOtpGlobal.rate` | `300` | `300` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailOtpGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `emailOtpGlobal.applyUpdates` | `"asynchronously"` | `'asynchronously'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | <a id="property-emailotpattempt"></a> `emailOtpAttempt` | \{ `kind`: `"token bucket"`; `rate`: `10`; `period`: `number`; `capacity`: `10`; \} | - | Code checks — 10 per hour per address, burst 10. Every route that checks a code (sign-in, verification, both steps of an email change, a password reset when the app has passwords) spends one while a code is waiting, right or wrong, keyed by a SHA-256 of the address the code went to. Better Auth refuses a code after three wrong guesses, but `emailOtp` lets five new codes out a minute: without this limit, a guess loop that keeps requesting codes would get fifteen guesses a minute at one address, for as long as it ran. Here it gets ten an hour. Like every limit keyed by an address, someone who spends it can keep that address from signing in with a code for the hour — never without codes going to it, since a check with no code waiting spends nothing — and a passkey still signs it in. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailOtpAttempt.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `emailOtpAttempt.rate` | `10` | `10` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
@@ -336,10 +355,11 @@ count per identity and are enforced before the route runs.
 | `aiBudget.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `aiBudget.rate` | `10000` | `10_000` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `aiBudget.period` | `number` | `DAY` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
-| <a id="property-aiglobal"></a> `aiGlobal` | \{ `kind`: `"fixed window"`; `rate`: `300`; `period`: `number`; \} | - | What the app pays for itself, across the whole deployment — 300 per hour, a fixed window, unkeyed. Every job a signed-out visitor starts (`defineJobQueue({ guest })`) spends one: no credits pay for those, so this window is what bounds the gateway bill a flood of visitors could run up. Over it, a guest job is refused with `rate_limited`. Raise it when a launch legitimately lets more visitors try than that. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-aiglobal"></a> `aiGlobal` | \{ `kind`: `"fixed window"`; `rate`: `300`; `period`: `number`; `applyUpdates`: `"asynchronously"`; \} | - | What the app pays for itself, across the whole deployment — 300 per hour, a fixed window, unkeyed. Every job a signed-out visitor starts (`defineJobQueue({ guest })`) spends one: no credits pay for those, so this window is what bounds the gateway bill a flood of visitors could run up. Over it, a guest job is refused with `rate_limited`. Raise it when a launch legitimately lets more visitors try than that. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `aiGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `aiGlobal.rate` | `300` | `300` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `aiGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `aiGlobal.applyUpdates` | `"asynchronously"` | `'asynchronously'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | <a id="property-admin"></a> `admin` | \{ `kind`: `"token bucket"`; `rate`: `30`; `period`: `number`; `capacity`: `10`; \} | - | Administrator actions — 30 per minute per administrator, burst 10. Covers every `/admin/*` route that acts on somebody else (list, create, update, ban/unban, set role, impersonate, revoke sessions, remove user): each is one privileged call against another person's account, so the ceiling is "a human working fast", not a script. `/admin/stop-impersonating` and `/admin/has-permission` are deliberately exempt — the first is how an administrator leaves an impersonated session and must never be throttled, the second is a read-only check the console calls on render. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `admin.kind` | `"token bucket"` | `'token bucket'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `admin.rate` | `30` | `30` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
@@ -369,10 +389,11 @@ count per identity and are enforced before the route runs.
 | `passkeySignIn.rate` | `30` | `30` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `passkeySignIn.period` | `number` | `MINUTE` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `passkeySignIn.capacity` | `30` | `30` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
-| <a id="property-passkeysigninglobal"></a> `passkeySignInGlobal` | \{ `kind`: `"fixed window"`; `rate`: `3000`; `period`: `number`; \} | - | Passkey sign-in challenges across the whole deployment — 3000 per hour, a fixed window, spent after [DEFAULT\_LIMITS.passkeySignIn](#property-passkeysignin) allowed the request. The ceiling a caller who rotates its address meets: it bounds how fast anyone can fill the verification table. At the ceiling, a passkey prompt answers 429 and autofill offers no passkey; email codes still sign people in. Raise it when more sign-in pages than that open in an hour (a page left open in view spends about thirteen). | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| <a id="property-passkeysigninglobal"></a> `passkeySignInGlobal` | \{ `kind`: `"fixed window"`; `rate`: `3000`; `period`: `number`; `applyUpdates`: `"asynchronously"`; \} | - | Passkey sign-in challenges across the whole deployment — 3000 per hour, a fixed window, spent after [DEFAULT\_LIMITS.passkeySignIn](#property-passkeysignin) allowed the request. The ceiling a caller who rotates its address meets: it bounds how fast anyone can fill the verification table. At the ceiling, a passkey prompt answers 429 and autofill offers no passkey; email codes still sign people in. Raise it when more sign-in pages than that open in an hour (a page left open in view spends about thirteen). | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `passkeySignInGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `passkeySignInGlobal.rate` | `3000` | `3000` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `passkeySignInGlobal.period` | `number` | `HOUR` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
+| `passkeySignInGlobal.applyUpdates` | `"asynchronously"` | `'asynchronously'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | <a id="property-signupotpglobal"></a> `signUpOtpGlobal` | \{ `kind`: `"fixed window"`; `rate`: `200`; `period`: `number`; \} | - | Sign-in codes to addresses with no account yet — 200 per hour across the deployment, a fixed window. Spent in place of `emailOtpGlobal` by a code that would create an account while `setupAccess` is wired, so a rush of joins on a launch day never holds up existing people's codes. Raise it for a launch that signs up more than that in an hour. | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `signUpOtpGlobal.kind` | `"fixed window"` | `'fixed window'` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
 | `signUpOtpGlobal.rate` | `200` | `200` | - | [src/convex/integrations/rate-limit.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/rate-limit.ts) |
@@ -448,6 +469,7 @@ function setupRateLimiter<Limits>(components, limits?): RateLimiter<{
      kind: "fixed window";
      rate: 300;
      period: number;
+     applyUpdates: "asynchronously";
   };
   emailOtpAttempt: {
      kind: "token bucket";
@@ -482,6 +504,7 @@ function setupRateLimiter<Limits>(components, limits?): RateLimiter<{
      kind: "fixed window";
      rate: 300;
      period: number;
+     applyUpdates: "asynchronously";
   };
   admin: {
      kind: "token bucket";
@@ -522,6 +545,7 @@ function setupRateLimiter<Limits>(components, limits?): RateLimiter<{
      kind: "fixed window";
      rate: 3000;
      period: number;
+     applyUpdates: "asynchronously";
   };
   signUpOtpGlobal: {
      kind: "fixed window";
@@ -629,6 +653,7 @@ named limits to cover your own application functions; they are merged with
      `kind`: `"fixed window"`;
      `rate`: `300`;
      `period`: `number`;
+     `applyUpdates`: `"asynchronously"`;
   \};
   `emailOtpAttempt`: \{
      `kind`: `"token bucket"`;
@@ -663,6 +688,7 @@ named limits to cover your own application functions; they are merged with
      `kind`: `"fixed window"`;
      `rate`: `300`;
      `period`: `number`;
+     `applyUpdates`: `"asynchronously"`;
   \};
   `admin`: \{
      `kind`: `"token bucket"`;
@@ -703,6 +729,7 @@ named limits to cover your own application functions; they are merged with
      `kind`: `"fixed window"`;
      `rate`: `3000`;
      `period`: `number`;
+     `applyUpdates`: `"asynchronously"`;
   \};
   `signUpOtpGlobal`: \{
      `kind`: `"fixed window"`;

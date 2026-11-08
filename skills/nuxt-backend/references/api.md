@@ -161,7 +161,7 @@ Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDe
 | Export | What it is |
 |---|---|
 | `APIError` | Re-exported from `better-auth/api`. |
-| `resolveSignInMethod()` | The `customResolveMethod` of Better Auth's `lastLoginMethod` plugin that names a sign-in its own resolver does not know: a code sign-in (`/sign-in/email-otp`, which also signs a new account up) is `email-otp`. |
+| `resolveSignInMethod()` | Names a code sign-in (`/sign-in/email-otp`, which also signs a new account up) `email-otp`, and nothing else. |
 | `storesLastSignInCookie()` | Whether the browser that signs in allowed the `preferences` purpose of optional storage: its choice rides in a first-party cookie of the consent manager (`backend.storage`), which the request carries. |
 | `setupAuth()` | The app's auth, from one call: the auth instance factory, the functions the scaffold re-exports. |
 
@@ -185,13 +185,14 @@ Types: `RegisterBackendRoutesOptions`.
 | `RECENT_SIGN_IN_SECONDS` | How recent a sign-in a sensitive action takes, in seconds: ten minutes. |
 | `SENSITIVE_ACTIONS` | The table, by Better Auth route (its path under the auth base path) or by scaffold function (`module:export`, as the client calls it). |
 | `defineRetention()` | Delete a table's rows once they pass an age, a batch per transaction, until none is left. |
+| `scheduleRetention()` | Start every retention rule that has a `schedule` from your `backend/crons.ts`: one cron each, named after the rule's `fn`. |
 | `normalizeEmail()` | The address trimmed and lower-cased: the form to store and compare it in, so `Ana@Example.com ` and `ana@example.com` are one person. |
 | `randomToken()` | A random token from the platform's secure random source: 32 bytes by default, written as 43 URL-safe characters (`A-Z a-z 0-9 - _`), so it goes into a path or a query as it is. |
 | `sha256Hex()` | The text's SHA-256 as 64 lower-case hex characters, from its UTF-8 bytes. |
 | `createFunctions()` | Every access tier of your backend, from one call in `backend/functions.ts`: each a drop-in `{ query, mutation, action }` that checks the caller before the handler runs. |
 | `verifyHuman()` | Check that a call comes from a person, in a function of your own: a waitlist join, a contact form, a referral claim, any call that reaches the deployment over the live connection and never through the app's server. |
 
-Types: `BackendError`, `BackendErrorArgs`, `BackendErrorCode`, `BackendErrorData`, `BackendErrorPayload`, `RetentionArgs`, `RetentionOptions`, `RetentionResult`, `SensitiveAction`, `SensitiveLimit`, `AuthorizationComponents`, `AuthorizationCtx`, `FunctionUser`, `AuthorizationWorkspace`, `CallerRule`, `FunctionWorkspace`, `FunctionDeclaration`, `FunctionsRateLimiter`, `FunctionsBilling`, `FunctionsComponents`, `CreateFunctionsOptions`.
+Types: `BackendError`, `BackendErrorArgs`, `BackendErrorCode`, `BackendErrorData`, `BackendErrorPayload`, `RetentionArgs`, `RetentionOptions`, `RetentionResult`, `RetentionSchedule`, `SensitiveAction`, `SensitiveLimit`, `AuthorizationComponents`, `AuthorizationCtx`, `FunctionUser`, `AuthorizationWorkspace`, `CallerRule`, `FunctionWorkspace`, `FunctionDeclaration`, `FunctionsRateLimiter`, `FunctionsBilling`, `FunctionsComponents`, `CreateFunctionsOptions`.
 
 ### `nuxt-backend/app`
 
@@ -336,7 +337,7 @@ Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBala
 | `sniffContentType()` | The type a file is, read from its signature (its first bytes), or `null` for one the package does not recognise. |
 | `stripImageMetadata()` | An image's bytes without its EXIF, XMP, IPTC and GPS data, its container rewritten and its pixels untouched, so quality is unchanged: JPEG, PNG and WebP. |
 
-Types: `FileOwner`, `StoredFile`, `ResolvedShareLink`, `ShareLinkState`, `MintedShareLink`, `StorageApi`, `StorageReadCtx`, `StorageWriteCtx`, `ShareCtx`, `ShareableOptions`, `StorageQuota`, `SetupStorageOptions`, `Storage`, `StorageComponents`.
+Types: `FileOwner`, `StoredFile`, `ResolvedShareLink`, `ShareLinkState`, `MintedShareLink`, `StorageApi`, `StorageReadCtx`, `StorageWriteCtx`, `ShareCtx`, `ShareMutationCtx`, `EnabledShareLink`, `ShareableOptions`, `StorageQuota`, `SetupStorageOptions`, `Storage`, `StorageComponents`.
 
 ### `nuxt-backend/notifications`
 
@@ -384,11 +385,18 @@ Types: `BackendPaths`, `DefineBackendAuthConfigOptions`.
 |---|---|
 | `register()` | Register the nuxt-backend all-in-one `backend` component with a test Convex instance, the way the app mounts it: under its name, with its real schema (indexes and document validation included), and with its children registered beneath it: the email provider at `<name>/resend`, the package's migrations at `<name>/migrations`, the waitlist's queue and mirror at `<name>/waitlistRank` and `<name>/waitlistMirror`, and the growth funnel's counts at `<name>/funnelCounts` — convex-test resolves a component's own child calls to those paths. |
 | `defineBackendTestApp()` | Your app under test: a fresh convex-test instance per call, with the `backend` component and every component the scaffolded `convex.config.ts` mounts (the action cache, aggregate, migrations, persistent text streaming, the billing provider, the rate limiter, the sharded counter, workflows and the workpool) registered under the names it mounts them by, and the Agent and RAG components (`agent`, `rag`) when the app installs them. |
+| `TEST_PNG` | A valid 2 × 2 PNG: what the storage check sniffs, strips and serves. |
+| `upload()` | Send a file into the `backend` component's storage, claimed by nobody, as the browser leaves it after posting to an upload URL, and return its storage id. |
+| `TEST_STORAGE_URL` | Where convex-test's `ctx.storage.getUrl` points: a deployment that does not exist. |
+| `stubStorageFetch()` | Answer `fetch` for the files your functions stored, with their bytes and type, as the deployment's storage would: a model handed a photo by URL, or a signed URL's route reading the file, gets the real file under test. |
+| `drain()` | Run every scheduled function to the end, one at a time: storage checks, the job queue and its steps, workflows, deliveries and retries. |
+| `seedBilling()` | Give a billing entity the plans, features and credits a sync from the provider would leave it: the entitlement cache every gate, `hasFeature`, quota and credit spend reads. |
+| `seedCredits()` | Set one meter's credit balance for a billing entity, as a sync from the provider leaves it, keeping its plans, features and other meters. |
 | `seedWorkspace()` | Create a workspace with no members yet, for several `asUser` callers to join: `asUser(t, { workspace: id, workspaceRole: 'admin' })`. |
 | `asUser()` | Create an account in the `backend` component's auth tables and return the instance signed in as it, the way a real sign-in leaves it: the account with the role `'user'`, a personal workspace it owns and has active, and the claims a real token carries. |
 | `default` | The default export. |
 
-Types: `TestUserOptions`, `TestUser`.
+Types: `ComponentTestKit`, `BackendTestAppOptions`, `TestFile`, `TestUploadOptions`, `BackendTestApp`, `StubStorageFetchOptions`, `TestTimers`, `TestBilling`, `TestUserOptions`, `TestUser`.
 
 ### `nuxt-backend/test-utils`
 
@@ -597,7 +605,7 @@ A refusal is a `ConvexError` with one of these codes; `getBackendError(error)` r
 | Code | Status | Meaning |
 |---|---|---|
 | `unauthenticated` | 401 | Nobody is signed in, or the session is gone. |
-| `forbidden` | 403 | Signed in, but not allowed; `reason` says why (`banned`, `role`, `permission`, `not_member`, `workspace_role`, `admin_only`, `not_owner`, `impersonating`, `admin_target`, `sign_in_refused`, `customer_taken`, `already_subscribed`, `not_billing_manager`, `provider_owner_only`, `gift_refused`, `gift_refunded`, `not_recipient`, `no_email`, `bot_check`, `other_account`, `flag_off`, `sole_owner`, `paid_subscription`, `ticket_required`, `invitation_refused`, `consent_required`, `age_required`, `under_age`, `passkey_only_admin`). A `consent_required` refusal also carries `kind`, the required consent not yet accepted at its latest version. A `ticket_required` refusal also carries `phase`, the launch phase that asks for a ticket, and `invite`, how the invite code given checked (`expired`, `used-up`, `revoked`, `unknown`), when one was. |
+| `forbidden` | 403 | Signed in, but not allowed; `reason` says why (`banned`, `role`, `permission`, `not_member`, `workspace_role`, `admin_only`, `not_owner`, `impersonating`, `admin_target`, `sign_in_refused`, `customer_taken`, `already_subscribed`, `not_billing_manager`, `provider_owner_only`, `gift_refused`, `gift_refunded`, `not_recipient`, `no_email`, `bot_check`, `other_account`, `flag_off`, `sole_owner`, `paid_subscription`, `ticket_required`, `invitation_refused`, `consent_required`, `age_required`, `under_age`, `passkey_only_admin`). A `banned` refusal of a sign-in also carries `until`, when the ban ends (epoch ms), for a ban that ends. A `consent_required` refusal also carries `kind`, the required consent not yet accepted at its latest version. A `ticket_required` refusal also carries `phase`, the launch phase that asks for a ticket, and `invite`, how the invite code given checked (`expired`, `used-up`, `revoked`, `unknown`), when one was. |
 | `reauthentication_required` | 403 | The call is a sensitive action, and the session's sign-in is older than it takes: sign in again (`useReauthentication`), then retry. Better Auth's own refusals of a session too old for its route read as this code too. |
 | `no_workspace` | 409 | The call needs an active workspace and there is none. |
 | `rate_limited` | 429 | A named limit is spent; `retryAfter` is in milliseconds. The job queue's budget (`limit: 'jobBudget'`) also names the `plans` on sale whose tier would fit the job now, in pricing order. |

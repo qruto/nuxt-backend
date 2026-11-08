@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { getBackendError } from '../../src/convex/errors'
 import { authFlow } from '../helpers/auth-flow'
 
 // The workspace every new session activates, against real Better Auth: a
@@ -81,5 +82,54 @@ describe('a refused sign-in', () => {
     expect(await response.json()).toMatchObject({ code: 'BANNED_USER' })
     expect(flow.db.organization).toHaveLength(0)
     expect(flow.db.member).toHaveLength(0)
+  })
+
+  it('tells a banned person when the ban ends, and nothing about an end when it has none', async () => {
+    const ends = Date.UTC(2099, 11, 1, 14, 30)
+    const flow = await authFlow()
+    await flow.helpers.saveUser(flow.helpers.createUser({ email: ADA, name: 'Ada', emailVerified: true, banned: true, banExpires: new Date(ends) }))
+
+    const response = await signIn(flow)
+    expect(response.status).toBe(403)
+    const body = await response.json() as Record<string, unknown>
+    expect(body).toMatchObject({ code: 'BANNED_USER', message: 'This account is banned until 2099-12-01T14:30:00.000Z.' })
+    expect(getBackendError({ error: { ...body, status: 403, statusText: 'Forbidden' } })).toEqual({
+      code: 'forbidden',
+      data: { reason: 'banned', until: ends },
+      message: 'This account is banned until 2099-12-01 14:30 UTC.',
+    })
+
+    const forever = await authFlow()
+    await forever.helpers.saveUser(forever.helpers.createUser({ email: ADA, name: 'Ada', emailVerified: true, banned: true }))
+    const refused = await (await signIn(forever)).json() as Record<string, unknown>
+    expect(refused).toMatchObject({ code: 'BANNED_USER', message: 'This account is banned.' })
+    expect(getBackendError({ error: { ...refused, status: 403, statusText: 'Forbidden' } })).toEqual({
+      code: 'forbidden',
+      data: { reason: 'banned' },
+      message: 'This account is banned.',
+    })
+  })
+
+  it('names the minute a ban ends rounded up, so trying again at that minute gets in', async () => {
+    const ends = Date.UTC(2099, 11, 1, 14, 30, 20)
+    const flow = await authFlow()
+    await flow.helpers.saveUser(flow.helpers.createUser({ email: ADA, name: 'Ada', emailVerified: true, banned: true, banExpires: new Date(ends) }))
+    const body = await (await signIn(flow)).json() as Record<string, unknown>
+    expect(getBackendError({ error: { ...body, status: 403, statusText: 'Forbidden' } })).toMatchObject({
+      data: { reason: 'banned', until: ends },
+      message: 'This account is banned until 2099-12-01 14:31 UTC.',
+    })
+  })
+
+  it('shows the person the label, not an app\'s own banned sentence, which only loses the end', async () => {
+    const flow = await authFlow({ build: { admin: { bannedUserMessage: 'Banned until next Tuesday.' } } as never })
+    await flow.helpers.saveUser(flow.helpers.createUser({ email: ADA, name: 'Ada', emailVerified: true, banned: true, banExpires: new Date(Date.UTC(2099, 0, 1)) }))
+    const body = await (await signIn(flow)).json() as Record<string, unknown>
+    expect(body).toMatchObject({ code: 'BANNED_USER', message: 'Banned until next Tuesday.' })
+    expect(getBackendError({ error: { ...body, status: 403, statusText: 'Forbidden' } })).toEqual({
+      code: 'forbidden',
+      data: { reason: 'banned' },
+      message: 'This account is banned.',
+    })
   })
 })
