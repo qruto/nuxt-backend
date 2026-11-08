@@ -102,11 +102,18 @@ const filters = computed(() => [
             </th>
             <td>{{ flag.userId ?? t('moderation.nobody') }}</td>
             <td>{{ tab.what(flag) }}</td>
-            <td>{{ flag.categories.join(', ') }}</td>
+            <td>
+              {{ [...flag.categories, ...(flag.codes ?? [])].join(', ') }}
+              <span data-admin="moderation-providers">{{ (flag.providers ?? [flag.model]).join(', ') }}</span>
+            </td>
             <td>
               {{ tab.outcome(flag) }}
               <strong
-                v-if="flag.escalate"
+                v-if="flag.playbook === 'csam'"
+                data-admin="moderation-known-abuse"
+              >{{ t('moderation.knownAbuseMark') }}</strong>
+              <strong
+                v-else-if="flag.escalate"
                 data-admin="moderation-escalated"
               >{{ t('moderation.escalatedMark') }}</strong>
             </td>

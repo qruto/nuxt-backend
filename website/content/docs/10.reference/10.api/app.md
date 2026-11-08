@@ -52,6 +52,10 @@ const backendEnv: {
   BILLING_ACCESS_TOKEN: VString<string | undefined, "optional">;
   BILLING_WEBHOOK_SECRET: VString<string | undefined, "optional">;
   AI_GATEWAY_API_KEY: VString<string | undefined, "optional">;
+  CONTENT_SAFETY_ENDPOINT: VString<string | undefined, "optional">;
+  CONTENT_SAFETY_KEY: VString<string | undefined, "optional">;
+  SECOND_OPINION_KEY: VString<string | undefined, "optional">;
+  KNOWN_ABUSE_KEY: VString<string | undefined, "optional">;
   PROVENANCE_PRIVATE_KEY: VString<string | undefined, "optional">;
   PROVENANCE_CERTIFICATE: VString<string | undefined, "optional">;
   PUSH_PUBLIC_KEY: VString<string | undefined, "optional">;
@@ -106,6 +110,13 @@ observable way until configured (`nuxt-backend doctor` reports each):
   where a `provider/model` id goes when the Convex AI Gateway does not
   answer it (a free plan, a self-hosted deployment). Without either, the id
   is refused when called.
+- `CONTENT_SAFETY_ENDPOINT`, `CONTENT_SAFETY_KEY` — the Azure AI Content
+  Safety resource `azureContentSafety()` checks images with.
+  `SECOND_OPINION_KEY` — the OpenAI key `openaiModeration()` asks for a
+  second opinion with. `KNOWN_ABUSE_KEY` — the credentials
+  `arachnidShield()` matches known abuse material with. Unset, the
+  provider that reads one refuses every check, and the content is refused
+  as unchecked.
 - `PROVENANCE_PRIVATE_KEY`, `PROVENANCE_CERTIFICATE` — the key that signs
   the content credentials `ctx.storeImage` writes (`setupAi({ provenance })`)
   and its certificate chain. Unset, generated images carry the IPTC source
@@ -145,6 +156,10 @@ Extend the set for your own vars (the env proxy throws on undeclared ones):
 | <a id="property-billing_access_token"></a> `BILLING_ACCESS_TOKEN` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-billing_webhook_secret"></a> `BILLING_WEBHOOK_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-ai_gateway_api_key"></a> `AI_GATEWAY_API_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-content_safety_endpoint"></a> `CONTENT_SAFETY_ENDPOINT` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-content_safety_key"></a> `CONTENT_SAFETY_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-second_opinion_key"></a> `SECOND_OPINION_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-known_abuse_key"></a> `KNOWN_ABUSE_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-provenance_private_key"></a> `PROVENANCE_PRIVATE_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-provenance_certificate"></a> `PROVENANCE_CERTIFICATE` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-push_public_key"></a> `PUSH_PUBLIC_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |

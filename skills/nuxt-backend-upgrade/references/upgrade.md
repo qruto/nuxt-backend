@@ -17,6 +17,12 @@ has the reasons and every step. The core skill's `references/renames.json`, in
 After it, run `npx nuxt-backend doctor`, and `npx nuxt-backend init --agents` to refresh the app's
 agent files and skills.
 
+## [Moderation verdicts name shared categories](https://nuxt-backend.dev/docs/ship/releases/upgrade#moderation-verdicts-name-shared-categories)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `ai.moderate` | `ai.moderate` | reshaped | `categories` names shared categories (`sexual`, `hate`); the classifier's codes (`S12`) moved to `codes`, beside `scores` and `providers`; `block` and `escalate` take either |
+
 ## [A production checkout waits for billing to launch, and welcome credits come from the catalog](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-production-checkout-waits-for-billing-to-launch-and-welcome-credits-come-from-the-catalog)
 
 | Was | Now | Change | Note |

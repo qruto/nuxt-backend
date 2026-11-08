@@ -142,7 +142,7 @@ describe('the console on a phone', () => {
       const expected = count > 7 ? Array.from({ length: count - 7 }, (_, index) => index + 6) : []
       expect(folded, entry.layer).toEqual(expected)
     }
-    expect(CONSOLE_DETENTS.filter(entry => lcdRowCount(entry.layer) > 7).map(entry => entry.layer)).toEqual(['billing', 'email'])
+    expect(CONSOLE_DETENTS.filter(entry => lcdRowCount(entry.layer) > 7).map(entry => entry.layer)).toEqual(['billing', 'email', 'ai'])
   })
 
   it('draws a long transcript folded below sm only, with the fold marked above the summary', async () => {

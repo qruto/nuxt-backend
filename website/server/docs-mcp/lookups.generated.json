@@ -457,6 +457,36 @@
       "url": "/docs/reference/cli/diagnostics#ai-moderation-images",
       "entry": "### `ai-moderation-images`\n\nWhether the image checks a backend file asks for (`images` in an `ai.moderate` or `ai.requireSafe` call, or in a `moderate` option) can run. The default safety classifier follows the gateway that answers: Llama Guard 4 through the Convex AI Gateway, which reads images, and `openai/gpt-oss-safeguard-20b` through the Vercel AI Gateway, which reads text only. A classifier named in `setupAi({ moderation: { model } })` passes as the app's own choice.\n\n| Capability | Title | In dev | Under `--prod` | `--fix` |\n|---|---|---|---|---|\n| `ai` | Image checks and the safety classifier | Warns, never fails | Still a warning | No |\n\n**Why it matters:** A check with images that its classifier cannot read is refused as unchecked (`unavailable`, reason `not_configured`) rather than passed: every upload checked that way is refused. **Fix:** Route moderation through the Convex AI Gateway: a paid Convex plan, `@convex-dev/ai-sdk-provider` installed, and `'convex'` first in `setupAi({ gateway })`. Or name a classifier that reads images in `setupAi({ moderation: { model } })`. See [Content safety](/docs/build/ai/content-safety). Check it again with `npx nuxt-backend doctor --only ai`."
     },
+    "ai-moderation-providers": {
+      "capability": "ai",
+      "title": "Moderation providers",
+      "url": "/docs/reference/cli/diagnostics#ai-moderation-providers",
+      "entry": "### `ai-moderation-providers`\n\nThe moderation providers a backend file names in `setupAi({ moderation })` (`azureContentSafety`, `openaiModeration`, `arachnidShield`): a backend that checks images has a known-abuse match; and, where `setupAi({ inferenceRegion: 'eu' })` pins processing to the EU, `azureContentSafety({ region })` names an EU region. With no provider named, nothing needs one.\n\n| Capability | Title | In dev | Under `--prod` | `--fix` |\n|---|---|---|---|---|\n| `ai` | Moderation providers | Warns, never fails | A warning fails | No |\n\n**Why it matters:** Without a known-abuse match, an upload of known child sexual abuse material reaches the other providers. A resource outside the EU processes images there. **Fix:** Add `knownAbuse: arachnidShield()`. Create the Content Safety resource in an EU region and name it. See [Choose moderation providers](/docs/build/ai/content-safety/providers). Check it again with `npx nuxt-backend doctor --only ai`."
+    },
+    "deployment-content-safety-endpoint": {
+      "capability": "ai",
+      "title": "Deployment CONTENT_SAFETY_ENDPOINT",
+      "url": "/docs/reference/cli/diagnostics#deployment-content-safety-endpoint",
+      "entry": "### `deployment-content-safety-endpoint`\n\n`CONTENT_SAFETY_ENDPOINT` is set on the deployment, once a backend file names `azureContentSafety()` in `setupAi({ moderation })`. With no provider that reads it, nothing needs it.\n\n| Capability | Title | In dev | Under `--prod` | `--fix` |\n|---|---|---|---|---|\n| `ai` | Deployment CONTENT_SAFETY_ENDPOINT | Warns, never fails | A warning fails | No |\n\n**Why it matters:** The provider that reads it refuses every check it is asked for (`unavailable`, reason `not_configured`), and the content it would check is refused as unchecked. **Fix:** Add `CONTENT_SAFETY_ENDPOINT` to `.env.local` and run `npx nuxt-backend env push` (`--prod` for production). See [Choose moderation providers](/docs/build/ai/content-safety/providers). Check it again with `npx nuxt-backend doctor --only ai`."
+    },
+    "deployment-content-safety-key": {
+      "capability": "ai",
+      "title": "Deployment CONTENT_SAFETY_KEY",
+      "url": "/docs/reference/cli/diagnostics#deployment-content-safety-key",
+      "entry": "### `deployment-content-safety-key`\n\n`CONTENT_SAFETY_KEY` is set on the deployment, once a backend file names `azureContentSafety()` in `setupAi({ moderation })`. With no provider that reads it, nothing needs it.\n\n| Capability | Title | In dev | Under `--prod` | `--fix` |\n|---|---|---|---|---|\n| `ai` | Deployment CONTENT_SAFETY_KEY | Warns, never fails | A warning fails | No |\n\n**Why it matters:** The provider that reads it refuses every check it is asked for (`unavailable`, reason `not_configured`), and the content it would check is refused as unchecked. **Fix:** Add `CONTENT_SAFETY_KEY` to `.env.local` and run `npx nuxt-backend env push` (`--prod` for production). See [Choose moderation providers](/docs/build/ai/content-safety/providers). Check it again with `npx nuxt-backend doctor --only ai`."
+    },
+    "deployment-second-opinion-key": {
+      "capability": "ai",
+      "title": "Deployment SECOND_OPINION_KEY",
+      "url": "/docs/reference/cli/diagnostics#deployment-second-opinion-key",
+      "entry": "### `deployment-second-opinion-key`\n\n`SECOND_OPINION_KEY` is set on the deployment, once a backend file names `openaiModeration()` in `setupAi({ moderation })`. With no provider that reads it, nothing needs it.\n\n| Capability | Title | In dev | Under `--prod` | `--fix` |\n|---|---|---|---|---|\n| `ai` | Deployment SECOND_OPINION_KEY | Warns, never fails | A warning fails | No |\n\n**Why it matters:** The provider that reads it refuses every check it is asked for (`unavailable`, reason `not_configured`), and the content it would check is refused as unchecked. **Fix:** Add `SECOND_OPINION_KEY` to `.env.local` and run `npx nuxt-backend env push` (`--prod` for production). See [Choose moderation providers](/docs/build/ai/content-safety/providers). Check it again with `npx nuxt-backend doctor --only ai`."
+    },
+    "deployment-known-abuse-key": {
+      "capability": "ai",
+      "title": "Deployment KNOWN_ABUSE_KEY",
+      "url": "/docs/reference/cli/diagnostics#deployment-known-abuse-key",
+      "entry": "### `deployment-known-abuse-key`\n\n`KNOWN_ABUSE_KEY` is set on the deployment, once a backend file names `arachnidShield()` in `setupAi({ moderation })`. With no provider that reads it, nothing needs it.\n\n| Capability | Title | In dev | Under `--prod` | `--fix` |\n|---|---|---|---|---|\n| `ai` | Deployment KNOWN_ABUSE_KEY | Warns, never fails | A warning fails | No |\n\n**Why it matters:** The provider that reads it refuses every check it is asked for (`unavailable`, reason `not_configured`), and the content it would check is refused as unchecked. **Fix:** Add `KNOWN_ABUSE_KEY` to `.env.local` and run `npx nuxt-backend env push` (`--prod` for production). See [Choose moderation providers](/docs/build/ai/content-safety/providers). Check it again with `npx nuxt-backend doctor --only ai`."
+    },
     "deployment-ai-gateway-api-key": {
       "capability": "ai",
       "title": "Deployment AI_GATEWAY_API_KEY",
@@ -745,6 +775,50 @@
       "without": "a provider/model id the backend names goes through the Convex AI Gateway alone, on Convex Cloud with a paid plan and @convex-dev/ai-sdk-provider installed; anywhere else (a free plan, a self-hosted deployment) it is refused when called. Under setupAi({ gateway: 'vercel' }) it is refused everywhere",
       "checkedBy": [
         "deployment-ai-gateway-api-key"
+      ],
+      "url": "/docs/reference/configuration/environment-variables#every-variable"
+    },
+    "CONTENT_SAFETY_ENDPOINT": {
+      "capability": "ai",
+      "readOn": "Deployment",
+      "required": "Optional",
+      "takes": "your Azure AI Content Safety resource's endpoint, such as `https://<name>.cognitiveservices.azure.com`: the resource runs in the region you created it in, which `azureContentSafety({ region })` names",
+      "without": "azureContentSafety() refuses every check it is asked for (`unavailable`, reason `not_configured`), so content it would check is refused as unchecked",
+      "checkedBy": [
+        "deployment-content-safety-endpoint"
+      ],
+      "url": "/docs/reference/configuration/environment-variables#every-variable"
+    },
+    "CONTENT_SAFETY_KEY": {
+      "capability": "ai",
+      "readOn": "Deployment",
+      "required": "Optional",
+      "takes": "a key of your Azure AI Content Safety resource (**Keys and Endpoint** in the Azure portal)",
+      "without": "as without CONTENT_SAFETY_ENDPOINT: the two call the resource together",
+      "checkedBy": [
+        "deployment-content-safety-key"
+      ],
+      "url": "/docs/reference/configuration/environment-variables#every-variable"
+    },
+    "SECOND_OPINION_KEY": {
+      "capability": "ai",
+      "readOn": "Deployment",
+      "required": "Optional",
+      "takes": "an OpenAI API key, for its free moderation endpoint (`omni-moderation-latest`), asked only when a score sits just under its threshold",
+      "without": "openaiModeration() refuses every check it is asked for, so a score in the gray band is refused as unchecked",
+      "checkedBy": [
+        "deployment-second-opinion-key"
+      ],
+      "url": "/docs/reference/configuration/environment-variables#every-variable"
+    },
+    "KNOWN_ABUSE_KEY": {
+      "capability": "ai",
+      "readOn": "Deployment",
+      "required": "Optional",
+      "takes": "your Project Arachnid Shield credentials, as `username:password`: the account the Canadian Centre for Child Protection gives a vetted organization",
+      "without": "arachnidShield() refuses every check, so every image the app moderates is refused as unchecked",
+      "checkedBy": [
+        "deployment-known-abuse-key"
       ],
       "url": "/docs/reference/configuration/environment-variables#every-variable"
     },
