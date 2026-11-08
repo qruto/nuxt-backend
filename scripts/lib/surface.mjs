@@ -159,7 +159,7 @@ export function docOf(file, name) {
 }
 
 /** Abbreviations whose period ends no sentence. */
-const ABBREVIATIONS = /(?:e\.g|i\.e|vs|etc)\.$/
+const ABBREVIATIONS = /(?:e\.g|i\.e|vs|etc|Art)\.$/
 
 /**
  * The first sentence of a doc comment, on one line: up to the first period,

@@ -18,6 +18,7 @@ import { ACCOUNT_DATA_SOURCES, NO_PERSONAL_DATA } from '../../src/convex/account
 import { BROWSER_STORAGE, dataMap, SUBPROCESSORS } from '../../src/convex/legal.ts'
 import { CAPABILITIES } from '../../src/capabilities/registry.ts'
 import { DEFAULT_LIMITS } from '../../src/convex/integrations/rate-limit.ts'
+import { UNSUBSCRIBE_ROUTE } from '../../src/convex/integrations/email-preferences.ts'
 import { BACKEND_PAGE_DEFS } from '../../src/pages/registry.ts'
 import { BACKEND_FILE_TEMPLATES } from '../../src/templates.ts'
 import { HELPER_AREAS, tagOf } from './areas.mjs'
@@ -145,7 +146,7 @@ export const DEPLOYMENT_ROUTES = {
   aiPath: ['POST, OPTIONS', 'The browser, through `useAiStream`', 'A session token; spends credits through the metered stream it starts'],
 }
 
-/** The deployment's routes: the auth routes, then one row per route option of `registerBackendRoutes`. */
+/** The deployment's routes: the auth routes, one row per route option of `registerBackendRoutes`, then the fixed ones. */
 export function deploymentRoutesTable() {
   const options = interfaceFields(HTTP, 'RegisterBackendRoutesOptions').filter(field => field.name.endsWith('Path'))
   const rows = options.map((field) => {
@@ -157,6 +158,7 @@ export function deploymentRoutesTable() {
   return table(['Route', 'Methods', 'Called by', 'Guarded by', 'Moved with'], [
     [code(`${DEFAULT_AUTH_ROUTE}/*`), 'GET, POST', 'The app\'s auth proxy', 'Better Auth: sessions, codes and the route limits `setupAuth` sets', `${code('backend.authRoute')} in nuxt.config, through the paths file`],
     ...rows,
+    [code(UNSUBSCRIBE_ROUTE), 'GET, POST', 'A mail client\'s one-click unsubscribe (RFC 8058), from the `List-Unsubscribe` header of every email sent under a topic', 'A token signed under `AUTH_SECRET`: `GET` sends the reader to the unsubscribe page, `POST` unsubscribes at once; mounted with the email events route', 'fixed'],
     [code('/storage/<id>'), 'GET', 'Whoever holds a URL `storage.signedUrl` minted', 'A signature under the app\'s secret that expires (an hour by default, seven days at most); mounted with `registerBackendRoutes(http, { storage })`', 'fixed'],
     [code(DEFAULT_HEALTH_PATH), 'GET', `The app's ${code(HEALTH_ROUTE)}, or an uptime check`, 'Public: each capability\'s state only; the detail for a session of `adminRoles`, or on a deployment named `development`', 'fixed'],
   ])
@@ -305,6 +307,7 @@ const RETENTION = [
   ['src/convex/sandbox-inbox.ts', 'SANDBOX_INBOX_LIMIT', 'Dev inbox read', value => `${value} messages`],
   ['src/convex/integrations/ai/context.ts', 'DEFAULT_STREAM_TIMEOUT_MS', 'Metered stream reservation', duration],
   ['src/convex/components/backend/billing.ts', 'PENDING_SPEND_TTL_MS', 'Credit reservation', duration],
+  ['src/convex/integrations/ai/jobs.ts', 'HOLD_MS', 'Queued job credit hold', value => `until the job starts, ${duration(value)} at most`],
   ['src/convex/integrations/billing/entitlements.ts', 'BENEFIT_METADATA_TTL_MS', 'Cached benefit metadata', duration],
   ['src/convex/integrations/billing/checkout.ts', 'DISCOUNT_CODE_REFUSALS', 'Refused discount codes', value => `${value.max} per ${duration(value.windowMs).replace(/^1 /, '')}, per billing entity`],
   ['src/convex/integrations/billing/customers.ts', 'TRIAL_HOLD_MS', 'Trial hold', duration],
@@ -323,6 +326,7 @@ const RETENTION = [
   ['src/convex/components/backend/maintenance.ts', 'ABANDONED_EMAIL_RETENTION_MS', 'Email record with no final status', value => `${after('it was created')(value)}, unless \`setupEmail({ retention })\` says otherwise`],
   ['src/convex/components/backend/email.ts', 'SECRET_OUTBOX_TTL_MS', 'Secret email (sign-in code)', value => `no record; its message until the provider answers, ${duration(value)} at most`],
   ['src/convex/components/backend/maintenance.ts', 'EXPIRED_INVITATION_RETENTION_MS', 'Expired invitation', after('expiry')],
+  ['src/convex/integrations/account.ts', 'DEFAULT_GRACE_MS', 'Deletion grace period', value => `${duration(value)}, unless \`setupAccount({ graceMs })\` says otherwise`],
   ['src/convex/components/backend/maintenance.ts', 'AUDIT_EVENT_RETENTION_MS', 'Audit event', after('it was recorded')],
   ['src/convex/components/backend/account.ts', 'ACCOUNT_EXPORT_LINK_MS', 'Account export link', value => `${duration(value)}, then its file is deleted`],
   ['src/convex/components/backend/account.ts', 'ACCOUNT_EXPORTS_PER_DAY', 'Account exports', value => `${value} per account in a day`],

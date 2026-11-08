@@ -162,7 +162,7 @@ Each component has a section on its family's page: the page that renders it, its
 | [`<UsageHistory>`](/docs/reference/components/billing#usagehistory) | Billing | Metered consumption, event by event, straight from the provider's events API — the same records that drew the credit balance down. |
 | [`<UpgradePrompt>`](/docs/reference/components/billing#upgradeprompt) | Billing | What someone whose plan lacks a feature sees: a sentence naming the plans on sale that include it, in pricing order, and a link to the first of them on the pricing page (`/pricing?plan=<key>`). |
 | [`<CancelFlow>`](/docs/reference/components/billing#cancelflow) | Billing | Cancelling takes one step; a save offer is one optional step (LIFECYCLE). |
-| [`<WithdrawalButton>`](/docs/reference/components/billing#withdrawalbutton) | Billing | The EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art. |
+| [`<WithdrawalButton>`](/docs/reference/components/billing#withdrawalbutton) | Billing | The EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art. 11a, from 2026-06-19): "Withdraw from contract here", for a purchase inside its 14 days, then a confirm step, "Confirm withdrawal". |
 | [`<ReferralCard>`](/docs/reference/components/billing#referralcard) | Billing | A person's referral link, with copy and share buttons and the disclosure of the reward: the link is `/r/<code>` on this site, made the first time the card is read. |
 | [`<AdminUsers>`](/docs/reference/components/workspaces#adminusers) | Workspaces and admin | Every account of the app, for its administrators: a search by address, a page at a time (`AdminUsersTable`), and a drawer with one account in full (`AdminUserDrawer`): its role, its ban, its device sessions and workspaces, and "Impersonate". |
 | [`<AdminWorkspaces>`](/docs/reference/components/workspaces#adminworkspaces) | Workspaces and admin | Every workspace of the app, read-only, for its administrators: a search by name, a page at a time (`AdminWorkspacesTable`), and a drawer with one workspace's members and open invitations (`AdminWorkspaceDrawer`). |
@@ -174,7 +174,7 @@ Each component has a section on its family's page: the page that renders it, its
 | [`<NotificationInbox>`](/docs/reference/components/shell#notificationinbox) | Shell, gates and notices | What the app told a person, in the app: a button whose accessible name carries the unread count, and the list it opens on the browser's own popover, newest first. |
 | [`<ContactForm>`](/docs/reference/components/shell#contactform) | Shell, gates and notices | A contact form for visitors, and a feedback form for signed-in people: the same component. |
 | [`<AppShell>`](/docs/reference/components/shell#appshell) | Shell, gates and notices | The frame of a signed-in app, for your layout: a header with your brand and links, the workspace switcher, the notification bell and the account menu, then the app-wide notices, then your page in the `<main>` landmark, with the consent dialog and the connection status closing it. |
-| [`<AiLabel>`](/docs/reference/components/shell#ailabel) | Shell, gates and notices | The visible "AI-generated" label the EU AI Act (Art. |
+| [`<AiLabel>`](/docs/reference/components/shell#ailabel) | Shell, gates and notices | The visible "AI-generated" label the EU AI Act (Art. 50) asks for, beside an image or a text a model made. |
 
 <!-- /generated:families -->
 
