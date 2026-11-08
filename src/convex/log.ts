@@ -88,7 +88,7 @@ export const LOG_CODES = {
   'protection.challenge_unavailable': 'The challenge provider could not be reached to verify an answer, so the request or call was refused.',
   'ai.cost_over_reservation': 'A metered action finished above the credits it reserved, or its finalized cost was not an amount; the reservation was charged.',
   'ai.cost_unreported': 'A model call reported no cost (no price covers its model, or its stream never reached its end), so the run was charged the credits it reserved.',
-  'ai.convex_gateway_unavailable': 'The Convex AI Gateway cannot be used on this deployment (a free plan, an anonymous local deployment, or no @convex-dev/ai-sdk-provider installed), so model ids went to the next route: the Vercel AI Gateway with AI_GATEWAY_API_KEY, or a refusal. Once per isolate.',
+  'ai.convex_gateway_unavailable': 'The Convex AI Gateway cannot be used on this deployment (a free plan, an anonymous local deployment, or no @convex-dev/ai-sdk-provider installed), so model ids went to what setupAi({ gateway }) names next: the Vercel AI Gateway with AI_GATEWAY_API_KEY, the model a test installed, or a refusal. Once per isolate.',
   'ai.region_mismatch': 'A model call made under setupAi({ inferenceRegion }) reported, in its gateway routing metadata, a provider endpoint outside the pinned region.',
   'ai.chat_reply_failed': 'A chat reply failed (the model refused it, or every call it made failed); the reply reads failed in the thread and its reservation was released.',
   'ai.knowledge_embed_failed': 'A knowledge document could not be embedded (the model refused it, or an upload was no plain text or Markdown file); the document reads failed and its reservation was released.',

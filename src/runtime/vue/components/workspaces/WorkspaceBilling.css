@@ -82,7 +82,8 @@
     flex-direction: column;
     gap: 0.6rem;
     padding: 0.8rem;
-    border: 1px solid color-mix(in srgb, var(--bk-error) 40%, transparent);
+    border: var(--bk-border-width) solid color-mix(in srgb, var(--bk-error) 40%, transparent);
+    box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
   }
 

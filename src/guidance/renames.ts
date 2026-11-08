@@ -54,6 +54,7 @@ export function sectionUrl(section: string): string {
 }
 
 const LAUNCH = 'A production checkout waits for billing to launch, and welcome credits come from the catalog'
+const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
 const ONE_WAY = 'One way to do each thing'
 const ENVIRONMENT = 'One variable says what kind of deployment this is'
 const SANDBOXES = 'Development runs on the providers\' sandboxes, with nothing simulated'
@@ -99,6 +100,8 @@ export const RENAMES: readonly Rename[] = [
   { from: '`not_ready` (reason `no_catalog`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog`' },
   { from: 'billing.refundCredits in onUserCreated', to: 'credits: { meter, units, once: true }', change: 'reshaped', section: LAUNCH, note: 'welcome credits on the free plan, granted once after the reverse trial; drop the hand-rolled grant' },
 
+  // One attribute marks every packaged component, in place of a list of families.
+  { from: '[data-auth=\'form\'], [data-pricing=\'table\'], [data-admin]', to: '[data-backend]', change: 'reshaped', section: UI_TOKENS, note: 'the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root' },
   // One way per action. The boundaries, the banners, the auth members and
   // the wrapper subpaths each have one replacement.
   { from: 'setupAuthorization', to: 'createFunctions', change: 'removed', section: ONE_WAY, note: 'one call in `backend/functions.ts` takes `{ components, billing, rateLimiter }` and returns every tier and `setUserRole`' },

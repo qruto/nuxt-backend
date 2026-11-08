@@ -32,7 +32,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `setupAi()` | Configure the AI rails over billing + rate limiting + streaming. |
 | `defineJobQueue()` | Declare the app's generation queue, once, in `backend/jobs.ts`: kinds of jobs (`jobs.define`) run their steps (`jobs.step`) in a fair line with tiers from plan features, each model under a limit that adapts to `429`s, credits held while a job waits, charged when it starts and refunded when it fails, and each job's cost reported to the billing provider. |
 
-Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBalanceEvent`, `AiCreditsConfig`, `AiModel`, `InferenceRegion`, `MeteredModel`, `ModelStatus`, `SetupAiConfig`, `AiGuestConfig`, `GuestClaim`, `MeteredUsage`, `FinalizedCost`, `ReportedCost`, `MeteredCost`, `MeteredContext`, `MeteredActionConfig`, `MeteredStreamConfig`, `PersonCost`, `AiCosts`, `AiApi`, `Ai`, `ModelPrice`, `TokenPriceTable`, `TokenUsage`, `GeneratedImage`, `ImageStoreContext`, `JobProvenance`, `ProvenanceConfig`, `StoreImageOptions`, `Chat`, `ChatConfig`, `ChatMessage`, `ChatReply`, `ChatThread`, `AiEmbeddingModel`, `Knowledge`, `KnowledgeAddCost`, `KnowledgeApi`, `KnowledgeConfig`, `KnowledgeDocument`, `KnowledgePassage`, `ModerationConfig`, `ModerationCtx`, `ModerationInput`, `ModerationVerdict`, `AdminJobView`, `DefineJobQueueOptions`, `EnqueueOptions`, `GuestJobs`, `JobContext`, `JobDefinition`, `JobModelLimit`, `JobProgress`, `JobQueue`, `JobQueueApi`, `JobQueueComponents`, `JobStepContext`, `JobStepDefinition`, `JobTier`, `JobView`, `QueueChange`, `StepResult`.
+Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBalanceEvent`, `AiCreditsConfig`, `AiModel`, `AiGateway`, `InferenceRegion`, `MeteredModel`, `ModelStatus`, `SetupAiConfig`, `AiGuestConfig`, `GuestClaim`, `MeteredUsage`, `FinalizedCost`, `ReportedCost`, `MeteredCost`, `MeteredContext`, `MeteredActionConfig`, `MeteredStreamConfig`, `PersonCost`, `AiCosts`, `AiApi`, `Ai`, `ModelPrice`, `TokenPriceTable`, `TokenUsage`, `GeneratedImage`, `ImageStoreContext`, `JobProvenance`, `ProvenanceConfig`, `StoreImageOptions`, `Chat`, `ChatConfig`, `ChatMessage`, `ChatReply`, `ChatThread`, `AiEmbeddingModel`, `Knowledge`, `KnowledgeAddCost`, `KnowledgeApi`, `KnowledgeConfig`, `KnowledgeDocument`, `KnowledgePassage`, `ModerationConfig`, `ModerationCtx`, `ModerationInput`, `ModerationVerdict`, `AdminJobView`, `DefineJobQueueOptions`, `EnqueueOptions`, `GuestJobs`, `JobContext`, `JobDefinition`, `JobModelLimit`, `JobProgress`, `JobQueue`, `JobQueueApi`, `JobQueueComponents`, `JobStepContext`, `JobStepDefinition`, `JobTier`, `JobView`, `QueueChange`, `StepResult`.
 
 ## Doctor findings
 
@@ -43,6 +43,7 @@ Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBala
 | `ai-stream-route` | ai | AI stream route |
 | `ai-components` | ai | Chat and knowledge components |
 | `ai-spend-limit` | ai | AI spend limit on a sandbox |
+| `ai-moderation-images` | ai | Image checks and the safety classifier |
 | `deployment-ai-gateway-api-key` | ai | Deployment AI_GATEWAY_API_KEY |
 | `deployment-provenance-private-key` | ai | Deployment PROVENANCE_PRIVATE_KEY |
 | `deployment-provenance-certificate` | ai | Deployment PROVENANCE_CERTIFICATE |
@@ -51,6 +52,6 @@ Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBala
 
 | Name | Capability | Read on | Tier | Without it |
 |---|---|---|---|---|
-| `AI_GATEWAY_API_KEY` | ai | deployment | optional | a provider/model id the backend names goes through the Convex AI Gateway alone, on Convex Cloud with a paid plan and @convex-dev/ai-sdk-provider installed; anywhere else (a free plan, a self-hosted deployment) it is refused when called |
+| `AI_GATEWAY_API_KEY` | ai | deployment | optional | a provider/model id the backend names goes through the Convex AI Gateway alone, on Convex Cloud with a paid plan and @convex-dev/ai-sdk-provider installed; anywhere else (a free plan, a self-hosted deployment) it is refused when called. Under setupAi({ gateway: 'vercel' }) it is refused everywhere |
 | `PROVENANCE_PRIVATE_KEY` | ai | deployment | optional | generated images are stored with the IPTC source type and no signed C2PA manifest (`ai.provenance_unsigned`); `doctor --prod` fails once the backend turns provenance on |
 | `PROVENANCE_CERTIFICATE` | ai | deployment | optional | as without PROVENANCE_PRIVATE_KEY: the two sign together |

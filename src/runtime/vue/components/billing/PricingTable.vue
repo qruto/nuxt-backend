@@ -515,6 +515,7 @@ const statusText = computed(() => progress.value?.() ?? (billing.isFinishingChec
 <template>
   <div
     ref="root"
+    data-backend
     data-pricing="table"
     :aria-busy="busy ? 'true' : undefined"
     :data-loading="pricing.isLoading.value ? '' : undefined"

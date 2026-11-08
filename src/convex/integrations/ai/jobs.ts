@@ -415,7 +415,7 @@ const errorText = (error: unknown): string => (error instanceof Error ? `${error
 export function defineJobQueue(components: JobQueueComponents, options: DefineJobQueueOptions): JobQueue {
   const context = AI_CONTEXTS.get(options.ai)
   if (!context) throw new TypeError('[nuxt-backend] defineJobQueue: `ai` is not a setupAi instance. Pass the app\'s, from ai.ts.')
-  const { billing, rateLimiter, paused, refuseAi, config: aiConfig } = context
+  const { billing, rateLimiter, paused, refuseAi, config: aiConfig, routing } = context
   const workflowComponent = options.workflow ?? components.workflow
   if (!workflowComponent) throw new TypeError('[nuxt-backend] defineJobQueue: no Workflow component. Mount `@convex-dev/workflow` in convex.config.ts as `workflow`, or pass `workflow`.')
   const workflow = new WorkflowManager(workflowComponent)
@@ -608,7 +608,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
           const chosen = model ?? definition.model ?? aiConfig.model
           if (chosen === undefined) throw new Error('[nuxt-backend] ctx.model(): no model to call — set `model` on the step or on setupAi, or pass one.')
           requireModelId(chosen, 'ctx.model()')
-          return meteredModel(routeModel(chosen, undefined, aiConfig.inferenceRegion), calls, aiConfig.inferenceRegion)
+          return meteredModel(routeModel(chosen, undefined, routing), calls, routing.region)
         }
         let value: unknown
         try {
@@ -688,7 +688,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   /** Refuse a job when a model the queue lists, or setupAi's, has no route on this deployment. */
   const requireModelRoutes = (): void => {
     for (const model of [...modelDefaults.keys(), ...(aiConfig.model === undefined ? [] : [aiConfig.model])]) {
-      const route = routeModel(model, undefined, aiConfig.inferenceRegion)
+      const route = routeModel(model, undefined, routing)
       if (route.route === 'missing') throw modelRefusal(route)
     }
   }

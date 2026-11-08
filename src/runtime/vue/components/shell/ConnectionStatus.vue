@@ -85,6 +85,7 @@ const context = computed<ConnectionStatusSlotContext>(() => ({ status: shown.val
 
 <template>
   <div
+    data-backend
     data-connection="status"
     :data-state="context.status"
     role="status"

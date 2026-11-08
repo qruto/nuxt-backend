@@ -59,6 +59,7 @@ const state = computed(() => (shell.isLoading.value ? 'loading' : 'ready'))
     :aria-busy="shell.isLoading.value ? 'true' : undefined"
   >
     <a
+      data-backend
       data-shell="skip"
       :href="`#${shell.mainId}`"
     >{{ t('skip') }}</a>
@@ -88,6 +89,7 @@ const state = computed(() => (shell.isLoading.value ? 'loading' : 'ready'))
         </template>
         <NuxtLink
           v-else-if="!shell.isLoading.value && shell.login.value"
+          data-backend
           data-shell="sign-in"
           :to="shell.login.value"
         >
@@ -96,6 +98,7 @@ const state = computed(() => (shell.isLoading.value ? 'loading' : 'ready'))
       </div>
     </header>
     <p
+      data-backend
       role="status"
       aria-live="polite"
       data-shell="status"

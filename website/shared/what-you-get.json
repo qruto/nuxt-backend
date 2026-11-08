@@ -986,6 +986,10 @@
           "to": "/docs/reference/cli/diagnostics#ai-spend-limit"
         },
         {
+          "name": "ai-moderation-images",
+          "to": "/docs/reference/cli/diagnostics#ai-moderation-images"
+        },
+        {
           "name": "deployment-ai-gateway-api-key",
           "to": "/docs/reference/cli/diagnostics#deployment-ai-gateway-api-key"
         },
@@ -1472,9 +1476,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "95 in all",
+          "name": "96 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "95 findings in all"
+          "label": "96 findings in all"
         }
       ]
     }

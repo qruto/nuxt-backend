@@ -87,6 +87,7 @@ const link = computed(() => ({
 <template>
   <span
     v-if="canManage && softOptIn"
+    data-backend
     data-billing="checkout-group"
   >
     <a
@@ -97,6 +98,7 @@ const link = computed(() => ({
   </span>
   <a
     v-else-if="canManage"
+    data-backend
     v-bind="{ ...$attrs, ...link }"
     @click="onClick"
   ><slot :pending="pending" /></a>

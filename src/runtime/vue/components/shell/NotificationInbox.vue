@@ -41,6 +41,7 @@ const { t, errorMessage } = inbox.labels
 <template>
   <div
     v-if="state !== 'refused'"
+    data-backend
     v-bind="bind.root.value"
   >
     <NotificationInboxBell :inbox="inbox" />

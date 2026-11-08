@@ -28,7 +28,7 @@ export function announcePolitely(text: string): void {
     announcer = document.createElement('p')
     announcer.setAttribute('role', 'status')
     announcer.setAttribute('aria-live', 'polite')
-    announcer.setAttribute('data-backend', 'announcer')
+    announcer.setAttribute('data-backend-announcer', '')
     announcer.style.cssText = 'position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0'
     document.body.append(announcer)
   }

@@ -21,6 +21,7 @@ import { projectEnvDefaultNames } from './env-defaults'
 import { BACKEND_ENV, OPTIONAL_DEPLOYMENT_ENV, REMOVED_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './env-registry'
 import { billingEnvironment, parseBackendEnvironment } from './convex/environment'
 import { applyProductionPosture, deploymentEnvId, finding, type FindingGroup, type FindingId, type PreflightFinding } from './findings'
+import { GATEWAY_KEY_FIX, GATEWAY_ORDER_UNREAD } from './capabilities/gateway-route'
 import { capabilityOfGroup, type CapabilityName } from './capabilities'
 import { billingWebhookSecretHint, collectPreflightFindings } from './preflight'
 import { resolveFunctionsDir } from './scaffold'
@@ -44,7 +45,7 @@ import { agentFilesFinding, installedVersion } from './agents'
 import { bundleDuplicatesFindings } from './bundle-duplicates'
 import { nameCollisionFinding } from './name-collisions'
 import { convexConfigFinding } from './convex-config'
-import { aiFeatures, mountsComponent, namedModels, pinnedRegion, usesProvenance } from './named-models'
+import { aiFeatures, checksImages, chosenGateways, mountsComponent, namesModerationModel, type NamedGateway, namedModels, pinnedRegion, usesProvenance } from './named-models'
 import { consentFindings } from './cli/consents'
 import { protectionFindings, type ProtectionDoctorInput } from './cli/protection'
 import { monitoringDsnFinding, monitoringFindings, readUsageLimits, usageAlertsFinding } from './monitoring'
@@ -423,6 +424,12 @@ function listed(names: readonly string[]): string {
 /** The provider package model ids reach the Convex AI Gateway through. */
 const CONVEX_GATEWAY_PROVIDER = '@convex-dev/ai-sdk-provider'
 
+/** The fix that sets the gateway key: `.env.local` and env push in dev, production's own key under `--prod`. */
+const keyFix = (flag: string): string => flag ? GATEWAY_KEY_FIX.prod : GATEWAY_KEY_FIX.dev
+
+/** Whether an order may send calls through the Convex AI Gateway: the default one, one doctor cannot read, or one that names it. */
+const namesConvex = (order: readonly NamedGateway[] | 'unread' | undefined): boolean => order === undefined || order === 'unread' || order.includes('convex')
+
 /** The spending limit the Convex AI Gateway counts against, and how to set it. */
 const SPENDING_LIMIT = 'Cap its spend with `npx convex deployment usage-limits set` (the `aiGatewayCostDollars` limit).'
 
@@ -456,14 +463,48 @@ function cloudRouteFinding(id: FindingId, models: readonly string[], { keyed, pr
     id,
     'warn',
     `The backend names ${listed(models)}, but no model route is ready on the deployment: ${CONVEX_GATEWAY_PROVIDER} is not installed and AI_GATEWAY_API_KEY is not set, so those model calls are refused.`,
-    `Install ${CONVEX_GATEWAY_PROVIDER} (\`pnpm add ${CONVEX_GATEWAY_PROVIDER}\`) to use the Convex AI Gateway on a paid plan, or add AI_GATEWAY_API_KEY to .env.local and run \`npx nuxt-backend env push${flag}\`.`,
+    `${keyFix(flag)} Or install ${CONVEX_GATEWAY_PROVIDER} (\`pnpm add ${CONVEX_GATEWAY_PROVIDER}\`) to use the Convex AI Gateway on a paid plan.`,
   )
+}
+
+/**
+ * The route through the Convex AI Gateway, where the order leaves it alone
+ * (`setupAi({ gateway: 'convex' })`) or where the Vercel AI Gateway before it
+ * has no key: on Convex Cloud with the provider installed, a paid plan has it
+ * and a free plan refuses it; a local deployment linked to a project has it
+ * the same way, through that project's team; an anonymous local deployment
+ * and a self-hosted one never do. No key is read.
+ */
+function convexRouteFinding(id: FindingId, models: readonly string[], { cloud, linked, local, provider, keyed, alone, flag }: RouteFacts & { alone: boolean }): PreflightFinding {
+  const how = alone
+    ? `setupAi({ gateway: 'convex' }) sends ${listed(models)} through the Convex AI Gateway alone`
+    : `AI_GATEWAY_API_KEY is not set on the deployment, so ${listed(models)} go through the Convex AI Gateway, next in setupAi({ gateway })`
+  const elsewhere = alone
+    ? `Add 'vercel' to setupAi({ gateway }), then: ${keyFix(flag)}`
+    : keyFix(flag)
+  const install = `Install ${CONVEX_GATEWAY_PROVIDER} (\`pnpm add ${CONVEX_GATEWAY_PROVIDER}\`)`
+  if (!provider) {
+    // Where the key is a fix, it leads: status reads it as what the models lack.
+    return finding(id, 'warn', `${how}, but ${CONVEX_GATEWAY_PROVIDER} is not installed: those model calls are refused.`, alone ? `${install}, or: ${elsewhere}` : `${elsewhere} Or: ${install}.`)
+  }
+  if (cloud || linked) {
+    const unused = alone && keyed ? ' AI_GATEWAY_API_KEY is set on the deployment and never read.' : ''
+    const whose = cloud ? 'the team' : 'the team of the project this local deployment is linked to'
+    return finding(id, 'pass', `${how}, which bills ${whose}; a free plan refuses it (AiGatewayDisabled), and no other gateway is tried.${unused} ${SPENDING_LIMIT}`)
+  }
+  if (local) {
+    const login = 'Run `npx convex login` to link the local deployment to a project on a paid plan, then restart `npx nuxt-backend dev`.'
+    return finding(id, 'warn', `${how}, which an anonymous local deployment cannot reach: those model calls are refused.`, alone ? `${login} Or: ${elsewhere}` : `${elsewhere} Or: ${login}`)
+  }
+  return finding(id, 'warn', `${how}, which a self-hosted deployment never has: those model calls are refused.`, elsewhere)
 }
 
 /** What doctor knows of the route a model id takes: the backend's ids, and the deployment's kind. */
 interface ModelRouteInput {
   models: readonly string[]
   local: boolean
+  /** A local deployment linked to a project (`local:`, not `anonymous:`): it reaches the Convex AI Gateway on that team's plan. */
+  linked: boolean
   /** Convex Cloud (dev, preview or production), where a paid plan has the Convex AI Gateway. */
   cloud: boolean
   /** The app installs the Convex AI Gateway's provider package. */
@@ -471,34 +512,91 @@ interface ModelRouteInput {
   prod: boolean
   /** The region `setupAi({ inferenceRegion })` pins every call to: only the Vercel AI Gateway serves it. */
   region?: string
+  /** The order `setupAi({ gateway })` names as a literal; the default order (`['convex', 'vercel']`) without one; `unread` when it is no literal doctor reads. */
+  gateways?: readonly NamedGateway[] | 'unread'
 }
 
 /**
- * The route the backend's `provider/model` ids take, and the key they fall
- * back on. In order: the Convex AI Gateway, on Convex Cloud with the provider
- * package installed (a paid plan has it; a free plan refuses it when called);
- * the Vercel AI Gateway with `AI_GATEWAY_API_KEY`; anywhere else those models
- * are refused when called. Unset with none named, nothing needs a route.
+ * The route the backend's `provider/model` ids take, through the order
+ * `setupAi({ gateway })` names. By default: the Convex AI Gateway, on Convex
+ * Cloud with the provider package installed (a paid plan has it; a free plan
+ * refuses it when called); the Vercel AI Gateway with `AI_GATEWAY_API_KEY`;
+ * anywhere else those models are refused when called. Unset with none named,
+ * nothing needs a route.
  */
-function gatewayKeyFinding(deployed: readonly string[], { models, local, cloud, provider, prod, region }: ModelRouteInput): PreflightFinding {
+function gatewayKeyFinding(deployed: readonly string[], { models, local, linked, cloud, provider, prod, region, gateways = ['convex', 'vercel'] }: ModelRouteInput): PreflightFinding {
   const id = deploymentEnvId('AI_GATEWAY_API_KEY')
   const flag = prod ? ' --prod' : ''
   const keyed = deployed.includes('AI_GATEWAY_API_KEY')
   if (models.length === 0) {
     return finding(id, 'pass', keyed ? 'AI_GATEWAY_API_KEY is set on the deployment.' : 'AI_GATEWAY_API_KEY is not set, and no backend file names a provider/model id that needs a model route.')
   }
-  if (region) {
-    if (keyed) return finding(id, 'pass', `AI_GATEWAY_API_KEY is set on the deployment: ${listed(models)} go through the Vercel AI Gateway, pinned to the '${region}' inference region.`)
-    return finding(id, 'warn', `The backend pins its model calls to the '${region}' inference region, which only the Vercel AI Gateway serves, but AI_GATEWAY_API_KEY is not set on the deployment: ${listed(models)} are refused.`, `Add AI_GATEWAY_API_KEY to .env.local and run \`npx nuxt-backend env push${flag}\`.`)
-  }
-  if (cloud) return cloudRouteFinding(id, models, { keyed, provider, flag })
+  if (gateways === 'unread') return unreadOrderFinding(id, models)
+  if (region) return regionRouteFinding(id, models, { region, keyed, vercel: gateways.includes('vercel'), flag })
+  return orderRouteFinding(id, models, { gateways, keyed, cloud, linked, local, provider, flag })
+}
+
+/**
+ * The route of an order doctor cannot read: `gateway` from a variable or
+ * the shorthand `{ gateway }`, an empty list, options spread in, or two
+ * `setupAi` calls with different orders. Nothing is assumed, so nothing is
+ * checked.
+ */
+function unreadOrderFinding(id: FindingId, models: readonly string[]): PreflightFinding {
+  return finding(
+    id,
+    'warn',
+    `${GATEWAY_ORDER_UNREAD}: setupAi({ gateway }) is no literal it reads (a variable, the shorthand { gateway }, an empty list, spread options, or two setupAi calls that differ), so the route of ${listed(models)} is not checked.`,
+    'Write `gateway` in setupAi as \'convex\', \'vercel\' or a list of them, in one setupAi call, then run doctor again.',
+  )
+}
+
+/** What each route finding knows of the deployment: its kind, the provider package, the key, and the `--prod` flag a fix names. */
+interface RouteFacts { cloud: boolean, linked: boolean, local: boolean, provider: boolean, keyed: boolean, flag: string }
+
+/**
+ * The route through `setupAi({ gateway })`'s order, with no region pinned:
+ * the Vercel AI Gateway alone, the Convex AI Gateway alone, the Vercel one
+ * first, or the default order.
+ */
+function orderRouteFinding(id: FindingId, models: readonly string[], { gateways, ...facts }: RouteFacts & { gateways: readonly NamedGateway[] }): PreflightFinding {
+  const vercelFirst = gateways[0] === 'vercel'
+  if (!gateways.includes('convex')) return vercelRouteFinding(id, models, facts)
+  if (vercelFirst && facts.keyed) return finding(id, 'pass', `AI_GATEWAY_API_KEY is set on the deployment: ${listed(models)} go through the Vercel AI Gateway, first in setupAi({ gateway }).`)
+  if (vercelFirst || !gateways.includes('vercel')) return convexRouteFinding(id, models, { ...facts, alone: !vercelFirst })
+  return defaultRouteFinding(id, models, facts)
+}
+
+/** The route through the Vercel AI Gateway alone (`setupAi({ gateway: 'vercel' })`): the key decides. */
+function vercelRouteFinding(id: FindingId, models: readonly string[], { keyed, flag }: RouteFacts): PreflightFinding {
+  if (keyed) return finding(id, 'pass', `AI_GATEWAY_API_KEY is set on the deployment: ${listed(models)} go through the Vercel AI Gateway (setupAi({ gateway: 'vercel' })).`)
+  return finding(id, 'warn', `setupAi({ gateway: 'vercel' }) sends ${listed(models)} through the Vercel AI Gateway alone, but AI_GATEWAY_API_KEY is not set on the deployment: those model calls are refused.`, keyFix(flag))
+}
+
+/** The route through the default order: the Convex AI Gateway, then the Vercel one with the key. */
+function defaultRouteFinding(id: FindingId, models: readonly string[], { cloud, linked, local, provider, keyed, flag }: RouteFacts): PreflightFinding {
+  // A local deployment linked to a project reaches the Convex AI Gateway as Convex Cloud does.
+  if (cloud || linked) return cloudRouteFinding(id, models, { keyed, provider, flag })
   if (keyed) return finding(id, 'pass', `AI_GATEWAY_API_KEY is set on the deployment: ${listed(models)} go through the Vercel AI Gateway.`)
   return finding(
     id,
     'warn',
-    `The backend names ${listed(models)}, but AI_GATEWAY_API_KEY is not set on the deployment${local && provider ? ', so those model calls go to the Convex AI Gateway only when the deployment is linked to a team that has it, and are refused otherwise' : ': those model calls are refused'}.`,
-    `Add AI_GATEWAY_API_KEY to .env.local and run \`npx nuxt-backend env push${flag}\`.`,
+    `The backend names ${listed(models)}, but AI_GATEWAY_API_KEY is not set on the deployment${local && provider ? ', and an anonymous local deployment cannot reach the Convex AI Gateway: those model calls are refused' : ': those model calls are refused'}.`,
+    local && provider ? `${keyFix(flag)} Or run \`npx convex login\` to link the local deployment to a project on a paid plan.` : keyFix(flag),
   )
+}
+
+/**
+ * The route of calls pinned to a region (`setupAi({ inferenceRegion })`):
+ * only the Vercel AI Gateway serves one, so the key decides, and an order
+ * without `'vercel'` is refused by `setupAi` itself.
+ */
+function regionRouteFinding(id: FindingId, models: readonly string[], { region, keyed, vercel, flag }: { region: string, keyed: boolean, vercel: boolean, flag: string }): PreflightFinding {
+  if (!vercel) {
+    return finding(id, 'warn', `The backend pins its model calls to the '${region}' inference region, which only the Vercel AI Gateway serves, but setupAi({ gateway }) does not name 'vercel': setupAi refuses the pin, and the push fails.`, 'Add \'vercel\' to setupAi({ gateway }), or drop inferenceRegion.')
+  }
+  if (keyed) return finding(id, 'pass', `AI_GATEWAY_API_KEY is set on the deployment: ${listed(models)} go through the Vercel AI Gateway, pinned to the '${region}' inference region.`)
+  return finding(id, 'warn', `The backend pins its model calls to the '${region}' inference region, which only the Vercel AI Gateway serves, but AI_GATEWAY_API_KEY is not set on the deployment: ${listed(models)} are refused.`, keyFix(flag))
 }
 
 /**
@@ -568,13 +666,15 @@ function declaredFeatureFindings(rootDir: string, { wants, deployed, prod }: { w
 
 /**
  * Where model calls run, by the deployment's kind: Convex Cloud (dev,
- * preview, production) may have the Convex AI Gateway, and a local one only
- * when it is linked to a team that has it. Under --prod the deployment is production's, whatever
- * .env.local names, and on Convex Cloud unless it is self-hosted.
+ * preview, production) may have the Convex AI Gateway, and so may a local
+ * deployment linked to a project (`local:`), on that team's plan; an
+ * anonymous one (`anonymous:`) never does. Under --prod the deployment is
+ * production's, whatever .env.local names, and on Convex Cloud unless it is
+ * self-hosted.
  */
-function deploymentRoute(kind: ReturnType<typeof computeDeployment>['kind'], prod: boolean): { local: boolean, cloud: boolean } {
-  if (prod) return { local: false, cloud: kind !== 'self-hosted' }
-  return { local: ['local', 'anonymous'].includes(kind), cloud: ['cloud-dev', 'preview', 'production'].includes(kind) }
+function deploymentRoute(kind: ReturnType<typeof computeDeployment>['kind'], prod: boolean): { local: boolean, linked: boolean, cloud: boolean } {
+  if (prod) return { local: false, linked: false, cloud: kind !== 'self-hosted' }
+  return { local: ['local', 'anonymous'].includes(kind), linked: kind === 'local', cloud: ['cloud-dev', 'preview', 'production'].includes(kind) }
 }
 
 /**
@@ -585,7 +685,7 @@ function deploymentRoute(kind: ReturnType<typeof computeDeployment>['kind'], pro
  * --prod, the two switches and the sender report by their values
  * (`posture`): left at a default production cannot run with, they fail.
  */
-function deploymentEnvFindings(rootDir: string, deployed: string[] | null, { prod, local, cloud, posture }: { prod: boolean, local: boolean, cloud: boolean, posture: ProductionPosture | null }): PreflightFinding[] {
+function deploymentEnvFindings(rootDir: string, deployed: string[] | null, { prod, local, linked, cloud, posture }: { prod: boolean, local: boolean, linked: boolean, cloud: boolean, posture: ProductionPosture | null }): PreflightFinding[] {
   // A sandbox production that re-exports the dev inbox's reader publishes it on purpose: unset, its demo reads no code.
   const sandboxInbox = prod && posture?.environment === 'sandbox' && reExportsName(rootDir, 'getSandboxInbox')
   if (!deployed) {
@@ -597,7 +697,7 @@ function deploymentEnvFindings(rootDir: string, deployed: string[] | null, { pro
     // A name with no finding of its own (the marketing sender, the region) reports nothing yet.
     // The dev inbox's opt-in reports only once it is set: unset is every app's state, and nothing to say.
     ...Object.entries(OPTIONAL_DEPLOYMENT_ENV).filter(([name]) => !name.startsWith('PROTECTION_') && BACKEND_ENV[name as keyof typeof BACKEND_ENV].findings.length > 0 && (name !== 'EMAIL_DEV_INBOX' || deployed.includes(name) || sandboxInbox)).map(([name, degradation]) => {
-      if (name === 'AI_GATEWAY_API_KEY') return gatewayKeyFinding(deployed, { models: namedModels(rootDir), local, cloud, provider: convexGatewayProviderInstalled(rootDir), prod, region: pinnedRegion(rootDir) })
+      if (name === 'AI_GATEWAY_API_KEY') return gatewayKeyFinding(deployed, { models: namedModels(rootDir), local, linked, cloud, provider: convexGatewayProviderInstalled(rootDir), prod, region: pinnedRegion(rootDir), gateways: chosenGateways(rootDir) })
       if (name === 'PROVENANCE_PRIVATE_KEY' || name === 'PROVENANCE_CERTIFICATE') return provenanceKeyFinding(name, deployed, { on: usesProvenance(rootDir), prod })
       // Unset in dev is the designed state: the local error log stands in.
       if (name === 'MONITORING_DSN') return monitoringDsnFinding(deployed.includes(name), { prod })
@@ -609,7 +709,38 @@ function deploymentEnvFindings(rootDir: string, deployed: string[] | null, { pro
       return optionalDeploymentEnvFinding(name, degradation, deployed.includes(name), { prod })
     }),
     removedEnvFinding(deployed, { prod }),
+    moderationImagesFinding(rootDir, deployed, { cloud, linked, prod }),
   ]
+}
+
+/** Which gateway answers first, in an order, on what doctor knows of the deployment: `undefined` when neither can. */
+function answeringGateway(order: readonly NamedGateway[], { keyed, convex }: { keyed: boolean, convex: boolean }): NamedGateway | undefined {
+  return order.find(gateway => gateway === 'vercel' ? keyed : convex)
+}
+
+/**
+ * Whether the backend's image checks can run: the default classifier
+ * follows the gateway that answers, and the Vercel AI Gateway serves none
+ * that reads images (gpt-oss-safeguard reads text only), so a check with
+ * images there is refused as unchecked. A classifier the app names is its
+ * own call; a backend that checks no images needs nothing.
+ */
+function moderationImagesFinding(rootDir: string, deployed: readonly string[], { cloud, linked, prod }: { cloud: boolean, linked: boolean, prod: boolean }): PreflightFinding {
+  const id = 'ai-moderation-images'
+  if (!checksImages(rootDir)) return finding(id, 'pass', 'No backend file checks images with the safety classifier.')
+  if (namesModerationModel(rootDir)) return finding(id, 'pass', 'The backend checks images with the classifier it names in setupAi({ moderation: { model } }).')
+  const order = chosenGateways(rootDir)
+  if (order === 'unread') return finding(id, 'pass', `${GATEWAY_ORDER_UNREAD}, so which classifier checks the backend's images is not known.`)
+  const pinned = pinnedRegion(rootDir) !== undefined
+  const convex = (cloud || linked || prod) && convexGatewayProviderInstalled(rootDir)
+  const answers = pinned ? 'vercel' : answeringGateway(order ?? ['convex', 'vercel'], { keyed: deployed.includes('AI_GATEWAY_API_KEY'), convex })
+  if (answers !== 'vercel') return finding(id, 'pass', 'The backend checks images with Llama Guard 4, through the Convex AI Gateway, which reads them.')
+  return finding(
+    id,
+    'warn',
+    `The backend checks images, but its default safety classifier goes through the Vercel AI Gateway here${pinned ? ' (inference is pinned to a region)' : ''}, which serves none that reads images: openai/gpt-oss-safeguard-20b reads text only, so every check with images is refused as unchecked.`,
+    'Route moderation through the Convex AI Gateway (a paid Convex plan, @convex-dev/ai-sdk-provider installed, and \'convex\' first in setupAi({ gateway })), or name a classifier that reads images in setupAi({ moderation: { model } }).',
+  )
 }
 
 /**
@@ -812,7 +943,7 @@ async function localFeatureFindings(rootDir: string, { env, wants, deployed, pro
     ...wants('monitoring') ? monitoringFindings(rootDir, { env, deployed, prod }) : [],
     ...declaredFeatureFindings(rootDir, { wants, deployed, prod }),
     // Production's own usage warnings: Convex emails the team; the deployment cannot read its usage itself.
-    ...wants('monitoring') && prod ? [usageAlertsFinding(await readUsageLimits(rootDir), { convexGateway: convexGatewayProviderInstalled(rootDir) })] : [],
+    ...wants('monitoring') && prod ? [usageAlertsFinding(await readUsageLimits(rootDir), { convexGateway: convexGatewayProviderInstalled(rootDir) && namesConvex(chosenGateways(rootDir)) })] : [],
     ...wants('auth') ? await consentFindings(rootDir, { prod }) : [],
     // The installable app iPhone and iPad take web push from: the brand and the two icons.
     ...await installableFindings(rootDir, appConfig, { wanted: wants('notifications'), pushKeys: Boolean(env.PUSH_PUBLIC_KEY) || (deployed ?? []).includes('PUSH_PUBLIC_KEY') }),

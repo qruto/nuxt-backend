@@ -26,6 +26,14 @@
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-production-checkout-waits-for-billing-to-launch-and-welcome-credits-come-from-the-catalog"
     },
     {
+      "from": "[data-auth='form'], [data-pricing='table'], [data-admin]",
+      "to": "[data-backend]",
+      "change": "reshaped",
+      "section": "The packaged UI reads its faces, lines and shadows from tokens",
+      "note": "the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#the-packaged-ui-reads-its-faces-lines-and-shadows-from-tokens"
+    },
+    {
       "from": "setupAuthorization",
       "to": "createFunctions",
       "change": "removed",
