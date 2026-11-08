@@ -64,13 +64,16 @@ export { setupAi } from './ai/setup.js'
 export type { ModerationConfig, ModerationCtx, ModerationInput, ModerationVerdict } from './ai/moderation.js'
 export type {
   AdminJobView,
+  CancelOptions,
   DefineJobQueueOptions,
   EnqueueOptions,
   GuestJobs,
   JobContext,
   JobDefinition,
+  JobEnd,
   JobModelLimit,
   JobProgress,
+  JobRecord,
   JobQueue,
   JobQueueApi,
   JobQueueComponents,
@@ -78,7 +81,8 @@ export type {
   JobStepDefinition,
   JobTier,
   JobView,
+  OnJobEnd,
   QueueChange,
   StepResult,
 } from './ai/jobs.js'
-export { defineJobQueue } from './ai/jobs.js'
+export { defineJobQueue, vJobEnd } from './ai/jobs.js'

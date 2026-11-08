@@ -82,6 +82,10 @@ The queue schedules `runQueue` (the pick, the stall sweep, progress and each job
   :::field{name="workflow" type="WorkflowComponent"}
   The Workflow component the jobs run on. Default `components.workflow`, which the scaffold mounts. Mount a second copy and pass it to keep jobs from sharing a pool with email sequences.
   :::
+
+  :::field{name="onJobEnd" type="OnJobEnd"}
+  Your internal mutation or action that hears of every job's end, by its reference. See [Hear when a job ends](#hear-when-a-job-ends).
+  :::
 ::
 
 ## Define a job
@@ -173,6 +177,37 @@ export const seed = admin.mutation({
 ```
 
 Such a job is a `meter: false` kind; `enqueue` refuses one that charges credits with a `TypeError`. It needs nobody signed in, so your mutation decides who may start it, as `admin.mutation` does here. It checks the `pause_ai` switch, the model route and the `aiGlobal` limit, the window shared by everything the app pays for, and counts in no tier's budget. Its cost reaches the Costs tab, never a customer's usage.
+
+## Hear when a job ends
+
+A job's handler never runs again once the queue ends the job on its own: a stall, a cancel, an administrator's discard. Your rows about the job, such as a strip still marked `drawing`, would wait forever. `onJobEnd` tells you of every end, however it came:
+
+```ts [backend/strips.ts]
+import { vJobEnd } from 'nuxt-backend/ai'
+import type { Id } from './_generated/dataModel'
+import { internalMutation } from './_generated/server'
+
+export const ended = internalMutation({
+  args: vJobEnd,
+  handler: async (ctx, { status, error, args }) => {
+    const { stripId } = args as { stripId: Id<'strips'> }
+    const strip = await ctx.db.get('strips', stripId)
+    if (strip?.status !== 'drawing') return
+    await ctx.db.patch('strips', stripId, status === 'done' ? { status: 'ready' } : { status, failure: error?.code })
+  },
+})
+```
+
+```ts [backend/jobs.ts]
+export const jobs = defineJobQueue(components, {
+  ai,
+  onJobEnd: internal.strips.ended,
+})
+```
+
+It gets the job's `jobId`, its `kind`, how it ended in `status` (`done`, `failed` or `canceled`; a stall is `failed` with reason `stalled`), the `error` a failed job carries, and the `args` it was put in line with. It runs once per end, after the queue let the hold go and scheduled the refund, so it never settles credits itself. A mutation runs exactly once; an action at most once. A failing hook is logged and changes nothing about the job. An administrator's retry runs a failed job again, and it ends again: check the state you move before you move it, as `ended` does here.
+
+From your own functions, `jobs.get(ctx, jobId)` reads any job, as `getJob` does, with its `owner`, `userId` and `args`, and `jobs.cancel(ctx, jobId, { refund? })` cancels it, as `cancelJob` does. Neither checks the caller: your function decides who may. `jobs.cancel` answers `'queued'` or `'running'` for the job it stopped, and `null` for one that had already ended.
 
 ## Follow it in the page
 

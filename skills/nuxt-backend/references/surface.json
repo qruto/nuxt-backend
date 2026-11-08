@@ -584,7 +584,8 @@
       "values": [
         "defineJobQueue",
         "priceTokens",
-        "setupAi"
+        "setupAi",
+        "vJobEnd"
       ],
       "types": [
         "AdminJobView",
@@ -599,6 +600,7 @@
         "AiModel",
         "AiRateLimiter",
         "AiSpendLimit",
+        "CancelOptions",
         "Chat",
         "ChatConfig",
         "ChatMessage",
@@ -615,12 +617,14 @@
         "InferenceRegion",
         "JobContext",
         "JobDefinition",
+        "JobEnd",
         "JobModelLimit",
         "JobProgress",
         "JobProvenance",
         "JobQueue",
         "JobQueueApi",
         "JobQueueComponents",
+        "JobRecord",
         "JobStepContext",
         "JobStepDefinition",
         "JobTier",
@@ -643,6 +647,7 @@
         "ModerationCtx",
         "ModerationInput",
         "ModerationVerdict",
+        "OnJobEnd",
         "PersonCost",
         "ProvenanceConfig",
         "QueueChange",
