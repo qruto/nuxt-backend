@@ -89,9 +89,9 @@ describe('wiring the SDK', () => {
   })
 
   it('adds the SDK\'s module, pointed at the package\'s own config files, only when wired', () => {
-    expect(monitoringDependency({ sdk: false, wired: false, env: {} }, resolver)).toEqual({})
-    expect(monitoringDependency({ dsn: 'https://b@o.test/2', sdk: false, wired: false, env: {} }, resolver)).toEqual({})
-    const dependency = monitoringDependency({ dsn: 'https://b@o.test/2', sdk: true, wired: true, env: {} }, resolver)
+    expect(monitoringDependency({ sdk: false, tunnel: false, wired: false, env: {} }, resolver)).toEqual({})
+    expect(monitoringDependency({ dsn: 'https://b@o.test/2', sdk: false, tunnel: false, wired: false, env: {} }, resolver)).toEqual({})
+    const dependency = monitoringDependency({ dsn: 'https://b@o.test/2', sdk: true, tunnel: true, wired: true, env: {} }, resolver)
     expect(Object.keys(dependency)).toEqual(['@sentry/nuxt/module'])
     const configDir = dependency['@sentry/nuxt/module']!.defaults.configDir
     // The names the SDK's module looks for, beside each other in one directory.
