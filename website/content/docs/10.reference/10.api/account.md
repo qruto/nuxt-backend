@@ -538,6 +538,17 @@ const ACCOUNT_DATA_SOURCES: {
      retention: "As long as the entity; a deletion mark 30 days.";
      exported: true;
   };
+  welcomeCredits: {
+     capability: "billing";
+     where: "component";
+     tables: readonly ["billingWelcomes"];
+     holds: "A digest (SHA-256) of the address welcome credits went to, its local part without tags and dots, and the billing entity that got them: never the address.";
+     keyedBy: readonly ["entity"];
+     erasure: "pseudonymized";
+     erasureNote: "The digest stays, without the entity: it keeps welcome credits to once per person, so signing up again does not get them twice (fraud prevention, the app's legitimate interest). It names no address, but anyone who knows an address can compute its digest, so it is still pseudonymous personal data.";
+     retention: "As long as the app grants welcome credits, to keep them to once per person.";
+     exported: false;
+  };
   billingProofs: {
      capability: "billing";
      where: "component";
@@ -950,6 +961,16 @@ An app's own tables join through `setupAccount({ sources })`.
 | `billing.erasureNote` | `"The cache of every billing entity deleted with the account is removed, and so is the record of its trial. Each entity is marked as deleting first, so no free plan starts for it again."` | `'The cache of every billing entity deleted with the account is removed, and so is the record of its trial. Each entity is marked as deleting first, so no free plan starts for it again.'` | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
 | `billing.retention` | `"As long as the entity; a deletion mark 30 days."` | `'As long as the entity; a deletion mark 30 days.'` | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
 | `billing.exported` | `true` | `true` | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
+| <a id="property-welcomecredits"></a> `welcomeCredits` | \{ `capability`: `"billing"`; `where`: `"component"`; `tables`: readonly \[`"billingWelcomes"`\]; `holds`: `"A digest (SHA-256) of the address welcome credits went to, its local part without tags and dots, and the billing entity that got them: never the address."`; `keyedBy`: readonly \[`"entity"`\]; `erasure`: `"pseudonymized"`; `erasureNote`: `"The digest stays, without the entity: it keeps welcome credits to once per person, so signing up again does not get them twice (fraud prevention, the app's legitimate interest). It names no address, but anyone who knows an address can compute its digest, so it is still pseudonymous personal data."`; `retention`: `"As long as the app grants welcome credits, to keep them to once per person."`; `exported`: `false`; \} | - | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
+| `welcomeCredits.capability` | `"billing"` | `'billing'` | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
+| `welcomeCredits.where` | `"component"` | `'component'` | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
+| `welcomeCredits.tables` | readonly \[`"billingWelcomes"`\] | - | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
+| `welcomeCredits.holds` | `"A digest (SHA-256) of the address welcome credits went to, its local part without tags and dots, and the billing entity that got them: never the address."` | `'A digest (SHA-256) of the address welcome credits went to, its local part without tags and dots, and the billing entity that got them: never the address.'` | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
+| `welcomeCredits.keyedBy` | readonly \[`"entity"`\] | - | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
+| `welcomeCredits.erasure` | `"pseudonymized"` | `'pseudonymized'` | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
+| `welcomeCredits.erasureNote` | `"The digest stays, without the entity: it keeps welcome credits to once per person, so signing up again does not get them twice (fraud prevention, the app's legitimate interest). It names no address, but anyone who knows an address can compute its digest, so it is still pseudonymous personal data."` | 'The digest stays, without the entity: it keeps welcome credits to once per person, so signing up again does not get them twice (fraud prevention, the app\\'s legitimate interest). It names no address, but anyone who knows an address can compute its digest, so it is still pseudonymous personal data.' | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
+| `welcomeCredits.retention` | `"As long as the app grants welcome credits, to keep them to once per person."` | `'As long as the app grants welcome credits, to keep them to once per person.'` | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
+| `welcomeCredits.exported` | `false` | `false` | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
 | <a id="property-billingproofs"></a> `billingProofs` | \{ `capability`: `"billing"`; `where`: `"component"`; `tables`: readonly \[`"billingRenewalConsents"`, `"billingWithdrawals"`\]; `holds`: `"Proof of the consent to a renewing subscription (the plan, the price and interval shown, the terms version, when and by whom) and of each EU withdrawal: when and by whom."`; `keyedBy`: readonly \[`"account"`, `"entity"`\]; `erasure`: `"pseudonymized"`; `erasureNote`: `"California's automatic renewal law asks a seller to keep the consent proof three years, and a withdrawal is a record of the contract: both stay, the account's id and the billing entities deleted with it replaced by the pseudonym."`; `retention`: `"Three years; a checkout's proof that started no subscription two days."`; `exported`: `false`; \} | - | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
 | `billingProofs.capability` | `"billing"` | `'billing'` | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |
 | `billingProofs.where` | `"component"` | `'component'` | [src/convex/account-data.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/account-data.ts) |

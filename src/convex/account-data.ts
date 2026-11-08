@@ -128,6 +128,17 @@ export const ACCOUNT_DATA_SOURCES = {
     retention: 'As long as the entity; a deletion mark 30 days.',
     exported: true,
   },
+  welcomeCredits: {
+    capability: 'billing',
+    where: 'component',
+    tables: ['billingWelcomes'],
+    holds: 'A digest (SHA-256) of the address welcome credits went to, its local part without tags and dots, and the billing entity that got them: never the address.',
+    keyedBy: ['entity'],
+    erasure: 'pseudonymized',
+    erasureNote: 'The digest stays, without the entity: it keeps welcome credits to once per person, so signing up again does not get them twice (fraud prevention, the app\'s legitimate interest). It names no address, but anyone who knows an address can compute its digest, so it is still pseudonymous personal data.',
+    retention: 'As long as the app grants welcome credits, to keep them to once per person.',
+    exported: false,
+  },
   billingProofs: {
     capability: 'billing',
     where: 'component',

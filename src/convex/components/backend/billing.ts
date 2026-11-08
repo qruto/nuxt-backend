@@ -1,6 +1,8 @@
 import { v } from 'convex/values'
 import { type MutationCtx, mutation, query, type QueryCtx } from './_generated/server.js'
+import { PENDING_CREDIT_TTL_MS } from '../../constants.js'
 import { retierOwner } from './jobs.js'
+import type { vPendingCredit } from './schema.js'
 import { vEntitlementBenefit, vEntitlementMeter } from './schema.js'
 
 /**
@@ -25,6 +27,28 @@ const MAX_HOLD_MS = 7 * 24 * 60 * 60 * 1000
 /** A user's row in the entitlement cache, if there is one. */
 function entitlementOf(ctx: QueryCtx, userId: string) {
   return ctx.db.query('billingEntitlements').withIndex('userId', q => q.eq('userId', userId)).unique()
+}
+
+/** The credits the cache added within {@link PENDING_CREDIT_TTL_MS}. */
+function activeCredits(credits: Array<typeof vPendingCredit.type> | undefined, now: number): Array<typeof vPendingCredit.type> {
+  return (credits ?? []).filter(credit => now - credit.at < PENDING_CREDIT_TTL_MS)
+}
+
+/**
+ * A provider read's meters with the credits the cache added ahead of it: within
+ * a credit's window, a meter never reads below what the cache holds, and one
+ * the provider does not list yet stays as the cache has it.
+ */
+function keepPendingCredits(meters: Array<typeof vEntitlementMeter.type>, cached: ReadonlyArray<typeof vEntitlementMeter.type>, credits: Array<typeof vPendingCredit.type>): Array<typeof vEntitlementMeter.type> {
+  const kept = [...meters]
+  for (const meterId of new Set(credits.map(credit => credit.meterId))) {
+    const own = cached.find(meter => meter.meterId === meterId)
+    if (!own) continue
+    const index = kept.findIndex(meter => meter.meterId === meterId)
+    if (index < 0) kept.push(own)
+    else if (kept[index]!.balance < own.balance) kept[index] = { ...kept[index]!, balance: own.balance, consumedUnits: Math.max(0, kept[index]!.creditedUnits - own.balance) }
+  }
+  return kept
 }
 
 function activePendings(pendings: PendingSpend[] | undefined, now: number): PendingSpend[] {
@@ -88,7 +112,9 @@ export const getByUser = query({
  * still-active `pendingSpends` are re-subtracted — otherwise a webhook-driven
  * refresh landing between `debit` and the event's ingestion would resurrect
  * balance that is being spent. Invariant: cache = last provider state − active
- * reservations.
+ * reservations. A credit the cache added ahead of the provider (`credit` with
+ * an `externalId`) is kept the same way for a few minutes: the read may not
+ * count its event yet.
  */
 export const upsert = mutation({
   args: {
@@ -114,7 +140,8 @@ export const upsert = mutation({
         consumedUnits: meter.consumedUnits + reserved,
       }
     })
-    const doc = { ...args, meters, pendingSpends: pending, updatedAt: now }
+    const credits = activeCredits(existing?.pendingCredits, now)
+    const doc = { ...args, meters: keepPendingCredits(meters, existing?.meters ?? [], credits), pendingSpends: pending, pendingCredits: credits, updatedAt: now }
     if (existing) await ctx.db.patch('billingEntitlements', existing._id, doc)
     else await ctx.db.insert('billingEntitlements', doc)
     // A plan that changed moves the owner's waiting jobs up a tier, never down.
@@ -389,22 +416,54 @@ export const clearPendingSpends = mutation({
  * Optimistically re-credit a meter after a refund event ingested (sum meters
  * only — see `refundCredits`). The next provider sync overwrites with truth.
  */
+/**
+ * Credit a meter ahead of the provider (a refund, welcome credits), once per
+ * `externalId`: a meter the cache does not list yet is added with the
+ * credit, and the credit is kept from a provider read for a few minutes
+ * ({@link PENDING_CREDIT_TTL_MS}). Nothing for an entity never synced.
+ */
 export const credit = mutation({
-  args: { userId: v.string(), meterId: v.string(), amount: v.number() },
+  args: { userId: v.string(), meterId: v.string(), amount: v.number(), externalId: v.optional(v.string()) },
   returns: v.null(),
-  handler: async (ctx, { userId, meterId, amount }) => {
+  handler: async (ctx, { userId, meterId, amount, externalId }) => {
     assertAmount(amount, 'credit: `amount`')
     const row = await entitlementOf(ctx, userId)
     if (!row) return null
-    const meters = row.meters.map(meter => meter.meterId === meterId
-      ? {
-          ...meter,
-          balance: meter.balance + amount,
-          consumedUnits: Math.max(0, meter.consumedUnits - amount),
-        }
-      : meter)
-    await ctx.db.patch('billingEntitlements', row._id, { meters, updatedAt: Date.now() })
+    const now = Date.now()
+    const credits = activeCredits(row.pendingCredits, now)
+    if (externalId !== undefined && credits.some(entry => entry.externalId === externalId)) return null
+    const known = row.meters.some(meter => meter.meterId === meterId)
+    const meters = known
+      ? row.meters.map(meter => meter.meterId === meterId
+          ? {
+              ...meter,
+              balance: meter.balance + amount,
+              consumedUnits: Math.max(0, meter.consumedUnits - amount),
+            }
+          : meter)
+      : [...row.meters, { meterId, consumedUnits: 0, creditedUnits: 0, balance: amount }]
+    await ctx.db.patch('billingEntitlements', row._id, {
+      meters,
+      ...(externalId === undefined ? {} : { pendingCredits: [...credits, { meterId, amount, externalId, at: now }] }),
+      updatedAt: now,
+    })
     return null
+  },
+})
+
+/**
+ * Take a person's one welcome grant for a billing entity: `true` when the
+ * address (its hash) has none yet, or this entity already holds it (a retry,
+ * a second start of the same entity); `false` once another entity has it.
+ */
+export const claimWelcome = mutation({
+  args: { address: v.string(), entityId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { address, entityId }) => {
+    const taken = await ctx.db.query('billingWelcomes').withIndex('address', q => q.eq('address', address)).first()
+    if (taken) return taken.entityId === entityId
+    await ctx.db.insert('billingWelcomes', { address, entityId, at: Date.now() })
+    return true
   },
 })
 

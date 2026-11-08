@@ -214,10 +214,12 @@
       "currency": "Währung",
       "loading": "Tarife werden geladen…",
       "empty": "Es sind noch keine Tarife eingerichtet.",
+      "soon": "Die Tarife starten in Kürze.",
       "credits": {
         "month": "{count} {unit} / Monat",
         "year": "{count} {unit} / Jahr"
       },
+      "welcome": "{count} {unit} zum Start",
       "retired": "Nicht mehr erhältlich",
       "packCredits": "{count} {unit}",
       "perCredit": "{price} pro {unit}",
@@ -1514,6 +1516,7 @@
       "sentTitle": "Gesendet",
       "receivedEmpty": "Noch keine Geschenke für Sie.",
       "sentEmpty": "Sie haben noch kein Geschenk gesendet.",
+      "soon": "Die Tarife starten in Kürze, und mit ihnen die Geschenke.",
       "itemPack": "{name}",
       "itemPass": "{count} Monat {plan} | {count} Monate {plan}",
       "from": "Von {sender}",
@@ -1795,6 +1798,10 @@
         "billing": {
           "holds": "Die zwischengespeicherten Tarife, Funktionen und Credit-Guthaben der Abrechnungseinheiten des Kontos, ihre geplanten Tarifwechsel und Kontingentschlüssel, die Halteangebote, die der Kündigungsablauf ihnen gemacht hat, und die Testphase, die das Konto genutzt hat.",
           "kept": "So lange wie die Einheit; eine Löschmarkierung 30 Tage."
+        },
+        "welcomeCredits": {
+          "holds": "Ein Hashwert (SHA-256) der Adresse, an die Willkommens-Credits gingen, ihr lokaler Teil ohne Tags und Punkte, und die Abrechnungseinheit, die sie bekam: nie die Adresse.",
+          "kept": "Solange die App Willkommens-Credits vergibt, damit es bei einmal pro Person bleibt."
         },
         "billingProofs": {
           "holds": "Nachweis der Zustimmung zu einem sich verlängernden Abonnement (Tarif, angezeigter Preis und Intervall, Version der Bedingungen, wann und durch wen) und jedes EU-Widerrufs: wann und durch wen.",
@@ -2541,6 +2548,7 @@
       "unavailable_suppressed": "Wir können an diese Adresse derzeit keine E-Mails senden. Verwenden Sie eine andere Adresse oder kontaktieren Sie uns.",
       "unavailable_signups_paused": "Neue Registrierungen sind vorerst pausiert. Versuchen Sie es später erneut.",
       "unavailable_checkout_paused": "Käufe sind vorerst pausiert. Versuchen Sie es später erneut.",
+      "unavailable_not_launched": "Die Tarife starten in Kürze. Noch kann nichts gekauft werden.",
       "unavailable_ai_paused": "KI-Funktionen sind vorerst pausiert. Versuchen Sie es später erneut.",
       "unavailable_stalled": "Dieser Job reagiert nicht mehr. Ihre Credits wurden erstattet.",
       "unavailable_job_failed": "Dieser Job ist fehlgeschlagen. Ihre Credits wurden erstattet.",

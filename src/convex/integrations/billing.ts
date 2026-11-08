@@ -22,6 +22,7 @@ import { createSubscriptions } from './billing/subscriptions.js'
 import type { BillingComponents, SetupBillingConfig } from './billing/types/setup.js'
 import type { Billing } from './billing/types/surface.js'
 import { createWebhooks } from './billing/webhooks.js'
+import { createWelcomeCredits } from './billing/welcome.js'
 
 // The public types live in billing/types/, one file per concern, and are
 // re-exported in declaration order. TypeDoc lists a page's symbols by
@@ -70,6 +71,8 @@ export type {
   PricedTrial,
   PricedPlanPrice,
   PricedPlan,
+  PricedPlanGift,
+  PricedGiftLength,
   PricedPack,
   PricedOffer,
   PricedPromotion,
@@ -85,6 +88,7 @@ export type { MeterUsage, RevenueCancellations, RevenueInterval, RevenueMetric, 
 // Catalog-as-code authoring surface (billing.catalog.ts / `billing sync`).
 export { type BillingCatalog, type CatalogCreditGrant, type CatalogCurrencyPrices, type CatalogDiscount, type CatalogDiscountDuration, type CatalogDiscountProducts, type CatalogDiscountTerms, type CatalogFeature, type CatalogInterval, type CatalogMeter, type CatalogPack, type CatalogPackPrices, type CatalogPlan, type CatalogPlanCreditGrant, type CatalogPlanGift, type CatalogPlanPrices, type CatalogQuota, defineBillingCatalog, type MeterUnit } from '../catalog.js'
 export { ALL_BILLING_EVENTS } from './billing/events.js'
+export type { BillingLaunch, BillingLaunchReason } from '../billing-launch.js'
 
 // The referral program, set up in its own backend file beside billing.
 export { setupReferrals } from './referrals.js'
@@ -145,7 +149,8 @@ export function setupBilling(
   const freePlan = createFreePlan(context, customers)
   const entitlements = createEntitlements(context, customers)
   const { getCustomerState, forgetEntity } = entitlements
-  const { reserveCredits, settleSpend, releaseSpend, spendCredits, refundCredits, reportCost } = createCredits(context, entitlements)
+  const credits = createCredits(context, entitlements)
+  const { reserveCredits, settleSpend, releaseSpend, spendCredits, refundCredits, reportCost } = credits
   const subscriptions = createSubscriptions(context, rules, freePlan, catalogDiscounts)
   const { discounts, applyDiscount, updateSubscription, cancelSubscription, uncancelSubscription, cancelPendingChange, pauseSubscription, resumeSubscription } = subscriptions
   const history = createHistory(context, customers)
@@ -158,10 +163,16 @@ export function setupBilling(
   const gifts = createGifts(context, customers, rules, freePlan)
   const lifecycle = createLifecycle(context, subscriptions, catalogDiscounts, gifts.passes, freePlan)
   const rewards = createRewards(context, customers, rules, catalogDiscounts, gifts.passes)
-  // A new workspace's first free plan becomes the reverse trial's pass, which the gift sweep then follows.
+  const welcome = createWelcomeCredits(context, credits, entitlements, freePlan)
+  // A new workspace's first free plan becomes the reverse trial's pass, which
+  // the gift sweep then follows; then its owner's welcome credits are queued,
+  // once per person.
   freePlan.hooks.firstStart = async (ctx, entityId, owner, subscriptionId) => {
     if (await lifecycle.startReverseTrial(ctx, entityId, owner, subscriptionId)) await gifts.registerSweep(ctx)
+    await welcome.queue(ctx, entityId, owner)
   }
+  freePlan.hooks.queueWelcome = welcome.queue
+  freePlan.hooks.welcome = welcome.run
   const { generateCheckoutLink, checkout } = createCheckout(context, rules, customers, freePlan, catalogDiscounts, lifecycle)
   const { giftCheckout, claimGift, getReceivedGifts, getSentGifts, resendGift, changeGiftRecipient, rescheduleGift, cancelGift, runGiftSweep } = gifts
   const functions = createBillingFunctions(context, entitlements, subscriptions, history, customers, quotas, freePlan, lifecycle, revenue)
@@ -232,6 +243,7 @@ export function setupBilling(
     reportCost,
     resolveEntity,
     requireEntity,
+    launch: context.launch,
     startFreePlan: freePlan.queue,
     entityCreated: freePlan.entityCreated,
     deletionRefusal: freePlan.deletionRefusal,

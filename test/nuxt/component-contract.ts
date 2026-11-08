@@ -33,7 +33,7 @@ export type ContractState
     | 'request-code' | 'verify-code' | 'passkey-offer' | 'recover' | 'waitlisted' | 'invite-code' | 'age' | 'undeliverable' | 'storage'
     | 'accepted' | 'declined' | 'missing' | 'answered' | 'confirm-current'
     | 'trialing' | 'past-due' | 'paused' | 'canceling' | 'changing' | 'confirm-cancel'
-    | 'yearly' | 'currencies' | 'promotion' | 'scheduled'
+    | 'yearly' | 'currencies' | 'promotion' | 'scheduled' | 'soon'
     | 'uploading' | 'claiming' | 'done' | 'sent'
     | 'workspace' | 'teammates' | 'plan' | 'offered'
 
@@ -121,10 +121,10 @@ export const COMPONENT_CONTRACT = {
     file: 'billing/PricingTable',
     family: 'pricing',
     labels: 'pricing',
-    slots: ['header', 'interval', 'currency', 'loading', 'empty', 'plan', 'plan-action', 'contact', 'packs', 'pack', 'portal', 'error', 'footer'],
+    slots: ['header', 'interval', 'currency', 'loading', 'empty', 'soon', 'plan', 'plan-action', 'contact', 'packs', 'pack', 'portal', 'error', 'footer'],
     emits: ['update:interval', 'checkout', 'plan-changed', 'canceled', 'uncanceled', 'topped-up', 'error'],
-    states: ['loading', 'empty', 'ready', 'yearly', 'currencies', 'promotion', 'pending', 'confirm-cancel', 'error', 'refused'],
-    a11y: 'The monthly / yearly switch is a fieldset of radios sharing one name under a legend, so the arrow keys move between them and the choice is announced; the currency switch is a select inside its label, each currency named in the reader\'s language; a promotion is a line of text on each price it applies to, its name, its terms, the regular price after it and its end as a date, never a countdown or a struck-through price; each plan, pack and the contact card is a group named by its name, which also describes its buttons, so a row of the same words reads apart in any language; the current plan\'s "Cancel plan" says whether it is expanded and opens one group named by its first line, with what ends when and one button that cancels, nothing else; Escape or the same button closes it and keeps focus there, and once the cancellation went through focus stays on the plan\'s button; a busy button keeps focus (`aria-disabled`), says what it waits for, and a status announces it; loading and empty are polite statuses, a failure an alert; the table is `aria-busy` while the plans load or an action runs; a member who manages no billing reads one note instead of buttons.',
+    states: ['loading', 'empty', 'soon', 'ready', 'yearly', 'currencies', 'promotion', 'pending', 'confirm-cancel', 'error', 'refused'],
+    a11y: 'The monthly / yearly switch is a fieldset of radios sharing one name under a legend, so the arrow keys move between them and the choice is announced; the currency switch is a select inside its label, each currency named in the reader\'s language; a promotion is a line of text on each price it applies to, its name, its terms, the regular price after it and its end as a date, never a countdown or a struck-through price; each plan, pack and the contact card is a group named by its name, which also describes its buttons, so a row of the same words reads apart in any language; the current plan\'s "Cancel plan" says whether it is expanded and opens one group named by its first line, with what ends when and one button that cancels, nothing else; Escape or the same button closes it and keeps focus there, and once the cancellation went through focus stays on the plan\'s button; a busy button keeps focus (`aria-disabled`), says what it waits for, and a status announces it; loading, empty and "Plans open soon" (billing not launched on the deployment) are polite statuses, a failure an alert; the table is `aria-busy` while the plans load or an action runs; a member who manages no billing reads one note instead of buttons.',
   },
   BillingCheckoutLink: {
     file: 'billing/BillingCheckoutLink',

@@ -79,8 +79,15 @@ const unit = useMeterUnit()
     >
       {{ plan.blurb }}
     </p>
-    <!-- What a plan unlocks: its credits per cycle, then its features. -->
+    <!-- What a plan unlocks: the free plan's welcome credits, its credits per cycle, then its features. -->
     <ul data-pricing="plan-features">
+      <li
+        v-if="plan.offer.welcome"
+        data-pricing="plan-feature"
+        data-feature="welcome"
+      >
+        {{ t('welcome', { count: plan.offer.welcome.units, unit: unit.word(plan.offer.welcome.unit, plan.offer.welcome.units) }) }}
+      </li>
       <li
         v-if="plan.credits"
         data-pricing="plan-feature"

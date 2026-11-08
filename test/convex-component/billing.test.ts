@@ -5,6 +5,7 @@ import { convexTest } from 'convex-test'
 import component from '../../src/convex/test'
 import schema from '../../src/convex/components/backend/schema'
 import { api } from '../../src/convex/components/backend/_generated/api'
+import { PENDING_CREDIT_TTL_MS } from '../../src/convex/constants'
 
 // Run the backend component as the root app: its schema (which owns the
 // `billingEntitlements` table) plus its own module glob. `convex-test` strips
@@ -286,6 +287,51 @@ describe('amounts the cache refuses', () => {
     await expect(t.mutation(api.billing.credit, { userId: 'u1', meterId: 'm1', amount }))
       .rejects.toThrow(/billing\.credit: `amount` must be a finite number above zero/)
     expect(await meter()).toMatchObject({ balance: 10, consumedUnits: 0 })
+  })
+})
+
+describe('credits ahead of the provider (component)', () => {
+  const synced = (meters: Array<{ meterId: string, consumedUnits: number, creditedUnits: number, balance: number }>) =>
+    t.mutation(api.billing.upsert, { userId: 'u1', activeProductIds: [], benefits: [], meters })
+  const meters = async () => (await t.query(api.billing.getByUser, { userId: 'u1' }))?.meters
+
+  afterEach(() => vi.useRealTimers())
+
+  test('a credit under a key lands once, and adds a meter the cache does not list yet', async () => {
+    await synced([])
+    await t.mutation(api.billing.credit, { userId: 'u1', meterId: 'm1', amount: 8, externalId: 'welcome:u1' })
+    await t.mutation(api.billing.credit, { userId: 'u1', meterId: 'm1', amount: 8, externalId: 'welcome:u1' })
+    expect(await meters()).toEqual([{ meterId: 'm1', consumedUnits: 0, creditedUnits: 0, balance: 8 }])
+  })
+
+  test('a provider read that does not count it yet takes nothing back, until its window has passed', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    await synced([{ meterId: 'm1', consumedUnits: 0, creditedUnits: 500, balance: 500 }])
+    await t.mutation(api.billing.credit, { userId: 'u1', meterId: 'm1', amount: 8, externalId: 'welcome:u1' })
+    // The provider has not applied the event: the read still says 500.
+    await synced([{ meterId: 'm1', consumedUnits: 0, creditedUnits: 500, balance: 500 }])
+    expect((await meters())![0]).toMatchObject({ balance: 508, consumedUnits: 0 })
+    // A read that counts it, and more, wins.
+    await synced([{ meterId: 'm1', consumedUnits: -8, creditedUnits: 530, balance: 538 }])
+    expect((await meters())![0]).toMatchObject({ balance: 538 })
+    // Once the window has passed, the provider's word is the balance again.
+    vi.setSystemTime(Date.now() + PENDING_CREDIT_TTL_MS + 1)
+    await synced([{ meterId: 'm1', consumedUnits: 0, creditedUnits: 500, balance: 500 }])
+    expect((await meters())![0]).toMatchObject({ balance: 500 })
+  })
+
+  test('a meter the provider does not list yet stays while its credit is pending', async () => {
+    await synced([])
+    await t.mutation(api.billing.credit, { userId: 'u1', meterId: 'm1', amount: 8, externalId: 'welcome:u1' })
+    await synced([])
+    expect(await meters()).toEqual([{ meterId: 'm1', consumedUnits: 0, creditedUnits: 0, balance: 8 }])
+  })
+
+  test('a person\'s welcome grant is claimed once: again by the same entity, never by another', async () => {
+    expect(await t.mutation(api.billing.claimWelcome, { address: 'hash-ada', entityId: 'ws_1' })).toBe(true)
+    expect(await t.mutation(api.billing.claimWelcome, { address: 'hash-ada', entityId: 'ws_1' })).toBe(true)
+    expect(await t.mutation(api.billing.claimWelcome, { address: 'hash-ada', entityId: 'ws_2' })).toBe(false)
+    expect(await t.mutation(api.billing.claimWelcome, { address: 'hash-grace', entityId: 'ws_2' })).toBe(true)
   })
 })
 
