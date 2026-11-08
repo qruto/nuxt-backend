@@ -1,55 +1,97 @@
 <script setup lang="ts">
-/**
- * The processors of the capabilities the app uses: who, what each handles,
- * where, and its agreement, from src/convex/legal.ts, in the words of the
- * `legal.processors` labels. The privacy and subprocessors pages show it.
- *
- * Internal: a section of `LegalDocument`, built on `useLegalDocument`.
- *
- * @internal
- */
-import type { LegalDocument } from './legal'
+import { useId } from 'vue'
+import type { LabelGroupOverrides } from '../../composables/use-labels'
+import { useLegalTable } from './legal'
 
-defineProps<{
-  /** The page's state, from `useLegalDocument`. */
-  legal: LegalDocument
+/**
+ * The processors an app on the package hands personal data to, as a
+ * table: who, what each handles, where, and its agreement. The ones of the
+ * capabilities the app uses come from src/convex/legal.ts, each where
+ * `appConfig.backend.legal.locations` says, then the app's own
+ * (`appConfig.backend.legal.processors`). The privacy and subprocessors
+ * pages show it; a Content page of your own does too, globally registered
+ * for Markdown, so your policy lists what the app runs.
+ *
+ * @example
+ * ```md
+ * ## Who helps us
+ *
+ * ::legal-processors
+ * ::
+ * ```
+ */
+defineOptions({ name: 'LegalProcessors' })
+
+const props = defineProps<{
+  /** Copy for this table, over `appConfig.backend.labels.legal` and the translations. */
+  labels?: LabelGroupOverrides<'legal'>
 }>()
+
+const legal = useLegalTable(() => props.labels)
+// Each agreement link is described by its row's processor, so a list of links reads apart.
+const id = useId()
 </script>
 
 <template>
-  <div data-legal="table-scroll">
+  <div
+    data-backend
+    data-legal="table-scroll"
+  >
     <table data-legal="processors">
-      <thead>
-        <tr>
-          <th scope="col">
+      <thead data-legal="head">
+        <tr data-legal="columns">
+          <th
+            scope="col"
+            data-legal="column"
+          >
             {{ legal.t('subprocessors.name') }}
           </th>
-          <th scope="col">
+          <th
+            scope="col"
+            data-legal="column"
+          >
             {{ legal.t('subprocessors.processes') }}
           </th>
-          <th scope="col">
+          <th
+            scope="col"
+            data-legal="column"
+          >
             {{ legal.t('subprocessors.location') }}
           </th>
-          <th scope="col">
+          <th
+            scope="col"
+            data-legal="column"
+          >
             {{ legal.t('subprocessors.agreement') }}
           </th>
         </tr>
       </thead>
-      <tbody>
+      <tbody data-legal="rows">
         <tr
-          v-for="processor in legal.processors.value"
+          v-for="(processor, index) in legal.processors.value"
           :key="processor.key"
+          data-legal="processor"
           :data-processor="processor.key"
         >
-          <th scope="row">
+          <th
+            :id="`${id}-${index}`"
+            scope="row"
+            data-legal="name"
+          >
             {{ processor.name }}
           </th>
-          <td>{{ legal.t(`processors.${processor.key}.processes`) }}</td>
-          <td>{{ processor.location ?? legal.t(`processors.${processor.key}.location`) }}</td>
-          <td>
+          <td data-legal="processes">
+            {{ processor.processes }}
+          </td>
+          <td data-legal="location">
+            {{ processor.location }}
+          </td>
+          <td data-legal="agreement">
             <a
               v-if="processor.agreement"
+              data-legal="agreement-link"
               :href="processor.agreement"
+              :aria-describedby="`${id}-${index}`"
               rel="noopener"
               target="_blank"
             >{{ legal.t('subprocessors.agreementLink') }}</a>

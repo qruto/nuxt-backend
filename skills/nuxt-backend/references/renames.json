@@ -42,6 +42,14 @@
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-joins-on-a-balance-never-read"
     },
     {
+      "from": "useMutation(api.admin.reportContent)",
+      "to": "useReportForm(subject, { mode: 'quick' })",
+      "change": "reshaped",
+      "section": "Report forms send notices, and the legal pages fill your own",
+      "note": "or `useReportForm(subject)` for a notice (DSA Art. 16) through `sendNotice`, with the fields it requires",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#report-forms-send-notices-and-the-legal-pages-fill-your-own"
+    },
+    {
       "from": "@sentry/nuxt",
       "to": "@sentry/nuxt@^11.10.0",
       "change": "reshaped",

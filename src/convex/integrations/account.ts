@@ -181,6 +181,8 @@ export interface ConsentView {
 export interface ConsentTerms {
   /** The required kinds, in the order the app declares them. */
   terms: Array<{ kind: string, version: string, url?: string, title?: string }>
+  /** Every declared kind, required or not, in the order the app declares them, with its current version: what a legal page prints as its version. */
+  documents: Array<{ kind: string, version: string, url?: string, required: boolean }>
   /** The minimum age the app sets, `null` for none. */
   minimumAge: number | null
 }
@@ -899,10 +901,12 @@ export function setupAccount(components: AccountComponents, options: SetupAccoun
     args: {},
     returns: v.object({
       terms: v.array(v.object({ kind: v.string(), version: v.string(), url: v.optional(v.string()), title: v.optional(v.string()) })),
+      documents: v.array(v.object({ kind: v.string(), version: v.string(), url: v.optional(v.string()), required: v.boolean() })),
       minimumAge: v.union(v.number(), v.null()),
     }),
     handler: async (): Promise<ConsentTerms> => ({
       terms: requiredKinds(declared).map(kind => ({ kind, version: declared[kind]!.version, ...(declared[kind]!.url ? { url: declared[kind]!.url } : {}), ...(declared[kind]!.title ? { title: declared[kind]!.title } : {}) })),
+      documents: Object.entries(declared).map(([kind, declaration]) => ({ kind, version: declaration.version, ...(declaration.url ? { url: declaration.url } : {}), required: declaration.required === true })),
       minimumAge: minimumAge ?? null,
     }),
   })

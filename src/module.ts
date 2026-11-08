@@ -17,6 +17,7 @@ import { assertModuleOptions } from './nuxt/options'
 import { registerModulePages } from './nuxt/pages'
 import { registerBrandFile } from './nuxt/brand'
 import { registerInstallable } from './nuxt/installable'
+import type { InstallableOptions } from './installable'
 import { registerPathsFile } from './nuxt/paths'
 import { hideBaseBrandNames, registerBackendApi, registerBaseComponentAliases, registerPageAccess, registerSaasComposables } from './nuxt/registry'
 import { imageDependency } from './nuxt/image'
@@ -39,6 +40,7 @@ export type { ConvexAuthOptions as BackendAuthOptions, ConvexAuthService as Back
 // what its 403 carries in `error.data`, for a typed `error.vue`.
 export type { AccessDeniedData, AccessDeniedReason, PageAccessRules } from './runtime/vue/utils/access-rules'
 export type { AdminTabMeta } from './runtime/vue/components/admin/admin-tabs'
+export type { InstallableOptions } from './installable'
 
 /** Where the ready-made pages send a person once they are done. */
 export interface ModuleRedirectsOptions {
@@ -84,6 +86,13 @@ export interface ModuleOptions {
    * accessibility attributes, unstyled.
    */
   css?: boolean
+  /**
+   * The web app manifest the module serves once `public/` holds two icons
+   * and app config names the brand: its theme and background colours, a
+   * description, the icons' paths and maskable icons. `false` serves none.
+   * See {@link InstallableOptions}.
+   */
+  installable?: InstallableOptions | false
 }
 
 /** The install and upgrade steps a published build declares (see `runsFromSource`). */
@@ -294,7 +303,7 @@ export default defineNuxtModule<ModuleOptions>({
     // The brand the backend's emails read, carried from app.config beside it.
     registerBrandFile(nuxt)
     // The web push worker, and the web app manifest from the brand and two icons.
-    registerInstallable(resolver, nuxt)
+    registerInstallable(resolver, nuxt, options.installable)
 
     // After the pages: it adds to the public runtime config they publish.
     registerProtection(resolver, nuxt)

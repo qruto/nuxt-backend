@@ -61,6 +61,16 @@ describe('the consent ledger', () => {
   /** An account's decisions, oldest first. */
   const ledger = (userId: string) => t.query(components.backend.consents.history, { userId }) as Promise<Array<Record<string, unknown>>>
 
+  test('names every declared document and its version to anyone, so a legal page prints the one the ledger records', async () => {
+    const terms = await t.query(query('getConsentTerms'), {})
+    expect(terms.terms.map((term: { kind: string }) => term.kind)).toEqual(['terms', 'privacy'])
+    expect(terms.documents).toEqual([
+      { kind: 'terms', version: '2026-10-01', url: '/terms', required: true },
+      { kind: 'privacy', version: '2026-10-01', url: '/privacy', required: true },
+      { kind: 'gallery', version: '2026-10-01', url: '/gallery-rules', required: false },
+    ])
+  })
+
   test('records each required kind at its version, and the age check at the minimum, when the account is created', async () => {
     const ada = await asUser(t)
     await t.mutation(mutation('signUp'), { userId: ada.userId, email: ada.email })

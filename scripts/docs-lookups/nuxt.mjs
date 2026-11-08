@@ -4,7 +4,7 @@
  * composables the module registers (src/nuxt/registry.ts) and the ones the
  * base module passes through, and the README's inventory of both.
  */
-import { baseModuleSurface, entrypoints, typeMembers } from '../lib/surface.mjs'
+import { baseModuleSurface, bindingsOf, entrypoints, typeMembers } from '../lib/surface.mjs'
 import { COMPONENT_AREAS, COMPOSABLE_AREAS, tagOf } from './areas.mjs'
 import { code, codes, link, list, table } from './markdown.mjs'
 import { apiPageOf, basename, experimentalNames, pathSlug, registered, registeredComponents, registeredComposables, summaryOf, areaTitle, tierOf } from './registry.mjs'
@@ -168,6 +168,22 @@ export function conventionsTable() {
     return shape?.some(field => CONVENTION_FIELDS.includes(field)) ? [[code(name), ...CONVENTION_FIELDS.map(field => shape.includes(field) ? 'yes' : '')]] : []
   })
   return table(['Composable', ...CONVENTION_FIELDS.map(code)], rows)
+}
+
+/**
+ * One row per composable that returns `bind`: its bindings, by how a
+ * template spreads them. A computed ref is spread with its `.value` (a
+ * template unwraps only a top-level ref), a plain object as it is, and a
+ * function of an item with the item.
+ */
+export function bindingsTable() {
+  const rows = registeredComposables().flatMap(({ name, file }) => {
+    const kinds = bindingsOf(file, `${name[0].toUpperCase()}${name.slice(1)}Return`)
+    if (!kinds) return []
+    const names = (members, shape) => members.length ? codes(members.map(member => shape(member))) : ''
+    return [[code(name), names(kinds.ref, member => `bind.${member}.value`), names(kinds.object, member => `bind.${member}`), names(kinds.function, member => `bind.${member}(…)`)]]
+  })
+  return table(['Composable', 'Computed refs: spread `.value`', 'Plain objects: spread as they are', 'Functions of an item: spread what they return'], rows)
 }
 
 // --- README inventory --------------------------------------------------------

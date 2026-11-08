@@ -82,7 +82,7 @@ type App = ReturnType<typeof testApp>
 
 type Subject = { table: string, id: string }
 const ref = {
-  reportContent: makeFunctionReference<'mutation', { subject: Subject, reason: string, details?: string }, null>('admin:reportContent'),
+  reportContent: makeFunctionReference<'mutation', { subject: Subject, reason: string, details?: string, website?: string }, null>('admin:reportContent'),
   sendNotice: makeFunctionReference<'action', Record<string, unknown>, null>('admin:sendNotice'),
   getReports: makeFunctionReference<'query', Record<string, never>, ReportsConsole | null>('admin:getReports'),
   decideReport: makeFunctionReference<'mutation', { subject?: Subject, notice?: string, action: 'hide' | 'dismiss', reason: string, ground?: 'illegal' | 'terms' }, null>('admin:decideReport'),
@@ -143,6 +143,16 @@ describe('reportContent', () => {
     expect(await refusal(t.mutation(ref.reportContent, { subject: { table: 'strips', id }, reason: 'abuse' }))).toMatchObject({ code: 'unauthenticated' })
   })
 
+  test('files nothing for a form that filled the honeypot, and spends none of the limit', async () => {
+    const t = testApp()
+    const author = await asUser(t)
+    const ada = await asUser(t)
+    const root = await asUser(t, { role: 'admin' })
+    const id = await author.mutation(ref.createStrip, { idea: 'A fox who wants to fly' })
+    expect(await ada.mutation(ref.reportContent, { subject: { table: 'strips', id }, reason: 'spam', website: 'https://spam.example' })).toBeNull()
+    expect((await root.query(ref.getReports, {}))?.subjects).toEqual([])
+  })
+
   test('caps each person at 10 reports an hour', async () => {
     const t = testApp()
     const ada = await asUser(t)
@@ -163,6 +173,14 @@ describe('the notice form', () => {
     expect(sent).toEqual([{ name: 'noticeReceived', data: { email: 'grace@example.com', url: 'https://app.example.com/strips/unknown', intimate: false } }])
     const reports = (await root.query(ref.getReports, {}))!
     expect(reports.subjects[0]).toMatchObject({ open: 1, reasons: { illegal: 1 }, deadline: null, notices: [expect.objectContaining({ reason: 'illegal', notifier: { name: 'Grace Hopper', email: 'grace@example.com' } })] })
+  })
+
+  test('files, mails and counts nothing for a notice that filled the honeypot', async () => {
+    const t = testApp()
+    const root = await asUser(t, { role: 'admin' })
+    expect(await t.action(ref.sendNotice, notice({ website: 'https://spam.example' }))).toBeNull()
+    expect(sent).toEqual([])
+    expect((await root.query(ref.getReports, {}))?.subjects).toEqual([])
   })
 
   test('refuses a notice without the fields the law asks for', async () => {

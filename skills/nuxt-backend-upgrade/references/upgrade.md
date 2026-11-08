@@ -42,6 +42,12 @@ agent files and skills.
 |---|---|---|---|
 | `jobs.enqueue` | `jobs.enqueue` | reshaped | a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready` |
 
+## [Report forms send notices, and the legal pages fill your own](https://nuxt-backend.dev/docs/ship/releases/upgrade#report-forms-send-notices-and-the-legal-pages-fill-your-own)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `useMutation(api.admin.reportContent)` | `useReportForm(subject, { mode: 'quick' })` | reshaped | or `useReportForm(subject)` for a notice (DSA Art. 16) through `sendNotice`, with the fields it requires |
+
 ## [Browser error reports go through a tunnel on the app's own origin](https://nuxt-backend.dev/docs/ship/releases/upgrade#browser-error-reports-go-through-a-tunnel-on-the-apps-own-origin)
 
 | Was | Now | Change | Note |
