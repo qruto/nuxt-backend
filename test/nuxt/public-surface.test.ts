@@ -391,7 +391,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './account': ['ACCOUNT_DATA_SOURCES', 'setupAccount'],
   './admin': ['IMPERSONATION_SESSION_SECONDS', 'setupAdmin', 'setupWebhooks'],
   './flags': ['BACKEND_FLAGS', 'FLAG_TARGETS_MAX', 'MAINTENANCE_MESSAGE_MAX', 'ROLLOUT_BUCKETS', 'defineFlags', 'flagBucket', 'setupFlags'],
-  './ai': ['defineJobQueue', 'priceTokens', 'setupAi'],
+  './ai': ['defineJobQueue', 'priceTokens', 'setupAi', 'vJobEnd'],
   './storage': ['DEFAULT_ACCEPTED_TYPES', 'DEFAULT_MAX_FILE_SIZE', 'SIGNED_URL_TTL_MAX_MS', 'SIGNED_URL_TTL_MS', 'setupStorage', 'sniffContentType', 'stripImageMetadata'],
   './notifications': ['setupNotifications'],
   './monitoring': ['MONITORING_TAGS', 'checkIn', 'checkingIn', 'isReportable', 'reportError', 'reportingErrors'],
@@ -516,6 +516,7 @@ const REGISTRY = {
     'useFlagAdmin',
     'useAccessPhase',
     'useInvite',
+    'useMemberTicket',
     'useAccessAdmin',
     'useWaitlist',
     'useWaitlistAdmin',
@@ -738,7 +739,7 @@ function isPublished(subpath: string): boolean {
 describe('the surface as documented', () => {
   it('names only published subpaths in README.md and the docs', () => {
     const docs = walk(join(root, 'website/content'), '.md')
-    // The Upgrade page and the changelog name removed subpaths on purpose, and
+    // The Upgrade page and the changelog may name removed subpaths on purpose, and
     // a planned or changing page one its unit has not published yet.
     const record = ['/docs/05.ship/6.releases/4.upgrade.md', '/docs/05.ship/6.releases/1.changelog.md']
     const files = [join(root, 'README.md'), ...docs.filter(file => !file.startsWith(GENERATED_REFERENCE) && !record.some(page => file.split(sep).join('/').endsWith(page)) && !aheadOfCode(file))]

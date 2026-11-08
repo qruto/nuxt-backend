@@ -62,6 +62,7 @@ export function registerSaasComposables(resolver: Resolver): void {
     { name: 'useFlagAdmin', from: resolver.resolve('./runtime/vue/composables/use-flags') },
     { name: 'useAccessPhase', from: resolver.resolve('./runtime/vue/composables/use-access') },
     { name: 'useInvite', from: resolver.resolve('./runtime/vue/composables/use-access') },
+    { name: 'useMemberTicket', from: resolver.resolve('./runtime/vue/composables/use-access') },
     { name: 'useAccessAdmin', from: resolver.resolve('./runtime/vue/composables/use-access') },
     { name: 'useWaitlist', from: resolver.resolve('./runtime/vue/composables/use-waitlist') },
     { name: 'useWaitlistAdmin', from: resolver.resolve('./runtime/vue/composables/use-waitlist-admin') },

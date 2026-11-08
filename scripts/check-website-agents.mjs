@@ -410,7 +410,7 @@ export const DOCS_MCP_CALLS = [
   { name: 'get-env-var', arguments: { name: 'AUTH_SECRET' }, holds: answer => answer.required === 'Required' && answer.checkedBy?.includes('auth-secret'), says: 'returns the env table\'s row' },
   { name: 'get-composable', arguments: { name: 'useCredits()' }, holds: answer => answer.name === 'useCredits' && answer.api?.endsWith('/docs/reference/api/use-credits'), says: 'returns the composable with its API page' },
   { name: 'get-component', arguments: { name: '<PricingTable>' }, holds: answer => answer.name === 'PricingTable' && answer.entry?.includes('## `<PricingTable>`'), says: 'returns the family page\'s section' },
-  { name: 'get-upgrade-guide', arguments: { name: 'doctor --only deployment' }, holds: answer => answer.renames?.[0]?.to === 'doctor --only data', says: 'returns the rename' },
+  { name: 'get-upgrade-guide', arguments: {}, holds: answer => answer.guide?.endsWith('/docs/ship/releases/upgrade') && Array.isArray(answer.sections) && answer.total === answer.sections.reduce((sum, section) => sum + section.names, 0), says: 'lists the Upgrade page\'s sections' },
 ]
 
 /** A JSON-RPC call to the docs MCP: its HTTP response, and the body as JSON when it is. */

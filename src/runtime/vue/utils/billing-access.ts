@@ -23,7 +23,7 @@ export function useCanManage(getBillingAccess: BillingAccessQuery | undefined): 
 
 /**
  * The server's billing access read: {@link useCanManage}, and whether the
- * cancel flow has a save offer for some reason (`saveOffers`, LIFECYCLE),
+ * cancel flow has a save offer for some reason (`saveOffers`),
  * which is `false` until known: the billing section then keeps its
  * one-step cancellation; and whether a paid checkout joins topics with
  * `softOptIn` (`softOptIn`), `false` until known: no checkout shows its box.

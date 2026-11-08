@@ -4,10 +4,10 @@ import { pagesOptionProblems, privatePagePaths, resolvedBackendPages, resolvePag
 
 // What a 0.1 config left behind meets in 0.2: `doctor` and the page helpers
 // read it without crashing, and the module refuses it, naming each leftover
-// and linking the Upgrade page.
+// and linking the Module options section that says what replaced it.
 
-const UPGRADE = 'https://nuxt-backend.dev/docs/ship/releases/upgrade#page-paths-the-stylesheet-and-the-webhook-log'
-const ENVIRONMENT = 'https://nuxt-backend.dev/docs/ship/releases/upgrade#one-variable-says-what-kind-of-deployment-this-is'
+const PAGE_KEYS = 'https://nuxt-backend.dev/docs/reference/configuration/module-options#page-keys'
+const REMOVED = 'https://nuxt-backend.dev/docs/reference/configuration/module-options#removed-options'
 
 /** The error `assertModuleOptions` throws for these options. */
 function refusal(options: unknown): Error {
@@ -73,13 +73,13 @@ describe('assertModuleOptions', () => {
     expect(() => assertModuleOptions({ css: true })).not.toThrow()
   })
 
-  it('refuses the whole `pages` option turned off, in a named error that links the Upgrade page', () => {
+  it('refuses the whole `pages` option turned off, in a named error that links the page keys', () => {
     const error = refusal({ pages: false })
     expect(error.name).toBe('BackendOptionsError')
     expect(error.message).toBe([
       'nuxt-backend: these `backend` options changed in 0.2:',
       '  - `backend.pages` is `false`. It takes a path or `false` per page key: to replace a page, put an app page at its path.',
-      `What to change: ${UPGRADE}`,
+      `What to change: ${PAGE_KEYS}`,
     ].join('\n'))
   })
 
@@ -91,7 +91,7 @@ describe('assertModuleOptions', () => {
       expect.stringContaining('`backend.pages.profile` is `true`.'),
       '  - `loginPath` is gone. The page guard follows `backend.pages.login`: set the path there.',
     ])
-    expect(message).toContain(UPGRADE)
+    expect(message.endsWith(`What to change: ${PAGE_KEYS} and ${REMOVED}`)).toBe(true)
   })
 
   it('refuses the three options the environment replaces, each naming what does', () => {
@@ -101,9 +101,9 @@ describe('assertModuleOptions', () => {
       expect.stringMatching(/^ {2}- `autoEnv` is gone\. `npx nuxt-backend dev` provisions.*`npx nuxt-backend env push`/),
       expect.stringMatching(/^ {2}- `scaffold` is gone\. `npx nuxt-backend init` scaffolds.*`npx nuxt-backend dev`/),
     ])
-    // Only the Upgrade section that says more about these three.
-    expect(message.endsWith(`What to change: ${ENVIRONMENT}`)).toBe(true)
-    expect(message).not.toContain(UPGRADE)
+    // Only the section that says more about these three.
+    expect(message.endsWith(`What to change: ${REMOVED}`)).toBe(true)
+    expect(message).not.toContain(PAGE_KEYS)
   })
 
   it('refuses a removed option whatever its value, but not one left undefined', () => {
@@ -111,14 +111,14 @@ describe('assertModuleOptions', () => {
     expect(() => assertModuleOptions({ siteUrl: undefined })).not.toThrow()
   })
 
-  it('links both Upgrade sections when a page value goes with a removed option', () => {
+  it('links both sections when a page value goes with a removed option', () => {
     const { message } = refusal({ pages: { profile: true }, autoEnv: false })
-    expect(message.endsWith(`What to change: ${UPGRADE} and ${ENVIRONMENT}`)).toBe(true)
+    expect(message.endsWith(`What to change: ${PAGE_KEYS} and ${REMOVED}`)).toBe(true)
   })
 
-  it('refuses `mcp`, the endpoint for users\' agents, which waits for the next release', () => {
+  it('refuses `mcp`, the endpoint for users\' agents, which waits for a later release', () => {
     const { message } = refusal({ mcp: { route: '/agent' } })
-    expect(message).toContain('`mcp` is gone. The MCP endpoint for your users\' agents waits for the next release')
+    expect(message).toContain('`mcp` is gone. The MCP endpoint for your users\' agents waits for a later release')
     expect(message).toContain('https://nuxt-backend.dev/docs/start/roadmap')
   })
 })

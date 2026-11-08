@@ -23,7 +23,8 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `useReauthentication()` | Asking the person to confirm it is them before a sensitive action: the client half of `requireRecentSignIn` and of the routes that take a recent sign-in. |
 | `useAccessPhase()` | The app's launch phase, so a page offers what a visitor can do now: join the waitlist in early access, bring an invite code while invite only, sign up once public. |
 | `useInvite()` | Redeem an invite code or an access link on a page of your own: check it before anyone signs in, and keep it for the tab so the sign-in hands it over with the code. |
-| `useAccessAdmin()` | The admin console's Access tab, as data: the launch phase and its change, the invite codes and access links, and the invitations by address, through `backend/access.ts`. |
+| `useMemberTicket()` | A member's ticket (`access.memberTickets`), on markup of your own: the access link a member shares while the app is closed, admitting a few friends past the waitlist. |
+| `useAccessAdmin()` | The admin console's Access tab, as data: the launch phase and its change, the invite codes and access links, the member tickets, and the invitations by address, through `backend/access.ts`. |
 | `useWaitlist()` | Join the waitlist, and read a place in it, on markup of your own: the steps `<WaitlistForm>` runs. |
 | `useWaitlistAdmin()` | The admin console's Waitlist tab, as data: the waiting people (the oldest first, narrowed by a filter) with a count per status, and the changes an administrator makes, through `backend/waitlist.ts`. |
 | `useAuditLog()` | The activity trail, a page at a time: the signed-in account's own (sign-ins, passkeys, email and session changes, workspaces joined, an administrator's actions on it), the active workspace's for its owners and admins, or every event for administrators. |
@@ -83,7 +84,7 @@ Types: `BackendPaths`, `DefineBackendAuthConfigOptions`.
 | `setupWaitlist()` | Run a waitlist for early access: joins proven by the sign-in code (the double opt-in), a place for everyone waiting, a boost for each friend who joins through their link, waves an administrator admits from the console's Waitlist tab, and a mirror of the people who asked for launch news to the email provider. |
 | `ACCESS_PHASES` | Every launch phase, in order: an app lists the ones it goes through. |
 
-Types: `AccessCtx`, `AccessWriteCtx`, `AccessPhaseState`, `AccessInvite`, `AccessAdmission`, `AccessConsole`, `AdmitResult`, `AccessApi`, `Access`, `SetupAccessOptions`, `AccessEmail`, `AccessComponents`, `SetupWaitlistOptions`, `Waitlist`, `WaitlistApi`, `WaitlistCaps`, `WaitlistConsole`, `WaitlistEntryRow`, `WaitlistPlace`, `WaitlistStatusView`, `WaitlistQuestions`, `WaitlistStatus`, `AccessPhase`, `AccessTicket`, `InviteKind`, `InviteStatus`.
+Types: `AccessCtx`, `AccessWriteCtx`, `AccessPhaseState`, `AccessInvite`, `AccessMemberTicket`, `AccessAdmission`, `AccessConsole`, `AdmitResult`, `AccessApi`, `MemberTicket`, `MemberTicketsOptions`, `MemberTicketsApi`, `MemberTickets`, `Access`, `SetupAccessOptions`, `AccessEmail`, `AccessComponents`, `SetupWaitlistOptions`, `Waitlist`, `WaitlistApi`, `WaitlistCaps`, `WaitlistConsole`, `WaitlistEntryRow`, `WaitlistPlace`, `WaitlistStatusView`, `WaitlistQuestions`, `WaitlistStatus`, `AccessPhase`, `AccessTicket`, `InviteKind`, `InviteStatus`.
 
 ### `nuxt-backend/audit`
 

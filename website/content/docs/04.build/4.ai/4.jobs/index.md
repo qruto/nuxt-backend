@@ -82,6 +82,10 @@ The queue schedules `runQueue` (the pick, the stall sweep, progress and each job
   :::field{name="workflow" type="WorkflowComponent"}
   The Workflow component the jobs run on. Default `components.workflow`, which the scaffold mounts. Mount a second copy and pass it to keep jobs from sharing a pool with email sequences.
   :::
+
+  :::field{name="onJobEnd" type="OnJobEnd"}
+  Your internal mutation or action that hears of every job's end, by its reference. See [Hear when a job ends](#hear-when-a-job-ends).
+  :::
 ::
 
 ## Define a job
@@ -121,11 +125,12 @@ export const drawPanel = jobs.step({
 })
 ```
 
-- **`jobs.define({ meter, cost, args, handler })`** holds `cost` credits from `meter` while the job waits. `cost` is a number, or `(args) => number`. `meter: false` makes a job free. The `handler` runs as a durable workflow: the result of each `job.run` and `job.progress` is saved, so a restart or a deploy picks the job up after its last finished step. What the handler returns becomes the job's result. Keep it small, such as ids, and save the work itself in your own tables, as `savePanel`, an internal mutation of yours, does here.
+- **`jobs.define({ meter, cost, args, handler })`** holds `cost` credits from `meter` while the job waits. `cost` is a number, or `(args) => number`. `meter: false` makes a job free. `charge: 'output'` charges what the job made instead, with `job.charge(n)` ([Charge for what a job made](/docs/build/ai/jobs/credits#charge-for-what-a-job-made)). The `handler` runs as a durable workflow: the result of each `job.run` and `job.progress` is saved, so a restart or a deploy picks the job up after its last finished step. What the handler returns becomes the job's result. Keep it small, such as ids, and save the work itself in your own tables, as `savePanel`, an internal mutation of yours, does here.
 - **`jobs.step({ model, args, handler })`** is an internal action whose `ctx.model()` returns the model it names, through the same route as every model call. Before your handler runs, the step takes a turn from that model's limit. Its calls are paid for by the job's price, so they settle nothing on their own. `ctx.job.id` names the job it runs for.
 - **`ctx.storeImage(file, { inputs })`** stores a generated image with its content credentials as a file of the job's owner, which the storage quota counts and an erasure deletes, and records what made it. Read its URL with `storage.fileUrl` ([Label AI-generated content](/docs/build/ai/provenance#label-a-result)).
 - **`job.run(step, args)`** runs a step and returns what it returned. When the step finds no free turn, or its model answers `429`, a timeout or a passing provider error, `job.run` waits and runs it again. See [Keep models under their limits](/docs/build/ai/jobs/model-limits).
 - **`job.progress({ done, total, label? })`** reports how far the job got. `useJob` shows it, and it also tells the queue the job is alive.
+- **`job.charge(n)`** charges `n` credits, at most the hold, in a kind defined with `charge: 'output'`.
 
 The handler itself only orders the steps, so it must make the same calls in the same order on every replay: read data and call models inside steps, never in the handler. Changing a job's steps fails the jobs of that kind still running when you deploy. To change them safely, define the new version under a new export, such as `renderV2`, and let the old one drain.
 
@@ -173,6 +178,43 @@ export const seed = admin.mutation({
 ```
 
 Such a job is a `meter: false` kind; `enqueue` refuses one that charges credits with a `TypeError`. It needs nobody signed in, so your mutation decides who may start it, as `admin.mutation` does here. It checks the `pause_ai` switch, the model route and the `aiGlobal` limit, the window shared by everything the app pays for, and counts in no tier's budget. Its cost reaches the Costs tab, never a customer's usage.
+
+## Hear when a job ends
+
+A job's handler never runs again once the queue ends the job on its own: a stall, or a cancel. Your rows about the job, such as a strip still marked `drawing`, would wait forever. `onJobEnd` tells you of every end, however it came:
+
+```ts [backend/strips.ts]
+import { vJobEnd } from 'nuxt-backend/ai'
+import type { Id } from './_generated/dataModel'
+import { internalMutation } from './_generated/server'
+
+export const ended = internalMutation({
+  args: vJobEnd,
+  handler: async (ctx, { status, error, args, retries }) => {
+    const { stripId } = args as { stripId: Id<'strips'> }
+    const strip = await ctx.db.get('strips', stripId)
+    // An administrator's retry is a later run: its end wins over the one before.
+    if (!strip || (strip.run ?? -1) > retries) return
+    await ctx.db.patch('strips', stripId, status === 'done' ? { status: 'ready', run: retries } : { status, failure: error?.code, run: retries })
+  },
+})
+```
+
+```ts [backend/jobs.ts]
+export const jobs = defineJobQueue(components, {
+  ai,
+  onJobEnd: internal.strips.ended,
+})
+```
+
+It gets the job's `jobId`, its `kind`, how it ended in `status` (`done`, `failed` or `canceled`; a stall is `failed` with reason `stalled`), the `error` a failed job carries, the `args` it was put in line with, which run ended in `retries` (`0` for the first, one more per administrator's retry), `endedAt`, the credits the run was `charged` (`0` for one charged nothing), and whether it ran `free`.
+
+- **Once per run.** A mutation runs exactly once; an action at most once. A failing hook is logged and changes nothing about the job.
+- **A retry ends again.** An administrator's retry runs a failed job again, and that run ends and is heard too. Let a later run win, as `ended` does by keeping the run it last recorded, so a retried strip that ends `done` is `ready`, not left `failed`.
+- **Credits are the queue's.** It lets the hold go and schedules the refund as the job ends, or, while a charge is still on its way, once that charge lands. Never settle credits in the hook.
+- **An erased account's jobs end unheard.** Erasing an account deletes its waiting and running jobs with the rest of its data.
+
+From your own functions, `jobs.get(ctx, jobId)` reads any job, as `getJob` does, with its `owner`, `userId` and `args`, and `jobs.cancel(ctx, jobId, { refund? })` cancels it, as `cancelJob` does. Neither checks the caller: your function decides who may. `jobs.cancel` answers `'queued'` or `'running'` for the job it stopped, and `null` for one that had already ended.
 
 ## Follow it in the page
 

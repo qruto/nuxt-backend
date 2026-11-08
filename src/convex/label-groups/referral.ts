@@ -1,8 +1,8 @@
 import type { LabelTree } from '../label-format.js'
 
 /**
- * `<ReferralCard>`, `useReferrals()` and the page a referral link opens
- * (REF). The share text says what both sides get, as endorsement rules ask:
+ * `<ReferralCard>`, `useReferrals()` and the page a referral link opens.
+ * The share text says what both sides get, as endorsement rules ask:
  * the sharer's gain is said where the link is. `{name}` is a discount's or a
  * pack's name in the catalog, `{days}` a trial's length, `{reward}` the
  * sharer's reward in words, `{inviter}` the first name of the person who
