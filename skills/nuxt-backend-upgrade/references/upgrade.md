@@ -17,6 +17,12 @@ has the reasons and every step. The core skill's `references/renames.json`, in
 After it, run `npx nuxt-backend doctor`, and `npx nuxt-backend init --agents` to refresh the app's
 agent files and skills.
 
+## [Browser error reports go through a tunnel on the app's own origin](https://nuxt-backend.dev/docs/ship/releases/upgrade#browser-error-reports-go-through-a-tunnel-on-the-apps-own-origin)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `@sentry/nuxt` | `@sentry/nuxt@^11.10.0` | reshaped | the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn |
+
 ## [The packaged UI reads its faces, lines and shadows from tokens](https://nuxt-backend.dev/docs/ship/releases/upgrade#the-packaged-ui-reads-its-faces-lines-and-shadows-from-tokens)
 
 | Was | Now | Change | Note |

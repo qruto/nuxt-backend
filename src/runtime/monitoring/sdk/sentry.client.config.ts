@@ -6,12 +6,18 @@
 // (./preset.ts) scrubs what leaves, sends console warnings and errors as log
 // lines, and sets replay's sampling; replay itself and the feedback widget
 // are added by the package's plugin (./observe.client.ts), replay only once
-// the visitor allowed it.
+// the visitor allowed it. Reports go through the managed tunnel (`tunnel:
+// true`) when the module says the package's server config answers it
+// (`monitoring.tunnel`): to a path on the app's own origin derived from the
+// DSN, which the server's `serveTunnelIntegration` forwards to the ingest, so
+// an ad blocker can't drop them and `connect-src 'self'` lets them out.
+// Otherwise (an SDK before 11.10, or an app's own server config) they go
+// straight to the ingest, whose origin the module adds to `connect-src`.
 import * as Sentry from '@sentry/nuxt'
 import { useRuntimeConfig } from '#imports'
 import { DATA_COLLECTION, LOG_LEVELS, REPLAY, SCRUBBING, scrubbingIntegration, tracesSampleRate } from './preset'
 
-const { dsn, environment } = useRuntimeConfig().public.backend.monitoring
+const { dsn, environment, tunnel } = useRuntimeConfig().public.backend.monitoring
 
 Sentry.init({
   dsn,
@@ -20,5 +26,6 @@ Sentry.init({
   dataCollection: DATA_COLLECTION,
   ...SCRUBBING,
   ...REPLAY.sampling,
+  ...(tunnel ? { tunnel: true as const } : {}),
   integrations: [Sentry.consoleLoggingIntegration({ levels: [...LOG_LEVELS] }), scrubbingIntegration()],
 })
