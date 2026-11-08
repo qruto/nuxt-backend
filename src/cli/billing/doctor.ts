@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Polar } from '@polar-sh/sdk'
 import { benefitsList } from '@polar-sh/sdk/funcs/benefitsList.js'
+import { checkoutLinksList } from '@polar-sh/sdk/funcs/checkoutLinksList.js'
 import { membersListMembers } from '@polar-sh/sdk/funcs/membersListMembers.js'
 import { organizationsListOrganizations } from '@polar-sh/sdk/funcs/organizationsListOrganizations.js'
 import { productsList } from '@polar-sh/sdk/funcs/productsList.js'
@@ -66,6 +67,12 @@ export interface BillingOrganizationState {
    * has none), and how many benefits it carries, for the gift twin checks.
    */
   productByKey: Record<string, { visibility?: string, prices?: Record<string, number>, benefits?: number }>
+  /**
+   * The provider's own checkout links that sell a managed catalog product:
+   * each link's label (`null` without one) and the catalog keys it sells.
+   * The package never makes one. Absent when the token may not read them.
+   */
+  checkoutLinks?: Array<{ label: string | null, keys: string[] }>
 }
 
 /**
@@ -92,9 +99,13 @@ function customerEmailsOff(settings: Record<string, unknown> | undefined): strin
   return RELIED_ON_CUSTOMER_EMAILS.filter(name => settings?.[name] === false)
 }
 
-/** The managed products by catalog key: each one's visibility, its live fixed prices and its benefit count. */
-async function readManagedProducts(polar: Polar): Promise<BillingOrganizationState['productByKey']> {
+/**
+ * The managed products by catalog key: each one's visibility, its live
+ * fixed prices and its benefit count; and each one's catalog key by its id.
+ */
+async function readManagedProducts(polar: Polar): Promise<{ productByKey: BillingOrganizationState['productByKey'], keyById: Map<string, string> }> {
   const productByKey: BillingOrganizationState['productByKey'] = {}
+  const keyById = new Map<string, string>()
   for (const product of await listAllPages(page => productsList(polar, { metadata: { managedBy: MANAGED_BY }, limit: 100, page }))) {
     const { metadata, prices, visibility, benefits } = product as {
       metadata?: Record<string, unknown>
@@ -105,13 +116,34 @@ async function readManagedProducts(polar: Polar): Promise<BillingOrganizationSta
     if (typeof metadata?.key !== 'string') continue
     const fixed = (prices ?? []).filter(price => price.amountType === 'fixed' && !price.isArchived && typeof price.priceAmount === 'number')
     // A plan's yearly product shares its key: it goes by the generated map's `<plan>:year`.
-    productByKey[metadata.interval === 'year' ? planProductKey(metadata.key, 'year') : metadata.key] = {
+    const key = metadata.interval === 'year' ? planProductKey(metadata.key, 'year') : metadata.key
+    productByKey[key] = {
       visibility: typeof visibility === 'string' ? visibility : '',
       ...(fixed.length > 0 ? { prices: Object.fromEntries(fixed.map(price => [price.priceCurrency ?? '', price.priceAmount!])) } : {}),
       benefits: benefits?.length ?? 0,
     }
+    keyById.set(product.id, key)
   }
-  return productByKey
+  return { productByKey, keyById }
+}
+
+/**
+ * The provider's checkout links that sell a managed product, by the catalog
+ * keys they sell (an archived product sells nothing). `undefined` when the
+ * links can't be read: a token without the checkout links scope.
+ */
+async function readCheckoutLinks(polar: Polar, keyById: ReadonlyMap<string, string>): Promise<BillingOrganizationState['checkoutLinks']> {
+  try {
+    const links = await listAllPages(page => checkoutLinksList(polar, { limit: 100, page }))
+    return links.flatMap((link) => {
+      const { label, products } = link as { label?: string | null, products?: Array<{ id: string, isArchived?: boolean }> }
+      const keys = [...new Set((products ?? []).filter(product => !product.isArchived).flatMap(product => keyById.get(product.id) ?? []))]
+      return keys.length > 0 ? [{ label: label ?? null, keys }] : []
+    })
+  }
+  catch {
+    return undefined
+  }
 }
 
 /**
@@ -141,7 +173,8 @@ export async function readBillingOrganizationState(
     }
 
     const { subscriptionSettings: subscription, customerPortalSettings: portal } = organization
-    const productByKey = await readManagedProducts(polar)
+    const { productByKey, keyById } = await readManagedProducts(polar)
+    const checkoutLinks = await readCheckoutLinks(polar, keyById)
     // A token without the members scopes is refused here; nothing is written.
     const members = await membersListMembers(polar, { limit: 1 })
     return {
@@ -156,6 +189,7 @@ export async function readBillingOrganizationState(
       memberModel: organization.featureSettings?.memberModelEnabled === true,
       membersReadable: members.ok,
       productByKey,
+      ...(checkoutLinks ? { checkoutLinks } : {}),
     }
   }
   catch {
@@ -204,6 +238,25 @@ function customerEmailsFinding(state: BillingOrganizationState): PreflightFindin
     `The provider's ${state.customerEmailsOff.map(name => name.replace(/[A-Z]/g, letter => ` ${letter.toLowerCase()}`)).join(', ')} customer email${state.customerEmailsOff.length === 1 ? ' is' : 's are'} off. Billing events reach people in the app only, so a renewal charge, a failed payment or an ended subscription would reach no inbox at all while the person is away, and a renewal or a trial's end would come without a reminder.`,
     'Turn the provider\'s customer emails back on in its dashboard (Settings, Customer notifications); the app never sends a copy of them.',
   )
+}
+
+/**
+ * The catalog products the provider also sells through checkout links of its
+ * own, made in its dashboard. A purchase there names no billing entity: the
+ * provider makes a customer of the buyer's email that the app maps to
+ * nobody, so the buyer pays and the app grants nothing, or a second plan
+ * lands beside the free one. No finding when the links can't be read.
+ */
+function checkoutLinksFinding(state: BillingOrganizationState): PreflightFinding[] {
+  if (!state.checkoutLinks) return []
+  if (state.checkoutLinks.length === 0) return [finding('billing-checkout-links', 'pass', 'No checkout link of the provider\'s own sells a catalog product: every purchase goes through the app\'s checkout.')]
+  const links = state.checkoutLinks.map(link => `${link.label ? `"${link.label}"` : 'an unlabelled link'} (${link.keys.join(', ')})`)
+  return [finding(
+    'billing-checkout-links',
+    'warn',
+    `The provider also sells catalog products through checkout links of its own: ${links.join('; ')}. A purchase there names no billing entity, so the buyer pays and the app grants nothing, or a second plan lands beside the free one.`,
+    'Delete those checkout links in the provider\'s dashboard (Products, Checkout Links), and link to the app\'s pricing page, whose checkout names the billing entity, instead.',
+  )]
 }
 
 /** What stacked subscriptions risk, beside the free plan when the catalog has one. */
@@ -472,6 +525,7 @@ export function collectBillingFindings(
   findings.push(customerEmailsFinding(state))
   findings.push(...promotionPortalFinding(catalog, state))
   findings.push(teamCustomersFinding(state))
+  findings.push(...checkoutLinksFinding(state))
   if (packs.length > 0) findings.push(giftTwinsFinding(packs.map(([key]) => key), state))
   findings.push(...passFindings(catalog, state))
 

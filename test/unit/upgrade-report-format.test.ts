@@ -13,6 +13,7 @@ function report(overrides: Partial<UpgradeReport> = {}): UpgradeReport {
     scaffold: { written: [], changes: [] },
     ejected: [],
     data: { deployment: 'dev', state: 'done', migrations: [] },
+    pools: { state: 'none', pools: [], failed: [] },
     next: ['npx nuxt-backend doctor', 'npx nuxt typecheck'],
     ...overrides,
   }
@@ -92,6 +93,22 @@ describe('upgrade at a terminal', () => {
       .toEqual(['  · needs-push: the deployment runs an older backend'])
     expect(section(formatUpgrade(report({ data: { deployment: 'dev', state: 'failed', reason: 'convex run exited with code 1', migrations: [] } })), 'Data').slice(1))
       .toEqual(['  ✗ failed: convex run exited with code 1'])
+  })
+
+  it('shows the pools the workpool backfill started on, and the ones that refused it', () => {
+    const lines = formatUpgrade(report({ pools: { state: 'failed', pools: ['workpool', 'backend/resend/emailWorkpool'], failed: [{ component: 'workflow/workpool', reason: 'convex run exited with code 1' }] } }))
+    expect(section(lines, 'Workpools')).toEqual([
+      'Workpools (the backfill each pool runs before workpool 0.5)',
+      '  ✓ workpool: started; it goes on in the deployment',
+      '  ✓ backend/resend/emailWorkpool: started; it goes on in the deployment',
+      '  ✗ workflow/workpool: convex run exited with code 1',
+    ])
+  })
+
+  it('says no pool has the backfill, and why the pool step did not run', () => {
+    expect(section(formatUpgrade(report()), 'Workpools').slice(1)).toEqual(['  · no pool on the deployment has the backfill'])
+    expect(section(formatUpgrade(report({ pools: { state: 'pending', pools: [], failed: [], reason: 'a dry run starts nothing' } })), 'Workpools').slice(1))
+      .toEqual(['  · pending: a dry run starts nothing'])
   })
 
   it('ends with the commands to run next, in order', () => {

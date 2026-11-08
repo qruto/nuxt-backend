@@ -67,6 +67,27 @@ interface SyncedSubscription { id: string, productId: string, status: string, en
 /** One page of the auth adapter's `findMany`. */
 interface AdapterPage { page: Array<{ _id?: string, id?: string }>, isDone: boolean, continueCursor: string }
 
+/** One page of billing entities' ids, and where the next one starts. */
+export interface EntityPage { ids: string[], isDone: boolean, continueCursor: string }
+
+/** A function of the scaffold's `billing.ts`, run by name for one billing entity or one page of them. */
+export type EntityFunction = FunctionReference<'action', 'internal', { entityId?: string, cursor?: string }>
+
+/**
+ * One page of every existing billing entity, workspaces or users as
+ * `billTo` bills: what a backfill over all of them reads, a page at a time
+ * (`caller` names it in the error when the adapter cannot page).
+ */
+export async function pageBillingEntities(ctx: RunQueryCtx, { components, billTo }: Pick<BillingContext, 'components' | 'billTo'>, cursor: string | null, caller: string): Promise<EntityPage> {
+  const findMany = components.backend.adapter.findMany as FunctionReference<'query', 'internal'> | undefined
+  if (!findMany) throw new Error(`[nuxt-backend] ${caller} needs the backend component's adapter \`findMany\` to page the billing entities.`)
+  const read = await ctx.runQuery(findMany, {
+    model: billTo === 'workspace' ? 'organization' : 'user',
+    paginationOpts: { cursor, numItems: BACKFILL_PAGE },
+  }) as AdapterPage
+  return { ids: read.page.flatMap(row => row._id ?? row.id ?? []), isDone: read.isDone, continueCursor: read.continueCursor }
+}
+
 /** The free plan of one `setupBilling` call: started, recognised, and restarted when a paid plan ends. */
 export function createFreePlan(
   { freePlan, billTo, provider, components, accessToken, unwrapProvider, entityDeleting: deleting, catalogIds }: BillingContext,
@@ -74,11 +95,21 @@ export function createFreePlan(
 ) {
   // The scaffold's `startFreePlan` (`billing.api.startFreePlan`), by the
   // module name every billing function goes by: what the queue runs.
-  const reference = makeFunctionReference<'action', { entityId?: string, cursor?: string }>(START_FREE_PLAN_FUNCTION) as unknown as FunctionReference<'action', 'internal', { entityId?: string, cursor?: string }>
+  const reference = makeFunctionReference<'action', { entityId?: string, cursor?: string }>(START_FREE_PLAN_FUNCTION) as unknown as EntityFunction
   // No `maxParallelism`: the queue is the app's, and keeps the app's own.
   const pool = components.workpool
     ? new Workpool(components.workpool, { retryActionsByDefault: true, defaultRetryBehavior: START_RETRIES })
     : null
+  /**
+   * Run `fn` for one billing entity: on the workpool, which retries a
+   * request the provider refused, else on the scheduler. The pool writes
+   * through `runMutation`, which a mutation's and an action's context both
+   * have.
+   */
+  const enqueue = async (ctx: QueueCtx, fn: EntityFunction, entityId: string): Promise<void> => {
+    if (pool) await pool.enqueueAction(ctx as never, fn, { entityId })
+    else await ctx.scheduler.runAfter(0, fn, { entityId })
+  }
   const billedKind: CreatedEntityKind = billTo === 'user' ? 'user' : 'workspace'
   /**
    * What runs once an entity's very first subscription, its free plan,
@@ -120,10 +151,7 @@ export function createFreePlan(
    * Never throws for the caller's sake beyond the queue's own write.
    */
   const queue = async (ctx: QueueCtx, entityId: string): Promise<void> => {
-    if (!freePlan) return
-    // The pool writes through `runMutation`, which a mutation's and an action's context both have.
-    if (pool) await pool.enqueueAction(ctx as never, reference, { entityId })
-    else await ctx.scheduler.runAfter(0, reference, { entityId })
+    if (freePlan) await enqueue(ctx, reference, entityId)
   }
 
   /**
@@ -199,16 +227,8 @@ export function createFreePlan(
    */
   const backfill = async (ctx: QueueCtx, cursor: string | null): Promise<void> => {
     if (!freePlan) return
-    const findMany = components.backend.adapter.findMany as FunctionReference<'query', 'internal'> | undefined
-    if (!findMany) throw new Error('[nuxt-backend] billing:startFreePlan needs the backend component\'s adapter `findMany` to page the billing entities.')
-    const read = await ctx.runQuery(findMany, {
-      model: billTo === 'workspace' ? 'organization' : 'user',
-      paginationOpts: { cursor, numItems: BACKFILL_PAGE },
-    }) as AdapterPage
-    for (const row of read.page) {
-      const id = row._id ?? row.id
-      if (id) await queue(ctx, id)
-    }
+    const read = await pageBillingEntities(ctx, { components, billTo }, cursor, START_FREE_PLAN_FUNCTION)
+    for (const id of read.ids) await queue(ctx, id)
     if (!read.isDone) await ctx.scheduler.runAfter(0, reference, { cursor: read.continueCursor })
   }
 
@@ -250,7 +270,7 @@ export function createFreePlan(
     return null
   }
 
-  return { isFreeProduct, freeSubscriptionOf, queue, start, backfill, restartAfterRevoke, entityCreated, deletionRefusal, hooks }
+  return { isFreeProduct, freeSubscriptionOf, queue, enqueue, start, backfill, restartAfterRevoke, entityCreated, deletionRefusal, hooks }
 }
 
 /** The free plan of one `setupBilling` call. */

@@ -1,4 +1,5 @@
 import { runConvex } from '../convex-cli'
+import { ADMISSION_TTL_MS, ADMIT_BATCH_MAX, cleanAddresses, INVITE_LABEL_MAX } from '../convex/access-tickets'
 import { deploymentFlags } from '../env-push'
 import { finding, type PreflightFinding } from '../findings'
 
@@ -75,20 +76,91 @@ function addressOf(answer: string): string | null {
 /** How long the first administrator's invitation by address lasts: a day to sign in. */
 const FIRST_ADMIN_ADMISSION_MS = 24 * 60 * 60 * 1000
 
+/** The label an admission from the command line carries in the Access tab, unless `--label` names another. */
+export const CLI_ADMISSION_LABEL = 'command line'
+
+/** What `access admit --json` prints. */
+export interface AccessAdmitReport {
+  deployment: 'dev' | 'production'
+  /**
+   * `admitted`: the admission ran (`admitted` may still be empty when every
+   * address was skipped); `missing`: the deployment has no launch access
+   * to admit through (a backend older than it); `failed`: it refused, or
+   * did not answer.
+   */
+  status: 'admitted' | 'missing' | 'failed'
+  /** The addresses that hold an invitation now, lower-cased. */
+  admitted: string[]
+  /** The addresses it skipped, and why: `malformed`, `reserved` (a documentation or test domain), `account` (an account exists). */
+  skipped: Array<{ email: string, reason: 'malformed' | 'reserved' | 'account' }>
+  /** When the invitations stop admitting, epoch ms. */
+  expiresAt: number
+  /** Why it is missing or failed. */
+  note?: string
+}
+
+export interface AdmitOptions {
+  prod: boolean
+  /** What the Access tab lists the invitations under: 1 to 64 characters (`INVITE_LABEL_MAX`). */
+  label: string
+  /** When the invitations stop admitting, epoch ms. */
+  expiresAt: number
+}
+
 /**
- * Admit `email` through the `backend` component's launch access (an
- * invitation by address), so it signs up whatever the phase. `false` for a
- * deployment without it.
+ * Admit addresses, as given, through the `backend` component's launch
+ * access: an invitation by address each, as the admin console's Access tab
+ * gives one, so each signs up whatever the phase until `expiresAt`. One
+ * with an account is skipped. No email is sent, and it is not on the
+ * activity trail: the Access tab lists it under its label.
+ */
+async function admitAddresses(rootDir: string, emails: readonly string[], { prod, label, expiresAt }: AdmitOptions, run: typeof runConvex): Promise<AccessAdmitReport> {
+  const deployment = prod ? 'production' : 'dev'
+  const report = (status: AccessAdmitReport['status'], admitted: string[], skipped: AccessAdmitReport['skipped'], note?: string): AccessAdmitReport =>
+    ({ deployment, status, admitted, skipped, expiresAt, ...(note ? { note } : {}) })
+  if (emails.length === 0) return report('admitted', [], [])
+  try {
+    const args = { emails, source: 'invitation', label, expiresAt }
+    const { stdout } = await run(rootDir, ['run', ...deploymentFlags({ prod }), '--component', 'backend', 'access:admit', JSON.stringify(args)])
+    const stored = (JSON.parse(stdout || 'null') ?? {}) as { admitted?: string[], skipped?: Array<{ email: string }> }
+    return report('admitted', stored.admitted ?? [], (stored.skipped ?? []).map(row => ({ email: row.email, reason: 'account' as const })))
+  }
+  catch (error) {
+    if ((error as { missingFunction?: unknown } | null)?.missingFunction === true) return report('missing', [], [], `the ${deployment} deployment's backend has no launch access to admit through (access:admit): push the backend first.`)
+    return report('failed', [], [], `the ${deployment} deployment refused the admission (${error instanceof Error ? error.message : String(error)}).`)
+  }
+}
+
+/**
+ * `access admit`: each address cleaned as the Access tab cleans a pasted
+ * list (trimmed, lower-cased, a malformed one or one on a reserved test
+ * domain skipped), then the rest admitted.
+ */
+export async function admitCleaned(rootDir: string, emails: readonly string[], options: AdmitOptions, run: typeof runConvex = runConvex): Promise<AccessAdmitReport> {
+  const { clean, skipped } = cleanAddresses(emails)
+  const report = await admitAddresses(rootDir, clean, options, run)
+  return { ...report, skipped: [...skipped, ...report.skipped] }
+}
+
+/** Why `access admit`'s input may not run, or null: no address, too many, or a label or expiry out of range. */
+export function admitInputRefusal(emails: readonly string[], label: string, days: number): string | null {
+  if (emails.length === 0) return 'name at least one address: npx nuxt-backend access admit you@example.com'
+  if (emails.length > ADMIT_BATCH_MAX) return `at most ${ADMIT_BATCH_MAX} addresses at a time.`
+  if (!label.trim() || label.trim().length > INVITE_LABEL_MAX) return `--label is 1-${INVITE_LABEL_MAX} characters.`
+  if (!Number.isInteger(days) || days < 1 || days > 365) return '--days is a whole number of days from 1 to 365.'
+  return null
+}
+
+/** The invitations' lifetime `access admit` gives by default: the Access tab's. */
+export const ADMISSION_DAYS = ADMISSION_TTL_MS / (24 * 60 * 60 * 1000)
+
+/**
+ * Admit `email` for the first administrator: a day to sign up, whatever
+ * the phase. `false` for a deployment without launch access.
  */
 async function admitAddress(rootDir: string, email: string, prod: boolean): Promise<boolean> {
-  try {
-    const args = { emails: [email], source: 'invitation', label: 'first-administrator', expiresAt: Date.now() + FIRST_ADMIN_ADMISSION_MS }
-    await runConvex(rootDir, ['run', ...deploymentFlags({ prod }), '--component', 'backend', 'access:admit', JSON.stringify(args)])
-    return true
-  }
-  catch {
-    return false
-  }
+  const { status } = await admitAddresses(rootDir, [email], { prod, label: 'first-administrator', expiresAt: Date.now() + FIRST_ADMIN_ADMISSION_MS }, runConvex)
+  return status === 'admitted'
 }
 
 /**

@@ -39,8 +39,10 @@ import { loadCatalog } from './billing/doctor'
 import { loadGenerated, renderGenerated } from './billing/generated'
 import type { CatalogIds, Environment, SyncLogEntry } from './billing/provider'
 import { runBillingReset } from './billing/reset'
+import { resyncLines, runBillingResync } from './billing/resync'
 import { syncBillingCatalog, type BillingSyncOptions, type BillingSyncResult, type ProvisionedWebhook } from './billing/sync'
 import { finish, progress, withContract } from './contract'
+import { targetKeyRefusal } from './target'
 
 // The command lives here; the reconciliation (billing/sync.ts), the
 // deployment it writes (billing/deployment.ts), doctor's cross-checks
@@ -425,7 +427,36 @@ export const billingReset = withContract('billing reset', {
   },
 }))
 
+export const billingResync = withContract('billing resync', {
+  sideEffects: ['writes the dev deployment'],
+  byFlag: { '--prod': ['writes production'] },
+  json: '`{ deployment: "dev" | "production", status: "queued" | "missing" | "failed", queued, more, note? }`: `queued` counts the billing entities of the first page, and `more` says further pages follow on the deployment\'s scheduler',
+  exitCodes: {
+    0: 'queued: every billing entity\'s entitlements are read again on the deployment, the first page now and the rest as its scheduler reaches them',
+    1: 'refused or not queued: a deploy key for another deployment than the flags name, a deployment whose billing.ts does not export resyncEntitlements (scaffolded before it), or one that refused the resync',
+  },
+}, defineCommand({
+  meta: { name: 'resync', description: 'Read every billing entity\'s entitlements again from the billing provider into the deployment\'s cache (billing:resyncEntitlements), a page at a time on the deployment: after missed webhooks, or a restored deployment' },
+  args: {
+    cwd: { type: 'string', description: 'Project directory', default: '.' },
+    prod: { type: 'boolean', description: 'Resync the production deployment', default: false },
+    json: { type: 'boolean', description: 'Print the outcome as one JSON document; progress goes to stderr', default: false },
+  },
+  async run({ args }) {
+    const rootDir = resolve(process.cwd(), args.cwd)
+    const refused = targetKeyRefusal(rootDir, args.prod)
+    if (refused) {
+      console.error(`[nuxt-backend] billing resync refused: ${refused}`)
+      process.exitCode = 1
+      return
+    }
+    const report = await runBillingResync(rootDir, { prod: args.prod })
+    for (const line of resyncLines(report)) progress(args.json)(line)
+    finish(args.json, { exitCode: report.status === 'queued' ? 0 : 1, output: report })
+  },
+}))
+
 export const billing = defineCommand({
   meta: { name: 'billing', description: 'Billing catalog helpers' },
-  subCommands: { sync: billingSync, reset: billingReset },
+  subCommands: { sync: billingSync, reset: billingReset, resync: billingResync },
 })

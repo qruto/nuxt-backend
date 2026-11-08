@@ -69,6 +69,16 @@ Start the dev deployment's billing over in the organization BILLING_ACCESS_TOKEN
 
 `--json`: { sync: <billing sync --json>, cleared: [{ component, table, status: "cleared" | "failed" | "skipped", note? }], freePlan: { status: "queued" | "skipped" | "failed", note? } }.
 
+### `npx nuxt-backend billing resync`
+
+Read every billing entity's entitlements again from the billing provider into the deployment's cache (billing:resyncEntitlements), a page at a time on the deployment: after missed webhooks, or a restored deployment.
+
+- `--cwd`: Project directory
+- `--prod`: Resync the production deployment
+- `--json`: Print the outcome as one JSON document; progress goes to stderr
+
+`--json`: `{ deployment: "dev" | "production", status: "queued" | "missing" | "failed", queued, more, note? }`: `queued` counts the billing entities of the first page, and `more` says further pages follow on the deployment's scheduler.
+
 ## Doctor findings
 
 `npx nuxt-backend doctor --json` reports these ids, each with a `docsUrl` that explains it.
@@ -92,6 +102,7 @@ Start the dev deployment's billing over in the organization BILLING_ACCESS_TOKEN
 | `billing-portal` | billing | Customer portal |
 | `billing-customer-emails` | billing | Customer emails |
 | `billing-team-customers` | billing | Team customers |
+| `billing-checkout-links` | billing | Provider checkout links |
 | `billing-gift-twins` | billing | Gift products |
 | `billing-pass-products` | billing | Plan pass products |
 | `billing-feature-benefits` | billing | Feature benefits |

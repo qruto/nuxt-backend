@@ -1112,6 +1112,19 @@
       "--cwd",
       "--json"
     ],
+    "billing resync": [
+      "--cwd",
+      "--prod",
+      "--json"
+    ],
+    "access admit": [
+      "<email>",
+      "--cwd",
+      "--prod",
+      "--label",
+      "--days",
+      "--json"
+    ],
     "email sync": [
       "--cwd",
       "--prod",
@@ -1215,6 +1228,7 @@
     "billing-portal": "billing",
     "billing-customer-emails": "billing",
     "billing-team-customers": "billing",
+    "billing-checkout-links": "billing",
     "billing-gift-twins": "billing",
     "billing-pass-products": "billing",
     "billing-feature-benefits": "billing",

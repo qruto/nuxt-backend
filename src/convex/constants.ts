@@ -172,6 +172,13 @@ export const LOCAL_LOG_ROUTE = '/api/backend/_monitoring'
  */
 export const START_FREE_PLAN_FUNCTION = 'billing:startFreePlan'
 /**
+ * The scaffold's entitlement resync (`billing.api.resyncEntitlements`), by
+ * the module name every billing function goes by: `nuxt-backend billing
+ * resync` runs it, and it queues itself for each billing entity and each
+ * next page.
+ */
+export const RESYNC_ENTITLEMENTS_FUNCTION = 'billing:resyncEntitlements'
+/**
  * The scaffold's gift sweep (`billing.api.runGiftSweep`), by the module name
  * every billing function goes by: the component's cron wakes it, and a gift
  * dated for later is scheduled on it.

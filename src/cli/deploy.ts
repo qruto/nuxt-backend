@@ -8,6 +8,7 @@ import { runEmailSync } from './email'
 import { progress, withContract } from './contract'
 import { askOnTerminal } from './ask'
 import { runBuild } from './deploy/build'
+import { packageManagerOf } from './deploy/package-manager'
 import { ensureEmailWebhook } from './deploy/email-webhook'
 import { buildCommandAdvice, deployHost } from './deploy/host'
 import { runDeploy, type DeployBackend } from './deploy/run'
@@ -63,7 +64,7 @@ export const deploy = withContract('deploy', {
     'cwd': { type: 'string', description: 'Project directory', default: '.' },
     'dry-run': { type: 'boolean', description: 'Print every step it would take, and change nothing', default: false },
     'sandbox': { type: 'boolean', description: 'A demo or staging app: set BACKEND_ENVIRONMENT=sandbox instead of production, and sync to the providers\' test modes', default: false },
-    'build': { type: 'boolean', description: 'Run as the host\'s build command: put the env the first push needs on production (AUTH_SECRET, SITE_URL from the host), then convex deploy builds the app against the backend', default: false },
+    'build': { type: 'boolean', description: 'Run as the host\'s build command: put the env the first push needs on production (AUTH_SECRET, SITE_URL from the host), then convex deploy builds the app against the backend with the project\'s package manager; a new preview also loads the billing products', default: false },
     'json': { type: 'boolean', description: 'Print the outcome as one JSON document; progress goes to stderr', default: false },
   },
   async run({ args }) {
@@ -75,7 +76,7 @@ export const deploy = withContract('deploy', {
         process.exitCode = 1
         return
       }
-      process.exitCode = await runBuild({ backend: convexBackend(rootDir, { json: false }), convexDeploy: deployArgs => spawnConvex(rootDir, deployArgs), env: process.env, print: line => console.error(line) })
+      process.exitCode = await runBuild({ backend: convexBackend(rootDir, { json: false }), convexDeploy: deployArgs => spawnConvex(rootDir, deployArgs), env: process.env, packageManager: packageManagerOf(rootDir), print: line => console.error(line) })
       return
     }
     const key = nonProductionDeployKey({ ...readEnvFiles(rootDir), ...process.env })
