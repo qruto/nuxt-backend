@@ -965,6 +965,7 @@
       "tickets": {
         "inviteCode": "An invite code",
         "accessLink": "An access link",
+        "memberTicket": "A member's ticket",
         "invitation": "An invitation by address",
         "waitlist": "The waitlist",
         "workspaceInvitation": "A workspace invitation",
@@ -1015,6 +1016,9 @@
         "revoking": "Revoking…",
         "revokeConfirm": "Revoke {label}? It stops admitting anyone at once.",
         "noInvites": "No codes or links yet.",
+        "memberTicketsTitle": "Member tickets",
+        "memberTicketsHint": "Each member's own link for friends, never shown here. Revoking one stops it at once, and its member gets no new one until it would have ended.",
+        "member": "Member",
         "admitTitle": "Invite by address",
         "admitHint": "One address per line, or comma-separated, up to 500. No email is sent unless you ask: announce through a broadcast to people who opted in. Each invitation lasts 30 days.",
         "emailThem": "Email them",
@@ -1766,8 +1770,8 @@
           "kept": "A year after the device was last seen."
         },
         "access": {
-          "holds": "The invitations by address an administrator made for the address, which ticket admitted the account while the app was closed (the redemption ledger), the codes and links it made as an administrator, and its waitlist entry: the address, its answers, its place and the state of its launch-news contact (the launch-news consent itself is on the consent ledger).",
-          "kept": "An invitation by address until it is used or revoked; the ticket record as long as the account; a waitlist entry until the person leaves or is erased, and a join whose code never checked a day."
+          "holds": "The invitations by address an administrator made for the address, which ticket admitted the account while the app was closed (the redemption ledger, which names the member whose ticket admitted a friend), the codes and links it made as an administrator, its member tickets (a hash of each link, its uses and its end), and its waitlist entry: the address, its answers, its place, where it came from (the form, followed by the page address's utm_source and utm_campaign, which whoever made the link chose and may carry an identifier) and the state of its launch-news contact (the launch-news consent itself is on the consent ledger).",
+          "kept": "An invitation by address until it is used or revoked; the ticket record as long as the account; a member ticket until 30 days after it ended; a waitlist entry until the person leaves or is erased, and a join whose code never checked a day."
         },
         "consents": {
           "holds": "The consent ledger: one row for each time the account (or, before it signed up, a hash of its address) agreed to a document or an opt-in, withdrew it, or chose optional storage, with the kind, its version, the time and where it came from.",

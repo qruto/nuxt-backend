@@ -2,7 +2,7 @@
 /**
  * The admin console's Access tab: the launch phase and the move to another,
  * the invite codes and access links (made here, each shown once, revoked
- * here), and the invitations by address (pasted, no email sent). Every
+ * here), the members' tickets (revoked here), and the invitations by address (pasted, no email sent). Every
  * change asks for a recent sign-in through the tab's own
  * `<ReauthenticateDialog>` and lands on the activity trail. Moving the
  * phase and revoking ask first (`confirm`). The console shows it once the
@@ -16,6 +16,7 @@ import AdminTabDialogs from './AdminTabDialogs.vue'
 import AdminTabStatus from './AdminTabStatus.vue'
 import AdminAccessAdmissions from './AdminAccessAdmissions.vue'
 import AdminAccessInvites from './AdminAccessInvites.vue'
+import AdminAccessMemberTickets from './AdminAccessMemberTickets.vue'
 import AdminAccessPhase from './AdminAccessPhase.vue'
 import { useAccessTab } from './admin-access-tab'
 
@@ -51,6 +52,7 @@ const { t, access, data, message } = tab
       </p>
       <AdminAccessPhase :tab="tab" />
       <AdminAccessInvites :tab="tab" />
+      <AdminAccessMemberTickets :tab="tab" />
       <AdminAccessAdmissions :tab="tab" />
     </template>
     <AdminTabStatus

@@ -61,7 +61,7 @@ In both closed phases, the [sign-in flow](/docs/build/auth/sign-in#the-steps) mo
 
 A new address with a ticket signs up in any phase. A ticket is one of:
 
-- **An invite code** typed on the sign-in page, or **an access link** opened before it ([Hand out invite codes and access links](/docs/build/growth/launch/invites)).
+- **An invite code** typed on the sign-in page, or **an access link** opened before it ([Hand out invite codes and access links](/docs/build/growth/launch/invites)), a member's ticket among them ([Let members bring friends](/docs/build/growth/launch/invites#let-members-bring-friends)).
 - **An invitation by address** from an administrator, or **an admitted waitlist entry**.
 - **A workspace invitation** to the address, pending and unexpired ([Invite people to a workspace](/docs/build/auth/workspaces/invitations)). Each account's invitations admit up to ten new addresses while the app is closed (`workspaceInvitations` on `setupAccess`, `false` for none), and an account a workspace invitation admitted admits nobody by its own. So one admitted member brings their team, not a chain of strangers past the waitlist.
 - **A gift addressed to it**: delivered, unclaimed and paid for ([Send, receive and manage gifts](/docs/build/growth/offers/gifts)).

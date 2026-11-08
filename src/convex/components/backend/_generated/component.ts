@@ -27,7 +27,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       admission: FunctionReference<
         "query",
         "internal",
-        { email?: string; tokenHash?: string; workspaceInvitations?: number },
+        {
+          email?: string;
+          members?: { chain: boolean };
+          tokenHash?: string;
+          workspaceInvitations?: number;
+        },
         {
           invite: null | {
             kind?: "code" | "link";
@@ -101,6 +106,16 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             status: "valid" | "expired" | "used-up" | "revoked" | "unknown";
             uses: number;
           }>;
+          memberTickets: Array<{
+            createdAt: number;
+            email: null | string;
+            expiresAt: number;
+            holder: string;
+            id: string;
+            maxUses: number;
+            status: "valid" | "expired" | "used-up" | "revoked" | "unknown";
+            uses: number;
+          }>;
         },
         Name
       >;
@@ -110,6 +125,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           createdBy?: string;
           expiresAt?: number;
+          holder?: string;
           keyVersion?: number;
           kind: "code" | "link";
           label: string;
@@ -120,6 +136,20 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       getPhase: FunctionReference<"query", "internal", {}, null | string, Name>;
+      memberTicket: FunctionReference<
+        "query",
+        "internal",
+        { holder: string },
+        null | {
+          expiresAt: number;
+          id: string;
+          maxUses: number;
+          status: "valid" | "expired" | "used-up" | "revoked" | "unknown";
+          tokenHash: string;
+          uses: number;
+        },
+        Name
+      >;
       recordTicket: FunctionReference<
         "mutation",
         "internal",
@@ -130,7 +160,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       redeem: FunctionReference<
         "mutation",
         "internal",
-        { email: string; tokenHash?: string; workspaceInvitations?: number },
+        {
+          email: string;
+          members?: { chain: boolean };
+          tokenHash?: string;
+          workspaceInvitations?: number;
+        },
         | { label?: string; ticket: string }
         | { refused: "valid" | "expired" | "used-up" | "revoked" | "unknown" },
         Name

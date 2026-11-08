@@ -24,7 +24,7 @@ const DAY = 86_400_000
 const AT = Date.parse('2026-10-01T10:00:00.000Z')
 
 function consoleOf(fields: Partial<AccessConsole> = {}): AccessConsole {
-  return { phase: 'invite-only', phases: ['early-access', 'invite-only', 'public'], invites: [], admissions: [], ...fields }
+  return { phase: 'invite-only', phases: ['early-access', 'invite-only', 'public'], invites: [], memberTickets: [], admissions: [], ...fields }
 }
 
 /** An administrator, the console answering `fields`, and every change answered. */
@@ -129,6 +129,33 @@ describe('the Access tab', () => {
     await wrapper.find('[data-confirm="accept"]').trigger('click')
     await flushPromises()
     expect(backend.callsTo('access:revokeInvite')).toEqual([{ id: 'i1' }])
+  })
+
+  it('lists member tickets apart, by member, and revokes one that may still admit once confirmed', async () => {
+    const backend = administrator({
+      memberTickets: [
+        { id: 'm1', holder: 'u1', email: 'ada@panels.example', maxUses: 3, uses: 1, status: 'valid', expiresAt: AT + 60 * DAY, createdAt: AT },
+        { id: 'm2', holder: 'u2', email: null, maxUses: 3, uses: 3, status: 'used-up', expiresAt: AT + 30 * DAY, createdAt: AT },
+        { id: 'm3', holder: 'u3', email: 'old@panels.example', maxUses: 3, uses: 0, status: 'expired', expiresAt: AT - DAY, createdAt: AT },
+      ],
+    })
+    const wrapper = await tab({ confirm: () => true })
+    const table = wrapper.find('[data-admin="access-member-tickets-table"]')
+    expect(table.findAll('thead th').map(header => header.text())).toEqual(['Member', 'Uses', 'Expires', 'Status'])
+    const rows = table.findAll('tbody tr')
+    expect(cells(rows[0]!)).toEqual(['ada@panels.example', '1 of 3', expect.any(String), 'Active', 'Revoke'])
+    // A member whose account is gone shows by id; a used-up ticket still takes Revoke, an expired one does not.
+    expect(cells(rows[1]!)[0]).toBe('u2')
+    expect(table.findAll('[data-admin="access-revoke"]')).toHaveLength(2)
+    await table.find('[data-admin="access-revoke"]').trigger('click')
+    await flushPromises()
+    expect(backend.callsTo('access:revokeInvite')).toEqual([{ id: 'm1' }])
+  })
+
+  it('shows no member tickets section while no member holds one', async () => {
+    administrator()
+    const wrapper = await tab()
+    expect(wrapper.find('[data-admin="access-member-tickets"]').exists()).toBe(false)
   })
 
   it('moves the phase only once the administrator says yes', async () => {

@@ -58,6 +58,7 @@ export function sectionUrl(section: string): string {
 }
 
 const LAUNCH = 'A production checkout waits for billing to launch, and welcome credits come from the catalog'
+const MEMBER_TICKETS = 'Members bring friends with a ticket of their own, and the waitlist records the campaign'
 const COLD_BALANCE = 'A job joins on a balance never read'
 const TUNNEL = 'Browser error reports go through a tunnel on the app\'s own origin'
 const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
@@ -71,6 +72,10 @@ export const RENAMES: readonly Rename[] = [
   { from: '`unavailable` (reason `not_configured`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'only a sale on a production deployment with no token or no production catalog; every other refusal keeps `not_configured`' },
   { from: '`not_ready` (reason `no_catalog`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog`' },
   { from: 'billing.refundCredits in onUserCreated', to: 'credits: { meter, units, once: true }', change: 'reshaped', section: LAUNCH, note: 'welcome credits on the free plan, granted once after the reverse trial; drop the hand-rolled grant' },
+
+  // 0.3: member tickets, and the waitlist's campaign source.
+  { from: 'access.invites.create with a label per member', to: 'access.memberTickets({ uses, lifetime })', change: 'reshaped', section: MEMBER_TICKETS, note: 're-export its `api` (`getMemberTicket`, `issueMemberTicket`) and read it with `useMemberTicket()`; drop the table of links the app kept' },
+  { from: 'useWaitlist({ source })', to: 'useWaitlist({ source, campaign })', change: 'reshaped', section: MEMBER_TICKETS, note: 'the address\'s `utm_source` and `utm_campaign` follow the source; `campaign: false` records the source alone' },
 
   // A job joins on a balance never read, and reads it as it starts.
   { from: 'jobs.enqueue', to: 'jobs.enqueue', change: 'reshaped', section: COLD_BALANCE, note: 'a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready`' },
