@@ -1384,6 +1384,8 @@ export const jobTables = {
     refunded: v.boolean(),
     /** When its charge began: from then on the hold is the charge's to settle or let go. */
     charging: v.optional(v.number()),
+    /** What `job.charge` charged, for a kind charged by output (at most `cost`): what a refund gives back. */
+    price: v.optional(v.number()),
     /**
      * A charged job that ended owing its credits back: `pending` while its
      * refund is tried (the latest try due at `refundAt`), `given_up` after

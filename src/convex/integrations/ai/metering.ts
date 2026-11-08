@@ -33,7 +33,7 @@ function requireMeteredCost({ meter, cost }: { meter: string | false, cost: numb
  * the same way: the work is done and its result belongs to the caller, so the
  * reservation is charged and the bug logged, never passed on to the balance.
  */
-function settledAmount(reserved: number, finalAmount: number | undefined): number {
+export function settledAmount(reserved: number, finalAmount: number | undefined): number {
   if (finalAmount === undefined) return reserved
   if (!Number.isFinite(finalAmount) || finalAmount < 0) {
     logBackend('error', 'ai.cost_over_reservation', `Finalized cost ${finalAmount} is not an amount of zero or more — charging the ${reserved} credits reserved. Fix the cost's finalize.`)

@@ -467,3 +467,25 @@ describe('a metered stream\'s request is claimed by one dispatch', () => {
     expect(await t.mutation(api.ai.claimRequest, { streamId: 's1' })).toBe(false)
   })
 })
+
+describe('a long hold settled at what a job made (a queued job charged by output)', () => {
+  const HOUR = 60 * 60 * 1000
+
+  test('outlives the pending-spend TTL, settles below what it held, and gives the rest back once', async () => {
+    await seed(100)
+    await t.mutation(api.billing.debit, { userId: USER, meterId: METER, amount: 30, externalId: 'job-1', hold: 7 * 24 * HOUR })
+    // An hour in line and at work: far past the TTL a plain reservation lives.
+    advanceClock(HOUR)
+    expect(await pendingIds()).toStrictEqual(['job-1'])
+    // A debit again under the same id, as the job's first step takes its hold again, holds nothing twice.
+    await t.mutation(api.billing.debit, { userId: USER, meterId: METER, amount: 30, externalId: 'job-1', hold: 7 * 24 * HOUR })
+    expect(await meter()).toMatchObject({ balance: 70 })
+
+    expect(await t.mutation(api.billing.finalize, { userId: USER, externalId: 'job-1', finalAmount: 10 }))
+      .toMatchObject({ settled: true, released: 20, balance: 90 })
+    // A charge run again finds nothing left to close.
+    expect(await t.mutation(api.billing.finalize, { userId: USER, externalId: 'job-1', finalAmount: 10 }))
+      .toMatchObject({ settled: false })
+    expect(await meter()).toMatchObject({ balance: 90, consumedUnits: 10 })
+  })
+})
