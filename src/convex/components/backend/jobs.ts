@@ -201,9 +201,9 @@ async function pastBacklog(ctx: QueryCtx, line: LineFront, from: number): Promis
 const pickWindow = (policy: QueuePolicy, tiers: readonly ResolvedTier[]): number =>
   Math.max(1, policy.perOwner, ...tiers.map(tier => tier.perOwner ?? 0))
 
-/** Whether a job's credits go back as it ends: charged, not refunded, and failed or canceled with a refund. */
+/** Whether a job's credits go back as it ends: charged something, not refunded, and failed or canceled with a refund. */
 const owesRefund = (job: Doc<'jobs'>, status: Doc<'jobs'>['status'], refund: boolean): boolean =>
-  refund && job.charged && !job.refunded && (status === 'failed' || status === 'canceled')
+  refund && job.charged && !job.refunded && (job.price ?? job.cost) > 0 && (status === 'failed' || status === 'canceled')
 
 /** A guest job: one a signed-out visitor started, claimed at sign-up or not. */
 const isGuest = (job: Doc<'jobs'>): boolean => job.visitor !== undefined
@@ -637,16 +637,37 @@ export const claimCharge = mutation({
  * `refund` says so.
  */
 export const mark = mutation({
-  args: { jobId: v.string(), charged: v.literal(true) },
+  args: {
+    jobId: v.string(),
+    charged: v.literal(true),
+    /** What a kind charged by output charged (`job.charge`): what a refund gives back. */
+    price: v.optional(v.number()),
+  },
   returns: v.object({ refund: v.boolean() }),
-  handler: async (ctx, { jobId }) => {
+  handler: async (ctx, { jobId, price }) => {
     const job = await jobOf(ctx, jobId)
     if (!job || job.charged) return { refund: false }
     const now = Date.now()
-    const owed = job.status !== 'running' && owesRefund({ ...job, charged: true }, job.status, job.status === 'failed' || job.cancel?.refund === true)
+    const owed = job.status !== 'running' && owesRefund({ ...job, charged: true, price }, job.status, job.status === 'failed' || job.cancel?.refund === true)
     // A running job's charge landed: the error an earlier try of it recorded is no longer why anything fails.
-    await ctx.db.patch('jobs', job._id, { charged: true, ...(job.status === 'running' ? { error: undefined } : {}), ...(owed ? { refundOwed: 'pending' as const, refundAt: now } : {}) })
+    await ctx.db.patch('jobs', job._id, { charged: true, ...(price === undefined ? {} : { price }), ...(job.status === 'running' ? { error: undefined } : {}), ...(owed ? { refundOwed: 'pending' as const, refundAt: now } : {}) })
     return { refund: owed }
+  },
+})
+
+/**
+ * Keep the hold a job's first step took, for a job that joined on a balance
+ * not read yet. Answers whether the job still runs: a hold taken for a job
+ * that ended meanwhile is the app's to let go.
+ */
+export const holdTaken = mutation({
+  args: { jobId: v.string(), hold: vJobHold },
+  returns: v.boolean(),
+  handler: async (ctx, { jobId, hold }) => {
+    const job = await jobOf(ctx, jobId)
+    if (job?.status !== 'running' || job.charged) return false
+    await ctx.db.patch('jobs', job._id, { hold })
+    return true
   },
 })
 
@@ -887,6 +908,7 @@ export const requeue = mutation({
       charged: carried,
       refunded: false,
       charging: undefined,
+      price: carried ? job.price : undefined,
       refundOwed: undefined,
       refundAt: undefined,
       error: undefined,
