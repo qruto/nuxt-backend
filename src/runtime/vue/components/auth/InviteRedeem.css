@@ -30,5 +30,7 @@
     background: var(--bk-accent);
     color: var(--bk-on-accent);
     text-decoration: none;
+    box-shadow: var(--bk-shadow-control);
+    font-family: var(--bk-font-control, var(--bk-font));
   }
 }

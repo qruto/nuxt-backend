@@ -2,6 +2,7 @@ import { type BackendEnvironment, isLive, parseBackendEnvironment } from '../con
 import { TEST_CHALLENGE_SITE_KEYS } from '../convex/proof.js'
 import { DEPLOYMENT_KIND_LABEL } from '../devtools/rpc-types.js'
 import type { CapabilityContext, CapabilityDetection, CapabilityName, CapabilitySwitch } from './types.js'
+import { GATEWAY_ORDER_UNREAD, gatewayKeyIsTheFix } from './gateway-route.js'
 
 // The probes every capability's `detect` is built from. They read the env (names,
 // and two mode switches), the deployment's env names and the findings doctor
@@ -102,13 +103,17 @@ export function emailMode(context: CapabilityContext): CapabilityDetection {
 /**
  * The models, when they decide the ai capability's state: missing once doctor
  * found the backend naming models the deployment cannot reach; `null` when
- * the models are as real as the billing they spend.
+ * the models are as real as the billing they spend. A key that is set
+ * decides nothing alone: `setupAi({ gateway: 'convex' })` never reads it.
  */
 export function modelMode(context: CapabilityContext): CapabilityDetection | null {
-  if (isSet(context, 'AI_GATEWAY_API_KEY')) return null
-  const key = context.findings.find(finding => finding.id === 'deployment-ai-gateway-api-key')
-  if (key?.status === 'warn' || key?.status === 'fail') return { state: 'missing', reason: `its models are refused: ${unsetReason(context, ['AI_GATEWAY_API_KEY'])}` }
-  return null
+  const route = context.findings.find(finding => finding.id === 'deployment-ai-gateway-api-key')
+  if (route?.status !== 'warn' && route?.status !== 'fail') return null
+  // An order doctor cannot read leaves the route unknown, not missing.
+  if (route.message.startsWith(GATEWAY_ORDER_UNREAD)) return null
+  // The key is to blame only where it is the fix: an order of the Convex AI Gateway alone never reads it.
+  const why = gatewayKeyIsTheFix(route) && !isSet(context, 'AI_GATEWAY_API_KEY') ? unsetReason(context, ['AI_GATEWAY_API_KEY']) : 'no gateway in setupAi({ gateway }) can serve this deployment'
+  return { state: 'missing', reason: `its models are refused: ${why}` }
 }
 
 /**

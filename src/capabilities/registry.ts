@@ -96,7 +96,8 @@ export const CAPABILITIES = {
     purpose: 'Metered model calls and streams: each call reserves prepaid credits, runs the model by its provider/model id, then settles at the cost it reports.',
     providers: [
       { name: 'AI SDK', gives: 'model calls and streams, by provider/model id' },
-      { name: 'Vercel AI Gateway', gives: 'one key for every provider\'s models, and the cost of each call' },
+      { name: 'Convex AI Gateway', gives: 'every provider\'s models on a paid Convex plan, billed to the team with no key, and the cost of each call' },
+      { name: 'Vercel AI Gateway', gives: 'one key for every provider\'s models, and the cost of each call; setupAi({ gateway }) picks between the two' },
       { name: 'Convex persistent text streaming', gives: 'streams that persist server-side and resume after a reload' },
       { name: 'Polar', gives: 'the credit meters each call spends' },
     ],

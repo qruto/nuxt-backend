@@ -150,8 +150,8 @@ export const BACKEND_ENV = {
   },
   AI_GATEWAY_API_KEY: {
     side: 'deployment',
-    without: 'a provider/model id the backend names goes through the Convex AI Gateway alone, on Convex Cloud with a paid plan and @convex-dev/ai-sdk-provider installed; anywhere else (a free plan, a self-hosted deployment) it is refused when called',
-    values: 'a Vercel AI Gateway API key: the route a provider/model id takes where the Convex AI Gateway does not answer it. Convex runs actions on its own servers, never on Vercel, so the gateway\'s keyless sign-in never reaches them',
+    without: 'a provider/model id the backend names goes through the Convex AI Gateway alone, on Convex Cloud with a paid plan and @convex-dev/ai-sdk-provider installed; anywhere else (a free plan, a self-hosted deployment) it is refused when called. Under setupAi({ gateway: \'vercel\' }) it is refused everywhere',
+    values: 'a Vercel AI Gateway API key: read when setupAi({ gateway }) names \'vercel\', as the default order does, after the Convex AI Gateway. Convex runs actions on its own servers, never on Vercel, so the gateway\'s keyless sign-in never reaches them',
     dotenv: true,
     whenFlagged: true,
     findings: ['deployment-ai-gateway-api-key'],

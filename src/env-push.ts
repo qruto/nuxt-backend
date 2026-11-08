@@ -107,8 +107,10 @@ function gapAction(name: string, { dev, preview }: { dev: boolean, preview: bool
 /**
  * Why a value `.env(.local)` holds is not one for production, or null when
  * it is: `.env.local` is the dev deployment's. Its `SITE_URL` is a local
- * origin, its proof secret must not be shared with production, and the
- * challenge provider's test secret keys pass every answer.
+ * origin, its proof secret must not be shared with production, the
+ * challenge provider's test secret keys pass every answer, and its AI
+ * gateway key is development's, with development's budget: production
+ * gets a key of its own, set by hand.
  */
 function notForProduction(name: string, value: string): string | null {
   if (name === 'SITE_URL') {
@@ -116,6 +118,7 @@ function notForProduction(name: string, value: string): string | null {
     if (url?.protocol === 'https:' && !isLoopbackUrl(url.href)) return null
     return `required — .env.local's SITE_URL (${value}) is no public https origin: pass production's with --site-url, or set it in the dashboard`
   }
+  if (name === 'AI_GATEWAY_API_KEY') return 'production\'s own key, never .env.local\'s development one: create a key with a budget of its own and set it with `npx convex env set --prod AI_GATEWAY_API_KEY`'
   if (name === 'PROTECTION_PROOF_SECRET') return 'production\'s own, never .env.local\'s: generate one (openssl rand -base64 32) and set it on the deployment and in the host\'s env'
   if (name === 'PROTECTION_CHALLENGE_SECRET_KEY' && TEST_CHALLENGE_SECRET_KEYS.includes(value.trim())) return '.env.local holds the challenge provider\'s test secret key, which passes every answer: set production\'s own key on the deployment'
   return null

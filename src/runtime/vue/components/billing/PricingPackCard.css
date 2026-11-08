@@ -9,7 +9,8 @@
     align-items: center;
     gap: 0.7rem;
     padding: 0.6rem 0.9rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
   }
 

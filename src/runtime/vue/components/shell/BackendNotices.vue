@@ -55,6 +55,7 @@ const noticeProps = (notice: BackendNotice) => ({ slotContent: slots[notice], ..
 <template>
   <div
     v-if="shown"
+    data-backend
     data-notices="region"
   >
     <component

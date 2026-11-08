@@ -110,10 +110,10 @@ export const SUBPROCESSORS = {
   },
   aiGateway: {
     capability: 'ai',
-    name: 'Convex AI Gateway, Vercel AI Gateway',
+    name: 'The AI gateway the app calls models through: the Convex AI Gateway or the Vercel AI Gateway',
     processes: 'The prompts and the answers of the AI features a person uses, which the gateway passes to the model\'s provider; never kept by the app past the request.',
     location: 'The US, or the EU where inference is pinned there.',
-    configuredBy: 'A paid Convex plan, or `AI_GATEWAY_API_KEY`',
+    configuredBy: '`setupAi({ gateway })`: the Convex AI Gateway on a paid Convex plan, the Vercel AI Gateway with `AI_GATEWAY_API_KEY`; list the one, or both, your order names',
   },
   monitoring: {
     capability: 'monitoring',

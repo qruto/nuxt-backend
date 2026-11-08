@@ -236,7 +236,7 @@ async function uploadText(ctx: ActionCtx, storage: StorageRefs, storageId: strin
 
 /** Build `ai.knowledge`. */
 export function createKnowledge(context: AiContext, metering: AiMetering, ragComponent: unknown, storage: StorageRefs) {
-  const { config, billing, recordCost } = context
+  const { billing, recordCost, routing } = context
   const { prepare, closeSpend, releaseMetered, armRelease } = metering
   const rows = context.requests as unknown as DocumentRefs
   const ragRefs = ragComponent as RagRefs
@@ -249,17 +249,16 @@ export function createKnowledge(context: AiContext, metering: AiMetering, ragCom
     const searchCost = definition.cost?.search ?? 1
     const modelId = embeddingModelId(definition.model)
     const store = `${modelId}@${dimension}`
-    const region = config.inferenceRegion
 
     /** The store's RAG client, its model recording into `calls`. */
     const ragFor = async (calls: ModelCall[]) => {
       const { RAG } = await loadRag()
-      const textEmbeddingModel = await meteredEmbeddingModel(definition.model, calls, { region, dimension })
+      const textEmbeddingModel = await meteredEmbeddingModel(definition.model, calls, { routing, dimension })
       return new RAG(ragComponent as never, { textEmbeddingModel: textEmbeddingModel as never, embeddingDimension: dimension })
     }
 
     const requireReachable = () => {
-      if (!embeddingReachable(definition.model, region)) throw modelRefusal({ id: modelId, ...(region ? { region } : {}) })
+      if (!embeddingReachable(definition.model, routing)) throw modelRefusal({ id: modelId, ...routing })
     }
 
     /** The caller's billing entity: a member's, for reading; one who acts in person, for writing. */
@@ -480,7 +479,7 @@ export function createKnowledge(context: AiContext, metering: AiMetering, ragCom
       api: { documents, add, search, remove, embed } as unknown as KnowledgeApi,
       add: addFromServer,
       modelId,
-      reachable: () => embeddingReachable(definition.model, region),
+      reachable: () => embeddingReachable(definition.model, routing),
       [KNOWLEDGE_SEARCH]: searchIn,
     }
   }

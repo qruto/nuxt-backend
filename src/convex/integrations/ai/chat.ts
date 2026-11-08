@@ -216,7 +216,7 @@ function quotedPassages(passages: ReadonlyArray<{ text: string, document: { titl
  * schedules.
  */
 export function createChats(context: AiContext, metering: AiMetering, agentComponent: unknown) {
-  const { config, billing, rateLimiter, refuseAi } = context
+  const { config, billing, rateLimiter, refuseAi, routing } = context
   const { prepare, closeSpend, releaseMetered, armRelease, modelPicker } = metering
   const rows = context.requests as unknown as ThreadRefs
   const agentRefs = agentComponent as AgentRefs
@@ -335,7 +335,7 @@ export function createChats(context: AiContext, metering: AiMetering, agentCompo
         const { usage, reservation } = app
           ? await prepareAppReply(ctx, caller.userId)
           : await prepare(ctx as unknown as RunCtx, { meter: meter as string | false, limit: definition.limit, cost, allowOverage: definition.allowOverage, model: model ?? undefined, allowRefresh: false })
-        if (definition.knowledge && !definition.knowledge.reachable()) throw modelRefusal({ id: definition.knowledge.modelId, ...(config.inferenceRegion ? { region: config.inferenceRegion } : {}) })
+        if (definition.knowledge && !definition.knowledge.reachable()) throw modelRefusal({ id: definition.knowledge.modelId, ...routing })
         const agent = await loadAgent()
         const component = agentComponent as Parameters<AgentModule['saveMessage']>[1]
         let threadId = existing?.threadId
@@ -368,7 +368,7 @@ export function createChats(context: AiContext, metering: AiMetering, agentCompo
     const prepareAppReply = async (ctx: MutationCtx, userId: string): Promise<{ usage: MeteredUsage, reservation: SpendReservation }> => {
       await refuseAi(ctx as never)
       if (model !== undefined) {
-        const route = routeModel(model, undefined, config.inferenceRegion)
+        const route = routeModel(model, undefined, routing)
         if (route.route === 'missing') throw modelRefusal(route)
       }
       const limitName = definition.limit ?? 'ai'

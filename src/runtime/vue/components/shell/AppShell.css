@@ -132,11 +132,11 @@
     max-width: min(22rem, calc(100vw - 1rem));
     margin: 0.35rem 0 0;
     padding: 0.5rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
     border-radius: var(--bk-radius);
     background: Canvas;
     color: CanvasText;
-    box-shadow: 0 8px 24px color-mix(in srgb, currentColor 18%, transparent);
+    box-shadow: var(--bk-shadow-overlay);
   }
 
   @supports (position-area: block-end) {
@@ -161,11 +161,13 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.3rem 0.7rem 0.3rem 0.3rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow-control);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
     font: inherit;
+    font-family: var(--bk-font-control, var(--bk-font));
     font-weight: 600;
     cursor: pointer;
   }

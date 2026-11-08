@@ -47,6 +47,7 @@ const { t, errorMessage } = form.labels
 
 <template>
   <div
+    data-backend
     data-contact="root"
     :data-state="form.state.value"
   >
