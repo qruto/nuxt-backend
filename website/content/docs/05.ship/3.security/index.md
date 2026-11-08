@@ -95,7 +95,7 @@ A browser that already stored HSTS for `localhost` keeps upgrading until that po
 
 ## Webhooks: fail closed
 
-Both inbound webhooks, `/billing/events` and `/email/events`, share one edge. It verifies the signature once, before any handler runs, with one [Standard Webhooks](https://www.standardwebhooks.com/) verifier: Polar signs to the spec with secrets created on or after 2026-09-08, and Resend signs through Svix, whose scheme the spec adopted. In `0.2.0` the verifier also accepts Polar's older HMAC, so a secret created before that date keeps working ([Polar](/docs/services/polar#link-it)). One verifier serves both routes, so their policy cannot drift apart:
+Both inbound webhooks, `/billing/events` and `/email/events`, share one edge. It verifies the signature once, before any handler runs, with one [Standard Webhooks](https://www.standardwebhooks.com/) verifier: Polar signs to the spec with secrets created on or after 2026-09-08, and Resend signs through Svix, whose scheme the spec adopted. The verifier also accepts Polar's older HMAC, so a secret created before that date keeps working ([Polar](/docs/services/polar#link-it)). One verifier serves both routes, so their policy cannot drift apart:
 
 | Condition | Status | Logged outcome |
 |---|---|---|

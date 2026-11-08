@@ -705,14 +705,16 @@ on a public name, command, doctor finding or how-to page no skill covers. Agents
 `SKILL.md` whole, so the core stays within 12 kB and each task skill within 20 kB
 (`agent-skill.test.ts`): lists go to `references/`.
 
-**The rename map is reference data for the previews of `main`.** While a section of the
+**The rename map is reference data for the names a release renamed.** While a section of the
 [Upgrade page](./website/content/docs/05.ship/6.releases/4.upgrade.md) lists the names it renamed,
 reshaped or removed, [`src/guidance/renames.ts`](./src/guidance/renames.ts) has an entry for each,
 naming the section; `pnpm generate` writes the entries to `renames.json` and `upgrade.md`. The test
 fails while a section of the page has no entry, while an entry names something its section does
 not, and while a Gone column lists a removed composable, component, factory, type or constant that
 no entry carries. `nuxt-backend upgrade` reads none of it: it rewrites no code, so a breaking change
-after 0.2.0 goes in the changelog, with the edit to make, and not in a codemod.
+goes in the changelog and on the Upgrade page, with the edit to make, and not in a codemod. The
+entries of the previews before 0.2.0 left with their sections: the Upgrade page at the `v0.2.1` tag
+keeps them.
 
 A change that needs the data an earlier release wrote changed
 adds a package migration: an entry in

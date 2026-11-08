@@ -72,7 +72,7 @@ This skill's own tasks:
 
 ## Names that don't exist
 
-Common guesses that don't exist here; write the name after the arrow. For 0.1 names, see the
+Common guesses that don't exist here; write the name after the arrow. For older names, see the
 `nuxt-backend-upgrade` skill.
 
 <!-- generated:wrong-names -->

@@ -51,11 +51,11 @@ A **tier** is one of these builders: `authed`, `workspace`, `admin` and two more
 
 | Native to Better Auth | Added by the package |
 |---|---|
-| Email codes, passkeys and sessions | `setupAuth`, which the scaffold calls for you, `useLoginFlow`, `<AuthForm>` at `/login`, passkey autofill. Planned: codes bound to the browser that asked, the passkey offer, the WebAuthn Signal API and passkey-only accounts with a recovery code |
+| Email codes, passkeys and sessions | `setupAuth`, which the scaffold calls for you, `useLoginFlow`, `<AuthForm>` at `/login`, passkey autofill, codes bound to the browser that asked, the passkey offer, the WebAuthn Signal API and passkey-only accounts with a recovery code |
 | Sign-in and sign-up hooks | `canSignIn` and the lifecycle hooks, launch phases, invite codes, access links and a verified waitlist |
-| Roles, bans and impersonation (the admin plugin) | Roles on the session token, page rules, function tiers, a recent sign-in for sensitive actions, the admin console. Planned: tabs of your own and a reports queue |
+| Roles, bans and impersonation (the admin plugin) | Roles on the session token, page rules, function tiers, a recent sign-in for sensitive actions, the admin console with tabs of your own and a reports queue |
 | Workspaces, members and invitations (the organization plugin) | A personal workspace for everyone, the active workspace carried on the session token, `useWorkspace` |
-| Account and session tables | Export, deletion, the activity trail, new-device alerts. Planned: the grace period, an erasure that reaches every provider, consents, a consent manager for optional storage, a minimum age |
+| Account and session tables | Export, deletion after a grace period with an erasure that reaches every provider, the activity trail, new-device alerts, consents, a consent manager for optional storage, a minimum age |
 
 The **active workspace** is the one a person works in right now. Every account has at least one, its personal workspace.
 
@@ -96,18 +96,16 @@ The **active workspace** is the one a person works in right now. Every account h
 
 ## Every page
 
-Pages marked *planned* describe a part of `0.2.0` that is not built yet. Pages marked *changing* describe the `0.2.0` API of a part that is built ([Feature map](/docs/start/feature-map)).
-
 **Set up**
 
 - [Auth setup](/docs/build/auth/setup): the scaffolded files, everything `setupAuth` takes and returns, and the auth route.
 
 **Sign-in**
 
-- [Sign users in](/docs/build/auth/sign-in): `useLoginFlow`, `<AuthForm>`, passkey autofill and `useAuth`, plus browser-bound codes, the passkey offer and passkey-only accounts (planned).
+- [Sign users in](/docs/build/auth/sign-in): `useLoginFlow`, `<AuthForm>`, passkey autofill and `useAuth`, plus browser-bound codes, the passkey offer and passkey-only accounts.
 - [Build a custom sign-in page](/docs/build/auth/sign-in/custom-page): your own `/login`, with `?redirect=` and autofill kept.
 - [Stop bots](/docs/build/auth/sign-in/bots): BotID on Vercel, a challenge elsewhere, `verifyHuman` for your own calls.
-- [Launch in phases](/docs/build/growth/launch) (planned): early access, invite only and public, and the tickets that admit a new address.
+- [Launch in phases](/docs/build/growth/launch): early access, invite only and public, and the tickets that admit a new address.
 - [Hook into sign-in and sign-up](/docs/build/auth/sign-in/hooks): `canSignIn`, `onUserCreated`, `onUserDeleted` and Better Auth hooks of your own.
 
 **Access**
@@ -120,9 +118,9 @@ Pages marked *planned* describe a part of `0.2.0` that is not built yet. Pages m
 **Accounts**
 
 - [Let users edit their profile](/docs/build/auth/accounts/profile): name, avatar, language and a new email address.
-- [Manage passkeys and sessions](/docs/build/auth/accounts/security): `/security`, its devices, its recent activity, and passkey-only (planned).
+- [Manage passkeys and sessions](/docs/build/auth/accounts/security): `/security`, its devices, its recent activity, and passkey-only.
 - [Export and delete an account](/docs/build/auth/accounts/data): one export of everything, and a deletion with a grace period that erases the person at every provider.
-- [Record consents](/docs/build/auth/accounts/consents) (planned): terms, privacy and opt-ins by version, the consent manager for optional storage, and a minimum age.
+- [Record consents](/docs/build/auth/accounts/consents): terms, privacy and opt-ins by version, the consent manager for optional storage, and a minimum age.
 - [Alert people to new sign-ins](/docs/build/auth/accounts/alerts): a notice when a new device signs in.
 
 **Workspaces**
@@ -136,7 +134,7 @@ Pages marked *planned* describe a part of `0.2.0` that is not built yet. Pages m
 - [Run the admin console](/docs/build/auth/admin): the first administrator, then `/admin`.
 - [Impersonation](/docs/build/auth/admin/impersonation): why administrators act only through a short, recorded visit.
 - [Record and review activity](/docs/build/auth/admin/audit-log): the activity trail, and events of your own on it.
-- [Add your own admin tabs](/docs/build/auth/admin/custom-tabs) (planned): your team's tools inside the console.
+- [Add your own admin tabs](/docs/build/auth/admin/custom-tabs): your team's tools inside the console.
 
 The launch, waitlist, revenue and growth tabs of the console are covered under [Grow your app](/docs/build/growth).
 
@@ -149,9 +147,9 @@ What the package ships for this part of the app today, generated from the code. 
 ::what-you-get{area="auth"}
 ::
 
-## Not in 0.2.0
+## Not built yet
 
-These arrive in a later release ([Roadmap](/docs/start/roadmap)):
+These wait for a later release ([Roadmap](/docs/start/roadmap)):
 
 - roles a workspace owner defines, and billing as a permission inside them;
 - moving a workspace to another owner;

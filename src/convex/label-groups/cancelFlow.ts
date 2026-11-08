@@ -1,7 +1,7 @@
 import type { LabelTree } from '../label-format.js'
 
 /**
- * `<CancelFlow>` (LIFECYCLE): cancelling takes one step, and a save offer
+ * `<CancelFlow>`: cancelling takes one step, and a save offer
  * is one optional step. A question, at most one offer by its real terms,
  * and the end, with "Cancel my plan" on every screen and no guilt in the
  * words. `{plan}` is a plan's name, `{date}` a date in the reader's words.

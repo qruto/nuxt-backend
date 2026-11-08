@@ -4,7 +4,7 @@ import type { BackendLabels, LabelOverrides } from '../../composables/use-labels
 import { type CancelFlowSlots, useCancelFlow } from './cancel-flow'
 
 /**
- * Cancelling takes one step; a save offer is one optional step (LIFECYCLE).
+ * Cancelling takes one step; a save offer is one optional step.
  * The flow asks one optional question, the main reason with a comment, and
  * shows at most the one offer the server answers for it (a pause, a cheaper
  * plan or a discount, by its real terms), then the end: the date the plan

@@ -84,7 +84,7 @@ The [agent plugin](/docs/develop/agents/plugin) installs the developer MCP serve
   :::
 
   :::card{icon="i-lucide-terminal" title="Developer MCP server" to="/docs/develop/agents/developer-mcp"}
-  Planned: one server for your project's state, the docs, and the Convex, Polar, Resend and Vercel consoles, with writes confirmed by you.
+  One server for your project's state, the docs, and the Convex, Polar, Resend and Vercel consoles, with writes confirmed by you.
   :::
 
   :::card{icon="i-lucide-file-text" title="Docs for agents" to="/docs/develop/agents/docs-for-agents"}
@@ -96,18 +96,18 @@ The [agent plugin](/docs/develop/agents/plugin) installs the developer MCP serve
   :::
 
   :::card{icon="i-lucide-package" title="Agent plugin" to="/docs/develop/agents/plugin"}
-  Planned: the skills and both MCP servers in one install for Claude Code.
+  The skills and both MCP servers in one install for Claude Code.
   :::
 
   :::card{icon="i-lucide-milestone" title="MCP endpoint for your users' agents" to="/docs/develop/agents/mcp"}
-  Why `0.2.0` ships no `/mcp` for your users' agents, and what replaces it until the next release.
+  Why the package ships no `/mcp` for your users' agents, and what to build until a later release brings it.
   :::
 ::
 
 ## Not covered here
 
 - **AI features your app sells.** Metered model calls, jobs and chat are in [AI](/docs/build/ai).
-- **Agents that use your app as a person.** An MCP endpoint your users' agents sign in to waits for the next release: see the [Roadmap](/docs/start/roadmap#service-app-features).
+- **Agents that use your app as a person.** An MCP endpoint your users' agents sign in to waits for a later release: see the [Roadmap](/docs/start/roadmap#service-app-features).
 - **API keys.** The package issues none ([Principles](/docs/start/concepts/principles)).
 - **The docs site's Ask AI.** It answers readers of these docs from the docs MCP, and shares no key, model or credits with your app.
 

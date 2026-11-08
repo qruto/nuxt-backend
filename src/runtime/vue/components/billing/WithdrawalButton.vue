@@ -3,7 +3,7 @@ import type { BackendLabels, LabelOverrides } from '../../composables/use-labels
 import { useWithdrawalButton } from './withdrawal-button'
 
 /**
- * The EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art. 11a,
+ * The EU withdrawal button (Consumer Rights Directive Art. 11a,
  * from 2026-06-19): "Withdraw from contract here", for a purchase inside its
  * 14 days, then a confirm step, "Confirm withdrawal". The server ends the
  * plan at once and emails a receipt with the date and time; the refund is

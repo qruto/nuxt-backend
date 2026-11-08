@@ -131,7 +131,6 @@ describe('the rename map', () => {
 
   it('has an entry for every section of the Upgrade page, as every breaking change adds one', () => {
     const covered = new Set(RENAMES.map(entry => entry.section))
-    expect(sections.size).toBeGreaterThan(10)
     for (const heading of sections.keys()) {
       expect(covered.has(heading), `"## ${heading}" on the Upgrade page has no entry in src/guidance/renames.ts`).toBe(true)
     }
@@ -166,13 +165,16 @@ describe('the rename map', () => {
     return names
   }))
   const stillThere = new Set([...known, ...members, ...Object.values(manifest.functions).flat(), ...Object.keys(manifest.env), 'ComputedRef'])
-  const gone = [...new Set([...page.matchAll(/^\| (.+?) \| .+ \|$/gm)]
+  /** The API-shaped names a page's Gone columns list that the package no longer has. */
+  const goneNames = (text: string) => [...new Set([...text.matchAll(/^\| (.+?) \| .+ \|$/gm)]
     .filter(([row]) => !row.startsWith('| Gone') && !row.startsWith('|---'))
     .flatMap(([, cell]) => [...cell!.matchAll(/`([^`]+)`/g)].map(match => match[1]!))
     .filter(name => API_SHAPED.test(name) && !stillThere.has(bareName(name))))]
+  const gone = goneNames(page)
 
-  it('reads the names the Gone columns list as removed', () => {
-    expect(gone.length).toBeGreaterThan(40)
+  it('reads the names a Gone column lists as removed, and only those', () => {
+    const sample = ['| Gone | Instead |', '|---|---|', '| `useOldThing()` and `<OldCard>` | `useAuth()` |', '| `useAuth()` and its `signOut` | Nothing |'].join('\n')
+    expect(goneNames(sample)).toEqual(['useOldThing()', '<OldCard>'])
   })
 
   it.each(gone)('carries `%s`, which a Gone column lists', (name) => {
@@ -180,7 +182,7 @@ describe('the rename map', () => {
   })
 
   it('links a section by the anchor the site gives its heading', () => {
-    // Anchors the docs and the module already link by hand.
+    // Headings of the shapes a section takes: a comma, a code span.
     expect(headingAnchor('Page paths, the stylesheet and the webhook log')).toBe('page-paths-the-stylesheet-and-the-webhook-log')
     expect(headingAnchor('The surface says backend, never a provider')).toBe('the-surface-says-backend-never-a-provider')
     expect(headingAnchor('The scaffolded `send` is internal')).toBe('the-scaffolded-send-is-internal')

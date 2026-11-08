@@ -30,13 +30,13 @@ The `ai` capability is in the [experimental tier](/docs/ship/releases/stability)
 | Streamed answers | `ai.stream` on the server, `useAiStream` in a page; the text persists and resumes | [Stream a response](/docs/build/ai/streaming) |
 | Any provider's model | A `provider/model` id, called through `ctx.model()` with the AI SDK | [Choose a model](/docs/build/ai/models) |
 | Limits, budgets and alerts | The `ai` rate limit, a credit `budget`, low-balance hooks, the `pause_ai` kill switch | [Budgets and costs](/docs/build/ai/models#budgets-and-costs) |
-| Generation jobs (planned) | A job queue and jobs of durable steps; a composable that shows a job's place in line and its progress | [Run generation jobs](/docs/build/ai/jobs) |
-| Chat (planned) | A chat with your instructions, and a composable that drives the thread | [Add chat](/docs/build/ai/chat) |
-| Knowledge search (planned) | A namespace per workspace, and replies grounded in it | [Add knowledge search](/docs/build/ai/chat/knowledge-search) |
-| Content safety (planned) | A check on prompts and uploads, prompt-injection guidance, and a report queue for administrators | [Keep content safe](/docs/build/ai/content-safety) |
-| Provenance (planned) | Content credentials in generated images, and the visible AI-generated label | [Label AI-generated content](/docs/build/ai/provenance) |
+| Generation jobs | A job queue and jobs of durable steps; a composable that shows a job's place in line and its progress | [Run generation jobs](/docs/build/ai/jobs) |
+| Chat | A chat with your instructions, and a composable that drives the thread | [Add chat](/docs/build/ai/chat) |
+| Knowledge search | A namespace per workspace, and replies grounded in it | [Add knowledge search](/docs/build/ai/chat/knowledge-search) |
+| Content safety | A check on prompts and uploads, prompt-injection guidance, and a report queue for administrators | [Keep content safe](/docs/build/ai/content-safety) |
+| Provenance | Content credentials in generated images, and the visible AI-generated label | [Label AI-generated content](/docs/build/ai/provenance) |
 
-The planned rows arrive in `0.2.0`, experimental like the rest of this capability. The [Feature map](/docs/start/feature-map#ai) lists every AI feature with its status. New to it? Start with the [credit-metered feature recipe](/docs/build/ai/metered-actions#a-complete-feature): one meter, one pack, one streamed answer and the page that runs it.
+Every row is experimental, like the rest of this capability. The [Feature map](/docs/start/feature-map#ai) lists every AI feature with its status. New to it? Start with the [credit-metered feature recipe](/docs/build/ai/metered-actions#a-complete-feature): one meter, one pack, one streamed answer and the page that runs it.
 
 ## How a metered call works
 
@@ -65,7 +65,9 @@ A budget is a cap per workspace and window, such as 500 credits a day. It is rec
 - **The Vercel AI Gateway** answers where the Convex one does not, such as a free plan or a self-hosted backend, with one key, `AI_GATEWAY_API_KEY`. It is also the route for pinning inference to the EU ([Choose a model](/docs/build/ai/models)).
 - **Convex persistent text streaming** keeps a streamed answer on the server, so a reload or a second device reads it.
 - **The billing capability**, powered by Polar, holds the credit meters, the plans and packs that grant credits, and the usage events.
-- **Planned:** Convex's Workflow and rate limiter components under the job queue, its Agent component for chat, its RAG component for knowledge search, a safety classifier through the gateway for content safety, and C2PA content credentials for provenance.
+- **Convex's Workflow and rate limiter components** run the job queue: each job's durable steps, and a calls-per-minute limit for each model that halves on a `429`.
+- **Convex's Agent and RAG components**, optional peers, hold chat threads and the documents knowledge search answers from.
+- **A safety classifier through the gateway** checks prompts and uploads, and **C2PA content credentials** in every generated image say a model made it.
 
 [Capabilities](/docs/start/concepts/capabilities) shows how the `ai` capability sits beside the others, and how `npx nuxt-backend status` reads its state. The [AI gateway](/docs/services/ai-gateway) service page has the plans, keys and spending caps.
 
@@ -78,7 +80,7 @@ Development runs against real models from the first call, through the same route
 - **Credits** come from your billing sandbox: buy a pack with the test card, then spend it at the model's real cost ([Develop on real sandboxes](/docs/develop/sandboxes#ai-through-the-convex-ai-gateway)).
 - **Tests** under Vitest answer every model id from a mock, so a test of a metered action needs no key and makes no network call.
 
-Earlier previews answered from a stand-in model on a local deployment without a key. `0.2.0` removes it ([Choose a model](/docs/build/ai/models#develop-and-test)).
+There is no stand-in model: a deployment with no route to one refuses the call with `unavailable` (reason `not_configured`), and a test answers from its mock ([Choose a model](/docs/build/ai/models#develop-and-test)).
 
 The [demo](/docs/start/playground) draws strips with a generation job: a [strip](/playground/strips) costs 30 credits, and a run that fails refunds them. On the demo, AI stops for the rest of a UTC day once that day's model calls reach `spendLimit`.
 
@@ -116,19 +118,19 @@ reference entry.
   :::
 
   :::card{icon="i-lucide-list-ordered" title="Run generation jobs" to="/docs/build/ai/jobs"}
-  Planned: long generations in a fair queue, a head start for paid plans, model limits that adapt, credits held until a job starts, one guest try, and dead letters.
+  Long generations in a fair queue, a head start for paid plans, model limits that adapt, credits held until a job starts, one guest try, and dead letters.
   :::
 
   :::card{icon="i-lucide-messages-square" title="Add chat" to="/docs/build/ai/chat"}
-  Planned: threads each person keeps, every reply streamed, persisted and paid for in credits, and answers grounded in each workspace's documents.
+  Threads each person keeps, every reply streamed, persisted and paid for in credits, and answers grounded in each workspace's documents.
   :::
 
   :::card{icon="i-lucide-shield-alert" title="Keep content safe" to="/docs/build/ai/content-safety"}
-  Planned: check prompts and uploads with a safety model, guard against prompt injection, let people report content, and review reports.
+  Check prompts and uploads with a safety model, guard against prompt injection, let people report content, and review reports.
   :::
 
   :::card{icon="i-lucide-badge-check" title="Label AI-generated content" to="/docs/build/ai/provenance"}
-  Planned: C2PA content credentials and the IPTC source type in generated images, a provenance record on every result, and a visible label.
+  C2PA content credentials and the IPTC source type in generated images, a provenance record on every result, and a visible label.
   :::
 ::
 
@@ -136,5 +138,5 @@ reference entry.
 
 - **The model's work.** The package routes and meters the call. The prompt and what you do with the answer are yours, written with the AI SDK.
 - **Your price.** The gateway reports what a call cost you. What you charge for it, `creditsPerUsd` or a token price table, is yours to set.
-- **Agents that use your app.** An MCP endpoint your users' agents sign in to waits for the next release: see the [Roadmap](/docs/start/roadmap#service-app-features). Agents that build your app are on [Build with a coding agent](/docs/develop/agents).
+- **Agents that use your app.** An MCP endpoint your users' agents sign in to waits for a later release: see the [Roadmap](/docs/start/roadmap#service-app-features). Agents that build your app are on [Build with a coding agent](/docs/develop/agents).
 - **The docs site's Ask AI.** That is the docs site's own assistant for these docs, a separate thing from the `ai` capability: it shares no key, model or credits with your app.

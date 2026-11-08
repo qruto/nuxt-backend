@@ -7,7 +7,7 @@ import { VNodes } from '../../utils/vnodes'
 import { type PastDueNoticeContext, turnedOff } from './notices'
 
 /**
- * `<BackendNotices>`' past-due notice (LIFECYCLE): while a renewal payment
+ * `<BackendNotices>`' past-due notice: while a renewal payment
  * failed and the provider retries it (`useBilling().isPastDue`), the
  * billing managers read that the plan keeps working for now, with the way to
  * update the payment method in the billing portal. It goes as soon as the

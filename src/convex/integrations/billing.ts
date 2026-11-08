@@ -85,7 +85,7 @@ export type { MeterUsage, RevenueCancellations, RevenueInterval, RevenueMetric, 
 export { type BillingCatalog, type CatalogCreditGrant, type CatalogCurrencyPrices, type CatalogDiscount, type CatalogDiscountDuration, type CatalogDiscountProducts, type CatalogDiscountTerms, type CatalogFeature, type CatalogInterval, type CatalogMeter, type CatalogPack, type CatalogPackPrices, type CatalogPlan, type CatalogPlanCreditGrant, type CatalogPlanGift, type CatalogPlanPrices, type CatalogQuota, defineBillingCatalog, type MeterUnit } from '../catalog.js'
 export { ALL_BILLING_EVENTS } from './billing/events.js'
 
-// The referral program (REF), set up in its own backend file beside billing.
+// The referral program, set up in its own backend file beside billing.
 export { setupReferrals } from './referrals.js'
 export type { ClaimRefusal, DueReferral, ReferralCodeView, ReferralComponents, ReferralRefs, ReferralConsole, ReferralConsoleRow, ReferralConsoleRows, ReferralEntry, ReferralPreview, ReferralProgram, Referrals, ReferralsApi, ReferralsView, ReferredOffer, ReferrerOffer, SetupReferralsOptions, StoredTerms } from './referrals.js'
 export type { ReferralCaps, ReferralRewards, ReferralState, ReferralTerms, ReferredReward, ReferrerReward } from '../referral-rules.js'
