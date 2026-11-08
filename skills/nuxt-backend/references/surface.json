@@ -73,6 +73,7 @@
         "getBackendError",
         "normalizeEmail",
         "randomToken",
+        "scheduleRetention",
         "sha256Hex",
         "verifyHuman"
       ],
@@ -96,6 +97,7 @@
         "RetentionArgs",
         "RetentionOptions",
         "RetentionResult",
+        "RetentionSchedule",
         "SensitiveAction",
         "SensitiveLimit"
       ]
@@ -665,12 +667,14 @@
         "stripImageMetadata"
       ],
       "types": [
+        "EnabledShareLink",
         "FileOwner",
         "MintedShareLink",
         "ResolvedShareLink",
         "SetupStorageOptions",
         "ShareCtx",
         "ShareLinkState",
+        "ShareMutationCtx",
         "ShareableOptions",
         "Storage",
         "StorageApi",
@@ -756,13 +760,28 @@
     },
     "nuxt-backend/test": {
       "values": [
+        "TEST_PNG",
+        "TEST_STORAGE_URL",
         "asUser",
         "default",
         "defineBackendTestApp",
+        "drain",
         "register",
-        "seedWorkspace"
+        "seedBilling",
+        "seedCredits",
+        "seedWorkspace",
+        "stubStorageFetch",
+        "upload"
       ],
       "types": [
+        "BackendTestApp",
+        "BackendTestAppOptions",
+        "ComponentTestKit",
+        "StubStorageFetchOptions",
+        "TestBilling",
+        "TestFile",
+        "TestTimers",
+        "TestUploadOptions",
         "TestUser",
         "TestUserOptions"
       ]

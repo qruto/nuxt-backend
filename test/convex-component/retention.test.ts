@@ -1,13 +1,14 @@
 /// <reference types="vite/client" />
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { defineSchema, defineTable, internalMutationGeneric, makeFunctionReference } from 'convex/server'
+import { cronJobs, defineSchema, defineTable, internalMutationGeneric, makeFunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 import { defineBackendTestApp } from '../../src/convex/test'
-import { defineRetention } from '../../src/convex/integrations/retention'
+import { defineRetention, scheduleRetention } from '../../src/convex/integrations/retention'
 import { DAY } from '../../src/convex/integrations/rate-limit'
 
 // defineRetention over a real Convex schema: the rows a pass deletes, the
-// batches it schedules itself, and what a failing batch leaves behind.
+// batches it schedules itself, what a failing batch leaves behind, and the
+// crons scheduleRetention starts.
 
 const schema = defineSchema({
   strips: defineTable({
@@ -232,6 +233,8 @@ describe('defining a rule', () => {
   test('accepts the documented shapes', () => {
     expect(rule({})).not.toThrow()
     expect(rule({ batch: 1, ttl: 5 })).not.toThrow()
+    expect(rule({ schedule: { cron: '10 3 * * *' } })).not.toThrow()
+    expect(rule({ schedule: { every: { hours: 24 } } })).not.toThrow()
   })
 
   test.each([
@@ -243,7 +246,31 @@ describe('defining a rule', () => {
     ['an index that is no by_ name', { index: 'expires' }, /Name the index by its fields/],
     ['a match that is not the index\'s leading fields', { index: 'by_status_and_updatedAt', match: { updatedAt: 1 } }, /leading fields/],
     ['a match that fills the whole index', { index: 'by_expiresAt', match: { expiresAt: 1 } }, /leading fields/],
+    ['a schedule with neither every nor cron', { schedule: {} }, /"schedule"/],
+    ['a schedule with both', { schedule: { cron: '0 3 * * *', every: { hours: 1 } } }, /"schedule"/],
+    ['a schedule that is a bare string', { schedule: '0 3 * * *' }, /"schedule"/],
   ])('refuses %s', (_name, overrides, message) => {
     expect(rule(overrides)).toThrow(message)
+  })
+})
+
+describe('scheduleRetention', () => {
+  const nightly = defineRetention(internalMutationGeneric, { fn: 'retention:nightly', table: 'strips', index: 'by_expiresAt', ttl: 0, schedule: { cron: '10 3 * * *' } })
+  const hourly = defineRetention(internalMutationGeneric, { fn: 'jobs/retention:hourly', table: 'strips', index: 'by_creation_time', ttl: DAY, schedule: { every: { hours: 1 } } })
+  const unscheduled = defineRetention(internalMutationGeneric, { fn: 'retention:unscheduled', table: 'strips', index: 'by_expiresAt', ttl: 0 })
+
+  test('starts one cron per scheduled rule, named after its fn, and leaves the rest of the module out', () => {
+    const crons = cronJobs()
+    const scheduled = scheduleRetention(crons, { nightly, hourly, unscheduled, DAY, helper: () => null, nothing: null })
+    expect(scheduled).toEqual(['retention:nightly', 'jobs/retention:hourly'])
+    expect(Object.keys(crons.crons)).toEqual(['retention:nightly', 'jobs/retention:hourly'])
+    expect(crons.crons['retention:nightly']).toMatchObject({ name: 'retention:nightly', schedule: { type: 'cron', cron: '10 3 * * *' } })
+    expect(crons.crons['jobs/retention:hourly']).toMatchObject({ name: 'jobs/retention:hourly', schedule: { type: 'interval', hours: 1 } })
+  })
+
+  test('a rule scheduled twice is refused by Convex, as a cron name used twice is', () => {
+    const crons = cronJobs()
+    scheduleRetention(crons, { nightly })
+    expect(() => scheduleRetention(crons, { nightly })).toThrow()
   })
 })

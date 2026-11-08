@@ -379,7 +379,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
   '.': ['default'],
   './auth': ['APIError', 'resolveSignInMethod', 'setupAuth', 'storesLastSignInCookie'],
   './http': ['registerBackendRoutes'],
-  './functions': ['BACKEND_ERRORS', 'RECENT_SIGN_IN_SECONDS', 'SENSITIVE_ACTIONS', 'backendError', 'createFunctions', 'defineRetention', 'getBackendError', 'normalizeEmail', 'randomToken', 'sha256Hex', 'verifyHuman'],
+  './functions': ['BACKEND_ERRORS', 'RECENT_SIGN_IN_SECONDS', 'SENSITIVE_ACTIONS', 'backendError', 'createFunctions', 'defineRetention', 'getBackendError', 'normalizeEmail', 'randomToken', 'scheduleRetention', 'sha256Hex', 'verifyHuman'],
   './app': ['backendEnv', 'backendEnvironment'],
   './billing': ['ALL_BILLING_EVENTS', 'defineBillingCatalog', 'setupBilling', 'setupReferrals'],
   './email': ['ALL_EMAIL_EVENTS', 'describeOrigin', 'escapeHtml', 'forceColorScheme', 'html', 'linkBlocks', 'plainName', 'setupEmail', 'trustedHtml'],
@@ -398,7 +398,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
 
   './convex.config': ['default'],
   './auth.config': ['default', 'defineBackendAuthConfig'],
-  './test': ['asUser', 'default', 'defineBackendTestApp', 'register', 'seedWorkspace'],
+  './test': ['TEST_PNG', 'TEST_STORAGE_URL', 'asUser', 'default', 'defineBackendTestApp', 'drain', 'register', 'seedBilling', 'seedCredits', 'seedWorkspace', 'stubStorageFetch', 'upload'],
   './test-utils': ['backendMockProvides', 'backendTestAliases', 'createBackendMock', 'renderEmail', 'resetBackendMock'],
   './eslint': ['BACKEND_ESLINT_RULES', 'backendEslint'],
 }
@@ -628,7 +628,7 @@ const REGISTRY = {
 }
 
 /** The experimental tier, by the names STABILITY.md lists. */
-const EXPERIMENTAL = ['./ai', './monitoring', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage']
+const EXPERIMENTAL = ['./ai', './monitoring', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage']
 
 /**
  * The experimental members of a stable type, by where the source tags them

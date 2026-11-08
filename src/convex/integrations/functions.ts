@@ -23,8 +23,8 @@ export { RECENT_SIGN_IN_SECONDS } from '../constants.js'
 export { SENSITIVE_ACTIONS } from '../sensitive-actions.js'
 
 // Data that ages out, and the token helpers: a secret in a table is stored as its hash.
-export { defineRetention } from './retention.js'
-export type { RetentionArgs, RetentionOptions, RetentionResult } from './retention.js'
+export { defineRetention, scheduleRetention } from './retention.js'
+export type { RetentionArgs, RetentionOptions, RetentionResult, RetentionSchedule } from './retention.js'
 export { normalizeEmail, randomToken, sha256Hex } from '../tokens.js'
 export type { SensitiveAction, SensitiveLimit } from '../sensitive-actions.js'
 export type { AuthorizationComponents, AuthorizationCtx, AuthorizationUser as FunctionUser, AuthorizationWorkspace, CallerRule } from './authorization.js'

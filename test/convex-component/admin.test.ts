@@ -84,7 +84,8 @@ describe('listUsers', () => {
     await update(demoted.userId, { role: 'user' })
     const banned = await asUser(t, { role: 'admin' })
     await update(banned.userId, { banned: true })
-    for (const caller of [t, member, visit, demoted, banned]) {
+    const anonymous: Pick<typeof member, 'query'> = t
+    for (const caller of [anonymous, member, visit, demoted, banned]) {
       expect(await caller.query(listUsers, { paginationOpts: page() })).toBeNull()
     }
   })

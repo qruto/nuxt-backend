@@ -2143,6 +2143,10 @@
           "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
         },
         {
+          "name": "expiredFiles",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
           "name": "jobs",
           "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
         },

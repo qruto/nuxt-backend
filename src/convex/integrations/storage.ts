@@ -114,6 +114,17 @@ export interface StorageWriteCtx extends StorageReadCtx {
 /** The context `canShare` receives: the mutation's or the query's own, and the signed-in caller. */
 export type ShareCtx<DM extends GenericDataModel> = (GenericQueryCtx<DM> | GenericMutationCtx<DM>) & { user: { id: string } }
 
+/** The context `onEnable` receives: `enableShareLink`'s mutation, and the signed-in caller who turned the link on. */
+export type ShareMutationCtx<DM extends GenericDataModel> = GenericMutationCtx<DM> & { user: { id: string } }
+
+/** What `onEnable` learns about the link it follows. */
+export interface EnabledShareLink {
+  /** The link, as `enableShareLink` returns it to the caller. */
+  url: string
+  /** Whether it replaced a live link, which stopped working. */
+  rotated: boolean
+}
+
 /** How a table's rows are shared, for {@link Storage.shareable}. */
 export interface ShareableOptions<DM extends GenericDataModel, T extends TableNamesInDataModel<DM>> {
   /** Where the public page lives: a link reads `SITE_URL` + `path` + `/` + the token. */
@@ -122,6 +133,12 @@ export interface ShareableOptions<DM extends GenericDataModel, T extends TableNa
   canShare: (ctx: ShareCtx<DM>, row: DocumentByName<DM, T>) => boolean | Promise<boolean>
   /** The storage id of the image the preview card shows, or `null` for none. */
   ogImage?: (row: DocumentByName<DM, T>) => string | null | undefined
+  /**
+   * Runs in `enableShareLink`'s mutation once the link is on, a new one
+   * replacing an earlier one included: record an event, tick off a
+   * checklist step, stamp the row. A throw rolls the link back with it.
+   */
+  onEnable?: (ctx: ShareMutationCtx<DM>, row: DocumentByName<DM, T>, link: EnabledShareLink) => void | Promise<void>
 }
 
 /** A quota: a number, or a quota key of the billing catalog. */
@@ -184,8 +201,20 @@ export interface Storage<DM extends GenericDataModel = GenericDataModel> {
   bytes: (ctx: Pick<GenericActionCtx<GenericDataModel>, 'runAction'>, storageId: string) => Promise<Uint8Array | null>
   /** A file's URL once your query decided who may see it; `null` for a file that is gone or still checked. */
   fileUrl: (ctx: StorageReadCtx, storageId: string) => Promise<string | null>
-  /** An expiring URL on the deployment's routes: `ttl` ms, an hour by default, seven days at most; `null` for a file that is gone or still checked. */
+  /**
+   * An expiring URL on the deployment's routes: `ttl` ms, an hour by default,
+   * seven days at most; `null` for a file that is gone or still checked. A
+   * live query that signs one runs again every half hour, so its page holds
+   * fresh URLs: with a `ttl` of an hour or more, never an expired one.
+   */
   signedUrl: (ctx: StorageReadCtx, storageId: string, options?: { ttl?: number }) => Promise<string | null>
+  /**
+   * When a file goes: past `at` (epoch ms, or a `Date`), the component's
+   * maintenance deletes it within the hour, with its record, and gives its
+   * bytes back to the quota; `null` keeps it again. Returns whether the id
+   * names a kept file. It checks no owner: pass an id read from your own row.
+   */
+  expire: (ctx: StorageWriteCtx, storageId: string | null | undefined, at: number | Date | null) => Promise<boolean>
   /** Mark a table's rows shareable by link: where the public page lives, who may share a row, and its preview card's image. */
   shareable: <T extends TableNamesInDataModel<DM>>(table: T, options: ShareableOptions<DM, T>) => void
   /** The row a token opens in a table, who shared it, and its preview card's URL; `null` for an unknown, rotated or revoked token. */
@@ -219,6 +248,7 @@ interface StorageRefs {
     bytes: FunctionReference<'action', 'internal', { storageId: string }, ArrayBuffer | null>
     claim: FunctionReference<'mutation', 'internal', { storageId: string, owner: FileOwner, holder: string, limits: Limits, maxSize: number, check: { accept: string[], strip: boolean }, counters?: Counters }, { size: number } | { invalid: 'missing' | 'claimed' | 'too_large' } | { refused: QuotaRefusal }>
     release: FunctionReference<'mutation', 'internal', { storageId: string }, boolean>
+    expire: FunctionReference<'mutation', 'internal', { storageId: string, at: number | null }, boolean>
     discard: FunctionReference<'mutation', 'internal', { storageId: string }, boolean>
     url: FunctionReference<'query', 'internal', { storageId: string, userId?: string }, string | null>
     served: FunctionReference<'query', 'internal', { storageId: string }, { url: string, contentType: string, size: number } | null>
@@ -410,6 +440,13 @@ export function setupStorage<DM extends GenericDataModel = GenericDataModel>(com
     return read ? new Uint8Array(read) : null
   }
 
+  const expire: Storage<DM>['expire'] = async (ctx, storageId, at) => {
+    if (!storageId) return false
+    const when = at instanceof Date ? at.getTime() : at
+    if (when !== null && !Number.isFinite(when)) throw new TypeError(`[nuxt-backend] storage.expire: "at" is when the file goes, epoch milliseconds or a Date, or null to keep it; not ${String(at)}.`)
+    return await ctx.runMutation(refs.storage.expire, { storageId, at: when })
+  }
+
   const fileUrl: Storage<DM>['fileUrl'] = async (ctx, storageId) =>
     storageId ? await ctx.runQuery(refs.storage.url, { storageId }) : null
 
@@ -423,6 +460,7 @@ export function setupStorage<DM extends GenericDataModel = GenericDataModel>(com
   const shareable: Storage<DM>['shareable'] = (table, shareOptions) => {
     if (typeof shareOptions?.canShare !== 'function') throw new TypeError(`[nuxt-backend] storage.shareable('${table}'): canShare is required, the rule for who may turn a row's link on.`)
     if (typeof shareOptions.path !== 'string' || !shareOptions.path.startsWith('/')) throw new TypeError(`[nuxt-backend] storage.shareable('${table}'): path is where the public page lives, starting with "/", such as '/s'.`)
+    if (shareOptions.onEnable !== undefined && typeof shareOptions.onEnable !== 'function') throw new TypeError(`[nuxt-backend] storage.shareable('${table}'): onEnable is a function, run once a link is on.`)
     shareables.set(table, shareOptions as unknown as ShareableOptions<DM, TableNamesInDataModel<DM>>)
   }
 
@@ -508,12 +546,18 @@ export function setupStorage<DM extends GenericDataModel = GenericDataModel>(com
     returns: v.object({ token: v.string(), url: v.string() }),
     handler: async (ctx, { table, id }) => {
       const userId = await requireCaller(ctx, 'enableShareLink')
-      const { path } = shareableOf(table)
+      const { path, onEnable } = shareableOf(table)
       if (!await mayShare(ctx as GenericMutationCtx<DM>, table, id, userId)) throw backendError('forbidden', { reason: 'cannot_share' }, `[nuxt-backend] enableShareLink: canShare refused this caller for this row of '${table}'.`)
+      const rotated = Boolean(onEnable && await ctx.runQuery(refs.storage.getShare, { table, rowId: id }))
       const token = randomToken()
       await ctx.runMutation(refs.storage.enableShare, { table, rowId: id, tokenHash: await sha256Hex(token), userId })
       const site = (readEnv('SITE_URL') ?? '').replace(/\/+$/, '')
-      return { token, url: `${site}${path.replace(/\/+$/, '')}/${token}` }
+      const url = `${site}${path.replace(/\/+$/, '')}/${token}`
+      if (onEnable) {
+        const row = await rowOf(ctx as GenericMutationCtx<DM>, table, id)
+        await onEnable({ ...ctx, user: { id: userId } } as ShareMutationCtx<DM>, row!, { url, rotated })
+      }
+      return { token, url }
     },
   })
 
@@ -570,6 +614,7 @@ export function setupStorage<DM extends GenericDataModel = GenericDataModel>(com
     release,
     discard,
     bytes,
+    expire,
     fileUrl,
     signedUrl,
     shareable,

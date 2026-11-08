@@ -421,15 +421,61 @@ export const served = query({
   },
 })
 
-/** Whether a file is ready to serve: claimed, checked and not released. */
+/**
+ * Whether a file is ready to serve: claimed, checked and not released. It
+ * reads the URL clock too: `signedUrl` asks it before it signs, so a live
+ * query that signs a URL runs again each time the clock ticks.
+ */
 export const isReady = query({
   args: { storageId: v.string() },
   returns: v.boolean(),
   handler: async (ctx, { storageId: id }) => {
+    await ctx.db.query('urlClock').first()
     const record = await recordById(ctx, id)
     return record?.status === 'ready'
   },
 })
+
+/** Move the URL clock (its cron, every half hour): every live query that signed a URL runs again. */
+export const tickUrlClock = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const clock = await ctx.db.query('urlClock').first()
+    if (clock) await ctx.db.patch('urlClock', clock._id, { tickedAt: Date.now() })
+    else await ctx.db.insert('urlClock', { tickedAt: Date.now() })
+    return null
+  },
+})
+
+/**
+ * When a file goes: `at` (epoch ms), after which the component's
+ * maintenance deletes it with its record and gives its bytes back to the
+ * quota; `null` keeps it again. Returns whether the id names a kept file.
+ */
+export const expire = mutation({
+  args: { storageId: v.string(), at: v.union(v.number(), v.null()) },
+  returns: v.boolean(),
+  handler: async (ctx, { storageId: id, at }) => {
+    const record = await recordById(ctx, id)
+    if (!record) return false
+    await ctx.db.patch('files', record._id, { expiresAt: at ?? undefined })
+    return true
+  },
+})
+
+/**
+ * One batch of expired files: the records whose `expiresAt` passed before
+ * `cutoff`, deleted with their bytes and their count, oldest first.
+ *
+ * @internal
+ */
+export async function pruneExpired(ctx: MutationCtx, cutoff: number, batch: number): Promise<{ pruned: number, done: boolean }> {
+  const due = await ctx.db.query('files').withIndex('expiresAt', q => q.gt('expiresAt', 0).lt('expiresAt', cutoff)).take(batch + 1)
+  const now = due.slice(0, batch)
+  for (const record of now) await deleteFile(ctx, record)
+  return { pruned: now.length, done: due.length <= batch }
+}
 
 /** The id of a file a check may read: any in the component's storage but the ones it keeps for itself (an account's export). */
 export const readable = internalQuery({

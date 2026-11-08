@@ -1140,8 +1140,11 @@ export const storageTables = {
     /** Set when an intimate-image removal named it while it was checked: the check blocks its stripped bytes and removes it with their copies. */
     removal: v.optional(v.object({ decision: v.optional(v.id('reportDecisions')) })),
     createdAt: v.number(),
+    /** When the app said it goes (`storage.expire`), epoch ms: the component's maintenance deletes it within the hour after. */
+    expiresAt: v.optional(v.number()),
   })
     .index('storageId', ['storageId'])
+    .index('expiresAt', ['expiresAt'])
     .index('servedId', ['servedId'])
     .index('sha256', ['sha256'])
     .index('userId_workspaceId', ['userId', 'workspaceId'])
@@ -1162,6 +1165,14 @@ export const storageTables = {
     source: v.union(v.literal('files'), v.literal('bytes')),
   })
     .index('key', ['key']),
+  /**
+   * The URL clock: one row its cron moves every half hour. Every query that
+   * signs a file's URL reads it, so a live query runs again and its page
+   * holds fresh URLs before the old ones expire.
+   */
+  urlClock: defineTable({
+    tickedAt: v.number(),
+  }),
   shareLinks: defineTable({
     /** The app's table the shared row is in. */
     table: v.string(),

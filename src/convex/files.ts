@@ -20,6 +20,13 @@ export const UNCLAIMED_FILE_MS = 24 * 60 * 60 * 1000
 /** How long a signed URL works by default: an hour. */
 export const SIGNED_URL_TTL_MS = 60 * 60 * 1000
 
+/**
+ * How often the component's URL clock ticks: every query that signs a URL
+ * reads it, so a live page runs its query again and holds fresh URLs. A
+ * URL that works for an hour or more is replaced well before it expires.
+ */
+export const SIGNED_URL_REFRESH_MS = 30 * 60 * 1000
+
 /** The longest a signed URL works: seven days. */
 export const SIGNED_URL_TTL_MAX_MS = 7 * 24 * 60 * 60 * 1000
 

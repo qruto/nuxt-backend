@@ -145,6 +145,21 @@ A context that writes: a mutation (or an action, which is no transaction).
 
 ***
 
+### EnabledShareLink
+
+Defined in: [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts)
+
+What `onEnable` learns about the link it follows.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="url-1"></a> `url` | `string` | The link, as `enableShareLink` returns it to the caller. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+| <a id="rotated"></a> `rotated` | `boolean` | Whether it replaced a live link, which stopped working. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+
+***
+
 ### ShareableOptions
 
 Defined in: [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts)
@@ -155,7 +170,7 @@ How a table's rows are shared, for [Storage.shareable](#shareable).
 
 | Type Parameter |
 | ------ |
-| <a id="type-parameter-dm-1"></a> `DM` *extends* `GenericDataModel` |
+| <a id="type-parameter-dm-2"></a> `DM` *extends* `GenericDataModel` |
 | <a id="type-parameter-t"></a> `T` *extends* `TableNamesInDataModel`\<`DM`\> |
 
 #### Properties
@@ -165,6 +180,7 @@ How a table's rows are shared, for [Storage.shareable](#shareable).
 | <a id="path"></a> `path` | `string` | Where the public page lives: a link reads `SITE_URL` + `path` + `/` + the token. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 | <a id="canshare"></a> `canShare` | (`ctx`, `row`) => `boolean` \| `Promise`\<`boolean`\> | Whether the signed-in caller may turn the row's link on or rotate it. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 | <a id="ogimage"></a> `ogImage?` | (`row`) => `string` \| `null` \| `undefined` | The storage id of the image the preview card shows, or `null` for none. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+| <a id="onenable"></a> `onEnable?` | (`ctx`, `row`, `link`) => `void` \| `Promise`\<`void`\> | Runs in `enableShareLink`'s mutation once the link is on, a new one replacing an earlier one included: record an event, tick off a checklist step, stamp the row. A throw rolls the link back with it. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 
 ***
 
@@ -198,7 +214,7 @@ The app's storage, from [setupStorage](#setupstorage).
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| <a id="type-parameter-dm-2"></a> `DM` *extends* `GenericDataModel` | `GenericDataModel` |
+| <a id="type-parameter-dm-3"></a> `DM` *extends* `GenericDataModel` | `GenericDataModel` |
 
 #### Properties
 
@@ -210,7 +226,8 @@ The app's storage, from [setupStorage](#setupstorage).
 | <a id="discard"></a> `discard` | (`ctx`, `storageId`) => `Promise`\<`boolean`\> | Delete an upload at once while nobody claimed it: one a person sent to an upload URL and then dropped, or one your check refused before the claim. Never a kept file, anyone's: a claimed or stored id is left as it is, and so is an id with no file. Call it from a mutation or an action, as often as you like: it answers whether bytes went, `false` the second time. Unclaimed uploads are swept after a day anyway; this frees them now. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 | <a id="bytes"></a> `bytes` | (`ctx`, `storageId`) => `Promise`\<`Uint8Array`\<`ArrayBufferLike`\> \| `null`\> | A file's bytes in an action of yours, an upload not yet claimed included: what a check reads before the upload is kept (`ai.requireSafe` reads them so). `null` for an id no file has. It checks no owner: read only what your code decided the caller may send. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 | <a id="fileurl"></a> `fileUrl` | (`ctx`, `storageId`) => `Promise`\<`string` \| `null`\> | A file's URL once your query decided who may see it; `null` for a file that is gone or still checked. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
-| <a id="signedurl"></a> `signedUrl` | (`ctx`, `storageId`, `options?`) => `Promise`\<`string` \| `null`\> | An expiring URL on the deployment's routes: `ttl` ms, an hour by default, seven days at most; `null` for a file that is gone or still checked. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+| <a id="signedurl"></a> `signedUrl` | (`ctx`, `storageId`, `options?`) => `Promise`\<`string` \| `null`\> | An expiring URL on the deployment's routes: `ttl` ms, an hour by default, seven days at most; `null` for a file that is gone or still checked. A live query that signs one runs again every half hour, so its page holds fresh URLs: with a `ttl` of an hour or more, never an expired one. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+| <a id="expire"></a> `expire` | (`ctx`, `storageId`, `at`) => `Promise`\<`boolean`\> | When a file goes: past `at` (epoch ms, or a `Date`), the component's maintenance deletes it within the hour, with its record, and gives its bytes back to the quota; `null` keeps it again. Returns whether the id names a kept file. It checks no owner: pass an id read from your own row. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 | <a id="shareable"></a> `shareable` | \<`T`\>(`table`, `options`) => `void` | Mark a table's rows shareable by link: where the public page lives, who may share a row, and its preview card's image. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 | <a id="resolvesharelink"></a> `resolveShareLink` | (`ctx`, `table`, `token`) => `Promise`\<[`ResolvedShareLink`](#resolvedsharelink) \| `null`\> | The row a token opens in a table, who shared it, and its preview card's URL; `null` for an unknown, rotated or revoked token. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 | <a id="revokesharelink-1"></a> `revokeShareLink` | (`ctx`, `table`, `id`) => `Promise`\<`void`\> | Turn a row's link off, in the mutation that deletes the row. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
@@ -252,6 +269,35 @@ The context `canShare` receives: the mutation's or the query's own, and the sign
 | Type Parameter |
 | ------ |
 | <a id="type-parameter-dm"></a> `DM` *extends* `GenericDataModel` |
+
+#### Type Declaration
+
+| Name | Type | Defined in |
+| ------ | ------ | ------ |
+| `user` | \{ `id`: `string`; \} | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+| `user.id` | `string` | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+
+***
+
+### ShareMutationCtx
+
+```ts
+type ShareMutationCtx<DM> = GenericMutationCtx<DM> & {
+  user: {
+     id: string;
+  };
+};
+```
+
+Defined in: [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts)
+
+The context `onEnable` receives: `enableShareLink`'s mutation, and the signed-in caller who turned the link on.
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-dm-1"></a> `DM` *extends* `GenericDataModel` |
 
 #### Type Declaration
 
@@ -397,7 +443,7 @@ at once, the type and the stripping next.
 
 | Type Parameter | Default type |
 | ------ | ------ |
-| <a id="type-parameter-dm-3"></a> `DM` *extends* `GenericDataModel` | `GenericDataModel` |
+| <a id="type-parameter-dm-4"></a> `DM` *extends* `GenericDataModel` | `GenericDataModel` |
 
 #### Parameters
 
