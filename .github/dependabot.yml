@@ -148,11 +148,12 @@ updates:
 
   # Actions digest bumps — keeps the `@<sha> # vX.Y.Z` pinning convention
   # intact. Native workflow-file writes: no PAT, no GitHub App. The composite
-  # action's own pins are not found from `/`, hence the second directory.
+  # actions' own pins are not found from `/`, hence a directory for each.
   - package-ecosystem: github-actions
     directories:
       - /
       - /.github/actions/setup
+      - /.github/actions/convex-backend
     schedule:
       interval: weekly
       day: monday

@@ -258,7 +258,7 @@ export const COMPONENT_CONTRACT = {
     file: 'shell/BackendNotices',
     family: null,
     labels: null,
-    why: 'Each notice is its own family and reads its own label group: `impersonation`, `maintenance`, `deletion`, `credits`, `gift` and `announcement`.',
+    why: 'Each notice is its own family and reads its own label group: `impersonation`, `maintenance`, `pastDue`, `deletion`, `credits`, `gift` and `announcement`.',
     slots: ['impersonation', 'maintenance', 'past-due', 'deletion', 'low-credits', 'gift', 'announcement'],
     emits: [],
     states: ['empty', 'ready'],

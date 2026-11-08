@@ -35,8 +35,12 @@ export const PLANNED = 'planned'
 /** The `status` of a page that describes a built feature's API as the release changes it. */
 export const CHANGING = 'changing'
 
-/** The release a planned feature arrives in: the first of the line these docs describe (test/docs/planned-pages.test.ts). */
-export const PLANNED_RELEASE = '0.2.0'
+/**
+ * The release a planned feature arrives in: the next minor once the line these
+ * docs describe is released (website/shared/docs-version.ts), else that line's
+ * first release (test/docs/planned-pages.test.ts holds the rule).
+ */
+export const PLANNED_RELEASE = '0.3.0'
 
 /** The page that lists every feature with its status, and its legend. */
 export const FEATURE_MAP = '/docs/start/feature-map'

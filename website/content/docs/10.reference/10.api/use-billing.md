@@ -1217,9 +1217,8 @@ function useBilling(options?): UseBillingReturn;
 Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
 
 Reactive billing state plus the full subscription lifecycle — checkout,
-gift, portal, plan change and undoing a scheduled one, cancel/uncancel,
-pause/resume — linked to your
-auth user. Works with no arguments via the auto-provided `api.billing`
+portal, plan change and undoing a scheduled one, cancel (with its save
+offer) and uncancel, pause/resume — linked to your auth user. Works with no arguments via the auto-provided `api.billing`
 namespace; pass `{ api }` to override.
 
 Follows the composable conventions: the reads never throw (a failed read

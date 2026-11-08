@@ -20,7 +20,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 
 | Component | What it renders |
 |---|---|
-| `<AiLabel>` | The visible "AI-generated" label the EU AI Act (Art. |
+| `<AiLabel>` | The visible "AI-generated" label the EU AI Act (Art. 50) asks for, beside an image or a text a model made. |
 
 ## Import paths
 

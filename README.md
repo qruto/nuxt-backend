@@ -130,7 +130,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useAuth` — who is signed in: the session, the app-wide role, whether an administrator is visiting, and signing out
 - `useBackendConfig` — `appConfig.backend` with the package defaults merged in — the shipped components read content (plan catalog, labels, brand) through this, so a partial user config is always safe to destructure
 - `useBackendPagePath` — where a ready-made page lives, for a link to it: the path the module mounted it at (the `pages` module option, else its default), in the active locale when the app uses `@nuxtjs/i18n` (through its `localePath`, so `/pricing` reads `/fr/pricing` under a prefix strategy)
-- `useBilling` — reactive billing state plus the full subscription lifecycle — checkout, gift, portal, plan change and undoing a scheduled one, cancel/uncancel, pause/resume — linked to your auth user
+- `useBilling` — reactive billing state plus the full subscription lifecycle — checkout, portal, plan change and undoing a scheduled one, cancel (with its save offer) and uncancel, pause/resume — linked to your auth user
 - `useCampaign` — the campaign a visitor arrived with, read from the address: a campaign link's discount code and its UTM attribution, ready for checkout
 - `useChat` — a chat with a model, live: the person's threads, the open thread's messages with the reply streaming into them, and sending (experimental)
 - `useConsents` — what a signed-in person agreed to, and the consent manager for optional storage
@@ -188,7 +188,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `<ActivationChecklist>` — the first tasks that lead to value, with progress, for a page of your app: the tasks `defineActivation` declares, each ticked off when its event is recorded, "2 of 4 done", a link per open task and a Dismiss button
 - `<AdminUsers>` — every account of the app, for its administrators: a search by address, a page at a time (`AdminUsersTable`), and a drawer with one account in full (`AdminUserDrawer`): its role, its ban, its device sessions and workspaces, and "Impersonate"
 - `<AdminWorkspaces>` — every workspace of the app, read-only, for its administrators: a search by name, a page at a time (`AdminWorkspacesTable`), and a drawer with one workspace's members and open invitations (`AdminWorkspaceDrawer`)
-- `<AiLabel>` — the visible "AI-generated" label the EU AI Act (Art
+- `<AiLabel>` — the visible "AI-generated" label the EU AI Act (Art. 50) asks for, beside an image or a text a model made
 - `<AppShell>` — the frame of a signed-in app, for your layout: a header with your brand and links, the workspace switcher, the notification bell and the account menu, then the app-wide notices, then your page in the `<main>` landmark, with the consent dialog and the connection status closing it
 - `<AuditLog>` — the activity trail as a list, a page at a time: the signed-in account's own (`scope="mine"`, the default), the active workspace's for its owners and admins (`scope="workspace"`), or every event for administrators (`scope="all"`)
 - `<AuthForm>` — the complete passwordless sign-in flow (passkeys + email OTP) in one component: semantic markup where every element carries a `data-auth` attribute, built from parts (`AuthFormChoose`, `AuthFormCode`, …) that a same-named component of the app's replaces, and a slot per step
@@ -213,7 +213,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `<UploadField>` — a labelled file field that uploads through the upload URL `setupStorage` mints, then calls `claim`, where the deployment checks the file
 - `<UsageHistory>` — metered consumption, event by event, straight from the provider's events API — the same records that drew the credit balance down
 - `<WaitlistForm>` — join the waitlist: the address, your questions, the launch-news box (unticked), then the sign-in code that proves the address, then the person's place, a link to share and a way to leave
-- `<WithdrawalButton>` — the EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art
+- `<WithdrawalButton>` — the EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art. 11a, from 2026-06-19): "Withdraw from contract here", for a purchase inside its 14 days, then a confirm step, "Confirm withdrawal"
 - `<WorkspaceSettings>` — workspace, plan, and credits management — the billing entity is the active workspace, so switching workspaces switches the subscription
 
 <!-- /generated:readme-components -->

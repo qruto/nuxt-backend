@@ -19,7 +19,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useEmailChange()` | The headless email change behind `<ProfileSettings>`: a code from the current address proves the person asking still holds it, a code from the new address proves they hold that one too. |
 | `useWorkspace()` | Workspace state and actions: the list, the switch, the members and the full invitation flow (invite / accept / decline / cancel — the packaged `AcceptInvitation` component and `/accept-invitation` page build on these). |
 | `useSearch()` | Reactive, debounced full-text search. |
-| `useBilling()` | Reactive billing state plus the full subscription lifecycle — checkout, gift, portal, plan change and undoing a scheduled one, cancel/uncancel, pause/resume — linked to your auth user. |
+| `useBilling()` | Reactive billing state plus the full subscription lifecycle — checkout, portal, plan change and undoing a scheduled one, cancel (with its save offer) and uncancel, pause/resume — linked to your auth user. |
 | `useFeatures()` | Reactive feature-gating for the current user — the SaaS access primitive. |
 | `useCredits()` | Reactive prepaid-credit balance for the current user, plus a `topUp()` checkout and a `refresh()` re-sync. |
 | `usePricing()` | The app's plans and credit packs as a pricing page shows them — every plan with its monthly and yearly price, what a year saves, its trial and the credits it grants per cycle; every pack with its price per credit and which is the best value — read through the scaffolded `getPricing`, in the visitor's currency where the catalog prices it. |
@@ -100,7 +100,7 @@ types, auto-imported too: `AsyncQueryData`, `AsyncQueryOptions`, `AsyncQueryRetu
 | `<UsageHistory>` | Metered consumption, event by event, straight from the provider's events API — the same records that drew the credit balance down. |
 | `<UpgradePrompt>` | What someone whose plan lacks a feature sees: a sentence naming the plans on sale that include it, in pricing order, and a link to the first of them on the pricing page (`/pricing?plan=<key>`). |
 | `<CancelFlow>` | Cancelling takes one step; a save offer is one optional step (LIFECYCLE). |
-| `<WithdrawalButton>` | The EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art. |
+| `<WithdrawalButton>` | The EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art. 11a, from 2026-06-19): "Withdraw from contract here", for a purchase inside its 14 days, then a confirm step, "Confirm withdrawal". |
 | `<ReferralCard>` | A person's referral link, with copy and share buttons and the disclosure of the reward: the link is `/r/<code>` on this site, made the first time the card is read. |
 | `<AdminUsers>` | Every account of the app, for its administrators: a search by address, a page at a time (`AdminUsersTable`), and a drawer with one account in full (`AdminUserDrawer`): its role, its ban, its device sessions and workspaces, and "Impersonate". |
 | `<AdminWorkspaces>` | Every workspace of the app, read-only, for its administrators: a search by name, a page at a time (`AdminWorkspacesTable`), and a drawer with one workspace's members and open invitations (`AdminWorkspaceDrawer`). |
@@ -112,7 +112,7 @@ types, auto-imported too: `AsyncQueryData`, `AsyncQueryOptions`, `AsyncQueryRetu
 | `<NotificationInbox>` | What the app told a person, in the app: a button whose accessible name carries the unread count, and the list it opens on the browser's own popover, newest first. |
 | `<ContactForm>` | A contact form for visitors, and a feedback form for signed-in people: the same component. |
 | `<AppShell>` | The frame of a signed-in app, for your layout: a header with your brand and links, the workspace switcher, the notification bell and the account menu, then the app-wide notices, then your page in the `<main>` landmark, with the consent dialog and the connection status closing it. |
-| `<AiLabel>` | The visible "AI-generated" label the EU AI Act (Art. |
+| `<AiLabel>` | The visible "AI-generated" label the EU AI Act (Art. 50) asks for, beside an image or a text a model made. |
 
 The base module's, under neutral names: `<Authenticated>`, `<Unauthenticated>`, `<AuthLoading>`, `<AuthRefreshing>`, `<AuthBoundary>`, `<StorageImage>`.
 
@@ -137,7 +137,7 @@ The base module's, under neutral names: `<Authenticated>`, `<Unauthenticated>`, 
 | `privacy` | `/legal/privacy` | The privacy policy (public): who runs the app, the data map, the subprocessors, the cookies and how a person exports or deletes their data, filled from `appConfig.backend.legal` and the capabilities the app uses, and marked "not legal advice". |
 | `profile` | `/profile` | The account profile (private). |
 | `referral` | `/r/:code` | Where a referral link lands (`/r/<code>`; public, kept out of search indexes): it says who invited the visitor and what they get, and signing up there claims the referral. |
-| `report` | `/report` | The public notice form (DSA Art. |
+| `report` | `/report` | The public notice form (DSA Art. 16, the TAKE IT DOWN Act's removal request), open to people without an account, and where a statement of reasons' appeal link lands (`#appeal=<token>`). |
 | `security` | `/security` | Passkeys, sessions, account deletion and the account's recent activity (private). |
 | `settings` | `/settings` | Workspace, plan and credit settings, and the workspace's activity for its owners and admins (private). |
 | `subprocessors` | `/legal/subprocessors` | The subprocessor list (public): each service that processes personal data for the capabilities the app uses, what it handles, where, and its agreement; marked "not legal advice". |
