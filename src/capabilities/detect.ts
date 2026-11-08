@@ -108,7 +108,7 @@ export function emailMode(context: CapabilityContext): CapabilityDetection {
 export function modelMode(context: CapabilityContext): CapabilityDetection | null {
   const route = context.findings.find(finding => finding.id === 'deployment-ai-gateway-api-key')
   if (route?.status !== 'warn' && route?.status !== 'fail') return null
-  const why = isSet(context, 'AI_GATEWAY_API_KEY') ? 'no gateway in setupAi({ gateway }) can serve this deployment' : unsetReason(context, ['AI_GATEWAY_API_KEY'])
+  const why = isSet(context, 'AI_GATEWAY_API_KEY') ? 'no gateway in setupAi({ gateway }) or a route of setupAi({ routes }) can serve this deployment' : unsetReason(context, ['AI_GATEWAY_API_KEY'])
   return { state: 'missing', reason: `its models are refused: ${why}` }
 }
 

@@ -44,7 +44,8 @@ import { agentFilesFinding, installedVersion } from './agents'
 import { bundleDuplicatesFindings } from './bundle-duplicates'
 import { nameCollisionFinding } from './name-collisions'
 import { convexConfigFinding } from './convex-config'
-import { aiFeatures, chosenGateways, mountsComponent, type NamedGateway, namedModels, pinnedRegion, usesProvenance } from './named-models'
+import { aiFeatures, chosenGateways, chosenRoutes, mountsComponent, type NamedGateway, namedModels, pinnedRegion, usesProvenance } from './named-models'
+import { routeKeyFor } from './convex/integrations/ai/model-id'
 import { consentFindings } from './cli/consents'
 import { protectionFindings, type ProtectionDoctorInput } from './cli/protection'
 import { monitoringDsnFinding, monitoringFindings, readUsageLimits, usageAlertsFinding } from './monitoring'
@@ -500,6 +501,8 @@ interface ModelRouteInput {
   region?: string
   /** The order `setupAi({ gateway })` names as a literal; the default order (`['convex', 'vercel']`) without one. */
   gateways?: readonly NamedGateway[]
+  /** The orders `setupAi({ routes })` gives some models, as a literal map. */
+  routes?: Readonly<Record<string, readonly NamedGateway[]>>
 }
 
 /**
@@ -510,15 +513,53 @@ interface ModelRouteInput {
  * anywhere else those models are refused when called. Unset with none named,
  * nothing needs a route.
  */
-function gatewayKeyFinding(deployed: readonly string[], { models, local, cloud, provider, prod, region, gateways = ['convex', 'vercel'] }: ModelRouteInput): PreflightFinding {
+function gatewayKeyFinding(deployed: readonly string[], { models, local, cloud, provider, prod, region, gateways = ['convex', 'vercel'], routes }: ModelRouteInput): PreflightFinding {
   const id = deploymentEnvId('AI_GATEWAY_API_KEY')
   const flag = prod ? ' --prod' : ''
   const keyed = deployed.includes('AI_GATEWAY_API_KEY')
   if (models.length === 0) {
     return finding(id, 'pass', keyed ? 'AI_GATEWAY_API_KEY is set on the deployment.' : 'AI_GATEWAY_API_KEY is not set, and no backend file names a provider/model id that needs a model route.')
   }
-  if (region) return regionRouteFinding(id, models, { region, keyed, vercel: gateways.includes('vercel'), flag })
-  return orderRouteFinding(id, models, { gateways, keyed, cloud, local, provider, flag })
+  const vercel = gateways.includes('vercel') && Object.values(routes ?? {}).every(order => order.includes('vercel'))
+  if (region) return regionRouteFinding(id, models, { region, keyed, vercel, flag })
+  const facts = { keyed, cloud, local, provider, flag }
+  const groups = routedGroups(models, gateways, routes)
+  if (groups.length === 1 && groups[0]!.key === undefined) return orderRouteFinding(id, models, { gateways, ...facts })
+  return routesFinding(id, groups.map(group => ({ group, found: orderRouteFinding(id, group.models, { gateways: group.order, ...facts }) })))
+}
+
+/** The models one order sends: `setupAi({ gateway })`'s, or a route's (`key`). */
+interface RouteGroup { key?: string, order: readonly NamedGateway[], models: string[] }
+
+/** The named models by the order each takes: its `routes` key's, else `setupAi({ gateway })`'s. */
+function routedGroups(models: readonly string[], gateways: readonly NamedGateway[], routes: ModelRouteInput['routes']): RouteGroup[] {
+  const groups = new Map<string | undefined, RouteGroup>()
+  for (const model of models) {
+    const key = routes ? routeKeyFor(model, routes) : undefined
+    const group = groups.get(key) ?? { key, order: key === undefined ? gateways : routes![key]!, models: [] }
+    group.models.push(model)
+    groups.set(key, group)
+  }
+  return [...groups.values()]
+}
+
+const STATUS_RANK = { pass: 0, warn: 1, fail: 2 } as const
+
+/**
+ * The route finding under `setupAi({ routes })`: each route beside the
+ * order, with the finding of the models it sends, worded for the route; the
+ * worst of them decides. A route to the Convex AI Gateway alone says the key
+ * is never read for its models.
+ */
+function routesFinding(id: FindingId, parts: ReadonlyArray<{ group: RouteGroup, found: PreflightFinding }>): PreflightFinding {
+  const routed = (text: string, key: string) => text.replace(/setupAi\(\{ gateway(?:: '[a-z]+')? \}\)/g, `its route '${key}' in setupAi({ routes })`)
+  const said = parts.map(({ group, found }) => {
+    if (group.key === undefined) return { ...found, message: `Under setupAi({ gateway })'s order: ${found.message}` }
+    const unread = group.order.length === 1 && group.order[0] === 'convex' ? ` AI_GATEWAY_API_KEY is never read for ${listed(group.models)}.` : ''
+    return { ...found, message: `Routed by '${group.key}' (${group.order.join(', then ')}): ${routed(found.message, group.key)}${unread}`, fixHint: routed(found.fixHint, group.key) }
+  })
+  const worst = said.reduce((a, b) => STATUS_RANK[b.status] > STATUS_RANK[a.status] ? b : a)
+  return finding(id, worst.status, said.map(part => part.message).join(' '), [...new Set(said.map(part => part.fixHint).filter(Boolean))].join(' '))
 }
 
 /** What each route finding knows of the deployment: its kind, the provider package, the key, and the `--prod` flag a fix names. */
@@ -664,7 +705,7 @@ function deploymentEnvFindings(rootDir: string, deployed: string[] | null, { pro
     // A name with no finding of its own (the marketing sender, the region) reports nothing yet.
     // The dev inbox's opt-in reports only once it is set: unset is every app's state, and nothing to say.
     ...Object.entries(OPTIONAL_DEPLOYMENT_ENV).filter(([name]) => !name.startsWith('PROTECTION_') && BACKEND_ENV[name as keyof typeof BACKEND_ENV].findings.length > 0 && (name !== 'EMAIL_DEV_INBOX' || deployed.includes(name) || sandboxInbox)).map(([name, degradation]) => {
-      if (name === 'AI_GATEWAY_API_KEY') return gatewayKeyFinding(deployed, { models: namedModels(rootDir), local, cloud, provider: convexGatewayProviderInstalled(rootDir), prod, region: pinnedRegion(rootDir), gateways: chosenGateways(rootDir) })
+      if (name === 'AI_GATEWAY_API_KEY') return gatewayKeyFinding(deployed, { models: namedModels(rootDir), local, cloud, provider: convexGatewayProviderInstalled(rootDir), prod, region: pinnedRegion(rootDir), gateways: chosenGateways(rootDir), routes: chosenRoutes(rootDir) })
       if (name === 'PROVENANCE_PRIVATE_KEY' || name === 'PROVENANCE_CERTIFICATE') return provenanceKeyFinding(name, deployed, { on: usesProvenance(rootDir), prod })
       // Unset in dev is the designed state: the local error log stands in.
       if (name === 'MONITORING_DSN') return monitoringDsnFinding(deployed.includes(name), { prod })
@@ -879,7 +920,7 @@ async function localFeatureFindings(rootDir: string, { env, wants, deployed, pro
     ...wants('monitoring') ? monitoringFindings(rootDir, { env, deployed, prod }) : [],
     ...declaredFeatureFindings(rootDir, { wants, deployed, prod }),
     // Production's own usage warnings: Convex emails the team; the deployment cannot read its usage itself.
-    ...wants('monitoring') && prod ? [usageAlertsFinding(await readUsageLimits(rootDir), { convexGateway: convexGatewayProviderInstalled(rootDir) && (chosenGateways(rootDir)?.includes('convex') ?? true) })] : [],
+    ...wants('monitoring') && prod ? [usageAlertsFinding(await readUsageLimits(rootDir), { convexGateway: convexGatewayProviderInstalled(rootDir) && ((chosenGateways(rootDir)?.includes('convex') ?? true) || Object.values(chosenRoutes(rootDir) ?? {}).some(order => order.includes('convex'))) })] : [],
     ...wants('auth') ? await consentFindings(rootDir, { prod }) : [],
     // The installable app iPhone and iPad take web push from: the brand and the two icons.
     ...await installableFindings(rootDir, appConfig, { wanted: wants('notifications'), pushKeys: Boolean(env.PUSH_PUBLIC_KEY) || (deployed ?? []).includes('PUSH_PUBLIC_KEY') }),
