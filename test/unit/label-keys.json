@@ -680,6 +680,7 @@
   "errors.unauthenticated": [],
   "errors.forbidden": [],
   "errors.forbidden_banned": [],
+  "errors.forbidden_banned_until": ["date"],
   "errors.forbidden_not_member": [],
   "errors.forbidden_not_billing_manager": [],
   "errors.forbidden_impersonating": [],

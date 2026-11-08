@@ -2,6 +2,7 @@ import { passkey } from '@better-auth/passkey'
 import type { BetterAuthOptions } from 'better-auth/minimal'
 import { admin, lastLoginMethod } from 'better-auth/plugins'
 import { storageAllows, storageFromCookieHeader } from '../consent-rules.js'
+import { bannedSentence } from '../errors.js'
 import { DEFAULT_ADMIN_ROLES, IMPERSONATION_SESSION_SECONDS, LAST_SIGN_IN_COOKIE, type SignInMethod } from '../constants.js'
 import type { Administrators } from '../integrations/access.js'
 import { LOCALE_SCHEMA } from '../locale.js'
@@ -108,6 +109,13 @@ export const PASSKEY_ONLY_PLUGIN = {
  * plugin's default), so a passkey can only be added to an account whose email
  * has already been proven via the OTP sign-in flow.
  *
+ * Every passkey ceremony requires user verification: the device checks the
+ * person's fingerprint, face or PIN, not just that someone is holding it.
+ * The registration and sign-in options ask for it (`userVerification:
+ * 'required'`), and the server refuses a response whose authenticator did
+ * not verify the person (`requireUserVerification`), at registration and
+ * at every sign-in. A security key with no PIN set cannot be saved.
+ *
  * This deliberately omits passkey-first (pre-auth) account creation: minting an
  * account + session from a WebAuthn ceremony over an unverified, client-typed
  * email lets an attacker squat on or pre-hijack a victim's email (they plant a
@@ -119,21 +127,17 @@ export const PASSKEY_ONLY_PLUGIN = {
  * Override by passing your own `passkey(...)` plugin in `authOptions.plugins`.
  */
 export function defaultPasskey() {
-  return passkey()
+  return passkey({ authenticatorSelection: { userVerification: 'required' } })
 }
 
 /**
- * The `customResolveMethod` of Better Auth's `lastLoginMethod` plugin that
- * names a sign-in its own resolver does not know: a code sign-in
- * (`/sign-in/email-otp`, which also signs a new account up) is `email-otp`.
- * Everything else is left to Better Auth's resolver, which names a passkey
- * sign-in (`/passkey/verify-authentication`) `passkey` and returns nothing
- * for the sessions no person signed in for (an impersonation, an email
- * change). The package's own plugin uses it; pass it to one of your own:
+ * Names a code sign-in (`/sign-in/email-otp`, which also signs a new
+ * account up) `email-otp`, and nothing else.
  *
- * ```ts
- * lastLoginMethod({ storeInDatabase: true, customResolveMethod: resolveSignInMethod, beforeStoreCookie })
- * ```
+ * @deprecated Better Auth 1.7 names a code sign-in `email-otp` itself, so
+ * `lastLoginMethod` needs no `customResolveMethod` for it. Drop
+ * `customResolveMethod: resolveSignInMethod` from your own plugin. It keeps
+ * working until it is removed in a later minor release.
  */
 export function resolveSignInMethod(ctx: { path?: string }): string | null {
   return ctx.path === '/sign-in/email-otp' ? 'email-otp' : null
@@ -153,7 +157,8 @@ export function storesLastSignInCookie(ctx: { headers?: Headers | null, request?
 }
 
 /**
- * Better Auth's `lastLoginMethod`: every sign-in records how it was made, on
+ * Better Auth's `lastLoginMethod`: every sign-in records how it was made
+ * (Better Auth names a code sign-in `email-otp` and a passkey's `passkey`), on
  * the account (`user.lastLoginMethod`) and, once the browser allowed it
  * (the consent manager's `preferences` purpose), in a cookie of this
  * browser (`LAST_SIGN_IN_COOKIE`, 30 days, readable by the page). The
@@ -163,13 +168,12 @@ export function storesLastSignInCookie(ctx: { headers?: Headers | null, request?
  *
  * Override by passing your own `lastLoginMethod(...)` in
  * `authOptions.plugins` — keep `storeInDatabase: true`, the default
- * `cookieName`, `customResolveMethod: resolveSignInMethod` and
- * `beforeStoreCookie: storesLastSignInCookie`, or a code sign-in records
- * nothing, or the cookie is set unasked. `beforeStoreCookie: () => false`
- * keeps the cookie off and the record on.
+ * `cookieName` and `beforeStoreCookie: storesLastSignInCookie`, or the
+ * sign-in form finds no method to mark, or the cookie is set unasked.
+ * `beforeStoreCookie: () => false` keeps the cookie off and the record on.
  */
 export function defaultLastLoginMethod() {
-  return lastLoginMethod({ storeInDatabase: true, cookieName: LAST_SIGN_IN_COOKIE, customResolveMethod: resolveSignInMethod, beforeStoreCookie: ctx => storesLastSignInCookie(ctx as never) })
+  return lastLoginMethod({ storeInDatabase: true, cookieName: LAST_SIGN_IN_COOKIE, beforeStoreCookie: ctx => storesLastSignInCookie(ctx as never) })
 }
 
 /**
@@ -191,13 +195,18 @@ export function impersonationSeconds(options: AdminPluginOptions | undefined): n
  * visit of any of them, whoever asks and whatever the app's roles grant
  * (`impersonate-admins`, `allowImpersonatingAdmins`).
  *
+ * A banned account's sign-in is refused with a sentence naming when its
+ * ban ends ({@link bannedSentence}), which the reader turns into the
+ * `forbidden` refusal's `until`. An app's own `bannedUserMessage` replaces
+ * it, and the refusal then carries no `until`.
+ *
  * Override by passing your own `admin(...)` in `authOptions.plugins`: the
  * hook still refuses an administrator's account (by your plugin's
  * `adminRoles` and `adminUserIds`), and the duration is then yours to keep
  * short.
  */
 export function defaultAdmin(options: AdminPluginOptions | undefined) {
-  return admin({ ...options, impersonationSessionDuration: impersonationSeconds(options) })
+  return admin({ bannedUserMessage: bannedSentence, ...options, impersonationSessionDuration: impersonationSeconds(options) })
 }
 
 /** The administrators an app's admin options name: `adminRoles` (default `DEFAULT_ADMIN_ROLES`) and `adminUserIds`. */

@@ -161,7 +161,7 @@ Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDe
 | Export | What it is |
 |---|---|
 | `APIError` | Re-exported from `better-auth/api`. |
-| `resolveSignInMethod()` | The `customResolveMethod` of Better Auth's `lastLoginMethod` plugin that names a sign-in its own resolver does not know: a code sign-in (`/sign-in/email-otp`, which also signs a new account up) is `email-otp`. |
+| `resolveSignInMethod()` | Names a code sign-in (`/sign-in/email-otp`, which also signs a new account up) `email-otp`, and nothing else. |
 | `storesLastSignInCookie()` | Whether the browser that signs in allowed the `preferences` purpose of optional storage: its choice rides in a first-party cookie of the consent manager (`backend.storage`), which the request carries. |
 | `setupAuth()` | The app's auth, from one call: the auth instance factory, the functions the scaffold re-exports. |
 
@@ -597,7 +597,7 @@ A refusal is a `ConvexError` with one of these codes; `getBackendError(error)` r
 | Code | Status | Meaning |
 |---|---|---|
 | `unauthenticated` | 401 | Nobody is signed in, or the session is gone. |
-| `forbidden` | 403 | Signed in, but not allowed; `reason` says why (`banned`, `role`, `permission`, `not_member`, `workspace_role`, `admin_only`, `not_owner`, `impersonating`, `admin_target`, `sign_in_refused`, `customer_taken`, `already_subscribed`, `not_billing_manager`, `provider_owner_only`, `gift_refused`, `gift_refunded`, `not_recipient`, `no_email`, `bot_check`, `other_account`, `flag_off`, `sole_owner`, `paid_subscription`, `ticket_required`, `invitation_refused`, `consent_required`, `age_required`, `under_age`, `passkey_only_admin`). A `consent_required` refusal also carries `kind`, the required consent not yet accepted at its latest version. A `ticket_required` refusal also carries `phase`, the launch phase that asks for a ticket, and `invite`, how the invite code given checked (`expired`, `used-up`, `revoked`, `unknown`), when one was. |
+| `forbidden` | 403 | Signed in, but not allowed; `reason` says why (`banned`, `role`, `permission`, `not_member`, `workspace_role`, `admin_only`, `not_owner`, `impersonating`, `admin_target`, `sign_in_refused`, `customer_taken`, `already_subscribed`, `not_billing_manager`, `provider_owner_only`, `gift_refused`, `gift_refunded`, `not_recipient`, `no_email`, `bot_check`, `other_account`, `flag_off`, `sole_owner`, `paid_subscription`, `ticket_required`, `invitation_refused`, `consent_required`, `age_required`, `under_age`, `passkey_only_admin`). A `banned` refusal of a sign-in also carries `until`, when the ban ends (epoch ms), for a ban that ends. A `consent_required` refusal also carries `kind`, the required consent not yet accepted at its latest version. A `ticket_required` refusal also carries `phase`, the launch phase that asks for a ticket, and `invite`, how the invite code given checked (`expired`, `used-up`, `revoked`, `unknown`), when one was. |
 | `reauthentication_required` | 403 | The call is a sensitive action, and the session's sign-in is older than it takes: sign in again (`useReauthentication`), then retry. Better Auth's own refusals of a session too old for its route read as this code too. |
 | `no_workspace` | 409 | The call needs an active workspace and there is none. |
 | `rate_limited` | 429 | A named limit is spent; `retryAfter` is in milliseconds. The job queue's budget (`limit: 'jobBudget'`) also names the `plans` on sale whose tier would fit the job now, in pricing order. |

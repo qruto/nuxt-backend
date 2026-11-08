@@ -2421,6 +2421,7 @@
       "unauthenticated": "Melden Sie sich an, um fortzufahren.",
       "forbidden": "Sie haben keinen Zugriff darauf.",
       "forbidden_banned": "Dieses Konto ist gesperrt.",
+      "forbidden_banned_until": "Dieses Konto ist gesperrt bis {date}.",
       "forbidden_not_member": "Sie sind kein Mitglied dieses Workspace.",
       "forbidden_not_billing_manager": "Nur Inhaber und Admins des Workspace verwalten die Abrechnung.",
       "forbidden_impersonating": "Ein Administrator, der für dieses Konto handelt, kann das nicht tun.",

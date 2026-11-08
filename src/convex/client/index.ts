@@ -29,10 +29,11 @@ export { APIError }
 export type { BackendPaths } from '../paths.js'
 
 /**
- * How the package names a code sign-in for Better Auth's `lastLoginMethod`
- * plugin, for an app that passes its own (to set the cookie only with a
- * person's consent, say).
+ * `storesLastSignInCookie`, the consent check an app's own
+ * `lastLoginMethod` passes as `beforeStoreCookie`, and the deprecated
+ * `resolveSignInMethod`, kept until a later minor release removes it.
  */
+// eslint-disable-next-line @typescript-eslint/no-deprecated -- the deprecation cycle keeps the name exported
 export { resolveSignInMethod, storesLastSignInCookie } from './plugins.js'
 
 // `setupAuth` is the entry's one builder: every auth instance is built

@@ -40,6 +40,17 @@ export interface RateLimiterComponents {
  * `passkeySignInGlobal` the routes anyone may call without a session. The package is passwordless: there are no password limits, and an
  * app that turns passwords on brings its own.
  *
+ * The three busiest deployment-wide ceilings, `emailOtpGlobal`, `aiGlobal`
+ * and `passkeySignInGlobal`, apply their updates asynchronously
+ * (`applyUpdates: 'asynchronously'`): a request checks the window on a
+ * snapshot and queues its token, so the requests that spend one never
+ * conflict over the window's single row. The ceiling can then let a few more
+ * through than its rate under a burst, which a deployment-wide backstop
+ * allows; the per-address and per-caller limits in front of it stay exact.
+ * An override of one of these three keeps working when it omits
+ * `applyUpdates` (the rate limiter then applies it transactionally), but may
+ * not shard it.
+ *
  * ## Covering other auth routes
  *
  * These names throttle the routes the package wires itself. Better Auth's own
@@ -71,7 +82,7 @@ export const DEFAULT_LIMITS = {
    * rotating addresses to probe an invite gate or run up the email bill hits
    * this ceiling. Raise it when a launch legitimately signs in more than that.
    */
-  emailOtpGlobal: { kind: 'fixed window', rate: 300, period: HOUR },
+  emailOtpGlobal: { kind: 'fixed window', rate: 300, period: HOUR, applyUpdates: 'asynchronously' },
   /**
    * Code checks — 10 per hour per address, burst 10. Every route that checks
    * a code (sign-in, verification, both steps of an email change, a password
@@ -125,7 +136,7 @@ export const DEFAULT_LIMITS = {
    * run up. Over it, a guest job is refused with `rate_limited`. Raise it
    * when a launch legitimately lets more visitors try than that.
    */
-  aiGlobal: { kind: 'fixed window', rate: 300, period: HOUR },
+  aiGlobal: { kind: 'fixed window', rate: 300, period: HOUR, applyUpdates: 'asynchronously' },
   /**
    * Administrator actions — 30 per minute per administrator, burst 10. Covers
    * every `/admin/*` route that acts on somebody else (list, create, update,
@@ -195,7 +206,7 @@ export const DEFAULT_LIMITS = {
    * email codes still sign people in. Raise it when more sign-in pages than
    * that open in an hour (a page left open in view spends about thirteen).
    */
-  passkeySignInGlobal: { kind: 'fixed window', rate: 3000, period: HOUR },
+  passkeySignInGlobal: { kind: 'fixed window', rate: 3000, period: HOUR, applyUpdates: 'asynchronously' },
   /**
    * Sign-in codes to addresses with no account yet — 200 per hour across
    * the deployment, a fixed window. Spent in place of `emailOtpGlobal` by a

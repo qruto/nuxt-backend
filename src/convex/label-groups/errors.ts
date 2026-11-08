@@ -10,6 +10,8 @@ const ERROR_LABELS = {
   unauthenticated: 'Sign in to continue.',
   forbidden: 'You don\'t have access to this.',
   forbidden_banned: 'This account is banned.',
+  // The same refusal of a sign-in, when the ban ends: the minute, in UTC.
+  forbidden_banned_until: 'This account is banned until {date}.',
   forbidden_not_member: 'You\'re not a member of this workspace.',
   forbidden_not_billing_manager: 'Only the workspace\'s owner and admins manage its billing.',
   forbidden_impersonating: 'An administrator acting as this account can\'t do this.',

@@ -2421,6 +2421,7 @@
       "unauthenticated": "Connectez-vous pour continuer.",
       "forbidden": "Vous n’avez pas accès à cette ressource.",
       "forbidden_banned": "Ce compte est banni.",
+      "forbidden_banned_until": "Ce compte est banni jusqu’au {date}.",
       "forbidden_not_member": "Vous n’êtes pas membre de cet espace de travail.",
       "forbidden_not_billing_manager": "Seuls le propriétaire et les admins de l’espace de travail gèrent sa facturation.",
       "forbidden_impersonating": "Un administrateur qui agit en tant que ce compte ne peut pas faire cela.",
