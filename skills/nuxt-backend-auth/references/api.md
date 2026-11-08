@@ -59,7 +59,7 @@ Nitro auto-imports, in server code: `backendAuth`.
 | Export | What it is |
 |---|---|
 | `APIError` | Re-exported from `better-auth/api`. |
-| `resolveSignInMethod()` | The `customResolveMethod` of Better Auth's `lastLoginMethod` plugin that names a sign-in its own resolver does not know: a code sign-in (`/sign-in/email-otp`, which also signs a new account up) is `email-otp`. |
+| `resolveSignInMethod()` | Names a code sign-in (`/sign-in/email-otp`, which also signs a new account up) `email-otp`, and nothing else. |
 | `storesLastSignInCookie()` | Whether the browser that signs in allowed the `preferences` purpose of optional storage: its choice rides in a first-party cookie of the consent manager (`backend.storage`), which the request carries. |
 | `setupAuth()` | The app's auth, from one call: the auth instance factory, the functions the scaffold re-exports. |
 

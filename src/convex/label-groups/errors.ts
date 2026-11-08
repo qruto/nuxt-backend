@@ -10,6 +10,8 @@ const ERROR_LABELS = {
   unauthenticated: 'Sign in to continue.',
   forbidden: 'You don\'t have access to this.',
   forbidden_banned: 'This account is banned.',
+  // The same refusal of a sign-in, when the ban ends: the minute, in UTC.
+  forbidden_banned_until: 'This account is banned until {date}.',
   forbidden_not_member: 'You\'re not a member of this workspace.',
   forbidden_not_billing_manager: 'Only the workspace\'s owner and admins manage its billing.',
   forbidden_impersonating: 'An administrator acting as this account can\'t do this.',
@@ -62,7 +64,7 @@ const ERROR_LABELS = {
   invalid_input_recoveryCode: 'That recovery code isn\'t right, or it was used already.',
   invalid_input_passkeys: 'A passkey-only account needs a passkey. Add one, or allow sign-in codes again first.',
   invalid_input_slug: 'That name is taken. Try another one.',
-  invalid_input_passkey: 'That passkey didn\'t work. Try again, or continue with an email code.',
+  invalid_input_passkey: 'That passkey didn\'t work. If it\'s a security key, set a PIN on it and try again, or continue with an email code.',
   invalid_input_passkey_cancelled: 'The passkey prompt was closed. Try again, or continue with an email code.',
   invalid_input_no_password: 'This app signs in with codes and passkeys: there is no password to reset.',
   invalid_input_comment: 'That comment is too long. Keep it to 500 characters.',

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { isAcceptedType, isRasterImage, signedUrlExpiry, signFileUrl, SIGNED_URL_TTL_MAX_MS, sniffContentType, stripImageMetadata, verifyFileUrl } from '../../src/convex/files'
+import { isAcceptedType, isRasterImage, readsUrlClock, signedUrlExpiry, signFileUrl, SIGNED_URL_TTL_MAX_MS, sniffContentType, stripImageMetadata, verifyFileUrl } from '../../src/convex/files'
 import { exifJpeg, gpsPng, gpsWebp, jpegSegments, orientationOf, pngChunks, webpChunks } from '../helpers/images'
 
 // What the storage layer reads from a file's bytes: the type from its
@@ -116,10 +116,24 @@ describe('signed URLs and share tokens', () => {
     expect(await verifyFileUrl('other', 'kg2abc', 1_000_000, signature)).toBe(false)
   })
 
-  test('an expiry is capped at seven days and rounded up to the minute', () => {
-    expect(signedUrlExpiry(0)).toBe(60 * 60 * 1000)
-    expect(signedUrlExpiry(0, 30 * 24 * 60 * 60 * 1000)).toBe(SIGNED_URL_TTL_MAX_MS)
-    expect(signedUrlExpiry(1, 1000)).toBe(60_000)
-    expect(signedUrlExpiry(0, -5)).toBe(60 * 60 * 1000)
+  test('an expiry is capped at seven days and sits on a grid', () => {
+    const minute = 60_000
+    const hour = 60 * minute
+    expect(signedUrlExpiry(0)).toBe(hour)
+    expect(signedUrlExpiry(0, 30 * 24 * hour)).toBe(SIGNED_URL_TTL_MAX_MS)
+    expect(signedUrlExpiry(1, 1000)).toBe(30 * minute)
+    expect(signedUrlExpiry(0, -5)).toBe(hour)
+    // A short URL counts from the clock's tick: the same answer all through the interval.
+    const tick = 10 * hour
+    expect(signedUrlExpiry(tick + minute, hour, tick)).toBe(signedUrlExpiry(tick + 29 * minute, hour, tick))
+    expect(signedUrlExpiry(tick + 29 * minute, hour, tick)).toBe(tick + hour)
+    // A clock that stopped (two intervals with no tick) counts from the current half hour, never from the stale tick.
+    expect(signedUrlExpiry(tick + 3 * hour, hour, tick)).toBe(tick + 4 * hour)
+    // Six hours steps every three: twelve ticks, six hours, three URLs at most.
+    expect(new Set(Array.from({ length: 12 }, (_, n) => signedUrlExpiry(tick + n * 30 * minute, 6 * hour, tick + n * 30 * minute))).size).toBeLessThanOrEqual(3)
+    // A day or more reads no clock: down to the hour, never past the ttl.
+    expect(signedUrlExpiry(tick + 59 * minute, 24 * hour, tick)).toBe(tick + 24 * hour)
+    expect(readsUrlClock()).toBe(true)
+    expect(readsUrlClock(24 * hour)).toBe(false)
   })
 })

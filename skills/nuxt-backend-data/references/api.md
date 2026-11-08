@@ -38,13 +38,14 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `RECENT_SIGN_IN_SECONDS` | How recent a sign-in a sensitive action takes, in seconds: ten minutes. |
 | `SENSITIVE_ACTIONS` | The table, by Better Auth route (its path under the auth base path) or by scaffold function (`module:export`, as the client calls it). |
 | `defineRetention()` | Delete a table's rows once they pass an age, a batch per transaction, until none is left. |
+| `scheduleRetention()` | Start every retention rule that has a `schedule` from your `backend/crons.ts`: one cron each, named after the rule's `fn`. |
 | `normalizeEmail()` | The address trimmed and lower-cased: the form to store and compare it in, so `Ana@Example.com ` and `ana@example.com` are one person. |
 | `randomToken()` | A random token from the platform's secure random source: 32 bytes by default, written as 43 URL-safe characters (`A-Z a-z 0-9 - _`), so it goes into a path or a query as it is. |
 | `sha256Hex()` | The text's SHA-256 as 64 lower-case hex characters, from its UTF-8 bytes. |
 | `createFunctions()` | Every access tier of your backend, from one call in `backend/functions.ts`: each a drop-in `{ query, mutation, action }` that checks the caller before the handler runs. |
 | `verifyHuman()` | Check that a call comes from a person, in a function of your own: a waitlist join, a contact form, a referral claim, any call that reaches the deployment over the live connection and never through the app's server. |
 
-Types: `BackendError`, `BackendErrorArgs`, `BackendErrorCode`, `BackendErrorData`, `BackendErrorPayload`, `RetentionArgs`, `RetentionOptions`, `RetentionResult`, `SensitiveAction`, `SensitiveLimit`, `AuthorizationComponents`, `AuthorizationCtx`, `FunctionUser`, `AuthorizationWorkspace`, `CallerRule`, `FunctionWorkspace`, `FunctionDeclaration`, `FunctionsRateLimiter`, `FunctionsBilling`, `FunctionsComponents`, `CreateFunctionsOptions`.
+Types: `BackendError`, `BackendErrorArgs`, `BackendErrorCode`, `BackendErrorData`, `BackendErrorPayload`, `RetentionArgs`, `RetentionOptions`, `RetentionResult`, `RetentionSchedule`, `SensitiveAction`, `SensitiveLimit`, `AuthorizationComponents`, `AuthorizationCtx`, `FunctionUser`, `AuthorizationWorkspace`, `CallerRule`, `FunctionWorkspace`, `FunctionDeclaration`, `FunctionsRateLimiter`, `FunctionsBilling`, `FunctionsComponents`, `CreateFunctionsOptions`.
 
 ### `nuxt-backend/search`
 
@@ -76,4 +77,4 @@ Types: `WorkflowId`, `WorkflowStatus`, `WorkflowComponents`, `EmailSequenceStep`
 | `sniffContentType()` | The type a file is, read from its signature (its first bytes), or `null` for one the package does not recognise. |
 | `stripImageMetadata()` | An image's bytes without its EXIF, XMP, IPTC and GPS data, its container rewritten and its pixels untouched, so quality is unchanged: JPEG, PNG and WebP. |
 
-Types: `FileOwner`, `StoredFile`, `ResolvedShareLink`, `ShareLinkState`, `MintedShareLink`, `StorageApi`, `StorageReadCtx`, `StorageWriteCtx`, `ShareCtx`, `ShareableOptions`, `StorageQuota`, `SetupStorageOptions`, `Storage`, `StorageComponents`.
+Types: `FileOwner`, `StoredFile`, `ResolvedShareLink`, `ShareLinkState`, `MintedShareLink`, `StorageApi`, `StorageReadCtx`, `StorageWriteCtx`, `ShareCtx`, `ShareMutationCtx`, `EnabledShareLink`, `ShareableOptions`, `StorageQuota`, `SetupStorageOptions`, `Storage`, `StorageComponents`.

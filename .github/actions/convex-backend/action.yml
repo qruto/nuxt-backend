@@ -1,0 +1,88 @@
+name: Convex local backend
+description: >-
+  Put the Convex local backend binary where the Convex CLI looks for it, so
+  `convex dev` on an anonymous local deployment (scripts/ci-convex-codegen.sh)
+  finds it instead of downloading it. The CLI asks version.convex.dev for the
+  latest version and keeps that version's binary under
+  `~/.cache/convex/binaries/<version>/`; this resolves the same version,
+  restores it from the Actions cache, and on a miss fetches the release asset
+  through the GitHub API. The CLI's own download goes through github.com's
+  release links, which can fail while the API still serves the file (504s on
+  2026-11-08). Linux runners only: no other job runs a local deployment.
+
+inputs:
+  save-cache:
+    description: >-
+      Save the binary to the Actions cache after fetching it. CI turns this on
+      only on main, in one job, as with the pnpm store: every binary a job
+      restores was written by a run of reviewed code.
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the local backend version
+      id: version
+      shell: bash
+      run: |
+        version=$(curl -fsS --retry 3 --max-time 20 https://version.convex.dev/v1/local_backend_version | jq -r '.version // empty') || version=''
+        if [[ ! "$version" =~ ^precompiled-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]+$ ]]; then
+          echo "::warning::Could not resolve the Convex local backend version; the Convex CLI downloads the binary itself."
+          exit 0
+        fi
+        case "$RUNNER_ARCH" in
+          X64) asset=convex-local-backend-x86_64-unknown-linux-gnu.zip ;;
+          ARM64) asset=convex-local-backend-aarch64-unknown-linux-gnu.zip ;;
+          *) echo "::warning::No Convex local backend for $RUNNER_ARCH."; exit 0 ;;
+        esac
+        {
+          echo "version=$version"
+          echo "asset=$asset"
+          echo "dir=$HOME/.cache/convex/binaries/$version"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Restore the local backend
+      id: restore
+      if: steps.version.outputs.version != ''
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.version.outputs.dir }}
+        key: convex-local-backend-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.version }}
+
+    - name: Fetch the local backend through the GitHub API
+      id: fetch
+      if: steps.version.outputs.version != '' && steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        VERSION: ${{ steps.version.outputs.version }}
+        ASSET: ${{ steps.version.outputs.asset }}
+        DEST: ${{ steps.version.outputs.dir }}
+      # Any failure here (the download, a truncated archive, an archive without
+      # the binary) leaves no partial directory behind: the CLI would take a
+      # directory without its binary as a broken download and start over, but
+      # an unusable binary in place would fail the codegen instead.
+      run: |
+        tmp=$(mktemp -d)
+        if ! gh release download "$VERSION" --repo get-convex/convex-backend --pattern "$ASSET" --dir "$tmp" \
+          || ! unzip -q -o "$tmp/$ASSET" -d "$tmp/unzipped" \
+          || [ ! -f "$tmp/unzipped/convex-local-backend" ]; then
+          rm -rf "$tmp"
+          echo "::warning::Could not fetch $ASSET for $VERSION; the Convex CLI downloads the binary itself."
+          exit 0
+        fi
+        mkdir -p "$DEST"
+        if ! { mv "$tmp/unzipped/convex-local-backend" "$DEST/convex-local-backend" && chmod +x "$DEST/convex-local-backend"; }; then
+          rm -rf "$DEST" "$tmp"
+          echo "::warning::Could not install $ASSET for $VERSION; the Convex CLI downloads the binary itself."
+          exit 0
+        fi
+        rm -rf "$tmp"
+        echo "fetched=true" >> "$GITHUB_OUTPUT"
+
+    - name: Save the local backend
+      if: inputs.save-cache == 'true' && steps.fetch.outputs.fetched == 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.version.outputs.dir }}
+        key: convex-local-backend-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.version }}

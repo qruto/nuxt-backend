@@ -11,8 +11,8 @@ import { authFlow, ORIGIN, SECRET } from '../helpers/auth-flow'
 
 // How a person last signed in, against real Better Auth through its routes:
 // Better Auth's lastLoginMethod plugin records it on the account and in a
-// cookie the sign-in form reads, and the package names a code sign-in,
-// which Better Auth's own resolver does not know. Then the passkey sign-in
+// cookie the sign-in form reads; since 1.7 its own resolver names a code
+// sign-in too, so the package passes none. Then the passkey sign-in
 // challenge, the route every passkey sign-in (autofill included) starts
 // with, and the limits it spends.
 
@@ -73,11 +73,8 @@ describe('the last sign-in method', () => {
   })
 
   it('names a passkey sign-in `passkey` and a code sign-in `email-otp`, and nothing else', async () => {
-    expect(resolveSignInMethod({ path: '/sign-in/email-otp' })).toBe('email-otp')
-    expect(resolveSignInMethod({ path: '/passkey/verify-authentication' })).toBeNull()
-
     // The plugin's own hook, as Better Auth runs it after a session is
-    // created: our resolver first, then Better Auth's, which knows passkeys.
+    // created: Better Auth's resolver, which knows both, with none of ours.
     const updateUser = vi.fn(async () => {})
     const plugin = defaultLastLoginMethod()
     const hooks = plugin.init({ internalAdapter: { updateUser }, logger: { error: vi.fn() } } as never).options.databaseHooks
@@ -89,17 +86,29 @@ describe('the last sign-in method', () => {
       ['user_1', { lastLoginMethod: 'email-otp' }],
     ])
     expect(plugin.options).toMatchObject({ storeInDatabase: true, cookieName: LAST_SIGN_IN_COOKIE })
+    expect(plugin.options).not.toHaveProperty('customResolveMethod')
+  })
+
+  it('keeps the deprecated resolver working: a code sign-in, and nothing else', () => {
+    expect(resolveSignInMethod({ path: '/sign-in/email-otp' })).toBe('email-otp')
+    expect(resolveSignInMethod({ path: '/passkey/verify-authentication' })).toBeNull()
+    expect(publicResolver).toBe(resolveSignInMethod)
   })
 })
 
 describe('an app\'s own lastLoginMethod', () => {
   // The documented override, for a cookie set only with consent: the app's
-  // plugin replaces the package's, and the exported resolver keeps naming a
-  // code sign-in.
-  it('records a code sign-in on the account with the exported resolver, and no cookie when the app says no', async () => {
-    const flow = await authFlow({ build: { authOptions: { plugins: [lastLoginMethod({ storeInDatabase: true, customResolveMethod: publicResolver, beforeStoreCookie: () => false })] } } })
+  // plugin replaces the package's, and Better Auth names a code sign-in.
+  it('records a code sign-in on the account with no resolver of its own, and no cookie when the app says no', async () => {
+    const flow = await authFlow({ build: { authOptions: { plugins: [lastLoginMethod({ storeInDatabase: true, beforeStoreCookie: () => false })] } } })
     const { response, userId } = await flow.signInWithCode(ADA)
     expect(setCookie(response, LAST_SIGN_IN_COOKIE)).toBeUndefined()
+    expect(flow.db.user!.find(row => row.id === userId)).toMatchObject({ lastLoginMethod: 'email-otp' })
+  })
+
+  it('still records a code sign-in with the deprecated resolver passed', async () => {
+    const flow = await authFlow({ build: { authOptions: { plugins: [lastLoginMethod({ storeInDatabase: true, customResolveMethod: publicResolver, beforeStoreCookie: () => false })] } } })
+    const { userId } = await flow.signInWithCode(ADA)
     expect(flow.db.user!.find(row => row.id === userId)).toMatchObject({ lastLoginMethod: 'email-otp' })
   })
 })
@@ -116,13 +125,22 @@ describe('the passkey sign-in challenge', () => {
     const flow = await authFlow()
     const answer = await challenge(flow, '203.0.113.7')
     expect(answer.status).toBe(200)
-    expect(await answer.json()).toHaveProperty('challenge')
+    // Every passkey sign-in asks the device to verify the person: a fingerprint, a face or a PIN.
+    expect(await answer.json()).toMatchObject({ challenge: expect.any(String), userVerification: 'required' })
     expect(flow.limiter.limit.mock.calls.map(([, name, options]) => [name, options?.key])).toEqual([
       ['passkeySignIn', addressKey('203.0.113.7')],
       ['passkeySignInGlobal', undefined],
     ])
     // Never the plain digest, which hashing all four billion IPv4 addresses reverses.
     expect(flow.limiter.limit.mock.calls[0]![2]?.key).not.toBe(sha256('203.0.113.7'))
+  })
+
+  it('asks the device to verify the person when a passkey is saved, too', async () => {
+    const flow = await authFlow()
+    const person = await flow.signedIn(ADA)
+    const answer = await flow.get('/passkey/generate-register-options', { cookie: person.cookie })
+    expect(answer.status).toBe(200)
+    expect(await answer.json()).toMatchObject({ authenticatorSelection: { userVerification: 'required' } })
   })
 
   it('refuses an address past its bucket with the wait, and leaves other addresses and the ceiling alone', async () => {

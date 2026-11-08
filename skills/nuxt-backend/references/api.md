@@ -19,7 +19,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useEmailChange()` | The headless email change behind `<ProfileSettings>`: a code from the current address proves the person asking still holds it, a code from the new address proves they hold that one too. |
 | `useWorkspace()` | Workspace state and actions: the list, the switch, the members and the full invitation flow (invite / accept / decline / cancel — the packaged `AcceptInvitation` component and `/accept-invitation` page build on these). |
 | `useSearch()` | Reactive, debounced full-text search. |
-| `useBilling()` | Reactive billing state plus the full subscription lifecycle — checkout, gift, portal, plan change and undoing a scheduled one, cancel/uncancel, pause/resume — linked to your auth user. |
+| `useBilling()` | Reactive billing state plus the full subscription lifecycle — checkout, portal, plan change and undoing a scheduled one, cancel (with its save offer) and uncancel, pause/resume — linked to your auth user. |
 | `useFeatures()` | Reactive feature-gating for the current user — the SaaS access primitive. |
 | `useCredits()` | Reactive prepaid-credit balance for the current user, plus a `topUp()` checkout and a `refresh()` re-sync. |
 | `usePricing()` | The app's plans and credit packs as a pricing page shows them — every plan with its monthly and yearly price, what a year saves, its trial and the credits it grants per cycle; every pack with its price per credit and which is the best value — read through the scaffolded `getPricing`, in the visitor's currency where the catalog prices it. |
@@ -100,7 +100,7 @@ types, auto-imported too: `AsyncQueryData`, `AsyncQueryOptions`, `AsyncQueryRetu
 | `<UsageHistory>` | Metered consumption, event by event, straight from the provider's events API — the same records that drew the credit balance down. |
 | `<UpgradePrompt>` | What someone whose plan lacks a feature sees: a sentence naming the plans on sale that include it, in pricing order, and a link to the first of them on the pricing page (`/pricing?plan=<key>`). |
 | `<CancelFlow>` | Cancelling takes one step; a save offer is one optional step (LIFECYCLE). |
-| `<WithdrawalButton>` | The EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art. |
+| `<WithdrawalButton>` | The EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art. 11a, from 2026-06-19): "Withdraw from contract here", for a purchase inside its 14 days, then a confirm step, "Confirm withdrawal". |
 | `<ReferralCard>` | A person's referral link, with copy and share buttons and the disclosure of the reward: the link is `/r/<code>` on this site, made the first time the card is read. |
 | `<AdminUsers>` | Every account of the app, for its administrators: a search by address, a page at a time (`AdminUsersTable`), and a drawer with one account in full (`AdminUserDrawer`): its role, its ban, its device sessions and workspaces, and "Impersonate". |
 | `<AdminWorkspaces>` | Every workspace of the app, read-only, for its administrators: a search by name, a page at a time (`AdminWorkspacesTable`), and a drawer with one workspace's members and open invitations (`AdminWorkspaceDrawer`). |
@@ -112,7 +112,7 @@ types, auto-imported too: `AsyncQueryData`, `AsyncQueryOptions`, `AsyncQueryRetu
 | `<NotificationInbox>` | What the app told a person, in the app: a button whose accessible name carries the unread count, and the list it opens on the browser's own popover, newest first. |
 | `<ContactForm>` | A contact form for visitors, and a feedback form for signed-in people: the same component. |
 | `<AppShell>` | The frame of a signed-in app, for your layout: a header with your brand and links, the workspace switcher, the notification bell and the account menu, then the app-wide notices, then your page in the `<main>` landmark, with the consent dialog and the connection status closing it. |
-| `<AiLabel>` | The visible "AI-generated" label the EU AI Act (Art. |
+| `<AiLabel>` | The visible "AI-generated" label the EU AI Act (Art. 50) asks for, beside an image or a text a model made. |
 
 The base module's, under neutral names: `<Authenticated>`, `<Unauthenticated>`, `<AuthLoading>`, `<AuthRefreshing>`, `<AuthBoundary>`, `<StorageImage>`.
 
@@ -137,7 +137,7 @@ The base module's, under neutral names: `<Authenticated>`, `<Unauthenticated>`, 
 | `privacy` | `/legal/privacy` | The privacy policy (public): who runs the app, the data map, the subprocessors, the cookies and how a person exports or deletes their data, filled from `appConfig.backend.legal` and the capabilities the app uses, and marked "not legal advice". |
 | `profile` | `/profile` | The account profile (private). |
 | `referral` | `/r/:code` | Where a referral link lands (`/r/<code>`; public, kept out of search indexes): it says who invited the visitor and what they get, and signing up there claims the referral. |
-| `report` | `/report` | The public notice form (DSA Art. |
+| `report` | `/report` | The public notice form (DSA Art. 16, the TAKE IT DOWN Act's removal request), open to people without an account, and where a statement of reasons' appeal link lands (`#appeal=<token>`). |
 | `security` | `/security` | Passkeys, sessions, account deletion and the account's recent activity (private). |
 | `settings` | `/settings` | Workspace, plan and credit settings, and the workspace's activity for its owners and admins (private). |
 | `subprocessors` | `/legal/subprocessors` | The subprocessor list (public): each service that processes personal data for the capabilities the app uses, what it handles, where, and its agreement; marked "not legal advice". |
@@ -161,7 +161,7 @@ Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDe
 | Export | What it is |
 |---|---|
 | `APIError` | Re-exported from `better-auth/api`. |
-| `resolveSignInMethod()` | The `customResolveMethod` of Better Auth's `lastLoginMethod` plugin that names a sign-in its own resolver does not know: a code sign-in (`/sign-in/email-otp`, which also signs a new account up) is `email-otp`. |
+| `resolveSignInMethod()` | Names a code sign-in (`/sign-in/email-otp`, which also signs a new account up) `email-otp`, and nothing else. |
 | `storesLastSignInCookie()` | Whether the browser that signs in allowed the `preferences` purpose of optional storage: its choice rides in a first-party cookie of the consent manager (`backend.storage`), which the request carries. |
 | `setupAuth()` | The app's auth, from one call: the auth instance factory, the functions the scaffold re-exports. |
 
@@ -185,13 +185,14 @@ Types: `RegisterBackendRoutesOptions`.
 | `RECENT_SIGN_IN_SECONDS` | How recent a sign-in a sensitive action takes, in seconds: ten minutes. |
 | `SENSITIVE_ACTIONS` | The table, by Better Auth route (its path under the auth base path) or by scaffold function (`module:export`, as the client calls it). |
 | `defineRetention()` | Delete a table's rows once they pass an age, a batch per transaction, until none is left. |
+| `scheduleRetention()` | Start every retention rule that has a `schedule` from your `backend/crons.ts`: one cron each, named after the rule's `fn`. |
 | `normalizeEmail()` | The address trimmed and lower-cased: the form to store and compare it in, so `Ana@Example.com ` and `ana@example.com` are one person. |
 | `randomToken()` | A random token from the platform's secure random source: 32 bytes by default, written as 43 URL-safe characters (`A-Z a-z 0-9 - _`), so it goes into a path or a query as it is. |
 | `sha256Hex()` | The text's SHA-256 as 64 lower-case hex characters, from its UTF-8 bytes. |
 | `createFunctions()` | Every access tier of your backend, from one call in `backend/functions.ts`: each a drop-in `{ query, mutation, action }` that checks the caller before the handler runs. |
 | `verifyHuman()` | Check that a call comes from a person, in a function of your own: a waitlist join, a contact form, a referral claim, any call that reaches the deployment over the live connection and never through the app's server. |
 
-Types: `BackendError`, `BackendErrorArgs`, `BackendErrorCode`, `BackendErrorData`, `BackendErrorPayload`, `RetentionArgs`, `RetentionOptions`, `RetentionResult`, `SensitiveAction`, `SensitiveLimit`, `AuthorizationComponents`, `AuthorizationCtx`, `FunctionUser`, `AuthorizationWorkspace`, `CallerRule`, `FunctionWorkspace`, `FunctionDeclaration`, `FunctionsRateLimiter`, `FunctionsBilling`, `FunctionsComponents`, `CreateFunctionsOptions`.
+Types: `BackendError`, `BackendErrorArgs`, `BackendErrorCode`, `BackendErrorData`, `BackendErrorPayload`, `RetentionArgs`, `RetentionOptions`, `RetentionResult`, `RetentionSchedule`, `SensitiveAction`, `SensitiveLimit`, `AuthorizationComponents`, `AuthorizationCtx`, `FunctionUser`, `AuthorizationWorkspace`, `CallerRule`, `FunctionWorkspace`, `FunctionDeclaration`, `FunctionsRateLimiter`, `FunctionsBilling`, `FunctionsComponents`, `CreateFunctionsOptions`.
 
 ### `nuxt-backend/app`
 
@@ -336,7 +337,7 @@ Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBala
 | `sniffContentType()` | The type a file is, read from its signature (its first bytes), or `null` for one the package does not recognise. |
 | `stripImageMetadata()` | An image's bytes without its EXIF, XMP, IPTC and GPS data, its container rewritten and its pixels untouched, so quality is unchanged: JPEG, PNG and WebP. |
 
-Types: `FileOwner`, `StoredFile`, `ResolvedShareLink`, `ShareLinkState`, `MintedShareLink`, `StorageApi`, `StorageReadCtx`, `StorageWriteCtx`, `ShareCtx`, `ShareableOptions`, `StorageQuota`, `SetupStorageOptions`, `Storage`, `StorageComponents`.
+Types: `FileOwner`, `StoredFile`, `ResolvedShareLink`, `ShareLinkState`, `MintedShareLink`, `StorageApi`, `StorageReadCtx`, `StorageWriteCtx`, `ShareCtx`, `ShareMutationCtx`, `EnabledShareLink`, `ShareableOptions`, `StorageQuota`, `SetupStorageOptions`, `Storage`, `StorageComponents`.
 
 ### `nuxt-backend/notifications`
 
@@ -384,11 +385,18 @@ Types: `BackendPaths`, `DefineBackendAuthConfigOptions`.
 |---|---|
 | `register()` | Register the nuxt-backend all-in-one `backend` component with a test Convex instance, the way the app mounts it: under its name, with its real schema (indexes and document validation included), and with its children registered beneath it: the email provider at `<name>/resend`, the package's migrations at `<name>/migrations`, the waitlist's queue and mirror at `<name>/waitlistRank` and `<name>/waitlistMirror`, and the growth funnel's counts at `<name>/funnelCounts` — convex-test resolves a component's own child calls to those paths. |
 | `defineBackendTestApp()` | Your app under test: a fresh convex-test instance per call, with the `backend` component and every component the scaffolded `convex.config.ts` mounts (the action cache, aggregate, migrations, persistent text streaming, the billing provider, the rate limiter, the sharded counter, workflows and the workpool) registered under the names it mounts them by, and the Agent and RAG components (`agent`, `rag`) when the app installs them. |
+| `TEST_PNG` | A valid 2 × 2 PNG: what the storage check sniffs, strips and serves. |
+| `upload()` | Send a file into the `backend` component's storage, claimed by nobody, as the browser leaves it after posting to an upload URL, and return its storage id. |
+| `TEST_STORAGE_URL` | Where convex-test's `ctx.storage.getUrl` points: a deployment that does not exist. |
+| `stubStorageFetch()` | Answer `fetch` for the files your functions stored, with their bytes and type, as the deployment's storage would: a model handed a photo by URL, or a signed URL's route reading the file, gets the real file under test. |
+| `drain()` | Run every scheduled function to the end, one at a time: storage checks, the job queue and its steps, workflows, deliveries and retries. |
+| `seedBilling()` | Give a billing entity the plans, features and credits a sync from the provider would leave it: the entitlement cache every gate, `hasFeature`, quota and credit spend reads. |
+| `seedCredits()` | Set one meter's credit balance for a billing entity, as a sync from the provider leaves it, keeping its plans, features and other meters. |
 | `seedWorkspace()` | Create a workspace with no members yet, for several `asUser` callers to join: `asUser(t, { workspace: id, workspaceRole: 'admin' })`. |
 | `asUser()` | Create an account in the `backend` component's auth tables and return the instance signed in as it, the way a real sign-in leaves it: the account with the role `'user'`, a personal workspace it owns and has active, and the claims a real token carries. |
 | `default` | The default export. |
 
-Types: `TestUserOptions`, `TestUser`.
+Types: `ComponentTestKit`, `BackendTestAppOptions`, `TestFile`, `TestUploadOptions`, `BackendTestApp`, `StubStorageFetchOptions`, `TestTimers`, `TestBilling`, `TestUserOptions`, `TestUser`.
 
 ### `nuxt-backend/test-utils`
 
@@ -597,7 +605,7 @@ A refusal is a `ConvexError` with one of these codes; `getBackendError(error)` r
 | Code | Status | Meaning |
 |---|---|---|
 | `unauthenticated` | 401 | Nobody is signed in, or the session is gone. |
-| `forbidden` | 403 | Signed in, but not allowed; `reason` says why (`banned`, `role`, `permission`, `not_member`, `workspace_role`, `admin_only`, `not_owner`, `impersonating`, `admin_target`, `sign_in_refused`, `customer_taken`, `already_subscribed`, `not_billing_manager`, `provider_owner_only`, `gift_refused`, `gift_refunded`, `not_recipient`, `no_email`, `bot_check`, `other_account`, `flag_off`, `sole_owner`, `paid_subscription`, `ticket_required`, `invitation_refused`, `consent_required`, `age_required`, `under_age`, `passkey_only_admin`). A `consent_required` refusal also carries `kind`, the required consent not yet accepted at its latest version. A `ticket_required` refusal also carries `phase`, the launch phase that asks for a ticket, and `invite`, how the invite code given checked (`expired`, `used-up`, `revoked`, `unknown`), when one was. |
+| `forbidden` | 403 | Signed in, but not allowed; `reason` says why (`banned`, `role`, `permission`, `not_member`, `workspace_role`, `admin_only`, `not_owner`, `impersonating`, `admin_target`, `sign_in_refused`, `customer_taken`, `already_subscribed`, `not_billing_manager`, `provider_owner_only`, `gift_refused`, `gift_refunded`, `not_recipient`, `no_email`, `bot_check`, `other_account`, `flag_off`, `sole_owner`, `paid_subscription`, `ticket_required`, `invitation_refused`, `consent_required`, `age_required`, `under_age`, `passkey_only_admin`). A `banned` refusal of a sign-in also carries `until`, when the ban ends (epoch ms), for a ban that ends. A `consent_required` refusal also carries `kind`, the required consent not yet accepted at its latest version. A `ticket_required` refusal also carries `phase`, the launch phase that asks for a ticket, and `invite`, how the invite code given checked (`expired`, `used-up`, `revoked`, `unknown`), when one was. |
 | `reauthentication_required` | 403 | The call is a sensitive action, and the session's sign-in is older than it takes: sign in again (`useReauthentication`), then retry. Better Auth's own refusals of a session too old for its route read as this code too. |
 | `no_workspace` | 409 | The call needs an active workspace and there is none. |
 | `rate_limited` | 429 | A named limit is spent; `retryAfter` is in milliseconds. The job queue's budget (`limit: 'jobBudget'`) also names the `plans` on sale whose tier would fit the job now, in pricing order. |

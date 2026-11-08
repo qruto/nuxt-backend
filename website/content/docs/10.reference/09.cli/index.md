@@ -3,8 +3,6 @@ title: CLI
 description: "npx nuxt-backend: init, dev, doctor, status, env push, env rotate, billing sync, billing reset, email sync, inbox, upgrade, deploy, analyze, eject and mcp, with every flag and each command's contract."
 kind: reference
 capability: tools
-status: changing
-changedBy: OPS2
 source: src/cli/contract.ts
 navigation:
   title: Commands
@@ -20,26 +18,6 @@ No command needs an answer: every input is a flag, so a coding agent or a script
 - **Side effects:** what it may change. The classes are *reads only*, *writes project files*, *writes the dev deployment*, *writes a preview deployment*, *writes project env defaults*, *writes production* and *writes provider accounts*. A flag that changes them is named with them: `doctor` reads only, and writes with `--fix`.
 - **`--json`:** stdout is one JSON document, and progress lines go to stderr. The shapes are stable (see [Stability](/docs/ship/releases/stability)); the wording of text output is not.
 - **Exit codes:** `0` and `1` everywhere, plus `130` when `dev` is interrupted.
-
-## What changes
-
-`0.2.0` builds the CLI around the providers' real sandboxes and one variable, `BACKEND_ENVIRONMENT`, which `dev` provisions and `env push` derives from the deployment in place of five mode variables. The billing simulator and simulated email events are gone, and six commands arrive:
-
-| Command | In `0.2.0` | Unit |
-|---|---|---|
-| `init` | Writes the slimmer scaffold, and one `nuxt-backend` server into `.mcp.json`. `npx nuxt module add nuxt-backend` runs the same setup on install | SIMPLIFY, DEVMCP, SETUP |
-| `dev` | `--anonymous` starts on an account-free local deployment on every OS | SETUP |
-| `doctor` | Checks the twelve capabilities, and names the app components and composables that share a name with the package's. `--fix` also applies the provider settings the billing findings recommend, and runs `email sync` | DEFER, OPS2 |
-| `status` | Twelve capabilities, each `live`, `test`, `missing` or `failing` | OPS2, PROD |
-| `env rotate` | New: rotates the auth secret, the session signing keys and the webhook secrets with no downtime | OPS2 |
-| `email sync` | New: creates the email topics, segments, contact properties and the webhook subscription at Resend, as `billing sync` does for the catalog | PREFS |
-| `upgrade` | Repairs the scaffold and runs the package's data migrations, and rewrites no code | RESET |
-| `deploy` | New: takes production from nothing to a passing `doctor --prod` in one command | PROD |
-| `analyze` | New: measures the Convex bundle and the Nuxt bundles, with the package's share | ANALYZE |
-| `eject` | New: copies a part's, a page's or an email's source into the app, with a version stamp | UIKIT |
-| `mcp` | New: the developer MCP server for your coding agent | DEVMCP |
-
-Each command's contract line (**Side effects**, **`--json`** and **Exit codes**) is generated from the code as it stands, and keeps the previous behaviour until the command's unit lands. A flag that leaves says so in its row.
 
 ## `init`
 
@@ -70,7 +48,7 @@ npx nuxt-backend init --json        # what it wrote, as one JSON document
 
 What it writes, each file only when it needs it:
 
-- **The scaffold**, every missing file, into the Convex functions directory: `convex.json`'s `functions`, else an existing `backend/` or `convex/`, else `backend/`. With SIMPLIFY the scaffold holds only the files the package calls into: no empty `aggregates.ts`, `search.ts`, `crons.ts` or `migrations.ts`, and no demo functions. [Project files](/docs/reference/configuration/project-files) lists each file.
+- **The scaffold**, every missing file, into the Convex functions directory: `convex.json`'s `functions`, else an existing `backend/` or `convex/`, else `backend/`. The scaffold holds only the files the package calls into: no empty `aggregates.ts`, `search.ts`, `crons.ts` or `migrations.ts`, and no demo functions. [Project files](/docs/reference/configuration/project-files) lists each file.
 - **`.env.example`**, grouped by capability.
 - **`nuxt.config.{ts,js,mjs}`**: `'nuxt-backend'` added to `modules` with magicast, or a message that tells you to add it.
 - **`app/app.vue`** (or `app.vue`): its `<NuxtWelcome />` replaced with `<NuxtPage />` while it is still the `create nuxt` starter. A root component that already renders `<NuxtPage />` stays as it is.
@@ -159,13 +137,13 @@ npx nuxt-backend doctor --only billing,email   # some capabilities' checks
 | `--fix` | Repair what `doctor` can: restore missing scaffold files (existing files untouched), point a `convex dev --start "nuxt dev"` dev script at `nuxt-backend dev`, run the `env push` engine (never with `--force`), at a terminal make the first administrator when the deployment has none ([Make the first administrator](/docs/build/auth/admin#make-the-first-administrator)), and run [`email sync`](#email-sync). Then the providers: it names each setting the billing findings recommend (trial abuse prevention, the trial reminder, Polar's customer emails back on), subscribes the billing endpoint to every event the package handles, and turns either provider's webhook endpoint back on once its route answers the probe. Each change is made only once you confirm it at a terminal, or with `--yes`; without either it is listed and left ([Let doctor fix them](/docs/services#let-doctor-fix-them)). It turns nothing off and never touches seat settings. |
 | `--yes` | With `--fix`: apply the provider changes without asking, for a script or CI. |
 | `--json` | Machine-readable output, described by [its JSON Schema](https://nuxt-backend.dev/schemas/doctor.json). With `--fix`, the repair's progress goes to stderr, so stdout stays one JSON document. |
-| `--only <capabilities>` | Run only the checks of these [capabilities](/docs/reference/capabilities), comma-separated: `auth`, `data`, `jobs`, `billing`, `email`, `notifications`, `ai`, `protection`, `monitoring`, `flags`, `analytics` and `hosting`. The other checks never run, so their deployment reads, route probes, site probes and provider calls are skipped too. `agents` leaves with DEFER. |
+| `--only <capabilities>` | Run only the checks of these [capabilities](/docs/reference/capabilities), comma-separated: `auth`, `data`, `jobs`, `billing`, `email`, `notifications`, `ai`, `protection`, `monitoring`, `flags`, `analytics` and `hosting`. The other checks never run, so their deployment reads, route probes, site probes and provider calls are skipped too. |
 
 ### Findings
 
 Each finding has an `id`, the `capability` it belongs to, a status (`pass`, `warn` or `fail`), a message, a fix hint, and a `docsUrl`: `https://nuxt-backend.dev/d/<id>`, which opens its entry on [Diagnostics](/docs/reference/cli/diagnostics). That page lists every finding with what it checks, when it fails, and its fix. In `0.x` a minor release may rename a finding or move it to another capability, and any release may change its wording ([Stability](/docs/ship/releases/stability)).
 
-The route probes, `function-contract` and the path check need the deployment (and `nuxt.config`) to be reachable, and produce no finding otherwise. The `billing-*` catalog checks need a `billing.catalog.ts`, and run the provider half only with a token visible locally. The same preflight (`backend-site-url` … `billing-webhook-secret`) runs on every dev-server start and in the [DevTools tab](/docs/develop/devtools). Today those two also report an `mcp` finding for the agent endpoint, which leaves with DEFER.
+The route probes, `function-contract` and the path check need the deployment (and `nuxt.config`) to be reachable, and produce no finding otherwise. The `billing-*` catalog checks need a `billing.catalog.ts`, and run the provider half only with a token visible locally. The same preflight (`backend-site-url` … `billing-webhook-secret`) runs on every dev-server start and in the [DevTools tab](/docs/develop/devtools).
 
 ### Under `--prod`
 
@@ -174,7 +152,7 @@ Production's env names say what is set, not to what. Under `--prod`, `doctor` al
 - **Two values, neither of them secret** (`convex env get --prod`). `BACKEND_ENVIRONMENT` is compared and never printed: it fails when it is unset, `development` or `preview`, and warns when it is `sandbox`, a demo or staging app on purpose ([`deployment-backend-environment`](/docs/reference/cli/diagnostics#deployment-backend-environment)). The origin of `SITE_URL` ([`site-url-origin`](/docs/reference/cli/diagnostics#site-url-origin)) is the app's public origin, which every emailed link names, so the findings print it. A name production does not set is never read.
 - **What production reports of its own email** (`convex run --prod --component backend posture:email`, an internal function only an admin key can run). The deployment asks the email provider with its own `EMAIL_API_KEY`, and only derived facts come back, never the key or an address: the sender domain's status ([`email-sender-domain`](/docs/reference/cli/diagnostics#email-sender-domain)), the last 7 days' bounce and complaint rates against the provider's limits ([`email-reputation`](/docs/reference/cli/diagnostics#email-reputation)), and the quota used ([`email-quota`](/docs/reference/cli/diagnostics#email-quota)). A deployment on a release without it warns once.
 - **The catalog against its production ids** in `billing.generated.ts` ([`billing-catalog-production`](/docs/reference/cli/diagnostics#billing-catalog-production)).
-- **The live site**, at the origin `SITE_URL` names, with anonymous requests a visitor or an uptime check could make: HTTPS and HSTS ([`site-https`](/docs/reference/cli/diagnostics#site-https)), the content security policy and the deployment the page talks to ([`site-csp`](/docs/reference/cli/diagnostics#site-csp), [`site-backend-url`](/docs/reference/cli/diagnostics#site-backend-url)), a gated page sending an anonymous visitor to sign in ([`site-gated-page`](/docs/reference/cli/diagnostics#site-gated-page)), the health endpoint's public shape ([`monitoring-health`](/docs/reference/cli/diagnostics#monitoring-health)), and `/llms.txt` where the app serves it ([`agent-docs`](/docs/reference/cli/diagnostics#agent-docs)). The agent endpoint's challenge and discovery probes leave with DEFER.
+- **The live site**, at the origin `SITE_URL` names, with anonymous requests a visitor or an uptime check could make: HTTPS and HSTS ([`site-https`](/docs/reference/cli/diagnostics#site-https)), the content security policy and the deployment the page talks to ([`site-csp`](/docs/reference/cli/diagnostics#site-csp), [`site-backend-url`](/docs/reference/cli/diagnostics#site-backend-url)), a gated page sending an anonymous visitor to sign in ([`site-gated-page`](/docs/reference/cli/diagnostics#site-gated-page)), the health endpoint's public shape ([`monitoring-health`](/docs/reference/cli/diagnostics#monitoring-health)), and `/llms.txt` where the app serves it ([`agent-docs`](/docs/reference/cli/diagnostics#agent-docs)).
 
 Nothing is probed when `SITE_URL` is unset, unreadable, local or plain HTTP (`site-url-origin` says so). A site that does not answer at all is one warning, on the first probe the run checks. A run scoped with `--only` to capabilities without auth, such as `--only hosting`, gets the same one warning when `SITE_URL` keeps the site from being probed, so it never looks clean.
 
@@ -201,7 +179,9 @@ npx nuxt-backend status --json   # { deployment, status, capabilities, summary }
 | `--prod` | The production deployment's capabilities. An env name counts as set only on the deployment (none does when its names cannot be read), the mode follows the `BACKEND_ENVIRONMENT` read off it, and `doctor`'s production posture turns a warning production cannot run with into a failure, so the capability fails. Refuses a dev or preview `CONVEX_DEPLOY_KEY`, as `doctor --prod` does. |
 | `--json` | Print the capabilities as one JSON document. `status` is `ok` while every capability is live or test, `degraded` once one is missing, and `failing` once one fails. |
 
-Each line is one capability: its light, its state, what it is built on and why it is in that state. Under it come the env names the capability lacks and its most pressing finding, and the last line names the `doctor --only` run that shows their fixes. The code prints these twelve today:
+Each line is one capability: its light, its state, what it is built on and why it is in that state. Under it come the env names the capability lacks and its most pressing finding, and the last line names the `doctor --only` run that shows their fixes.
+
+On a cloud dev deployment `env push` set up, which generates the web push key pair, with no billing token yet, it prints:
 
 ```text
 nuxt-backend status · dev:happy-otter-123 (cloud dev deployment)
@@ -223,31 +203,6 @@ nuxt-backend status · dev:happy-otter-123 (cloud dev deployment)
 ○ hosting       missing    Vercel: no production deployment yet
 
 1 live · 7 test · 4 missing — fixes: npx nuxt-backend doctor --only billing
-```
-
-In `0.2.0`, on the same cloud dev deployment with no billing token yet, it prints twelve capabilities:
-
-```text
-nuxt-backend status · dev:happy-otter-123 (cloud dev deployment)
-
-◐ auth          test     Better Auth: sign-in codes print in the dev console, or reach the email provider's test addresses
-◐ data          test     Convex: runs on the cloud dev deployment
-◐ jobs          test     Convex: runs on the cloud dev deployment
-○ billing       missing  Polar: BILLING_ACCESS_TOKEN is not set
-    unset: BILLING_ACCESS_TOKEN, BILLING_WEBHOOK_SECRET
-    ⚠ Billing access: BILLING_ACCESS_TOKEN is not set (optional): billing queries return empty and checkout actions fail on invocation.
-◐ email         test     Resend: BACKEND_ENVIRONMENT is development: only the provider's test addresses receive mail
-○ notifications missing  Web Push: PUSH_PUBLIC_KEY is not set: the in-app inbox works, web push does not
-    unset: PUSH_PUBLIC_KEY, PUSH_PRIVATE_KEY
-○ ai            missing  AI SDK, Convex AI Gateway, Polar: its credits need billing: BILLING_ACCESS_TOKEN is not set
-◐ protection    test     Vercel BotID, Cloudflare Turnstile: the dev server's bot check answers human, as BotID does in development
-◐ monitoring    test     Sentry: no DSN is set, so errors go to the dev server's local error log (DevTools › Monitoring)
-    unset: MONITORING_DSN
-● flags         live     Convex: flags are evaluated in your own functions: their defaults from code, and the overrides stored on the deployment
-○ analytics     missing  Polar: its metrics need billing: BILLING_ACCESS_TOKEN is not set
-○ hosting       missing  Vercel: no production deployment yet
-
-1 live · 6 test · 5 missing — fixes: npx nuxt-backend doctor --only billing
 ```
 
 The lights are the console's: `●` live, `◐` test, `○` missing and `✗` failing, in green, amber, grey and red on a terminal that shows colour.
@@ -475,7 +430,7 @@ It reads dev-class deployments only (`dev:`, `local:` and `anonymous:`) and refu
 
 ## `upgrade`
 
-Move the app to the version installed. It does two things: it repairs the scaffold, as `doctor --fix` does, and it runs the package's own data migrations on the deployment. It rewrites no code: a release's renamed names are in the [changelog](/docs/ship/releases/changelog) and, for the previews of `main`, on the [Upgrade page](/docs/ship/releases/upgrade), and `0.2.0` ships no codemods. Run it after installing a new version, and again whenever it says so: every step is safe to repeat, and a second run changes nothing the first one finished.
+Move the app to the version installed. It does two things: it repairs the scaffold, as `doctor --fix` does, and it runs the package's own data migrations on the deployment. It rewrites no code: a release's renamed names are in the [changelog](/docs/ship/releases/changelog) and, for the previews of `main`, on the [Upgrade page](/docs/ship/releases/upgrade), and no release ships codemods. Run it after installing a new version, and again whenever it says so: every step is safe to repeat, and a second run changes nothing the first one finished.
 
 ```bash
 npx nuxt-backend upgrade --dry-run      # each scaffold change as a diff, and where the migrations stand; writes nothing

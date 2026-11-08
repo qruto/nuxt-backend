@@ -105,7 +105,7 @@ describe('the sidebar', () => {
  * Vue generic type parameters the signatures show.
  */
 // `NuxtImg` and `NuxtPicture` are @nuxt/image's, which the `backend` image provider serves.
-const NUXT_NAMES = new Set(['NuxtPage', 'NuxtLayout', 'NuxtLink', 'NuxtWelcome', 'ClientOnly', 'NuxtImg', 'NuxtPicture', 'useNuxtApp', 'useHead', 'useRoute', 'useRouter', 'useRuntimeConfig', 'useAppConfig', 'useState', 'useFetch', 'useAsyncData', 'useCookie', 'useRequestEvent', 'useSeoMeta'])
+const NUXT_NAMES = new Set(['NuxtPage', 'NuxtLayout', 'NuxtLink', 'NuxtWelcome', 'ClientOnly', 'NuxtImg', 'NuxtPicture', 'useNuxtApp', 'useHead', 'useRoute', 'useRouter', 'useRuntimeConfig', 'useAppConfig', 'useState', 'useFetch', 'useAsyncData', 'useCookie', 'useRequestEvent', 'useRequestURL', 'useSeoMeta'])
 
 /**
  * The auth client's workspace hooks (`useAuth().client.useActiveOrganization()`):
