@@ -53,6 +53,7 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const COLD_BALANCE = 'A job joins on a balance never read'
 const ONE_WAY = 'One way to do each thing'
 const ENVIRONMENT = 'One variable says what kind of deployment this is'
 const SANDBOXES = 'Development runs on the providers\' sandboxes, with nothing simulated'
@@ -93,6 +94,8 @@ const SESSIONS = 'Sessions are listed and revoked by id'
 
 /** Every rename, newest section first, as the Upgrade page orders them. */
 export const RENAMES: readonly Rename[] = [
+  // A job joins on a balance never read, and reads it as it starts.
+  { from: 'jobs.enqueue', to: 'jobs.enqueue', change: 'reshaped', section: COLD_BALANCE, note: 'a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready`' },
   // One way per action. The boundaries, the banners, the auth members and
   // the wrapper subpaths each have one replacement.
   { from: 'setupAuthorization', to: 'createFunctions', change: 'removed', section: ONE_WAY, note: 'one call in `backend/functions.ts` takes `{ components, billing, rateLimiter }` and returns every tier and `setUserRole`' },

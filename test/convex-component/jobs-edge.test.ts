@@ -86,7 +86,7 @@ const jobs = defineJobQueue(components as never, {
 
 const appSchema = defineSchema({
   strips: defineTable({ workspaceId: v.string(), idea: v.string(), panels: v.array(v.string()), jobId: v.optional(v.string()) }),
-  ends: defineTable({ jobId: v.string(), kind: v.string(), status: v.string(), error: v.optional(v.any()), args: v.any(), retries: v.number(), endedAt: v.number() }),
+  ends: defineTable({ jobId: v.string(), kind: v.string(), status: v.string(), error: v.optional(v.any()), args: v.any(), retries: v.number(), endedAt: v.number(), charged: v.number(), free: v.boolean() }),
 })
 
 const drawPanel = jobs.step({
@@ -682,7 +682,7 @@ describe('onJobEnd', () => {
     await fund(t, ada.workspaceId!, 100)
     const { stripId, jobId } = await ada.mutation(ref.create, { idea: 'Done soon', panels: 1 })
     await drain(t)
-    expect(await endsOf(t, jobId)).toEqual([{ jobId, kind: 'strips:render', status: 'done', args: { stripId, idea: 'Done soon', panels: 1 }, retries: 0, endedAt: expect.any(Number) }])
+    expect(await endsOf(t, jobId)).toEqual([{ jobId, kind: 'strips:render', status: 'done', args: { stripId, idea: 'Done soon', panels: 1 }, retries: 0, endedAt: expect.any(Number), charged: 5, free: false }])
   })
 
   test('hears once of a failed job, with its error, after its refund was scheduled', async () => {
@@ -691,7 +691,7 @@ describe('onJobEnd', () => {
     await fund(t, ada.workspaceId!, 100)
     const { jobId } = await ada.mutation(ref.start, { kind: 'doomed', args: {} })
     await drain(t)
-    expect(await endsOf(t, jobId)).toEqual([{ jobId, kind: 'strips:doomed', status: 'failed', error: { code: 'unavailable', service: 'ai', reason: 'job_failed' }, args: {}, retries: 0, endedAt: expect.any(Number) }])
+    expect(await endsOf(t, jobId)).toEqual([{ jobId, kind: 'strips:doomed', status: 'failed', error: { code: 'unavailable', service: 'ai', reason: 'job_failed' }, args: {}, retries: 0, endedAt: expect.any(Number), charged: 5, free: false }])
     expect(provider.refunds).toEqual([{ userId: ada.workspaceId, value: 5 }])
   })
 

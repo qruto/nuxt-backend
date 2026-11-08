@@ -39,6 +39,12 @@ const provider = {
 /** Balances the provider holds that this deployment never read: a refresh brings them in. */
 const cold = new Map<string, number>()
 
+/** Owners the provider holds no credit meter for: a refresh reads a balance without one. */
+const meterless = new Set<string>()
+
+/** How many times each owner's balance was read from the provider. */
+const refreshes = new Map<string, number>()
+
 /** How many refunds the provider refuses next, with a 503. */
 let refundFailures = 0
 
@@ -57,12 +63,14 @@ const billing = {
   reserveCredits: async (ctx: { runMutation: (ref: unknown, args: unknown) => Promise<{ ok: boolean, balance: number, reason?: string }> }, event: { userId: string, value: number, externalId: string, hold?: number, allowRefresh?: boolean }) => {
     const debit = () => ctx.runMutation(backend.billing.debit, { userId: event.userId, meterId: METER_ID, amount: event.value, externalId: event.externalId, ...(event.hold ? { hold: event.hold } : {}) })
     let result = await debit()
-    if (!result.ok && result.reason === 'no-row') {
-      // A balance never read: a mutation cannot fetch it; an action reads it from the provider once.
-      if (event.allowRefresh === false) throw backendError('not_ready', { reason: 'not_synced' })
-      await ctx.runMutation(backend.billing.upsert, { userId: event.userId, activeProductIds: [], benefits: [], meters: [{ meterId: METER_ID, consumedUnits: 0, creditedUnits: cold.get(event.userId) ?? 0, balance: cold.get(event.userId) ?? 0 }] })
+    if (!result.ok && (result.reason === 'no-row' || result.reason === 'no-meter') && event.allowRefresh !== false) {
+      // A balance not in the cache: a mutation cannot fetch it; an action reads it from the provider once.
+      refreshes.set(event.userId, (refreshes.get(event.userId) ?? 0) + 1)
+      const meters = meterless.has(event.userId) ? [] : [{ meterId: METER_ID, consumedUnits: 0, creditedUnits: cold.get(event.userId) ?? 0, balance: cold.get(event.userId) ?? 0 }]
+      await ctx.runMutation(backend.billing.upsert, { userId: event.userId, activeProductIds: [], benefits: [], meters })
       result = await debit()
     }
+    if (!result.ok && result.reason !== 'insufficient') throw backendError('not_ready', { reason: 'not_synced' })
     if (!result.ok) throw backendError('insufficient_credits', { meter: 'credits', balance: result.balance, need: event.value })
     return { entityId: event.userId, externalId: event.externalId, reserved: true, meter: 'credits', meterId: METER_ID, value: event.value }
   },
@@ -72,7 +80,9 @@ const billing = {
     provider.settled.push({ externalId: reservation.externalId, value })
     await ctx.runMutation(backend.billing.settle, { userId: reservation.entityId, externalId: reservation.externalId, finalAmount: value })
   },
-  releaseSpend: async (ctx: { runMutation: (ref: unknown, args: unknown) => Promise<unknown> }, reservation: { entityId: string, externalId: string }) => {
+  releaseSpend: async (ctx: { runMutation: (ref: unknown, args: unknown) => Promise<unknown> }, reservation: { entityId: string, externalId: string, reserved: boolean }) => {
+    // As setupBilling does: a reservation that says nothing was reserved lets nothing go.
+    if (!reservation.reserved) return
     await ctx.runMutation(backend.billing.release, { userId: reservation.entityId, externalId: reservation.externalId })
   },
   refundCredits: async (ctx: { runMutation: (ref: unknown, args: unknown) => Promise<unknown> }, event: { userId: string, value: number, externalId: string }) => {
@@ -249,6 +259,8 @@ beforeEach(() => {
   provider.costs.length = 0
   priority.clear()
   cold.clear()
+  meterless.clear()
+  refreshes.clear()
   printer.drawn = 0
   printer.after = 'return'
 })
@@ -589,6 +601,7 @@ describe('a job charged by what it made', () => {
     // One event, for what it made, under the hold's id.
     expect(provider.settled).toEqual([{ externalId: job.hold!.externalId, value: 10 }])
     expect(await balanceOf(t, ada.workspaceId!)).toBe(90)
+    expect(await ada.query(ref.getJob, { jobId })).toMatchObject({ charged: 10, free: false })
   })
 
   test('never charges above its hold, and a second charge changes nothing', async () => {
@@ -643,6 +656,54 @@ describe('a job charged by what it made', () => {
     expect(await balanceOf(t, ada.workspaceId!)).toBe(100)
   })
 
+  test('an administrator\'s retry of a job charged nothing takes a fresh hold and charges what the rerun made', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    printer.drawn = 0
+    printer.after = 'crash'
+    const { jobId } = await ada.mutation(ref.start, { kind: 'print', idea: 'Nothing yet', panels: 3 })
+    await drain(t)
+    const first = await row(t, jobId)
+    expect(first).toMatchObject({ status: 'failed', charged: true, price: 0, refunded: false })
+    printer.drawn = 2
+    printer.after = 'return'
+    const admin = await asUser(t, { role: 'admin' })
+    await admin.mutation(ref.retryJob, { jobId })
+    const rerun = await row(t, jobId)
+    expect(rerun).toMatchObject({ status: 'queued', charged: false, retries: 1, hold: { reserved: true, value: 15 } })
+    expect(rerun.hold!.externalId).not.toBe(first.hold!.externalId)
+    await drain(t)
+    expect(await row(t, jobId)).toMatchObject({ status: 'done', charged: true, price: 10 })
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(90)
+  })
+
+  test('an administrator\'s retry of a job whose charge was never given back refunds it first', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    printer.drawn = 2
+    printer.after = 'crash'
+    refundFailures = 99
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { jobId } = await ada.mutation(ref.start, { kind: 'print', idea: 'Owed', panels: 3 })
+    await drain(t)
+    expect(await row(t, jobId)).toMatchObject({ status: 'failed', price: 10, refunded: false, refundOwed: 'given_up' })
+    refundFailures = 0
+    const admin = await asUser(t, { role: 'admin' })
+    // The first retry gives the charge back; the job stays failed until it lands.
+    await admin.mutation(ref.retryJob, { jobId })
+    expect(await row(t, jobId)).toMatchObject({ status: 'failed', refundOwed: 'pending' })
+    await drain(t)
+    expect(await row(t, jobId)).toMatchObject({ refunded: true })
+    expect(provider.refunds).toEqual([{ userId: ada.workspaceId, value: 10 }])
+    const again = await asUser(t, { role: 'admin' })
+    await again.mutation(ref.retryJob, { jobId })
+    expect(await row(t, jobId)).toMatchObject({ status: 'queued', charged: false })
+    vi.restoreAllMocks()
+  })
+
   test('refuses where it is defined a kind charged by output that has no meter, or a charge it does not know', () => {
     expect(() => jobs.define({ meter: false, charge: 'output', args: {}, handler: async () => null })).toThrow(/cannot charge by output/)
     expect(() => jobs.define({ meter: 'credits', charge: 'later' as never, args: {}, handler: async () => null })).toThrow(/'start' or 'output'/)
@@ -663,6 +724,7 @@ describe('a free job', () => {
     expect(await row(t, render.jobId)).toMatchObject({ status: 'done', cost: 0, charged: false, budgetCounted: 0 })
     expect(await row(t, print.jobId)).toMatchObject({ status: 'done', cost: 0, charged: false })
     expect(await row(t, render.jobId)).not.toHaveProperty('hold')
+    expect(await ada.query(ref.getJob, { jobId: print.jobId })).toMatchObject({ free: true, charged: 0 })
     expect(provider.charges).toEqual([])
     expect(await balanceOf(t, ada.workspaceId!)).toBe(100)
   })
@@ -688,6 +750,40 @@ describe('a balance never read', () => {
     await drain(t)
     expect(await row(t, printed.jobId)).toMatchObject({ status: 'done', price: 5, hold: { reserved: true } })
     expect(await balanceOf(t, bob.workspaceId!)).toBe(95)
+  })
+
+  test('refuses an owner whose balance was read and holds no credit meter, at the door', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await t.mutation(backend.billing.upsert as unknown as FunctionReference<'mutation'>, { userId: ada.workspaceId!, activeProductIds: [], benefits: [], meters: [] })
+    expect((await refusal(ada.mutation(ref.start, { kind: 'render', idea: 'No credits', panels: 1 })))?.code).toBe('not_ready')
+  })
+
+  test('fails at once, short of credits, a job whose balance turns out to hold no credit meter', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    meterless.add(ada.workspaceId!)
+    const { jobId } = await ada.mutation(ref.start, { kind: 'print', idea: 'No meter', panels: 2 })
+    await drain(t)
+    expect(await row(t, jobId)).toMatchObject({ status: 'failed', charged: false, error: { code: 'insufficient_credits', balance: 0, need: 10 } })
+    // Read once: no retry asks the provider again.
+    expect(refreshes.get(ada.workspaceId!)).toBe(1)
+  })
+
+  test('lets a hold go by its id when the step that took it never noted it', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    cold.set(ada.workspaceId!, 100)
+    await t.mutation(backend.jobs.setQueue as unknown as FunctionReference<'mutation'>, { paused: true })
+    const { jobId } = await ada.mutation(ref.start, { kind: 'print', idea: 'Lost note', panels: 3 })
+    const joined = await row(t, jobId)
+    expect(joined).toMatchObject({ hold: { reserved: false } })
+    // A step took the hold, then died before noting it on the job.
+    await t.mutation(backend.billing.upsert as unknown as FunctionReference<'mutation'>, { userId: ada.workspaceId!, activeProductIds: [], benefits: [], meters: [{ meterId: METER_ID, consumedUnits: 0, creditedUnits: 100, balance: 100 }] })
+    await t.mutation(backend.billing.debit as unknown as FunctionReference<'mutation'>, { userId: ada.workspaceId!, meterId: METER_ID, amount: 15, externalId: joined.hold!.externalId, hold: 7 * DAY })
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(85)
+    await ada.mutation(ref.cancelJob, { jobId })
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(100)
   })
 
   test('fails the job short of credits before any model is called, charging nothing', async () => {

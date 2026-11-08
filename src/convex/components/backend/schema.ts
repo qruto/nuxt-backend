@@ -1398,6 +1398,8 @@ export const jobTables = {
     charging: v.optional(v.number()),
     /** What `job.charge` charged, for a kind charged by output (at most `cost`): what a refund gives back. */
     price: v.optional(v.number()),
+    /** Put in line `{ free: true }`: it holds, charges and counts nothing. */
+    free: v.optional(v.boolean()),
     /**
      * A charged job that ended owing its credits back: `pending` while its
      * refund is tried (the latest try due at `refundAt`), `given_up` after

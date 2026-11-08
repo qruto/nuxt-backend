@@ -4878,6 +4878,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           budgetCounted: number;
           budgetWindow?: number;
           cost: number;
+          free?: boolean;
           hold?: {
             externalId: string;
             meter?: string;
@@ -4974,6 +4975,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           };
         },
         any,
+        Name
+      >;
+      oweRefund: FunctionReference<
+        "mutation",
+        "internal",
+        { jobId: string },
+        boolean,
         Name
       >;
       ownerState: FunctionReference<

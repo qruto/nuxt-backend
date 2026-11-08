@@ -297,6 +297,8 @@ export const join = mutation({
     hold: v.optional(vJobHold),
     budgetWindow: v.optional(v.number()),
     budgetCounted: v.number(),
+    /** Put in line `{ free: true }`. */
+    free: v.optional(v.boolean()),
     policy: vPolicy,
     /** The app's queue, by a handle: what a guest's claim at sign-up wakes. */
     wake: v.optional(v.string()),
@@ -686,6 +688,22 @@ export const refundTried = mutation({
     if (outcome === 'refunded') await ctx.db.patch('jobs', job._id, { refunded: true, refundOwed: undefined, refundAt: undefined })
     else if (outcome === 'retry') await ctx.db.patch('jobs', job._id, { refundAt: at ?? Date.now() })
     else await ctx.db.patch('jobs', job._id, { refundOwed: 'given_up' })
+    return true
+  },
+})
+
+/**
+ * Owe a charged job's credits back again, once its refund gave up: what a
+ * retry of a job charged by output waits for, as the rerun takes a fresh
+ * hold instead of the charge it paid. `false` when nothing is owed.
+ */
+export const oweRefund = mutation({
+  args: { jobId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { jobId }) => {
+    const job = await jobOf(ctx, jobId)
+    if (!job?.charged || job.refunded || job.refundOwed === 'pending') return false
+    await ctx.db.patch('jobs', job._id, { refundOwed: 'pending', refundAt: Date.now() })
     return true
   },
 })
