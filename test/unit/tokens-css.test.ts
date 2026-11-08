@@ -111,11 +111,12 @@ describe('component tokens', () => {
 
   it('puts every rule of every stylesheet in @layer nuxt-backend, so any app rule outside a layer wins', () => {
     // tokens.css adds one block below every layer: the light default a
-    // production build's rewritten light-dark() needs.
+    // production build's rewritten light-dark() needs. shared.css adds the
+    // face rules there, so an app's heading face in any layer wins over them.
     for (const [name, css] of stylesheets) {
       const top = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@layer nuxt-backend-tokens, theme, base, reset, nuxt-backend;/, '')
       const blocks = [...top.matchAll(/^(\S[^{\n]*)\{/gm)].map(match => match[1]!.trim())
-      expect(blocks.filter(block => block !== '@layer nuxt-backend' && !(name === 'tokens.css' && block === '@layer nuxt-backend-tokens')), name).toEqual([])
+      expect(blocks.filter(block => block !== '@layer nuxt-backend' && !(['tokens.css', 'shared.css'].includes(name) && block === '@layer nuxt-backend-tokens')), name).toEqual([])
     }
   })
 

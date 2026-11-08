@@ -16,7 +16,8 @@ import { rateLimiter } from './rateLimiter'
 // spendLimit is the most a UTC day of model calls may cost the whole app:
 // past it, pause_ai turns on until the day ends. A strip costs cents, so 5
 // dollars holds a busy demo day; the sandbox, the public demo, refuses AI
-// without a limit.
+// without a limit. Model ids take the default gateway order, the Convex AI
+// Gateway then the Vercel one; `gateway` picks one (services/ai-gateway).
 export const ai = setupAi(components, {
   billing,
   rateLimiter,

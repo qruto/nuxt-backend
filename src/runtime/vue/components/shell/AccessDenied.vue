@@ -136,6 +136,7 @@ const signedInAs = computed(() => (email.value ? rich('signedInAs', { email: h('
 
 <template>
   <section
+    data-backend
     data-access="root"
     :aria-labelledby="titleId"
     :aria-busy="pending ? 'true' : undefined"

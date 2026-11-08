@@ -40,7 +40,7 @@ Every `nuxt-backend/<subpath>` in the package `exports` map, and every value and
 - `nuxt-backend/test` — the convex-test registration helper (`register`); the test app and its callers are experimental, see below
 - `nuxt-backend/test-utils` — the backend mock for an app's component and page tests (`createBackendMock`, `resetBackendMock`, `backendMockProvides`, `backendTestAliases`) and `renderEmail`; experimental, see below
 - `nuxt-backend/eslint` — the ESLint preset (`backendEslint`, `BACKEND_ESLINT_RULES`); its rule list and levels follow the upstream recommended set, so an upstream change to that set lands here in a minor release
-- the `data-*` hooks the neutral stylesheet styles, and the `--bk-*` tokens it reads (the module adds the stylesheet itself)
+- the `data-*` hooks the neutral stylesheet styles, and the `--bk-*` tokens it reads (the module adds the stylesheet itself): the colours, the two radii, the three faces (`--bk-font`, `--bk-font-heading`, `--bk-font-control`), the outline width (`--bk-border-width`) and the three shadows (`--bk-shadow`, `--bk-shadow-control`, `--bk-shadow-overlay`); and `data-backend`, which the outermost element of every packaged component and the `<main>` of every packaged page carry (`<AppShell>`, which frames the app's own pages, carries it on its own controls instead). A minor release may add a token or let a token reach another element, never rename or drop one, and never take `data-backend` off a component
 
 Anything tagged `@internal` in the source is stripped from the published declarations and is not part of this surface; the surface test (`test/nuxt/public-surface.test.ts`) keeps the tag off everything an entry re-exports and freezes each entry's export list.
 
@@ -467,6 +467,7 @@ The backend component's maintenance is part of this surface by its windows: what
 
 - `ai`:
   - `ai-components`
+  - `ai-moderation-images`
   - `ai-spend-limit`
   - `ai-stream-route`
   - `deployment-ai-gateway-api-key`
@@ -606,7 +607,7 @@ The package ships its agent guidance under `skills/`: the core skill, `skills/nu
 Tagged `@experimental` in the source and in the API reference. These may change shape in a minor release of the 0.x line without the deprecation cycle; from `1.0` they either graduate into the promise or keep the tag:
 
 - `nuxt-backend/monitoring` — `reportError`, `reportingErrors`, `checkIn` and `checkingIn`: error reports and cron check-ins from an app's own actions. Their options follow the monitoring service's cron monitors, which may still move. The tags a report carries and the health routes are stable (above).
-- `nuxt-backend/ai` — `setupAi`: the reserve → run → settle metering model over provider meter events, and the models it calls: `provider/model` ids through the AI Gateway, the cost each call reports (`ReportedCost`), `ctx.model()` and `modelStatus`, and `getCosts` from `ai.api`, what each person's AI calls cost. A model call is refused, saying why, where no route answers it. `defineJobQueue`: the generation queue, its tiers, model limits and credit hold, and the functions `jobs.api` exports. `ai.chat` and `ai.knowledge`: chat threads and knowledge search on the Agent and RAG components (both pre-1.0), the functions each exports, and the EU inference pin (`inferenceRegion`).
+- `nuxt-backend/ai` — `setupAi`: the reserve → run → settle metering model over provider meter events, and the models it calls: `provider/model` ids through the AI gateways in the order `setupAi({ gateway })` names, the cost each call reports (`ReportedCost`), `ctx.model()` and `modelStatus`, and `getCosts` from `ai.api`, what each person's AI calls cost. A model call is refused, saying why, where no route answers it. `defineJobQueue`: the generation queue, its tiers, model limits and credit hold, and the functions `jobs.api` exports. `ai.chat` and `ai.knowledge`: chat threads and knowledge search on the Agent and RAG components (both pre-1.0), the functions each exports, and the EU inference pin (`inferenceRegion`).
 - `useAiStream` — paired with `nuxt-backend/ai`.
 - `useJob` — paired with `defineJobQueue`.
 - `useInboxAdmin` — paired with the support inbox (`setupEmail({ inbound: { support } })`), which follows the email provider's Inboxes, new in October 2026; with `getInboxConsole`, `replyToInbox` and `syncInbound` of `setupEmail(…).api`, and the admin console's Inbox tab.

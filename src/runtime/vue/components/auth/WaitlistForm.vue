@@ -90,6 +90,7 @@ provideWaitlistFormView({
 
 <template>
   <div
+    data-backend
     data-waitlist="root"
     :data-state="waitlist.step.value"
     :aria-busy="waitlist.isPending.value || undefined"

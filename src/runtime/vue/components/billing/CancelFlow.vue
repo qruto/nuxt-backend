@@ -64,6 +64,7 @@ function keydown(event: KeyboardEvent) {
 
 <template>
   <section
+    data-backend
     data-cancel-flow="root"
     :data-step="step"
     :aria-labelledby="flow.id('title')"

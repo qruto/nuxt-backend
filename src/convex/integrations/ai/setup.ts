@@ -31,7 +31,7 @@ export function setupAi(components: AiComponents, config: SetupAiConfig): Ai {
   const { stream, httpHandler } = createStreams(context, metering)
   const { meteredAction } = metering
   const { corsOrigin } = context
-  const modelStatus: Ai['modelStatus'] = model => modelStatusOf(model ?? config.model, undefined, config.inferenceRegion)
+  const modelStatus: Ai['modelStatus'] = model => modelStatusOf(model ?? config.model, undefined, context.routing)
 
   // The Agent and RAG components are the app's own mounts, reached only when a chat or a store runs.
   const mounted = components as AiComponents & { agent?: unknown, rag?: unknown }

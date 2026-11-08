@@ -20,7 +20,7 @@ Free tiers checked on 2026-10-25. Each service page has the full costs and limit
 | `auth` | Better Auth, inside your Convex deployment | Always | No account | `AUTH_SECRET`, `SITE_URL`, `BACKEND_ENVIRONMENT` | [Convex](/docs/services/convex#keys-and-environment) |
 | `email` | Resend | In production, for sign-in codes | 3,000 emails a month, 100 a day | `EMAIL_API_KEY`, `EMAIL_FROM`, `EMAIL_WEBHOOK_SECRET` | [Resend](/docs/services/resend) |
 | `billing`, `analytics` | Polar | To take payments | The sandbox is free; production takes 5% + 50¢ per sale | `BILLING_ACCESS_TOKEN`, `BILLING_WEBHOOK_SECRET` | [Polar](/docs/services/polar) |
-| `ai` | The Convex AI Gateway, or the Vercel AI Gateway | For AI features | None on Convex's route: paid plans only | `AI_GATEWAY_API_KEY`, only for Vercel's route | [AI gateway](/docs/services/ai-gateway) |
+| `ai` | The Convex AI Gateway, the Vercel AI Gateway, or both in order (`setupAi({ gateway })`) | For AI features | None on Convex's route: paid plans only | `AI_GATEWAY_API_KEY`, only for Vercel's route | [AI gateway](/docs/services/ai-gateway) |
 | `hosting` | Vercel, or any host that runs Nuxt | To go live | Hobby, for non-commercial apps | `CONVEX_DEPLOY_KEY` on the host | [Vercel](/docs/services/vercel) |
 | `protection` | Vercel BotID, or Cloudflare Turnstile | Before launch | Free on both | `PROTECTION_PROOF_SECRET`, or the two challenge keys | [Bot protection](/docs/services/bot-protection) |
 | `monitoring` | Sentry | Before launch | 5,000 errors a month, one person | `MONITORING_DSN` | [Sentry](/docs/services/sentry) |

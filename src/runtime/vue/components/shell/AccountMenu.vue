@@ -18,6 +18,7 @@ const menu = usePopoverDisclosure()
 
 <template>
   <div
+    data-backend
     data-shell="account"
     :data-state="account.isSigningOut.value ? 'pending' : menu.open.value ? 'open' : 'closed'"
   >

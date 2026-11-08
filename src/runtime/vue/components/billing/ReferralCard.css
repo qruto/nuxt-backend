@@ -8,7 +8,8 @@
     display: grid;
     gap: 0.6rem;
     padding: 0.9rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
     color: var(--bk-ink);
   }
@@ -44,7 +45,7 @@
   /* Read-only, so it can be selected and copied by hand where the clipboard is refused. */
   [data-referral='link'] {
     padding: 0.5rem 0.65rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     background: var(--bk-surface);
     color: var(--bk-ink);
@@ -62,11 +63,13 @@
   [data-referral='copy'],
   [data-referral='share'] {
     padding: 0.45rem 0.85rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow-control);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
     font: inherit;
+    font-family: var(--bk-font-control, var(--bk-font));
     font-weight: 600;
     cursor: pointer;
   }

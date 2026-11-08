@@ -57,8 +57,13 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
+
 /**
  * Every rename, newest section first, as the Upgrade page orders them: one
  * `const` per section heading above the list, and its entries in it.
  */
-export const RENAMES: readonly Rename[] = []
+export const RENAMES: readonly Rename[] = [
+  // One attribute marks every packaged component, in place of a list of families.
+  { from: '[data-auth=\'form\'], [data-pricing=\'table\'], [data-admin]', to: '[data-backend]', change: 'reshaped', section: UI_TOKENS, note: 'the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root' },
+]

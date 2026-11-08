@@ -11,6 +11,8 @@ export const AI_FINDINGS = {
   'ai-components': { title: 'Chat and knowledge components', prod: 'fail' },
   // A sandbox (a public demo) makes no model call without a daily spend limit.
   'ai-spend-limit': { title: 'AI spend limit on a sandbox', prod: 'fail' },
+  // The default classifier through the Vercel AI Gateway reads text only: a check with images is refused.
+  'ai-moderation-images': { title: 'Image checks and the safety classifier' },
   'deployment-ai-gateway-api-key': { title: 'Deployment AI_GATEWAY_API_KEY', prod: 'fail', fixable: true },
   'deployment-provenance-private-key': { title: 'Deployment PROVENANCE_PRIVATE_KEY', prod: 'fail', fixable: true },
   'deployment-provenance-certificate': { title: 'Deployment PROVENANCE_CERTIFICATE', prod: 'fail', fixable: true },

@@ -75,7 +75,7 @@
     display: inline-block;
     margin-inline-start: 0.4rem;
     padding: 0 0.45rem;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     font-size: 0.75rem;
   }
@@ -101,6 +101,7 @@
     margin: 0 0 0 auto;
     padding: 1.1rem;
     border: 0;
+    box-shadow: var(--bk-shadow-overlay);
     border-inline-start: 1px solid var(--bk-edge);
     background: Canvas;
     color: CanvasText;

@@ -34,6 +34,7 @@ const create = async () => {
 
 <template>
   <div
+    data-backend
     data-shell="switcher"
     :data-state="switcher.pending.value ? 'pending' : menu.open.value ? 'open' : 'closed'"
   >

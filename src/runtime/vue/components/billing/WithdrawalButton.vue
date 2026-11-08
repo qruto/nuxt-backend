@@ -40,6 +40,7 @@ const { t } = withdrawal.labels
 <template>
   <div
     v-if="withdrawal.period.value || withdrawal.withdrawnAt.value !== null || withdrawal.error.value"
+    data-backend
     data-withdrawal="root"
     :data-state="withdrawal.withdrawnAt.value !== null ? 'done' : withdrawal.confirming.value ? 'confirming' : 'idle'"
   >

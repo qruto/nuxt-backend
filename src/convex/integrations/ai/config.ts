@@ -221,13 +221,34 @@ export interface AiCreditsConfig {
  * object from any AI SDK provider package, called with that provider's own
  * key. The AI SDK (`ai`) is an optional peer: install it to name one.
  *
- * An id goes to the Convex AI Gateway first, on Convex Cloud with a paid plan
- * (install `@convex-dev/ai-sdk-provider`, an optional peer too), then
- * through the Vercel AI Gateway with the deployment's `AI_GATEWAY_API_KEY`.
- * Without either, the call is refused, saying why: no model answers in their
- * place.
+ * An id goes through the gateways `setupAi({ gateway })` names, in order. By
+ * default that is the Convex AI Gateway first, on Convex Cloud with a paid
+ * plan (install `@convex-dev/ai-sdk-provider`, an optional peer too), then
+ * the Vercel AI Gateway with the deployment's `AI_GATEWAY_API_KEY`. When no
+ * gateway in the order answers, the call is refused, saying why: no model
+ * answers in their place.
  */
 export type AiModel = LanguageModel
+
+/**
+ * A gateway a `provider/model` id goes through (`setupAi({ gateway })`):
+ *
+ * - `convex`: the Convex AI Gateway. Convex holds the providers' keys and
+ *   bills the team: no key to keep, paid plans only, no region pinning.
+ * - `vercel`: the Vercel AI Gateway, with the deployment's
+ *   `AI_GATEWAY_API_KEY`. Any plan and any host, budgets per key, region
+ *   pinning, and Vercel's own routing options.
+ *
+ * See https://nuxt-backend.dev/docs/services/ai-gateway#choose-a-gateway.
+ *
+ * @example
+ * ```ts
+ * setupAi(components, { billing, gateway: 'convex' })             // the Convex AI Gateway alone: the key is never read
+ * setupAi(components, { billing, gateway: 'vercel' })             // the Vercel AI Gateway alone, even on a paid Convex plan
+ * setupAi(components, { billing, gateway: ['vercel', 'convex'] }) // the Vercel AI Gateway where the key is set, else the Convex one
+ * ```
+ */
+export type AiGateway = 'convex' | 'vercel'
 
 /**
  * The model a metered handler calls (`ctx.model()`): an AI SDK language
@@ -246,20 +267,20 @@ export interface ModelStatus {
   model: string | null
   /**
    * - `live`: calls reach the model: through the Convex AI Gateway on
-   *   Convex Cloud (a free plan refuses it when called, unless
-   *   `AI_GATEWAY_API_KEY` is set to fall back on), through the Vercel AI
-   *   Gateway with `AI_GATEWAY_API_KEY`, or with a model object's own
-   *   provider key;
-   * - `missing`: the key is not set on a deployment the Convex AI Gateway
-   *   cannot serve, or no model is configured: calls are refused
+   *   Convex Cloud (a free plan refuses it when called, unless the order
+   *   goes on to the Vercel AI Gateway and `AI_GATEWAY_API_KEY` is set),
+   *   through the Vercel AI Gateway with `AI_GATEWAY_API_KEY`, or with a
+   *   model object's own provider key;
+   * - `missing`: no gateway in `setupAi({ gateway })`'s order can serve
+   *   this deployment, or no model is configured: calls are refused
    *   `unavailable` (reason `not_configured`).
    */
   state: 'live' | 'missing'
   /**
    * Where calls go first: `convex-gateway` (the Convex AI Gateway, where the
-   * deployment can have it; the next route answers when it refuses),
-   * `vercel-gateway` (`AI_GATEWAY_API_KEY`), `provider` (a model object's
-   * own key), or `null` when calls are refused.
+   * deployment can have it; the next gateway in the order answers when it
+   * refuses), `vercel-gateway` (`AI_GATEWAY_API_KEY`), `provider` (a model
+   * object's own key), or `null` when calls are refused.
    */
   route: 'convex-gateway' | 'vercel-gateway' | 'provider' | null
 }
@@ -295,10 +316,25 @@ export interface SetupAiConfig {
   /** What happens to a visitor's guest jobs (`defineJobQueue({ guest })`) once they sign up. See {@link AiGuestConfig}. */
   guest?: AiGuestConfig
   /**
+   * The gateways a `provider/model` id goes through, in order
+   * ({@link AiGateway}): one name for that gateway alone, a list for an
+   * order. Default `['convex', 'vercel']`.
+   *
+   * The next gateway answers only when one cannot serve this deployment: the
+   * Convex AI Gateway on a free plan (`AiGatewayDisabled`), an anonymous
+   * local or a self-hosted deployment, or without
+   * `@convex-dev/ai-sdk-provider`; the Vercel AI Gateway without
+   * `AI_GATEWAY_API_KEY`. A spent limit or a provider's refusal refuses the
+   * call: it is never routed around. With no gateway left, the call is
+   * refused `unavailable` (reason `not_configured`).
+   */
+  gateway?: AiGateway | readonly AiGateway[]
+  /**
    * Pin every model call to providers' endpoints in one region. `'eu'`
    * sends every `provider/model` id through the Vercel AI Gateway with
    * `AI_GATEWAY_API_KEY` (the Convex AI Gateway documents no inference
-   * region, so it is never tried), and adds the gateway's
+   * region, so it is never tried: a `gateway` order without `'vercel'` is
+   * refused), and adds the gateway's
    * `providerOptions.gateway.inferenceRegion: { scope: 'zone', geoRegion: 'eu' }`
    * to every call through `ctx.model()`. A model no provider serves in the
    * region is refused by the gateway, and the run's reservation released. A

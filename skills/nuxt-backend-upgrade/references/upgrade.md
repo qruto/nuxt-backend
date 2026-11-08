@@ -17,6 +17,8 @@ has the reasons and every step. The core skill's `references/renames.json`, in
 After it, run `npx nuxt-backend doctor`, and `npx nuxt-backend init --agents` to refresh the app's
 agent files and skills.
 
-No entries: no release since `0.2.0` has renamed, reshaped or removed a public name. An app
-built on a preview of `main` before `0.2.0` finds the previews' renames on the
-[Upgrade page as `0.2.1` published it](https://github.com/qruto/nuxt-backend/blob/v0.2.1/website/content/docs/05.ship/6.releases/4.upgrade.md).
+## [The packaged UI reads its faces, lines and shadows from tokens](https://nuxt-backend.dev/docs/ship/releases/upgrade#the-packaged-ui-reads-its-faces-lines-and-shadows-from-tokens)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `[data-auth='form'], [data-pricing='table'], [data-admin]` | `[data-backend]` | reshaped | the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root |
