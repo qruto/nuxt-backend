@@ -515,6 +515,7 @@ const REGISTRY = {
     'useFlagAdmin',
     'useAccessPhase',
     'useInvite',
+    'useMemberTicket',
     'useAccessAdmin',
     'useWaitlist',
     'useWaitlistAdmin',

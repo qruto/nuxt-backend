@@ -110,6 +110,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           createdBy?: string;
           expiresAt?: number;
+          holder?: string;
           keyVersion?: number;
           kind: "code" | "link";
           label: string;
@@ -120,6 +121,20 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       getPhase: FunctionReference<"query", "internal", {}, null | string, Name>;
+      memberTicket: FunctionReference<
+        "query",
+        "internal",
+        { holder: string },
+        null | {
+          expiresAt: number;
+          id: string;
+          maxUses: number;
+          status: "valid" | "expired" | "used-up" | "revoked" | "unknown";
+          tokenHash: string;
+          uses: number;
+        },
+        Name
+      >;
       recordTicket: FunctionReference<
         "mutation",
         "internal",

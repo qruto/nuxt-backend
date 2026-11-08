@@ -92,6 +92,7 @@ const COMPOSABLE_NAMES = [
   'useFlagAdmin',
   'useAccessPhase',
   'useInvite',
+  'useMemberTicket',
   'useAccessAdmin',
   'useWaitlist',
   'useWaitlistAdmin',

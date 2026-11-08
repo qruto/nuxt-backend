@@ -160,7 +160,7 @@ export const redeem = mutation({
     const status = statusOf(invite, now)
     if (!invite || status !== 'valid') return { refused: status }
     await ctx.db.patch('accessInvites', invite._id, { uses: invite.uses + 1 })
-    return await record(invite.kind === 'code' ? 'invite-code' : 'access-link', invite.label, { inviteId: invite._id })
+    return await record(invite.holder !== undefined ? 'member-ticket' : invite.kind === 'code' ? 'invite-code' : 'access-link', invite.label, { inviteId: invite._id })
   },
 })
 
@@ -208,6 +208,7 @@ export const createInvite = mutation({
     expiresAt: v.optional(v.number()),
     createdBy: v.optional(v.string()),
     keyVersion: v.optional(v.number()),
+    holder: v.optional(v.string()),
   },
   returns: v.string(),
   handler: async (ctx, args) => {
@@ -230,6 +231,21 @@ export const rekeyInvite = mutation({
     if (!invite || from === to || await inviteByHash(ctx, to)) return false
     await ctx.db.patch('accessInvites', invite._id, { tokenHash: to, ...(keyVersion === undefined ? {} : { keyVersion }) })
     return true
+  },
+})
+
+/**
+ * A member's newest member ticket, revoked or not, with what its token is
+ * checked by: the hash, its expiry and its uses. `null` for a member who
+ * never asked for one.
+ */
+export const memberTicket = query({
+  args: { holder: v.string() },
+  returns: v.union(v.null(), v.object({ id: v.string(), tokenHash: v.string(), maxUses: v.number(), uses: v.number(), expiresAt: v.number(), status: vInviteStatus })),
+  handler: async (ctx, { holder }) => {
+    const row = await ctx.db.query('accessInvites').withIndex('holder', q => q.eq('holder', holder)).order('desc').first()
+    if (!row || row.expiresAt === undefined) return null
+    return { id: row._id as string, tokenHash: row.tokenHash, maxUses: row.maxUses, uses: row.uses, expiresAt: row.expiresAt, status: statusOf(row, Date.now()) }
   },
 })
 
@@ -381,7 +397,8 @@ export const consoleRows = query({
   returns: v.object({ invites: v.array(vConsoleInvite), admissions: v.array(vConsoleAdmission) }),
   handler: async (ctx) => {
     const now = Date.now()
-    const invites = await ctx.db.query('accessInvites').withIndex('createdAt').order('desc').take(CONSOLE_ROWS)
+    // Member tickets are the members' own: the ledger counts what they admitted, by label.
+    const invites = await ctx.db.query('accessInvites').withIndex('holder', q => q.eq('holder', undefined)).order('desc').take(CONSOLE_ROWS)
     const admissions = await ctx.db.query('accessAdmissions').withIndex('createdAt').order('desc').take(CONSOLE_ROWS)
     return {
       invites: invites.map(row => ({
@@ -428,6 +445,11 @@ export async function forgetAccess(ctx: MutationCtx, { userId, email }: { userId
   }
   if (userId) {
     await drop('accessRedemptions', await ctx.db.query('accessRedemptions').withIndex('userId', q => q.eq('userId', userId)).take(left))
+    // The member's own tickets go: their label names the member, and nobody may use them after.
+    for (const row of await ctx.db.query('accessInvites').withIndex('holder', q => q.eq('holder', userId)).take(left)) {
+      await ctx.db.delete('accessInvites', row._id)
+      left--
+    }
     for (const row of await ctx.db.query('accessInvites').withIndex('createdBy', q => q.eq('createdBy', userId)).take(left)) {
       await ctx.db.patch('accessInvites', row._id, { createdBy: undefined })
       left--

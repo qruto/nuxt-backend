@@ -52,6 +52,13 @@ agent files and skills.
 | `AuthEmailTemplateOverrides` | `EmailTemplateOverrides` |
 | `CreateBetterAuthOptions` | `SetupAuthOptions` |
 
+## [Members bring friends with a ticket of their own, and the waitlist records the campaign](https://nuxt-backend.dev/docs/ship/releases/upgrade#members-bring-friends-with-a-ticket-of-their-own-and-the-waitlist-records-the-campaign)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `access.invites.create with a label per member` | `access.memberTickets({ uses, lifetime })` | reshaped | re-export its `api` (`getMemberTicket`, `issueMemberTicket`) and read it with `useMemberTicket()`; drop the table of links the app kept |
+| `useWaitlist({ source })` | `useWaitlist({ source, campaign })` | reshaped | the address's `utm_source` and `utm_campaign` follow the source; `campaign: false` records the source alone |
+
 ## [One way to do each thing](https://nuxt-backend.dev/docs/ship/releases/upgrade#one-way-to-do-each-thing)
 
 | Was | Now | Change | Note |

@@ -2,15 +2,17 @@ import type { DefaultFunctionArgs, FunctionReference } from 'convex/server'
 import { computed, inject, ref, type ComputedRef, type Ref } from 'vue'
 import { ConvexAuthStateKey, useMutation } from 'nuxt-convex-module/client'
 import { useAsyncQuery } from 'nuxt-convex-module/app'
-import type { AccessConsole, AccessPhaseState, AdmitResult } from '../../../convex/integrations/launch'
+import { useRequestURL } from '#imports'
+import type { AccessConsole, AccessPhaseState, AdmitResult, MemberTicket } from '../../../convex/integrations/launch'
 import type { AccessPhase, InviteKind, InviteStatus } from '../../../convex/access-tickets'
 import { useActionState } from '../utils/action-state'
 import { type BackendError, failureOf } from '../utils/backend-error'
 import { forgetInvite, keepInvite, keptInvite, takeInviteFromAddress } from '../utils/kept-invite'
 import { absentQuery, diagnostics, useLiveQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
+import { useBackendPagePath } from './use-backend-page-path'
 
-export type { AccessConsole, AccessPhaseState, AdmitResult } from '../../../convex/integrations/launch'
+export type { AccessConsole, AccessPhaseState, AdmitResult, MemberTicket } from '../../../convex/integrations/launch'
 export type { AccessPhase, InviteKind, InviteStatus } from '../../../convex/access-tickets'
 
 /** The functions re-exported from your `backend/access.ts`. */
@@ -22,6 +24,8 @@ export interface AccessApiRefs {
   createInvite?: FunctionReference<'mutation', 'public', { kind: InviteKind, label: string, maxUses: number, expiresAt?: number }, { id: string, code: string }>
   revokeInvite?: FunctionReference<'mutation', 'public', { id: string }, null>
   admitEmails?: FunctionReference<'mutation', 'public', { emails: string[], label?: string, email?: boolean }, AdmitResult>
+  getMemberTicket?: FunctionReference<'query', 'public', Record<string, never>, MemberTicket | null>
+  issueMemberTicket?: FunctionReference<'mutation', 'public', Record<string, never>, MemberTicket>
 }
 
 export interface UseAccessPhaseOptions {
@@ -234,5 +238,85 @@ export function useAccessAdmin(options: UseAccessAdminOptions = {}): UseAccessAd
       await revoke({ id })
     },
     admit: (emails, label, options = {}) => admit({ emails, ...(label?.trim() ? { label } : {}), ...(options.email ? { email: true } : {}) }),
+  }
+}
+
+export interface UseMemberTicketOptions {
+  /** Override the injected `api.access` namespace. */
+  api?: AccessApiRefs
+}
+
+export interface UseMemberTicketReturn {
+  /**
+   * The signed-in member's ticket, live: `open` once the app is public,
+   * `off` while the program is, `none` until they ask for one, then
+   * `issued` with its token, its uses, the ones left and its end. `null`
+   * signed out, `undefined` while it is read.
+   */
+  ticket: ComputedRef<MemberTicket | null | undefined>
+  /** The link to share once issued, `<site>/invite#<token>` (the `invite` page's path), else `null`. */
+  link: ComputedRef<string | null>
+  /** Mint the member's ticket, or answer the one they hold. Rejects on failure, which `error` holds too. */
+  issue: () => Promise<MemberTicket>
+  /** `true` while the ticket is first read. */
+  isLoading: ComputedRef<boolean>
+  /** `true` while `issue` runs. */
+  isPending: ComputedRef<boolean>
+  /** Why the last `issue` failed, else why the read failed, else `null`. */
+  error: ComputedRef<BackendError | null>
+}
+
+/**
+ * A member's ticket (`access.memberTickets`), on markup of your own: the
+ * access link a member shares while the app is closed, admitting a few
+ * friends past the waitlist. `issue` mints it the first time and answers
+ * the same one after, until it expires. The token rides in the link's
+ * fragment, out of every server's logs, and the packaged `/invite` page
+ * redeems it.
+ *
+ * @example
+ * ```vue
+ * <script setup lang="ts">
+ * const { ticket, link, issue } = useMemberTicket()
+ * </script>
+ * <template>
+ *   <button v-if="ticket?.state === 'none'" @click="issue()">Get my ticket</button>
+ *   <p v-else-if="ticket?.state === 'issued'">{{ ticket.left }} of {{ ticket.uses }} left: {{ link }}</p>
+ * </template>
+ * ```
+ */
+export function useMemberTicket(options: UseMemberTicketOptions = {}): UseMemberTicketReturn {
+  const api = useBackendNamespace<AccessApiRefs>('access', 'useMemberTicket', options.api)
+  const auth = inject(ConvexAuthStateKey, null)
+  const signedOut = computed(() => auth == null || !auth.isAuthenticated.value)
+  const authLoading = computed(() => auth != null && auth.isLoading.value)
+  if (!api.getMemberTicket && diagnostics.enabled) console.warn('[nuxt-backend] useMemberTicket(): the backend exports no `getMemberTicket`: re-export `access.memberTickets(…).api` from backend/access.ts.')
+  const read = api.getMemberTicket ? useLiveQuery(api.getMemberTicket, () => (signedOut.value ? 'skip' : {})) : absentQuery<MemberTicket | null>()
+  const runIssue = api.issueMemberTicket ? useMutation(api.issueMemberTicket) : null
+  const { isPending, failure, run } = useActionState(() => signedOut.value)
+  // What `issue` answered, until the live read catches up with it.
+  const issued = ref<MemberTicket | null>(null)
+  const invitePath = useBackendPagePath('invite')
+  const origin = useRequestURL().origin
+  const ticket = computed<MemberTicket | null | undefined>(() => {
+    if (authLoading.value) return undefined
+    if (signedOut.value) return null
+    return read.data.value?.state === 'issued' || !issued.value ? read.data.value : issued.value
+  })
+  return {
+    ticket,
+    link: computed(() => {
+      const current = ticket.value
+      return current?.state === 'issued' && invitePath.value ? `${origin}${invitePath.value}#${current.token}` : null
+    }),
+    issue: () => run(async () => {
+      if (!runIssue) throw new Error('[nuxt-backend] A member ticket needs `issueMemberTicket` re-exported from access.memberTickets(…).api in backend/access.ts, or pass `{ api }` to useMemberTicket().')
+      const answer = await runIssue({})
+      issued.value = answer
+      return answer
+    }),
+    isLoading: computed(() => authLoading.value || (!signedOut.value && read.isLoading.value)),
+    isPending,
+    error: computed(() => failure.value ?? (signedOut.value ? null : read.error.value)),
   }
 }

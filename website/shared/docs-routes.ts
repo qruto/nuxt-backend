@@ -541,6 +541,7 @@ export const GENERATED_SECTIONS: readonly string[] = [
   '/docs/reference/backend/events#backend-events',
   '/docs/reference/backend/events#billing-events',
   '/docs/reference/backend/events#email-events',
+  '/docs/reference/backend/hooks#accessmembertickets-enabled',
   '/docs/reference/backend/hooks#setupai-creditsoncreditsexhausted',
   '/docs/reference/backend/hooks#setupai-creditsoncreditslow',
   '/docs/reference/backend/hooks#setupaudit-onevent',

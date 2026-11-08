@@ -16,11 +16,12 @@ import {
   INVITE_USES_MAX,
   inviteHash,
   type InviteKind,
+  memberTicketToken,
   type InviteStatus,
   newInviteCode,
   newLinkToken,
 } from '../access-tickets.js'
-import { DEFAULT_ADMIN_ROLES } from '../constants.js'
+import { DEFAULT_ADMIN_ROLES, IMPERSONATED_BY_CLAIM } from '../constants.js'
 import { DEFAULT_BOOST, statusToken } from '../waitlist-rules.js'
 import { readEnv } from '../delivery.js'
 import { authSecrets, liveSecrets } from '../auth-secrets.js'
@@ -30,7 +31,7 @@ import type { EmailMessage, EmailRenderContext } from '../email-templates.js'
 import { logBackend } from '../log.js'
 import { type BackendPaths, resolveBackendPaths } from '../paths.js'
 import type { EmailPreferences } from './email-preferences.js'
-import { type AdapterFindOne, type Administrators, createAccessReads, isAdministratorNow, requireAdministratorInPerson } from './access.js'
+import { type AdapterFindOne, type Administrators, createAccessReads, isAdministratorNow, ownCaller, requireAdministratorInPerson } from './access.js'
 import { DEFAULT_LIMITS } from './rate-limit.js'
 
 // Launch phases, invite codes, access links and invitations by address:
@@ -134,6 +135,69 @@ export interface AccessApi {
   emailInvitations: RegisteredAction<'internal', { ids: string[] }, Promise<null>>
 }
 
+/**
+ * A member's ticket as `getMemberTicket` answers it:
+ *
+ * - `open`: the app is public, and nobody needs a ticket;
+ * - `off`: the program is off now (`memberTickets({ enabled })` said so), or
+ *   for this member: one a member ticket admitted holds none, unless `chain`;
+ * - `none`: the member holds no ticket that works, and may ask for one of `uses`;
+ * - `issued`: the member's access link token, for `/invite#<token>`, how many
+ *   new addresses it admits in all, how many it still admits, and when it
+ *   stops. Asking again answers the same ticket until it expires, used up or not.
+ */
+export type MemberTicket
+  = | { state: 'open' }
+    | { state: 'off' }
+    | { state: 'none', uses: number }
+    | { state: 'issued', token: string, uses: number, left: number, expiresAt: number }
+
+/** Options for {@link Access.memberTickets}. */
+export interface MemberTicketsOptions {
+  /** How many new addresses one member's ticket admits. Default `3`. */
+  uses?: number
+  /** How long a ticket works from when the member asks for it, in milliseconds. Default 60 days, at most a year. */
+  lifetime?: number
+  /**
+   * Whether the program runs now, for a switch of the app's own (a flag,
+   * say): `false` answers `off` and issues nothing. Default: while the
+   * app is closed.
+   *
+   * @guarantee
+   * - Runs: in the query or mutation that reads or mints a member's ticket, in its transaction
+   * - Delivery: once per read and per mint; a live read runs it again whenever what it read changes
+   * - Order: after the phase is read (a public app answers `open` without asking), before the member's ticket is read
+   * - When it throws: the read or the mint fails with its error, and nothing is minted
+   * - Idempotency: a read: it may run many times for one member, and writes nothing
+   */
+  enabled?: (ctx: AccessCtx) => boolean | Promise<boolean>
+  /**
+   * Let an account a member ticket admitted hold one of its own (default
+   * `false`). Without it, such an account reads `off`: one member brings
+   * their friends, as a workspace invitation does, not a chain of strangers
+   * past the waitlist.
+   */
+  chain?: boolean
+}
+
+/** The functions `backend/access.ts` re-exports for member tickets. */
+export interface MemberTicketsApi {
+  /** The signed-in member's ticket, for `useMemberTicket`: `null` for a visitor, and for an administrator acting as the member. Never mints one. */
+  getMemberTicket: RegisteredQuery<'public', Record<string, never>, Promise<MemberTicket | null>>
+  /** Mint the member's ticket, or answer the one they hold: the member's own, in person. */
+  issueMemberTicket: RegisteredMutation<'public', Record<string, never>, Promise<MemberTicket>>
+}
+
+/** Member tickets, from {@link Access.memberTickets}. */
+export interface MemberTickets {
+  /** How many new addresses one ticket admits. */
+  uses: number
+  /** How long a ticket works, in milliseconds. */
+  lifetime: number
+  /** The functions `backend/access.ts` re-exports. */
+  api: MemberTicketsApi
+}
+
 /** The app's launch access, from {@link setupAccess}. */
 export interface Access {
   /** The phases the app goes through, in order. */
@@ -154,6 +218,20 @@ export interface Access {
    * and reserved domains are skipped. Recorded as `access.admitted`.
    */
   admit: (ctx: AccessWriteCtx, input: { emails: string[], label?: string }) => Promise<AdmitResult>
+  /**
+   * Member tickets: while the app is closed, every member can hold one
+   * access link that admits `uses` new addresses for `lifetime`, minted the
+   * first time they ask and read back after, to share with friends. A sign-up
+   * through one is the `member-ticket` ticket, labelled `member:<userId>`.
+   * Re-export its `api` from `backend/access.ts` for `useMemberTicket`.
+   *
+   * @example
+   * ```ts [backend/access.ts]
+   * export const memberTickets = access.memberTickets({ uses: 3, lifetime: 60 * DAY })
+   * export const { getMemberTicket, issueMemberTicket } = memberTickets.api
+   * ```
+   */
+  memberTickets: (options?: MemberTicketsOptions) => MemberTickets
   /** The public functions `backend/access.ts` re-exports. */
   api: AccessApi
   /** What `setupAuth({ access })` asks while a new address signs up. */
@@ -180,6 +258,13 @@ export interface Access {
     }
   }
 }
+
+/** How many new addresses one member ticket admits, by default. */
+const MEMBER_TICKET_USES = 3
+/** How long a member ticket works, by default: 60 days. */
+const MEMBER_TICKET_LIFETIME_MS = 60 * 24 * 60 * 60 * 1000
+/** The longest a member ticket works: a year. */
+const MEMBER_TICKET_LIFETIME_MAX_MS = 365 * 24 * 60 * 60 * 1000
 
 /** How many new addresses one account's workspace invitations admit while the app is closed, by default. */
 const WORKSPACE_INVITATIONS = 10
@@ -252,7 +337,9 @@ interface AccessRefs {
     redeem: FunctionReference<'mutation', 'internal', { email: string, tokenHash?: string, workspaceInvitations?: number }, { ticket: string, label?: string } | { refused: InviteStatus }>
     recordTicket: FunctionReference<'mutation', 'internal', { email: string, ticket: string }, null>
     attachUser: FunctionReference<'mutation', 'internal', { email: string, userId: string }, { ticket: string, label?: string } | null>
-    createInvite: FunctionReference<'mutation', 'internal', { kind: InviteKind, tokenHash: string, label: string, maxUses: number, expiresAt?: number, createdBy?: string, keyVersion?: number }, string>
+    createInvite: FunctionReference<'mutation', 'internal', { kind: InviteKind, tokenHash: string, label: string, maxUses: number, expiresAt?: number, createdBy?: string, keyVersion?: number, holder?: string }, string>
+    ticketOf: FunctionReference<'query', 'internal', { userId: string }, { kind: string, label?: string } | null>
+    memberTicket: FunctionReference<'query', 'internal', { holder: string }, { id: string, tokenHash: string, maxUses: number, uses: number, expiresAt: number, status: InviteStatus } | null>
     revoke: FunctionReference<'mutation', 'internal', { id: string }, 'invite' | 'admission' | 'used' | null>
     rekeyInvite: FunctionReference<'mutation', 'internal', { from: string, to: string, keyVersion?: number }, boolean>
     admit: FunctionReference<'mutation', 'internal', { emails: string[], source: 'invitation' | 'waitlist', label?: string, expiresAt: number, createdBy?: string }, { admitted: string[], ids: string[], skipped: Array<{ email: string, reason: string }> }>
@@ -314,7 +401,7 @@ function cleanAddresses(emails: readonly string[]): { clean: string[], skipped: 
 }
 
 /** The tickets a sign-up records as they come: an address's own, and a code's or link's. */
-const TICKETS: readonly AccessTicket[] = ['invite-code', 'access-link', 'invitation', 'waitlist', 'workspace-invitation', 'gift', 'domain', 'administrator']
+const TICKETS: readonly AccessTicket[] = ['invite-code', 'access-link', 'member-ticket', 'invitation', 'waitlist', 'workspace-invitation', 'gift', 'domain', 'administrator']
 const asTicket = (kind: string): AccessTicket => (TICKETS.includes(kind as AccessTicket) ? kind as AccessTicket : 'invitation')
 
 /**
@@ -585,9 +672,75 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
     },
   })
 
+  /**
+   * Member tickets over this access: each one an access link held by its
+   * member, whose token is derived from the member and its expiry under the
+   * auth secret, so the member reads it back and the database keeps only its
+   * hash.
+   */
+  const memberTickets: Access['memberTickets'] = (ticketOptions = {}) => {
+    const uses = ticketOptions.uses ?? MEMBER_TICKET_USES
+    const lifetime = ticketOptions.lifetime ?? MEMBER_TICKET_LIFETIME_MS
+    if (!Number.isInteger(uses) || uses < 1 || uses > INVITE_USES_MAX) throw new TypeError(`[nuxt-backend] access.memberTickets: \`uses\` is a whole number from 1 to ${INVITE_USES_MAX}.`)
+    if (!Number.isInteger(lifetime) || lifetime < 60_000 || lifetime > MEMBER_TICKET_LIFETIME_MAX_MS) throw new TypeError('[nuxt-backend] access.memberTickets: `lifetime` is a whole number of milliseconds, from a minute to a year.')
+
+    /** The ticket's token, found again: derived under a live secret, checked against the hash its row keeps under any live one. */
+    const tokenOf = async (holder: string, row: { tokenHash: string, expiresAt: number }): Promise<string | null> => {
+      const live = secrets()
+      for (const candidate of live) {
+        const token = await memberTicketToken(candidate, holder, row.expiresAt)
+        for (const key of live) if (await inviteHash(key, token) === row.tokenHash) return token
+      }
+      return null
+    }
+
+    /** Where a member stands: the phase, the program's switch, then their ticket. */
+    const standing = async (ctx: AccessCtx, holder: string): Promise<MemberTicket> => {
+      if (await phase(ctx) === 'public') return { state: 'open' }
+      if (ticketOptions.enabled && !await ticketOptions.enabled(ctx)) return { state: 'off' }
+      // One a member ticket admitted brings nobody of its own, unless the app asks for chains.
+      if (!ticketOptions.chain && (await ctx.runQuery(refs.access.ticketOf, { userId: holder }))?.kind === 'member-ticket') return { state: 'off' }
+      const row = await ctx.runQuery(refs.access.memberTicket, { holder })
+      // An expired or revoked ticket is gone; a used-up one stays the member's until it expires.
+      if (!row || (row.status !== 'valid' && row.status !== 'used-up')) return { state: 'none', uses }
+      const token = await tokenOf(holder, row)
+      return token ? { state: 'issued', token, uses: row.maxUses, left: Math.max(0, row.maxUses - row.uses), expiresAt: row.expiresAt } : { state: 'none', uses }
+    }
+
+    const getMemberTicket = queryGeneric({
+      args: {},
+      handler: async (ctx): Promise<MemberTicket | null> => {
+        const identity = await ctx.auth.getUserIdentity()
+        // A visitor holds none, and an administrator acting as the member reads none of theirs.
+        if (!identity || typeof (identity as unknown as Record<string, unknown>)[IMPERSONATED_BY_CLAIM] === 'string') return null
+        if (!await reads.account(ctx, identity.subject)) return null
+        return standing(ctx, identity.subject)
+      },
+    })
+
+    const issueMemberTicket = mutationGeneric({
+      args: {},
+      handler: async (ctx): Promise<MemberTicket> => {
+        const holder = await ownCaller(ctx, 'issueMemberTicket')
+        const account = await reads.account(ctx, holder)
+        if (!account) throw backendError('unauthenticated', {}, '[nuxt-backend] issueMemberTicket: this account no longer exists.')
+        if (account.banned) throw backendError('forbidden', { reason: 'banned' }, '[nuxt-backend] issueMemberTicket: this account is banned.')
+        const now = await standing(ctx, holder)
+        if (now.state !== 'none') return now
+        const expiresAt = Date.now() + lifetime
+        const token = await memberTicketToken(secret(), holder, expiresAt)
+        await ctx.runMutation(refs.access.createInvite, { kind: 'link', tokenHash: (await hashOf(token))!, keyVersion: keyVersion(), label: `member:${holder}`, maxUses: uses, expiresAt, holder })
+        return { state: 'issued', token, uses, left: uses, expiresAt }
+      },
+    })
+
+    return { uses, lifetime, api: { getMemberTicket, issueMemberTicket } as unknown as MemberTicketsApi }
+  }
+
   return {
     phases,
     phase,
+    memberTickets,
     invites: {
       create: async (ctx, input) => (await createInviteRow(ctx, { ...input, kind: input.kind ?? 'code' }, (await ctx.auth.getUserIdentity())?.subject, 'access.invites.create')).code,
     },

@@ -1024,6 +1024,13 @@
       "api": "/docs/reference/api/use-access",
       "url": "/docs/reference/nuxt/composables"
     },
+    "useMemberTicket": {
+      "tab": "Auth",
+      "tier": "stable",
+      "summary": "A member's ticket (`access.memberTickets`), on markup of your own: the access link a member shares while the app is closed, admitting a few friends past the waitlist.",
+      "api": "/docs/reference/api/use-access",
+      "url": "/docs/reference/nuxt/composables"
+    },
     "useAccessAdmin": {
       "tab": "Auth",
       "tier": "stable",

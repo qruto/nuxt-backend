@@ -881,6 +881,7 @@
   "admin.user.ticketLabel": ["label", "ticket"],
   "admin.tickets.inviteCode": [],
   "admin.tickets.accessLink": [],
+  "admin.tickets.memberTicket": [],
   "admin.tickets.invitation": [],
   "admin.tickets.waitlist": [],
   "admin.tickets.workspaceInvitation": [],

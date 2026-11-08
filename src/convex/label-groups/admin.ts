@@ -463,6 +463,7 @@ const ADMIN_LABELS = {
   tickets: {
     inviteCode: 'An invite code',
     accessLink: 'An access link',
+    memberTicket: 'A member\'s ticket',
     invitation: 'An invitation by address',
     waitlist: 'The waitlist',
     workspaceInvitation: 'A workspace invitation',

@@ -168,6 +168,54 @@ The public functions `backend/access.ts` re-exports.
 
 ***
 
+### MemberTicketsOptions
+
+Defined in: [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts)
+
+Options for [Access.memberTickets](#membertickets-1).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="uses-1"></a> `uses?` | `number` | How many new addresses one member's ticket admits. Default `3`. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="lifetime"></a> `lifetime?` | `number` | How long a ticket works from when the member asks for it, in milliseconds. Default 60 days, at most a year. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="enabled"></a> `enabled?` | (`ctx`) => `boolean` \| `Promise`\<`boolean`\> | Whether the program runs now, for a switch of the app's own (a flag, say): `false` answers `off` and issues nothing. Default: while the app is closed. **Guarantee** - Runs: in the query or mutation that reads or mints a member's ticket, in its transaction - Delivery: once per read and per mint; a live read runs it again whenever what it read changes - Order: after the phase is read (a public app answers `open` without asking), before the member's ticket is read - When it throws: the read or the mint fails with its error, and nothing is minted - Idempotency: a read: it may run many times for one member, and writes nothing | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="chain"></a> `chain?` | `boolean` | Let an account a member ticket admitted hold one of its own (default `false`). Without it, such an account reads `off`: one member brings their friends, as a workspace invitation does, not a chain of strangers past the waitlist. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+
+***
+
+### MemberTicketsApi
+
+Defined in: [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts)
+
+The functions `backend/access.ts` re-exports for member tickets.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="getmemberticket"></a> `getMemberTicket` | `RegisteredQuery`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\<[`MemberTicket`](#memberticket) \| `null`\>\> | The signed-in member's ticket, for `useMemberTicket`: `null` for a visitor, and for an administrator acting as the member. Never mints one. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="issuememberticket"></a> `issueMemberTicket` | `RegisteredMutation`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\<[`MemberTicket`](#memberticket)\>\> | Mint the member's ticket, or answer the one they hold: the member's own, in person. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+
+***
+
+### MemberTickets
+
+Defined in: [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts)
+
+Member tickets, from [Access.memberTickets](#membertickets-1).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="uses-2"></a> `uses` | `number` | How many new addresses one ticket admits. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="lifetime-1"></a> `lifetime` | `number` | How long a ticket works, in milliseconds. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="api"></a> `api` | [`MemberTicketsApi`](#memberticketsapi) | The functions `backend/access.ts` re-exports. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+
+***
+
 ### Access
 
 Defined in: [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts)
@@ -183,7 +231,8 @@ The app's launch access, from [setupAccess](#setupaccess).
 | <a id="invites-1"></a> `invites` | \{ `create`: (`ctx`, `input`) => `Promise`\<`string`\>; \} | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | `invites.create` | (`ctx`, `input`) => `Promise`\<`string`\> | Make an invite code from server code and answer it, once: the database keeps only a hash. `kind: 'link'` makes an access link's token instead, for `/invite#<token>`. Recorded as `access.invite_created`. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="admit"></a> `admit` | (`ctx`, `input`) => `Promise`\<[`AdmitResult`](#admitresult)\> | Invite addresses from server code, with no email: each signs up while the app is closed, for 30 days. Existing accounts, malformed addresses and reserved domains are skipped. Recorded as `access.admitted`. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
-| <a id="api"></a> `api` | [`AccessApi`](#accessapi) | The public functions `backend/access.ts` re-exports. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="membertickets-1"></a> `memberTickets` | (`options?`) => [`MemberTickets`](#membertickets) | Member tickets: while the app is closed, every member can hold one access link that admits `uses` new addresses for `lifetime`, minted the first time they ask and read back after, to share with friends. A sign-up through one is the `member-ticket` ticket, labelled `member:<userId>`. Re-export its `api` from `backend/access.ts` for `useMemberTicket`. **Example** `[backend/access.ts] export const memberTickets = access.memberTickets({ uses: 3, lifetime: 60 * DAY }) export const { getMemberTicket, issueMemberTicket } = memberTickets.api` | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="api-1"></a> `api` | [`AccessApi`](#accessapi) | The public functions `backend/access.ts` re-exports. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="gate"></a> `gate` | `AccessGate` | What `setupAuth({ access })` asks while a new address signs up. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 
 ***
@@ -271,7 +320,7 @@ The app's waitlist, from [setupWaitlist](#setupwaitlist).
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="questions"></a> `questions` | [`WaitlistQuestions`](#waitlistquestions-1) | The questions asked beside the address. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
-| <a id="api-1"></a> `api` | [`WaitlistApi`](#waitlistapi) | The public functions `backend/waitlist.ts` re-exports. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
+| <a id="api-2"></a> `api` | [`WaitlistApi`](#waitlistapi) | The public functions `backend/waitlist.ts` re-exports. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | <a id="launchaudience"></a> `launchAudience` | (`ctx`) => `Promise`\< \| \{ `segmentId`: `string`; `topicId`: `string`; \} \| `null`\> | The people who asked for launch news, as the email provider holds them: the ids of the segment and the topic the mirror writes to, for a launch announcement. `null` before the first contact is written. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 
 ***
@@ -299,6 +348,7 @@ Defined in: [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-
 type AccessTicket = 
   | "invite-code"
   | "access-link"
+  | "member-ticket"
   | "invitation"
   | "waitlist"
   | "workspace-invitation"
@@ -313,12 +363,50 @@ What admitted a new address while the app was closed, as the redemption
 ledger, the activity trail and `canSignIn` name it:
 
 - `invite-code` and `access-link`: an administrator's code or link.
+- `member-ticket`: a member's ticket, an access link a member shares (`access.memberTickets`).
 - `invitation`: an administrator invited the address (`access.admit`, the Access tab).
 - `waitlist`: an administrator admitted the address's waitlist entry.
 - `workspace-invitation`: a pending, unexpired invitation to a workspace.
 - `gift`: a paid, unclaimed gift addressed to it.
 - `domain`: its domain is one of `setupAccess`'s `domains`.
 - `administrator`: an administrator created the account.
+
+***
+
+### MemberTicket
+
+```ts
+type MemberTicket = 
+  | {
+  state: "open";
+}
+  | {
+  state: "off";
+}
+  | {
+  state: "none";
+  uses: number;
+}
+  | {
+  state: "issued";
+  token: string;
+  uses: number;
+  left: number;
+  expiresAt: number;
+};
+```
+
+Defined in: [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts)
+
+A member's ticket as `getMemberTicket` answers it:
+
+- `open`: the app is public, and nobody needs a ticket;
+- `off`: the program is off now (`memberTickets({ enabled })` said so), or
+  for this member: one a member ticket admitted holds none, unless `chain`;
+- `none`: the member holds no ticket that works, and may ask for one of `uses`;
+- `issued`: the member's access link token, for `/invite#<token>`, how many
+  new addresses it admits in all, how many it still admits, and when it
+  stops. Asking again answers the same ticket until it expires, used up or not.
 
 ***
 

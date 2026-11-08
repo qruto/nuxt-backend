@@ -963,6 +963,7 @@
       "tickets": {
         "inviteCode": "Инвайт-код",
         "accessLink": "Ссылка доступа",
+        "memberTicket": "Билет участника",
         "invitation": "Приглашение по адресу",
         "waitlist": "Список ожидания",
         "workspaceInvitation": "Приглашение в пространство",

@@ -963,6 +963,7 @@
       "tickets": {
         "inviteCode": "Un code d’invitation",
         "accessLink": "Un lien d’accès",
+        "memberTicket": "Le ticket d’un membre",
         "invitation": "Une invitation par adresse",
         "waitlist": "La liste d’attente",
         "workspaceInvitation": "Une invitation à un espace de travail",
