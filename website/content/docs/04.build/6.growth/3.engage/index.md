@@ -40,7 +40,7 @@ The flows, announcements and preferences enforce these rules for you. A marketin
 
 ::card-group
   :::card{icon="i-lucide-sparkles" title="Guide people to their first result" to="/docs/build/growth/engage/activation"}
-  Planned: the first run at `/welcome`, and an activation checklist that ticks itself off from your events.
+  The first run at `/welcome`, and an activation checklist that ticks itself off from your events.
   :::
 
   :::card{icon="i-lucide-list-ordered" title="Send lifecycle emails" to="/docs/build/growth/engage/lifecycle-emails"}
@@ -48,15 +48,15 @@ The flows, announcements and preferences enforce these rules for you. A marketin
   :::
 
   :::card{icon="i-lucide-workflow" title="Feed the provider's automations" to="/docs/build/growth/engage/automations"}
-  Planned: contact properties and the events you choose, for automations built in Resend.
+  Contact properties and the events you choose, for automations built in Resend.
   :::
 
   :::card{icon="i-lucide-megaphone" title="Announce product news" to="/docs/build/growth/engage/announcements"}
-  Planned: an in-app notice and a broadcast to the people who opted in, from the admin console.
+  An in-app notice and a broadcast to the people who opted in, from the admin console.
   :::
 
   :::card{icon="i-lucide-door-open" title="Handle cancellations and win people back" to="/docs/build/growth/engage/cancel-flow"}
-  Planned: one question, one save offer by reason, a lawful exit, and a win-back at 7 and 30 days.
+  One question, one save offer by reason, a lawful exit, and a win-back at 7 and 30 days.
   :::
 ::
 
@@ -64,15 +64,15 @@ The flows, announcements and preferences enforce these rules for you. A marketin
 
 ::card-group
   :::card{icon="i-lucide-sliders-horizontal" title="Let people choose their emails" to="/docs/build/email/preferences"}
-  Planned: topics on `setupEmail`, a send that checks each person's choice, and one-click unsubscribe.
+  Topics on `setupEmail`, a send that checks each person's choice, and one-click unsubscribe.
   :::
 
   :::card{icon="i-lucide-mail-open" title="Receive email" to="/docs/build/email/inbound"}
-  Planned: replies by email and a support inbox, checked before your code sees them.
+  Replies by email and a support inbox, checked before your code sees them.
   :::
 
   :::card{icon="i-lucide-bell" title="Show in-app notifications" to="/docs/build/email/notifications"}
-  Planned: an inbox in the app for the moments that don't need an email.
+  An inbox in the app for the moments that don't need an email.
   :::
 ::
 

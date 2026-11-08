@@ -555,7 +555,7 @@ export const startPass = mutation({
 })
 
 /**
- * Start a reverse trial (LIFECYCLE): a new workspace's free subscription
+ * Start a reverse trial: a new workspace's free subscription
  * switched to a plan's pass product until `endsAt`, recorded as a pass
  * nobody bought, so the gift sweep follows it like a gifted one. Refused
  * (`false`) when the address already started one, with plus tags and
@@ -575,7 +575,7 @@ export const startTrialPass = mutation({
 })
 
 /**
- * Start a referral reward's pass (REF): a referrer on the free plan got free
+ * Start a referral reward's pass: a referrer on the free plan got free
  * months of a plan, recorded as a pass nobody bought so the gift sweep
  * follows it like a gifted one. Answers `false` when this referral's reward
  * was recorded already, or the workspace holds a pass.

@@ -14,7 +14,7 @@ import type { CancellationReason, ProviderCtx, RunQueryCtx, RunWriteCtx } from '
 import type { BillingLifecycle, CancelFlowState, CancelOutcome, BillingConsole, SaveOffer, SaveOfferRule, WithdrawalPeriod } from './types/lifecycle.js'
 import type { CancelSubscriptionOptions, SubscriptionTarget } from './types/options.js'
 
-// The billing lifecycle (LIFECYCLE): what the package does around a
+// The billing lifecycle: what the package does around a
 // subscription's life beyond the provider's own. The cancel flow's save
 // offers, the EU withdrawal button, the renewal consent proof, the annual
 // renewal reminder for short cycles, an abandoned checkout's hand-off to the

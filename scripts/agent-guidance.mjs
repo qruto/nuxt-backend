@@ -45,7 +45,7 @@ import { BACKEND_ERRORS } from '../src/convex/errors.ts'
 import { BACKEND_ENV } from '../src/env-registry.ts'
 import { FINDINGS } from '../src/findings/index.ts'
 import { CAPABILITY_NAMES, capabilityOfEnv, CAPABILITIES } from '../src/capabilities/index.ts'
-import { headingAnchor, RENAMES, sectionUrl } from '../src/guidance/renames.ts'
+import { headingAnchor, PREVIEW_UPGRADE_PAGE, RENAMES, sectionUrl } from '../src/guidance/renames.ts'
 import { AGENT_SKILLS, CORE_SKILL, TASK_SKILLS } from '../src/guidance/skills.ts'
 import { WRONG_NAMES } from '../src/guidance/wrong-names.ts'
 import { BACKEND_PAGE_DEFS } from '../src/pages/registry.ts'
@@ -614,6 +614,17 @@ function upgradeReference(data) {
       .map(entry => [cell(entry.from), cell(entry.to), entry.change, entry.note ?? ''])
     return `## [${section}](${sectionUrl(section)})\n\n${table(['Was', 'Now', 'Change', 'Note'], rows)}`
   })
+  const renamed = renamedNames(data)
+  // The quick lookup first, when there is a plain rename to look up; then each section.
+  const entries = [
+    ...(renamed.length > 0 ? [`## Renamed one for one\n\n${table(['Was', 'Now'], renamed.map(entry => [code(entry.wrong), code(entry.right)]))}`] : []),
+    ...blocks,
+  ]
+  const body = entries.length > 0
+    ? entries.join('\n\n')
+    : `No entries: no release since \`0.2.0\` has renamed, reshaped or removed a public name. An app
+built on a preview of \`main\` before \`0.2.0\` finds the previews' renames on the
+[Upgrade page as \`0.2.1\` published it](${PREVIEW_UPGRADE_PAGE}).`
   return `<!-- ${GENERATED_BY} -->
 
 # Upgrading: renamed and removed names
@@ -633,11 +644,7 @@ has the reasons and every step. The core skill's \`references/renames.json\`, in
 After it, run \`npx nuxt-backend doctor\`, and \`npx nuxt-backend init --agents\` to refresh the app's
 agent files and skills.
 
-## Renamed one for one
-
-${table(['Was', 'Now'], renamedNames(data).map(entry => [code(entry.wrong), code(entry.right)]))}
-
-${blocks.join('\n\n')}
+${body}
 `
 }
 

@@ -480,11 +480,12 @@ describe('nothing describes the repository as it no longer is', () => {
 })
 
 describe('nothing names what 0.2 removed', () => {
-  // The Upgrade page names each removal to say what to do instead, and the
-  // changelog records it; nothing else may still offer it. The rename map
-  // records them for agents (src/guidance/renames.ts, and upgrade.md and the
-  // wrong-name list of the skill, generated from it), each held to the
-  // Upgrade page by test/docs/agent-guidance.test.ts.
+  // The changelog records each removal, and the Upgrade page as 0.2.1
+  // published it says what to do instead; nothing else may still offer it.
+  // A later removal is on the Upgrade page and in the rename map
+  // (src/guidance/renames.ts, and upgrade.md and the wrong-name list of the
+  // skill, generated from it), held to the page by
+  // test/docs/agent-guidance.test.ts.
   const record = [contentFile('/docs/ship/releases/upgrade'), contentFile('/docs/ship/releases/changelog'), 'src/guidance/renames.ts', 'skills/nuxt-backend-upgrade/references/upgrade.md']
   const offered = (file: string) => read(file).replace(/<!-- generated:wrong-names -->[\s\S]*?<!-- \/generated:wrong-names -->/, '')
   // The playground's app code too: it is what a reader copies from.
@@ -634,7 +635,8 @@ describe('the docs links the module prints', () => {
 
   it('finds them', () => {
     expect(links).toEqual(expect.arrayContaining([
-      '/docs/ship/releases/upgrade#page-paths-the-stylesheet-and-the-webhook-log',
+      '/docs/reference/configuration/module-options#page-keys',
+      '/docs/reference/configuration/module-options#removed-options',
       '/docs/build/ui/pages#caches',
     ]))
   })
@@ -725,29 +727,6 @@ describe('DevTools panel', () => {
   })
 })
 
-describe('the Upgrade page\'s copy of the email sequence loop', () => {
-  // The workflow component replays a run step by step against the code, by
-  // each step's kind, name and arguments. The copy that keeps preview-era
-  // runs going must take the steps defineEmailSequence takes, under the same
-  // names, or those runs fail at their next wake all the same.
-  const loop = read('src/convex/integrations/workflows.ts')
-  const page = read(contentFile('/docs/ship/releases/upgrade'))
-
-  it.each([
-    'if (after > 0) await step.sleep(after, { name: `email-sequence-wait-${index}` })',
-    'if (message) await step.runMutation(components.backend.email.send, message)',
-  ])('takes the step the package takes: %s', (copy) => {
-    expect(page).toContain(copy)
-  })
-
-  it('matches the package\'s own loop', () => {
-    expect(loop).toContain('await step.sleep(sequenceStep.after, { name: `email-sequence-wait-${index}` })')
-    expect(loop).toContain('const send = components.backend.email.send')
-    // The send is journaled by name and kind (unstableArgs): a replay may render it differently.
-    expect(loop).toContain('await step.runMutation(send as never, message as never, { unstableArgs: true })')
-  })
-})
-
 describe('hand-written pages', () => {
   it('exist', () => {
     expect(handWritten.length).toBeGreaterThan(40)
@@ -786,11 +765,9 @@ describe('the flags page', () => {
 describe('the admin console pages', () => {
   // The how-to restates the console's tabs, the admin routes' rows of the
   // sensitive-action table and setupAdmin's reads; the impersonation page
-  // and the Upgrade section state how long a visit lasts. Each is held to
-  // the code that decides it.
+  // states how long a visit lasts. Each is held to the code that decides it.
   const howTo = read(contentFile('/docs/build/auth/admin'))
   const impersonation = read(contentFile('/docs/build/auth/admin/impersonation'))
-  const upgrade = read(contentFile('/docs/ship/releases/upgrade'))
   /** The body rows of the first table after a heading row that starts with `header`, as cells. */
   const tableAfter = (page: string, header: string) => {
     const table = page.slice(page.indexOf(header)).split('\n\n')[0]!
@@ -823,7 +800,6 @@ describe('the admin console pages', () => {
     const word = ({ 10: 'ten', 15: 'fifteen', 20: 'twenty', 30: 'thirty' } as Record<number, string>)[IMPERSONATION_SESSION_SECONDS / 60]
     expect(word, 'the window, in a word the pages use').toBeDefined()
     expect(impersonation).toContain(`**${word![0]!.toUpperCase()}${word!.slice(1)} minutes at most.**`)
-    expect(upgrade).toContain(`A visit now lasts at most ${word} minutes`)
   })
 })
 

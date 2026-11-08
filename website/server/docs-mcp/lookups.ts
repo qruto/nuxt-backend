@@ -1,3 +1,4 @@
+import type { Rename as SourceRename } from '../../../src/guidance/renames'
 import RENAME_MAP from '../../../skills/nuxt-backend/references/renames.json'
 import LOOKUPS from './lookups.generated.json'
 
@@ -111,17 +112,21 @@ export function lookUp<K extends LookupKind>(kind: K, raw: string, site: string)
   }
 }
 
-/** One entry of the rename map. */
-export type Rename = (typeof RENAME_MAP)['renames'][number]
+/**
+ * One entry of the rename map, as renames.json holds it: the entry and its
+ * section's link. Spelled out rather than read off the JSON, which types an
+ * empty map's entries as `never`.
+ */
+export type Rename = SourceRename & { url: string }
 
 /**
  * The upgrade guide: with a name, every rename it is the old or the new
  * side of (an exact match first, then the entries that mention it); without
  * one, the Upgrade page's sections with how many names each one moves.
+ * `renames` is the generated map; a test passes entries of its own.
  */
-export function upgradeGuide(raw: string | undefined, site: string) {
+export function upgradeGuide(raw: string | undefined, site: string, renames: readonly Rename[] = RENAME_MAP.renames as readonly Rename[]) {
   const guide = absolute(site, UPGRADE_PAGE)
-  const renames: readonly Rename[] = RENAME_MAP.renames
   const name = raw?.trim().replace(/^`|`$/g, '')
   if (!name) {
     const sections = new Map<string, { section: string, url: string, names: number }>()

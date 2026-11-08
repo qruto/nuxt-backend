@@ -387,7 +387,7 @@ export interface GiftedPass {
   months?: number
   startedAt: Date
   endsAt: Date
-  /** A reverse trial's pass (LIFECYCLE): the workspace started on it, nobody gave it. */
+  /** A reverse trial's pass: the workspace started on it, nobody gave it. */
   trial?: true
 }
 

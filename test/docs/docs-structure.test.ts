@@ -9,7 +9,9 @@ import {
   docsTwinRedirects,
 } from '../../website/shared/docs-routes'
 import { DOCS_FRAGMENT_MOVES } from '../../website/shared/docs-fragment-moves'
+import { PREVIEW_UPGRADE_PAGE } from '../../src/guidance/renames'
 import { contentRoute, read, walk } from './helpers'
+import published from './links-0.2.1.json'
 import snapshot from './routes-0.1.json'
 
 // The docs' structure against its route table (website/shared/docs-routes.ts):
@@ -67,6 +69,30 @@ describe('the route table', () => {
     const served = [...snapshot.handWritten, ...snapshot.generated, ...snapshot.legacy, ...snapshot.sectionRoots]
     expect(served.length).toBeGreaterThan(120)
     expect(served.filter(route => !pages.has(route) && !redirectSources.has(route))).toEqual([])
+  })
+
+  it('lands every docs link the published 0.2.1 carries, anchor included', () => {
+    // An installed 0.2.1 keeps these in its errors, warnings and skills after
+    // the site moves on. A redirect keeps the fragment unless its target names
+    // one, and DOCS_FRAGMENT_MOVES finishes the trip for an anchor that moved.
+    const redirects = new Map<string, string>([...DOCS_REDIRECTS.map(({ from, to }) => [from, to] as const), ...Object.entries(DOCS_ALIASES)])
+    const lands = (link: string) => {
+      const [route, anchor] = link.split('#') as [string, string | undefined]
+      const to = redirects.get(route)
+      const at = to === undefined || to.includes('#') || !anchor ? to ?? link : `${to}#${anchor}`
+      const moved = DOCS_FRAGMENT_MOVES[at]
+      return resolves(at) || (moved !== undefined && resolves(moved))
+    }
+    expect(published.links.length).toBeGreaterThan(200)
+    expect(published.links.filter(link => !lands(link))).toEqual([])
+  })
+
+  it('opens each Upgrade section 0.2.1 links on the page as 0.2.1 published it', () => {
+    // The page keeps a heading for each, under "Before 0.2.0", with its link.
+    const upgrade = read(pages.get('/docs/ship/releases/upgrade')!)
+    const anchors = published.links.filter(link => link.startsWith('/docs/ship/releases/upgrade#')).map(link => link.split('#')[1]!)
+    expect(anchors.length).toBeGreaterThan(30)
+    expect(anchors.filter(anchor => !upgrade.includes(`](${PREVIEW_UPGRADE_PAGE}#${anchor})`))).toEqual([])
   })
 
   it('points every redirect, alias and short link at a page and a heading that exist', () => {

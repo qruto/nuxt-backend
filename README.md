@@ -197,7 +197,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `<BillingCheckoutLink>` — a link that opens a checkout for the caller's billing entity
 - `<BillingHistory>` — the customer's past charges with their invoice links — every row read live from the billing provider (this package stores no order ledger), so what renders is what the provider will show on the invoice
 - `<BillingPortalLink>` — a link that opens the billing customer portal for the caller's billing entity, through the app's `generateCustomerPortalUrl`, on click
-- `<CancelFlow>` — cancelling takes one step; a save offer is one optional step (LIFECYCLE)
+- `<CancelFlow>` — cancelling takes one step; a save offer is one optional step
 - `<ConnectionStatus>` — the live connection's state, in words, for a person: nothing while it is up; "Reconnecting…" once a drop has lasted `delay`; "You're offline." as soon as the browser is; and how many changes wait to be sent meanwhile
 - `<ConsentPrompt>` — asks for the consents a person has not given at their current version, and nothing else: the required kinds `setupAccount({ consents })` declares after a version rises (the page waits behind a dialog until they are accepted), the age of an account that never answered the minimum age, and, while the app uses optional storage, one question per browser with **Allow** and **Decline** of equal weight
 - `<ContactForm>` — a contact form for visitors, and a feedback form for signed-in people: the same component
@@ -214,7 +214,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `<UploadField>` — a labelled file field that uploads through the upload URL `setupStorage` mints, then calls `claim`, where the deployment checks the file
 - `<UsageHistory>` — metered consumption, event by event, straight from the provider's events API — the same records that drew the credit balance down
 - `<WaitlistForm>` — join the waitlist: the address, your questions, the launch-news box (unticked), then the sign-in code that proves the address, then the person's place, a link to share and a way to leave
-- `<WithdrawalButton>` — the EU withdrawal button (LIFECYCLE; Consumer Rights Directive Art. 11a, from 2026-06-19): "Withdraw from contract here", for a purchase inside its 14 days, then a confirm step, "Confirm withdrawal"
+- `<WithdrawalButton>` — the EU withdrawal button (Consumer Rights Directive Art. 11a, from 2026-06-19): "Withdraw from contract here", for a purchase inside its 14 days, then a confirm step, "Confirm withdrawal"
 - `<WorkspaceSettings>` — workspace, plan, and credits management — the billing entity is the active workspace, so switching workspaces switches the subscription
 
 <!-- /generated:readme-components -->

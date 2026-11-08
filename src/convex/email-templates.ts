@@ -253,12 +253,12 @@ export interface GiftPassEndingEmailData {
   endsAt: number
   /** Where the plan is kept: the app's billing settings. */
   keepUrl: string
-  /** A reverse trial's pass (LIFECYCLE), which nobody gave: the template says the trial ends. */
+  /** A reverse trial's pass, which nobody gave: the template says the trial ends. */
   trial?: boolean
 }
 
 /**
- * Data for the `renewalReminder` template (LIFECYCLE): the yearly reminder
+ * Data for the `renewalReminder` template: the yearly reminder
  * of a renewing subscription's terms that California's automatic renewal
  * law asks for, sent where the billing provider's own reminder does not
  * reach (cycles under six months).
@@ -283,7 +283,7 @@ export interface RenewalReminderEmailData {
 }
 
 /**
- * Data for the `withdrawalReceipt` template (LIFECYCLE): the acknowledgement
+ * Data for the `withdrawalReceipt` template: the acknowledgement
  * on a durable medium that an EU withdrawal was received, with its date and
  * time (Consumer Rights Directive, Art. 11a).
  */
@@ -418,9 +418,9 @@ export interface EmailTemplates {
   gift: (data: GiftEmailData, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>
   /** Tells a workspace's billing managers that a plan pass ends in a week, and offers to keep the plan. */
   giftPassEnding: (data: GiftPassEndingEmailData, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>
-  /** The yearly reminder of a renewing subscription's terms, where the billing provider sends none (LIFECYCLE). */
+  /** The yearly reminder of a renewing subscription's terms, where the billing provider sends none. */
   renewalReminder: (data: RenewalReminderEmailData, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>
-  /** The receipt of an EU withdrawal, with its date and time (LIFECYCLE). */
+  /** The receipt of an EU withdrawal, with its date and time. */
   withdrawalReceipt: (data: WithdrawalReceiptEmailData, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>
   /** Sent once to a person whose sign-in code checked while the app is in early access: their place, and the link that shows it again. */
   waitlistConfirmation: (data: WaitlistConfirmationEmailData, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>
@@ -916,8 +916,8 @@ export const EMAIL_PREVIEW_SAMPLES: readonly PreviewSample[] = [
   { key: 'contentRestricted', template: 'contentRestricted', note: 'The statement of reasons, to the author of content an administrator hid.', data: site => ({ email: SAMPLE_EMAIL, title: 'A fox who wants to fly', reason: 'The strip shows a real person\'s address, which section 4 of our terms forbids.', ground: 'terms', notice: true, appealUrl: `${site}/report#appeal=sample`, appealUntil: Date.UTC(2027, 3, 27) }) } satisfies PreviewSample<'contentRestricted'>,
   { key: 'appealDecided', template: 'appealDecided', note: 'To the author, once an administrator decided their appeal.', data: () => ({ email: SAMPLE_EMAIL, title: 'A fox who wants to fly', outcome: 'reversed', reason: 'The address shown is the author\'s own, which they may share.' }) } satisfies PreviewSample<'appealDecided'>,
   { key: 'gift', template: 'gift', note: 'To a gift\'s recipient, once it is delivered.', data: site => ({ recipientEmail: 'grace@example.com', purchaserName: SAMPLE_NAME, item: '500 credits', claimUrl: `${site}/` }) } satisfies PreviewSample<'gift'>,
-  { key: 'renewalReminder', template: 'renewalReminder', note: 'Once a year, to the billing managers of a plan renewing every month (LIFECYCLE).', data: site => ({ email: SAMPLE_EMAIL, plan: 'Pro', amount: 2900, currency: 'usd', interval: 'month', intervalCount: 1, renewsAt: Date.UTC(2027, 0, 15), manageUrl: `${site}/settings` }) } satisfies PreviewSample<'renewalReminder'>,
-  { key: 'withdrawalReceipt', template: 'withdrawalReceipt', note: 'To the person who pressed the withdrawal button (LIFECYCLE).', data: () => ({ email: SAMPLE_EMAIL, plan: 'Pro', withdrawnAt: Date.UTC(2027, 0, 15, 14, 2) }) } satisfies PreviewSample<'withdrawalReceipt'>,
+  { key: 'renewalReminder', template: 'renewalReminder', note: 'Once a year, to the billing managers of a plan renewing every month.', data: site => ({ email: SAMPLE_EMAIL, plan: 'Pro', amount: 2900, currency: 'usd', interval: 'month', intervalCount: 1, renewsAt: Date.UTC(2027, 0, 15), manageUrl: `${site}/settings` }) } satisfies PreviewSample<'renewalReminder'>,
+  { key: 'withdrawalReceipt', template: 'withdrawalReceipt', note: 'To the person who pressed the withdrawal button.', data: () => ({ email: SAMPLE_EMAIL, plan: 'Pro', withdrawnAt: Date.UTC(2027, 0, 15, 14, 2) }) } satisfies PreviewSample<'withdrawalReceipt'>,
   { key: 'giftPassEnding', template: 'giftPassEnding', note: 'To a workspace\'s billing managers, a week before a plan pass ends.', data: site => ({ email: SAMPLE_EMAIL, plan: 'Pro', workspace: 'Analytical Engines', endsAt: Date.UTC(2027, 0, 15), keepUrl: `${site}/settings` }) } satisfies PreviewSample<'giftPassEnding'>,
 ] as readonly PreviewSample[]
 

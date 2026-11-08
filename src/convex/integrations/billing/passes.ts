@@ -313,7 +313,7 @@ export function createPasses(
   }
 
   /**
-   * Start a reverse trial (LIFECYCLE): a new workspace's free subscription
+   * Start a reverse trial: a new workspace's free subscription
    * becomes the plan's pass for `days`, with no card, followed by the gift
    * sweep like a gifted pass. Nothing when the address (its hash, plus tags
    * and dots taken out) already started one, or the workspace holds more
@@ -396,7 +396,7 @@ export function createPasses(
   }
 
   /**
-   * Free months for a referrer (REF). A paid plan's renewal date moves later
+   * Free months for a referrer. A paid plan's renewal date moves later
    * by the months, so the next payment is that much later (the provider
    * grants a plan's credits when a cycle starts, so a moved date skips them
    * for those months). A workspace on the free plan gets the plan's pass for

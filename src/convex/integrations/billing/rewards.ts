@@ -15,7 +15,7 @@ import type { BillingPasses } from './passes.js'
 import type { PurchaseRules } from './purchase.js'
 import type { ProviderCtx, RunQueryCtx, RunWriteCtx } from './types/base.js'
 
-// What the referral program asks of billing (REF): the rewards it grants and
+// What the referral program asks of billing: the rewards it grants and
 // the facts it checks, all against the provider through the billing
 // instance, so the program holds no provider client of its own. `setupBilling`
 // registers this kit for its instance (`BILLING_REWARDS`), and
