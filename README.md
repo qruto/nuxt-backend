@@ -116,7 +116,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 
 <!-- generated:readme-composables (pnpm docs:lookups, from src/nuxt/registry.ts) -->
 
-- `useAccessAdmin` — the admin console's Access tab, as data: the launch phase and its change, the invite codes and access links, and the invitations by address, through `backend/access.ts`
+- `useAccessAdmin` — the admin console's Access tab, as data: the launch phase and its change, the invite codes and access links, the member tickets, and the invitations by address, through `backend/access.ts`
 - `useAccessPhase` — the app's launch phase, so a page offers what a visitor can do now: join the waitlist in early access, bring an invite code while invite only, sign up once public
 - `useAccount` — the account itself: its profile, its export and its deletion
 - `useActivation` — the activation checklist without its markup: the first tasks `defineActivation` declares, which of them are done, the progress, and dismissing it
@@ -151,6 +151,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useJob` — one queued job, live: its status, what holds it and its place in line while it waits, its progress while it runs, and its result or the reason it failed (experimental)
 - `useLabels` — the labels of one packaged component's group, resolved for the person reading them
 - `useLoginFlow` — the headless login flow behind `<AuthForm>` — bring your own markup and wire these refs/actions to it
+- `useMemberTicket` — a member's ticket (`access.memberTickets`), on markup of your own: the access link a member shares while the app is closed, admitting a few friends past the waitlist
 - `useNotificationInbox` — `<NotificationInbox>` without its markup: the notifications, where the inbox is, the button's name with the unread count in it, and the bindings for a button and a list that open on the browser's own popover
 - `useNotifications` — the signed-in account's in-app notifications, live: newest first, paged with `loadMore`, with the unread count and the actions that mark them read
 - `useOnboarding` — the first run at `/welcome` without its markup: the steps in order, where the person is, moving between them, and the stamp that ends it

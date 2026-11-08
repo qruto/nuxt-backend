@@ -36,7 +36,7 @@ navigation:
 | [nuxt-backend/test-utils](/docs/reference/api/test-utils) | Test helpers for an app's Vue side — `nuxt-backend/test-utils`: [createBackendMock](/docs/reference/api/test-utils#createbackendmock), a fake backend and session that the package's composables and components, and the base module's, read in a component or page test; [resetBackendMock](/docs/reference/api/test-utils#resetbackendmock), which forgets it; [backendMockProvides](/docs/reference/api/test-utils#backendmockprovides), what a plain `mount()` provides it with; [backendTestAliases](/docs/reference/api/test-utils#backendtestaliases), the Vitest aliases that point them at it, so a test needs no `vi.mock`; and [renderEmail](/docs/reference/api/test-utils#renderemail), which renders an email the package sends as your `setupEmail` options would. Your Convex functions are tested with `nuxt-backend/test` instead. |
 | [nuxt-backend/workflows](/docs/reference/api/workflows) | - |
 | [nuxt-backend](/docs/reference/api/module) | - |
-| [useAccessPhase · useInvite · useAccessAdmin](/docs/reference/api/use-access) | - |
+| [useAccessPhase · useInvite · useAccessAdmin · useMemberTicket](/docs/reference/api/use-access) | - |
 | [useAccount](/docs/reference/api/use-account) | - |
 | [useAdmin](/docs/reference/api/use-admin) | - |
 | [useAiStream](/docs/reference/api/use-ai-stream) | - |

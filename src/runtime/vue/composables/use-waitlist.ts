@@ -3,13 +3,15 @@ import { computed, type ComputedRef, reactive, ref, type Ref, shallowRef } from 
 import { useRoute } from '#imports'
 import { useAction, useMutation } from 'nuxt-convex-module/client'
 import type { WaitlistCaps, WaitlistConsole, WaitlistPlace, WaitlistStatusView } from '../../../convex/integrations/waitlist'
-import type { WaitlistQuestions, WaitlistStatus } from '../../../convex/waitlist-rules'
+import { SOURCE_FORM, WAITLIST_SOURCE_MAX, type WaitlistQuestions, type WaitlistStatus } from '../../../convex/waitlist-rules'
+import type { CampaignAttribution } from '../../../convex/integrations/billing/types/options'
 import { type BackendError, failureOf } from '../utils/backend-error'
 import { checkEmail, invalidInput, stepRunner } from '../utils/auth-steps'
 import { useActiveLocale } from '../utils/active-locale'
 import { useAuthSession } from '../utils/auth-session'
 import { absentQuery, useLiveQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
+import { useCampaign } from './use-campaign'
 import { useHumanCheck } from './use-human-check'
 import { useLabels } from './use-labels'
 
@@ -37,6 +39,13 @@ export interface UseWaitlistOptions {
   api?: WaitlistApiRefs
   /** Where this form is, for the Source column of the Waitlist tab (letters, digits and `. : / - _`, up to 64). Default `form`. */
   source?: string
+  /**
+   * Record the campaign the visitor came with beside `source` (default
+   * `true`): the page address's `utm_source` and `utm_campaign`, as
+   * `form:newsletter/launch`, read as the person joins. `false` records
+   * `source` alone.
+   */
+  campaign?: boolean
   /**
    * The share code of the friend whose link the visitor came through.
    * Default: the page address's `?ref=`, read once and never stored on the
@@ -111,6 +120,19 @@ export interface UseWaitlistReturn {
   bind: WaitlistBindings
 }
 
+/**
+ * A join's source with the campaign it came from: the form's own, then the
+ * campaign's `utm_source` and `utm_campaign` when the address carries
+ * them, as `form:newsletter/launch`. A character the source takes no part
+ * of becomes a dash, and the whole is cut to the longest source there is.
+ *
+ * @internal
+ */
+export function campaignSource(source: string, attribution: CampaignAttribution | undefined): string {
+  const tags = [attribution?.source, attribution?.campaign].flatMap(tag => (tag ? [tag.replace(/[^\w.-]+/g, '-')] : []))
+  return (tags.length > 0 ? `${source}:${tags.join('/')}` : source).slice(0, WAITLIST_SOURCE_MAX)
+}
+
 /** The `?ref=` of the page address, read once. */
 function referralFromAddress(): string | null {
   const value = useRoute().query.ref
@@ -152,6 +174,13 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
   const { t } = useLabels('waitlist')
   const runJoin = api.joinWaitlist ? useAction(api.joinWaitlist) : null
   const runLeave = api.leaveWaitlist ? useMutation(api.leaveWaitlist) : null
+  const { attribution } = useCampaign()
+  /** The source a join records: the form's, with the campaign the address carries now unless `campaign` is off. */
+  const sourceOf = (): string | undefined => {
+    if (options.campaign === false) return options.source
+    const withCampaign = campaignSource(options.source ?? SOURCE_FORM, attribution.value)
+    return withCampaign === SOURCE_FORM && !options.source ? undefined : withCampaign
+  }
 
   const step = ref<WaitlistStep>('join')
   const email = ref('')
@@ -185,13 +214,14 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
       if (!runJoin) throw new Error('[nuxt-backend] Joining needs `joinWaitlist` re-exported from setupWaitlist() in backend/waitlist.ts, or pass `{ api }` to useWaitlist().')
       const address = trimmed()
       const locale = activeLocale()
+      const source = sourceOf()
       const filled = Object.fromEntries(Object.entries(answers).filter(([, answer]) => answer))
       const started = await runJoin({
         email: address,
         ...(Object.keys(filled).length ? { answers: filled } : {}),
         // The words the person saw beside the box are the words they agreed to.
         ...(launchNews.value ? { launchNews: true, launchNewsText: t('launchNews') } : {}),
-        ...(options.source ? { source: options.source } : {}),
+        ...(source ? { source } : {}),
         ...(ref_.value ? { ref: ref_.value } : {}),
         ...(locale ? { locale } : {}),
         human: await human.token('waitlist', address),

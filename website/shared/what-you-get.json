@@ -263,6 +263,10 @@
           "to": "/docs/reference/api/use-access"
         },
         {
+          "name": "useMemberTicket",
+          "to": "/docs/reference/api/use-access"
+        },
+        {
           "name": "useAccessAdmin",
           "to": "/docs/reference/api/use-access"
         },
@@ -1430,9 +1434,9 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "60 in all",
+          "name": "61 in all",
           "to": "/docs/reference/nuxt/composables",
-          "label": "60 composables in all"
+          "label": "61 composables in all"
         }
       ]
     },
@@ -1808,6 +1812,10 @@
           "to": "/docs/reference/api/use-access"
         },
         {
+          "name": "useMemberTicket",
+          "to": "/docs/reference/api/use-access"
+        },
+        {
           "name": "useAccessAdmin",
           "to": "/docs/reference/api/use-access"
         },
@@ -2140,6 +2148,10 @@
         },
         {
           "name": "waitlistJoins",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
+          "name": "memberTickets",
           "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
         },
         {

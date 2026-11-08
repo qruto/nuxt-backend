@@ -64,7 +64,7 @@ export const TASK_SKILLS = [
     covers: 'sign-in, sessions, passkeys, roles, user-scoped functions, workspaces and invitations, invite codes and the waitlist, the admin console with impersonation, the activity trail, consents, and account export and deletion',
     docs: ['/docs/build/auth', '/docs/build/growth/launch'],
     entrypoints: ['nuxt-backend/auth', 'nuxt-backend/auth.config', 'nuxt-backend/access', 'nuxt-backend/audit', 'nuxt-backend/account', 'nuxt-backend/admin'],
-    composables: ['useAuth', 'useLoginFlow', 'useReturnPath', 'useEmailChange', 'useWorkspace', 'usePasskeys', 'useSessions', 'useHumanCheck', 'useReauthentication', 'useAccessPhase', 'useInvite', 'useAccessAdmin', 'useWaitlist', 'useWaitlistAdmin', 'useAuditLog', 'useAccount', 'useConsents', 'useAdmin'],
+    composables: ['useAuth', 'useLoginFlow', 'useReturnPath', 'useEmailChange', 'useWorkspace', 'usePasskeys', 'useSessions', 'useHumanCheck', 'useReauthentication', 'useAccessPhase', 'useInvite', 'useMemberTicket', 'useAccessAdmin', 'useWaitlist', 'useWaitlistAdmin', 'useAuditLog', 'useAccount', 'useConsents', 'useAdmin'],
     components: ['AuthForm', 'WaitlistForm', 'ConsentPrompt', 'AccessDenied', 'AcceptInvitation', 'WorkspaceSettings', 'ProfileSettings', 'SecuritySettings', 'ReauthenticateDialog', 'AuditLog', 'AccountData', 'AdminUsers', 'AdminWorkspaces'],
     server: ['backendAuth'],
     commands: ['access admit'],

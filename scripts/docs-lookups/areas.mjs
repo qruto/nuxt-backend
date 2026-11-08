@@ -47,6 +47,7 @@ export const COMPOSABLE_AREAS = {
   useAccount: 'auth',
   useAccessPhase: 'auth',
   useInvite: 'auth',
+  useMemberTicket: 'auth',
   useAccessAdmin: 'auth',
   useWaitlist: 'auth',
   useConsents: 'auth',

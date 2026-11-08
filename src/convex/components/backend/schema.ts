@@ -1561,11 +1561,24 @@ export const accessTables = {
     revokedAt: v.optional(v.number()),
     /** The administrator who made it; absent for one made by server code. */
     createdBy: v.optional(v.string()),
+    /**
+     * The member a member ticket belongs to (`access.memberTickets`): an access link the member
+     * reads back and shares while the app is closed. Its token is derived from the member and its
+     * expiry under the auth secret, so only the hash is kept, as for any link.
+     */
+    holder: v.optional(v.string()),
+    /**
+     * A member ticket's `expiresAt` again, so the Access tab lists the member tickets apart and
+     * the maintenance sweep removes each 30 days after it ended. Absent on an administrator's code or link.
+     */
+    heldUntil: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('tokenHash', ['tokenHash'])
     .index('createdAt', ['createdAt'])
     .index('createdBy', ['createdBy'])
+    .index('holder', ['holder', 'createdAt'])
+    .index('heldUntil', ['heldUntil'])
     .index('revokedAt_keyVersion', ['revokedAt', 'keyVersion']),
   accessAdmissions: defineTable({
     /** The address, trimmed and lower-cased. */
