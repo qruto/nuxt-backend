@@ -1253,6 +1253,7 @@ What `ctx.storeImage` records beside the image.
 | ------ | ------ | ------ | ------ |
 | <a id="inputs"></a> `inputs?` | `string`[] | **`Experimental`** Ids of your own rows and files the image was made from: recorded, never read. | [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts) |
 | <a id="sourcetype"></a> `sourceType?` | `"generated"` \| `"composite"` | **`Experimental`** The IPTC digital source type: `generated` (`trainedAlgorithmicMedia`, the default) for an image a model made, `composite` (`compositeWithTrainedAlgorithmicMedia`) for a photo a model edited in part. | [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts) |
+| <a id="model-12"></a> `model?` | `string` | **`Experimental`** The model the manifest names as the image's generator. Default: the image model this run called last (`ctx.image()`), else the last model it called, so a caption or a vision check after the image never signs it. | [src/convex/integrations/ai/provenance.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/provenance.ts) |
 
 ***
 

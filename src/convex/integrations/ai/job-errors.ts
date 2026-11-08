@@ -122,8 +122,10 @@ export function classifyStepError(error: unknown, calls: readonly ModelCall[] = 
   const wait = retryAfter === undefined ? {} : { retryAfter }
   if (status === 402 || says(chain, /quota_for_entity_exceeded/)) return { kind: 'refused' }
   if (status === 429 || says(chain, /RateLimit|rate[_ ]limit/i)) return { kind: 'throttled', ...wait }
-  if (calls.some(call => call.finishReason === 'content-filter') || says(chain, /content[-_ ]filter|content_policy/i)) return { kind: 'blocked' }
-  const retryable = chain.some(link => link.isRetryable === true)
+  // An error marked retryable (`retryable()`, or a provider's) is tried again, whatever a call's answer was.
+  const marked = chain.some(link => link.isRetryable === true)
+  if (!marked && (calls.some(call => call.finishReason === 'content-filter') || says(chain, /content[-_ ]filter|content_policy/i))) return { kind: 'blocked' }
+  const retryable = marked
     || (status !== undefined && (status === 408 || status >= 500))
     || says(chain, /Timeout|timed out|AbortError|ECONNRESET/i)
   if (retryable) return { kind: 'retryable', ...wait }

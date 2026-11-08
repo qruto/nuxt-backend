@@ -345,13 +345,37 @@ describe('doctor\'s model route on Convex Cloud, with the Convex AI Gateway\'s p
     describe('and the routes setupAi({ routes }) gives some models', () => {
       const withRoutes = (routes: string, extra = '') => ({ ...NAMES_A_MODEL, 'ai.ts': `export const ai = setupAi(components, { billing, model: 'openai/gpt-5-mini'${extra}, routes: ${routes} })\n` })
 
-      it('reads the routes from a literal map, and nothing else', () => {
+      it('reads the routes from a literal map, and says when they are none it reads', () => {
         app({ deployment: 'dev:happy-otter-123', backend: withRoutes(`{ 'anthropic/*': 'vercel', "openai/gpt-image-2": ['vercel', 'convex', 'vercel'] }`) })
         expect(chosenRoutes(rootDir)).toEqual({ 'anthropic/*': ['vercel'], 'openai/gpt-image-2': ['vercel', 'convex'] })
-        for (const routes of [`{ [MODEL]: 'vercel' }`, `{ 'anthropic/*': route }`, `{ 'anthropic/*': { order: ['vertex'] } }`]) {
+        app({ deployment: 'dev:happy-otter-123', backend: withRoutes('{}') })
+        expect(chosenRoutes(rootDir)).toBeUndefined()
+        for (const routes of [`{ [MODEL]: 'vercel' }`, `{ 'anthropic/*': route }`, `{ 'anthropic/*': { order: ['vertex'] } }`, 'ROUTES']) {
           app({ deployment: 'dev:happy-otter-123', backend: withRoutes(routes) })
-          expect(chosenRoutes(rootDir)).toBeUndefined()
+          expect(chosenRoutes(rootDir), routes).toBe('unread')
         }
+        app({ deployment: 'dev:happy-otter-123', backend: { ...NAMES_A_MODEL, 'ai.ts': `const routes = { 'anthropic/*': 'vercel' }\nexport const ai = setupAi(components, { billing, routes })\n` } })
+        expect(chosenRoutes(rootDir)).toBe('unread')
+      })
+
+      it('reports routes it cannot read as unchecked, never as none', async () => {
+        app({ deployment: 'dev:happy-otter-123', backend: withRoutes('ROUTES') })
+        installProvider()
+        const found = await keyFinding()
+        expect(found).toMatchObject({ status: 'warn', message: expect.stringContaining('Doctor cannot read the gateway order: setupAi({ routes })') })
+        expect(found.fixHint).toContain('Write `routes` in setupAi')
+      })
+
+      it('reads a model named only in ctx.image(), and checks it by its route', async () => {
+        app({ deployment: 'dev:happy-otter-123', backend: { ...withRoutes(`{ 'bfl/*': 'vercel' }`), 'covers.ts': `const { image } = await generateImage({ model: ctx.image('bfl/flux-2-pro'), prompt })\n` } })
+        installProvider()
+        expect(namedModels(rootDir)).toContain('bfl/flux-2-pro')
+        const found = await keyFinding()
+        expect(found.status).toBe('warn')
+        expect(found.message).toContain('Routed by \'bfl/*\' (vercel)')
+        expect(found.message).toContain('bfl/flux-2-pro')
+        // The key's own fix leads, so status names the key as what is missing.
+        expect(found.fixHint).toMatch(/^Add AI_GATEWAY_API_KEY/)
       })
 
       it('reports each route beside the order, and checks its models by the route\'s order', async () => {

@@ -115,13 +115,19 @@ function topLevelParts(bare: string, from: number, to: number): Array<[number, n
 /** A gateway order as `setupAi` was given it, or `'unread'` when doctor cannot read it as a literal. */
 type ReadOrder = NamedGateway[] | 'unread' | undefined
 
+/** The `setupAi` options doctor reads, as a property's key: quoted or not, before its value or alone (the shorthand). */
+const OPTION_KEY = {
+  gateway: /^(['"`]?)gateway\1\s*(:|$)/,
+  routes: /^(['"`]?)routes\1\s*(:|$)/,
+} as const
+
 /**
- * The order one `setupAi(…)` call names: `undefined` when its options
- * leave `gateway` out, `'unread'` when they are no object literal, spread
- * another object in, or give `gateway` as anything but a quoted name or a
- * list of them (a variable, the shorthand `{ gateway }`, an empty list).
+ * One option of a `setupAi(…)` call, as written: its value's source,
+ * `undefined` when the options leave it out, or `'unread'` when they are
+ * no object literal, spread another object in, or give it as the shorthand
+ * (`{ gateway }`).
  */
-function orderOfCall(plain: string, bare: string, open: number): ReadOrder {
+function optionOfCall(plain: string, bare: string, open: number, name: keyof typeof OPTION_KEY): string | 'unread' | undefined {
   const close = closing(bare, open)
   if (close < 0) return 'unread'
   const options = topLevelParts(bare, open, close)[1]
@@ -129,22 +135,32 @@ function orderOfCall(plain: string, bare: string, open: number): ReadOrder {
   const start = options[0] + (bare.slice(options[0], options[1]).length - bare.slice(options[0], options[1]).trimStart().length)
   if (bare[start] !== '{') return 'unread'
   const end = closing(bare, start)
-  let order: ReadOrder
+  let value: string | undefined
   for (const [from, to] of topLevelParts(bare, start, end)) {
-    const property = bare.slice(from, to).trim()
-    if (property.startsWith('...')) return 'unread'
+    if (bare.slice(from, to).trim().startsWith('...')) return 'unread'
     // The key read off `plain`, where a quoted key keeps its name.
     const text = plain.slice(from, to).trim()
-    const key = /^(['"`]?)gateway\1\s*(:|$)/.exec(text)
+    const key = OPTION_KEY[name].exec(text)
     if (!key) continue
     if (!key[2]) return 'unread'
-    const value = text.slice(key[0].length).trim()
-    const single = GATEWAY_LITERAL.exec(value)
-    if (single) order = [single[2] as NamedGateway]
-    else if (value.startsWith('[') && value.endsWith(']') && GATEWAY_LIST.test(value.slice(1, -1))) order = [...new Set([...value.matchAll(GATEWAY_NAME)].map(([, name]) => name as NamedGateway))]
-    else return 'unread'
+    value = text.slice(key[0].length).trim()
   }
-  return order
+  return value
+}
+
+/**
+ * The order one `setupAi(…)` call names: `undefined` when its options
+ * leave `gateway` out, `'unread'` when doctor cannot read them
+ * ({@link optionOfCall}) or `gateway` is anything but a quoted name or a
+ * list of them (a variable, an empty list).
+ */
+function orderOfCall(plain: string, bare: string, open: number): ReadOrder {
+  const value = optionOfCall(plain, bare, open, 'gateway')
+  if (value === undefined || value === 'unread') return value
+  const single = GATEWAY_LITERAL.exec(value)
+  if (single) return [single[2] as NamedGateway]
+  if (value.startsWith('[') && value.endsWith(']') && GATEWAY_LIST.test(value.slice(1, -1))) return [...new Set([...value.matchAll(GATEWAY_NAME)].map(([, name]) => name as NamedGateway))]
+  return 'unread'
 }
 
 /**
@@ -206,8 +222,6 @@ export function namesModerationModel(rootDir: string): boolean {
   })
 }
 
-/** `routes: { … }` with no object inside it: a literal map of model ids or patterns to gateways. */
-const ROUTES_MAP = /\broutes\s*:\s*\{([^{}]*)\}/
 /** One route: a quoted id or pattern, and a quoted gateway or a list of them. */
 const ROUTE_ENTRY = /\s*(['"`])([^'"`/]+\/[^'"`]+)\1\s*:\s*(?:(['"`])(convex|vercel)\3|\[([^\]]*)\])\s*(?:,|$)/y
 
@@ -225,18 +239,32 @@ function routeEntries(body: string): Record<string, NamedGateway[]> | undefined 
   return Object.keys(routes).length === 0 ? undefined : routes
 }
 
+/** The routes of one `setupAi(…)` call: a literal map read, none, or `'unread'`. */
+function routesOfCall(plain: string, bare: string, open: number): Record<string, NamedGateway[]> | 'unread' | undefined {
+  const value = optionOfCall(plain, bare, open, 'routes')
+  if (value === undefined || value === 'unread') return value
+  if (!value.startsWith('{') || !value.endsWith('}')) return 'unread'
+  const body = value.slice(1, -1)
+  if (body.trim() === '') return undefined
+  return routeEntries(body) ?? 'unread'
+}
+
 /**
  * The gateway orders the backend in `rootDir` gives some models
- * (`setupAi({ routes })`), when it names them as a literal map;
- * `undefined` when it names none, or builds them at run time.
+ * (`setupAi({ routes })`): `undefined` when no `setupAi` call names any,
+ * `'unread'` when one names them as anything but a literal map (a
+ * constant, the shorthand `{ routes }`, a computed key) or two calls differ.
  */
-export function chosenRoutes(rootDir: string): Record<string, NamedGateway[]> | undefined {
+export function chosenRoutes(rootDir: string): Record<string, NamedGateway[]> | 'unread' | undefined {
+  const found: Array<Record<string, NamedGateway[]> | 'unread' | undefined> = []
   for (const code of backendSources(rootDir)) {
-    const match = ROUTES_MAP.exec(code.replace(STRINGS_AND_COMMENTS, token => token.startsWith('/') ? '' : token))
-    const routes = match ? routeEntries(match[1]!) : undefined
-    if (routes) return routes
+    const { plain, bare } = blanked(code)
+    for (const call of bare.matchAll(/\bsetupAi\s*\(/g)) found.push(routesOfCall(plain, bare, call.index + call[0].length - 1))
   }
-  return undefined
+  if (found.includes('unread')) return 'unread'
+  const named = found.filter((routes): routes is Record<string, NamedGateway[]> => routes !== undefined)
+  if (new Set(named.map(routes => JSON.stringify(routes))).size > 1) return 'unread'
+  return named[0]
 }
 
 /** `setupAi({ provenance })` turned on (anything but `false`), or a `ctx.storeImage(…)` call. */

@@ -112,8 +112,15 @@ const render = jobs.define({
   },
 })
 
-/** How the cover step goes: drawn, past its deadline, or with no image to give. */
-const cover = { mode: 'draw' as 'draw' | 'hang' | 'empty' }
+/** How the cover step goes: drawn, past its deadline, with no image to give, or refused by the provider's filter. */
+const cover = { mode: 'draw' as 'draw' | 'hang' | 'empty' | 'filtered' }
+
+/** A model that answers with no image: `isRetryable: false` says its filter refused the prompt, as the Vercel AI Gateway marks it. */
+const blankModel = (isRetryable?: boolean) => new MockImageModelV4({
+  provider: 'test',
+  modelId: 'test/blank-image',
+  doGenerate: async () => ({ images: [], warnings: [], ...(isRetryable === undefined ? {} : { isRetryable }), response: { timestamp: new Date(), modelId: 'test/blank-image', headers: {} } }) as never,
+})
 
 /** A model that answers only when its call is aborted: the step's deadline is what ends it. */
 const hanging = new MockImageModelV4({
@@ -128,7 +135,13 @@ const drawCover = jobs.step({
   timeout: 30_000,
   args: { idea: v.string() },
   handler: async (ctx, { idea }) => {
-    if (cover.mode === 'empty') throw retryable('The model returned no image.')
+    // A filtered answer is let through: the call says no other try would draw one.
+    if (cover.mode === 'filtered') await generateImage({ model: ctx.image(blankModel(false)), prompt: `A cover for ${idea}`, ...ctx.callSettings })
+    if (cover.mode === 'empty') {
+      // The AI SDK throws on an answer with no image; the step decides another try may draw one.
+      const drawn = await generateImage({ model: ctx.image(blankModel()), prompt: `A cover for ${idea}`, ...ctx.callSettings }).catch(() => null)
+      if (!drawn?.images.length) throw retryable('The model returned no image.')
+    }
     const { image } = await generateImage({ model: cover.mode === 'hang' ? ctx.image(hanging) : ctx.image(), prompt: `A cover for ${idea}`, ...ctx.callSettings })
     return image.uint8Array.length
   },
@@ -920,6 +933,16 @@ describe('an image step', () => {
     const { jobId } = await ada.mutation(ref.start, { kind: 'covered', args: { idea: 'Blank' } })
     await drain(t)
     expect(await row(t, jobId)).toMatchObject({ status: 'failed', attempts: 4, lastError: expect.stringContaining('no image') })
+  })
+
+  test('fails at once when the provider says its filter refused the prompt', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    cover.mode = 'filtered'
+    const { jobId } = await ada.mutation(ref.start, { kind: 'covered', args: { idea: 'Refused' } })
+    await drain(t)
+    expect(await row(t, jobId)).toMatchObject({ status: 'failed', attempts: 1, error: { code: 'invalid_input', reason: 'content_blocked' } })
   })
 
   test('refuses a timeout the stall sweep would cut short, where the step is defined', () => {

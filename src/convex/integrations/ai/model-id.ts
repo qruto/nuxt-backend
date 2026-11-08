@@ -25,7 +25,14 @@ export function routeKeyFor(id: string, routes: Readonly<Record<string, unknown>
 }
 
 /**
- * An id named as a string in a `model:` option or a `model(…)` call (`ctx.model('…')`),
+ * The safety classifier a check calls through the Convex AI Gateway when the
+ * app names none (`setupAi({ moderation })`): Llama Guard 4.
+ */
+export const DEFAULT_MODERATION_MODEL = 'meta-llama/llama-guard-4-12b'
+
+/**
+ * An id named as a string in a `model:` or `image:` option or a
+ * `model(…)` or `image(…)` call (`ctx.model('…')`, `ctx.image('…')`),
  * quoted any way: the id is the second group.
  */
-export const NAMED_MODEL = /\bmodel\s*(?::|\()\s*(['"`])([a-z0-9][a-z0-9-]*\/[^\s'"`]+)\1/gi
+export const NAMED_MODEL = /\b(?:model|image)\s*(?::|\()\s*(['"`])([a-z0-9][a-z0-9-]*\/[^\s'"`]+)\1/gi

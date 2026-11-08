@@ -40,6 +40,12 @@ export interface StoreImageOptions {
    * (`compositeWithTrainedAlgorithmicMedia`) for a photo a model edited in part.
    */
   sourceType?: 'generated' | 'composite'
+  /**
+   * The model the manifest names as the image's generator. Default: the
+   * image model this run called last (`ctx.image()`), else the last model it
+   * called, so a caption or a vision check after the image never signs it.
+   */
+  model?: string
 }
 
 /** `ctx.storeImage` in a job step or a metered action. */
@@ -184,7 +190,10 @@ export function imageStore(ctx: Pick<GenericActionCtx<GenericDataModel>, 'runAct
     const { bytes, declared } = await bytesOf(file)
     const called = [...new Set(scope.calls.filter(call => call.state === 'finished').map(call => call.model))]
     const models = called.length > 0 ? called : scope.model ? [scope.model] : []
-    const stored = await withCredentials(bytes, { generator: generatorName(config), model: models.at(-1), sourceType }, declared)
+    // The generator: the model the call names, else the last image model called, else the last model called.
+    const imageModel = scope.calls.filter(call => call.state === 'finished' && call.kind === 'image').at(-1)?.model
+    const generator = options.model ?? imageModel ?? models.at(-1)
+    const stored = await withCredentials(bytes, { generator: generatorName(config), model: generator, sourceType }, declared)
     // The component's action stores the bytes; only the id reaches its owner-record mutation.
     const storageId = await ctx.runAction(rows.storeGeneratedImage, {
       bytes: bufferOf(stored.bytes),
