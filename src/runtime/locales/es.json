@@ -542,6 +542,7 @@
         "billing": "Facturación",
         "queue": "Cola",
         "costs": "Costes",
+        "moderation": "Moderación",
         "webhooks": "Webhooks",
         "suppressions": "Bloqueos de envío",
         "analytics": "Analítica",
@@ -565,6 +566,27 @@
         "tokens": "Tokens de entrada / salida",
         "tokenCounts": "{input} / {output}",
         "guest": "Visitantes, antes de registrarse"
+      },
+      "moderation": {
+        "refused": "Solo los administradores ven lo que marcó la comprobación de seguridad.",
+        "intro": "Lo que el clasificador de seguridad marcó, de lo más reciente a lo más antiguo: sus categorías, nunca el contenido. El contenido bloqueado se rechazó; el resto se dejó pasar y quedó registrado. Una marca escalada está en una categoría que la política de moderación envía a un administrador.",
+        "filter": "Mostrar",
+        "all": "Todas las marcas",
+        "escalated": "Escaladas",
+        "empty": "Aún no se ha marcado nada.",
+        "emptyEscalated": "Aún no se ha escalado nada.",
+        "caption": "Contenido marcado",
+        "when": "Cuándo",
+        "who": "Cuenta",
+        "what": "Qué se comprobó",
+        "categories": "Categorías",
+        "outcome": "Resultado",
+        "blocked": "Bloqueado",
+        "passed": "Permitido",
+        "escalatedMark": "Escalada",
+        "nobody": "Nadie había iniciado sesión",
+        "newer": "Más recientes",
+        "older": "Más antiguas"
       },
       "webhooks": {
         "refused": "Solo los administradores leen el registro de webhooks.",
@@ -1817,6 +1839,10 @@
         "aiDocuments": {
           "holds": "Los documentos de conocimiento que añadió una cuenta: su título, espacio de trabajo y estado. Los fragmentos y las incrustaciones se guardan en el componente RAG de la aplicación.",
           "kept": "Hasta que un miembro lo retire o desaparezca su espacio de trabajo."
+        },
+        "aiFlags": {
+          "holds": "Lo que el clasificador de seguridad marcó en el contenido que envió una cuenta: las categorías, si se rechazó o se escaló, el clasificador y el id y la etapa de la app de lo que se comprobó, nunca el contenido.",
+          "kept": "Los días que la app guarda las marcas (moderation.log.days, 90 por defecto), o ninguno con log: false."
         },
         "aiProvenance": {
           "holds": "Con qué se hizo cada imagen generada que almacenaron las tareas de un espacio de trabajo: los modelos, cuándo, y los ids de las filas y archivos a partir de los que se creó, nunca su contenido.",

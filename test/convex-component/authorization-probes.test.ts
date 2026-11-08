@@ -294,6 +294,7 @@ function landing(input: InputRule | undefined) {
 /** The arguments each function is called with; `{}` when it takes none. */
 const ARGS: Record<string, (owned: Owned, input?: InputRule) => Record<string, unknown>> = {
   'admin:listUsers': () => ({ paginationOpts: { numItems: 10, cursor: null } }),
+  'ai:listModerationFlags': () => ({ paginationOpts: { numItems: 10, cursor: null } }),
   'admin:getUser': owned => ({ userId: owned.userId }),
   'admin:listWorkspaces': () => ({ paginationOpts: { numItems: 10, cursor: null } }),
   'admin:getWorkspace': owned => ({ workspaceId: owned.workspaceId }),

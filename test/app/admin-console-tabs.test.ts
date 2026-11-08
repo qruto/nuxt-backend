@@ -40,7 +40,7 @@ const labels = (wrapper: VueWrapper) => wrapper.findAll('[role="tab"]').map(tab 
 
 describe('the admin console\'s built-in tabs', () => {
   it('lists every tab whose backend file the app has, and the Reports and Queue tabs only once the app turns them on', async () => {
-    const all = ['Users', 'Workspaces', 'Activity', 'Flags', 'Access', 'Waitlist', 'Announcements', 'Inbox', 'Referrals', 'Billing', 'Costs', 'Analytics', 'Webhooks', 'Suppressions', 'System']
+    const all = ['Users', 'Workspaces', 'Activity', 'Flags', 'Access', 'Waitlist', 'Announcements', 'Inbox', 'Referrals', 'Billing', 'Costs', 'Analytics', 'Moderation', 'Webhooks', 'Suppressions', 'System']
     expect(labels(await adminConsole())).toEqual(all)
     expect(labels(await adminConsole({ reports: true, jobs: true }))).toEqual(['Users', 'Workspaces', 'Activity', 'Reports', ...all.slice(3, 10), 'Queue', ...all.slice(10)])
     // Only `true` turns one on.

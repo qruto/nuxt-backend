@@ -2167,6 +2167,10 @@
           "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
         },
         {
+          "name": "aiFlags",
+          "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
+        },
+        {
           "name": "aiCostDays",
           "to": "/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs"
         },

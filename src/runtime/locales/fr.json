@@ -542,6 +542,7 @@
         "billing": "Facturation",
         "queue": "File d’attente",
         "costs": "Coûts",
+        "moderation": "Modération",
         "webhooks": "Webhooks",
         "suppressions": "Blocages",
         "analytics": "Statistiques",
@@ -565,6 +566,27 @@
         "tokens": "Tokens en entrée / sortie",
         "tokenCounts": "{input} / {output}",
         "guest": "Visiteurs, avant inscription"
+      },
+      "moderation": {
+        "refused": "Seuls les administrateurs voient ce que la vérification de sécurité a signalé.",
+        "intro": "Ce que le classifieur de sécurité a signalé, du plus récent au plus ancien : ses catégories, jamais le contenu. Le contenu bloqué a été refusé ; le reste a été laissé passer et enregistré. Un signalement escaladé relève d’une catégorie que la politique de modération transmet à un administrateur.",
+        "filter": "Afficher",
+        "all": "Tous les signalements",
+        "escalated": "Escaladés",
+        "empty": "Rien n’a encore été signalé.",
+        "emptyEscalated": "Rien n’a encore été escaladé.",
+        "caption": "Contenu signalé",
+        "when": "Quand",
+        "who": "Compte",
+        "what": "Ce qui a été vérifié",
+        "categories": "Catégories",
+        "outcome": "Résultat",
+        "blocked": "Bloqué",
+        "passed": "Laissé passer",
+        "escalatedMark": "Escaladé",
+        "nobody": "Personne n’était connecté",
+        "newer": "Plus récents",
+        "older": "Plus anciens"
       },
       "webhooks": {
         "refused": "Seuls les administrateurs consultent le journal des webhooks.",
@@ -1817,6 +1839,10 @@
         "aiDocuments": {
           "holds": "Les documents de connaissances ajoutés par un compte : leur titre, leur espace de travail et leur statut. Les passages et les embeddings se trouvent dans le composant RAG de l’application.",
           "kept": "Jusqu’à ce qu’un membre le retire, ou que son espace de travail disparaisse."
+        },
+        "aiFlags": {
+          "holds": "Ce que le classifieur de sécurité a signalé dans le contenu envoyé par un compte : les catégories, s’il a été refusé ou escaladé, le classifieur, ainsi que l’identifiant et l’étape de l’app pour ce qui a été vérifié, jamais le contenu.",
+          "kept": "Le nombre de jours pendant lesquels l’app conserve les signalements (moderation.log.days, 90 par défaut), ou aucun avec log: false."
         },
         "aiProvenance": {
           "holds": "Ce qui a produit chaque image générée stockée par les tâches d’un espace de travail : les modèles, la date, et les identifiants des lignes et fichiers à partir desquels elle a été créée, jamais leur contenu.",

@@ -675,6 +675,7 @@ The functions `setupAi` builds for the admin console, to re-export from `backend
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="getcosts"></a> `getCosts` | `RegisteredQuery`\<`"public"`, \{ `since`: `number`; \}, `Promise`\<[`AiCosts`](#aicosts) \| `null`\>\> | **`Experimental`** What AI cost per person from `since` (a moment; its UTC day counts whole, and 90 days are kept): the job queue, metered actions, streams, chat replies and knowledge embeddings, for administrators; `null` for anyone else. The caller passes the moment, so the query reads no clock. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="listmoderationflags"></a> `listModerationFlags` | `RegisteredQuery`\<`"public"`, \{ `paginationOpts`: \{ `numItems`: `number`; `cursor`: `string` \| `null`; \}; `escalated?`: `boolean`; \}, `Promise`\< \| \{ `page`: [`ModerationFlag`](#moderationflag)[]; `isDone`: `boolean`; `continueCursor`: `string`; \} \| `null`\>\> | **`Experimental`** What the safety classifier flagged, newest first, a page at a time, the escalated ones alone with `escalated`, for administrators; `null` for anyone else. The admin console's Moderation tab reads it. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 
 ***
 
@@ -696,9 +697,9 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
 | <a id="chat-1"></a> `chat` | (`config`) => [`Chat`](#chat) | **`Experimental`** A chat: threads each person keeps with a model that follows your instructions, every reply streamed into the thread, kept on the server and metered like a metered action (reserved in the send, settled at what the model cost). Built on Convex's Agent component, which the app installs and mounts (`app.use(agent)`). Export the five functions it returns from the chat's module, under their names: `send` schedules `reply` next to itself. **Example** `// backend/chat.ts export const { threads, messages, send, remove, reply } = ai.chat({ name: 'helper', instructions: 'You help people plan comic strips.', meter: 'credits', cost: { estimate: 20, creditsPerUsd: 1000, round: 'up', minimum: 1 }, })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="knowledge-1"></a> `knowledge` | (`config`) => [`Knowledge`](#knowledge-2) | **`Experimental`** A knowledge store: each billing entity's documents in a namespace of their own, plus one the app owns, searched by meaning. Built on Convex's RAG component, which the app installs and mounts (`app.use(rag)`). Export its `api` from the store's module, under their names: `add` schedules `embed` next to itself. **Example** `// backend/knowledge.ts export const knowledge = ai.knowledge({ model: 'openai/text-embedding-3-small', dimension: 1536, meter: 'credits' }) export const { documents, add, search, remove, embed } = knowledge.api` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="provenanceof"></a> `provenanceOf` | (`ctx`, `storageId`) => `Promise`\< \| [`JobProvenance`](/docs/reference/api/use-job#jobprovenance) \| `null`\> | **`Experimental`** What made a stored file (`ctx.storeImage` recorded it): the models, when, and the ids of its inputs; `null` for a file nothing recorded. Reads in a query, a mutation or an action of your own. **Example** `export const panelProvenance = query({ args: { storageId: v.id('_storage') }, handler: (ctx, { storageId }) => ai.provenanceOf(ctx, storageId), })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="moderate-3"></a> `moderate` | (`ctx`, `input`) => `Promise`\<[`ModerationVerdict`](#moderationverdict)\> | **`Experimental`** Check text and images with the safety classifier (`setupAi({ moderation })`) and answer its verdict: `flagged`, and `categories`, the classifier's own codes (Llama Guard's `S1` to `S14`). Images are file storage ids, an upload not yet claimed included. In an action; the call is on the app's gateway bill, its cost recorded against `spendLimit`, and it is refused while `pause_ai` is on (`unavailable`, reason `ai_paused`). **Example** `const { flagged, categories } = await ai.moderate(ctx, { text: caption, images: [photoId] })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="requiresafe"></a> `requireSafe` | (`ctx`, `input`) => `Promise`\<`void`\> | **`Experimental`** [Ai.moderate](#moderate-3), refusing flagged content: `invalid_input` with reason `content_blocked` (on `prompt` when there is text, else on `images`). Call it where your code accepts an upload, before you keep it. **Example** `export const attach = authed.action({ args: { storageId: v.string() }, handler: async (ctx, { storageId }) => { await ai.requireSafe(ctx, { images: [storageId] }) // …now keep it }, })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
-| <a id="api"></a> `api` | [`AiApi`](#aiapi) | **`Experimental`** The admin console's functions, to re-export from `backend/ai.ts`: `getCosts`, what each person's AI calls cost, which the Costs tab reads. **Example** `export const { getCosts } = ai.api` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="moderate-3"></a> `moderate` | (`ctx`, `input`, `about?`) => `Promise`\<[`ModerationVerdict`](#moderationverdict)\> | **`Experimental`** Check text and images with the safety classifier (`setupAi({ moderation })`) and answer its verdict: `flagged`, `categories`, the classifier's own codes (Llama Guard's `S1` to `S14`), and what the policy makes of them: `blocked` and `escalate`. A flagged check is recorded for the admin console's Moderation tab, with `about`: who the content came from (default: who is signed in), and your id and stage of what was checked. Images are file storage ids, an upload not yet claimed included. In an action; the call is on the app's gateway bill, its cost recorded against `spendLimit`, and it is refused while `pause_ai` is on (`unavailable`, reason `ai_paused`). **Example** `const { blocked } = await ai.moderate(ctx, { text: title }, { subject: comicId, stage: 'title' })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="requiresafe"></a> `requireSafe` | (`ctx`, `input`, `about?`) => `Promise`\<`void`\> | **`Experimental`** [Ai.moderate](#moderate-3), refusing content the policy blocks: `invalid_input` with reason `content_blocked` (on `prompt` when there is text, else on `images`). Content flagged in a category `moderation.block` leaves out passes, recorded. Call it where your code accepts an upload, before you keep it. **Example** `export const attach = authed.action({ args: { storageId: v.string() }, handler: async (ctx, { storageId }) => { await ai.requireSafe(ctx, { images: [storageId] }) // …now keep it }, })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="api"></a> `api` | [`AiApi`](#aiapi) | **`Experimental`** The admin console's functions, to re-export from `backend/ai.ts`: `getCosts`, what each person's AI calls cost, which the Costs tab reads, and `listModerationFlags`, what the safety classifier flagged, which the Moderation tab reads. **Example** `export const { getCosts, listModerationFlags } = ai.api` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 
 ***
 
@@ -817,7 +818,7 @@ A kind of job: `jobs.define`.
 | <a id="cost-4"></a> `cost?` | `number` \| ((`args`) => `number`) | **`Experimental`** Its price in credits: a number, or read from the args once when it joins. Default `1`. With `charge: 'output'`, the most it may cost: what is held while it waits and runs. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="charge-2"></a> `charge?` | `"output"` \| `"start"` | **`Experimental`** When its credits are charged: `'start'` (the default), the whole `cost` as its first step; or `'output'`, what the handler passes to `job.charge(n)` once it knows what it made, the hold taken again as its first step. An `'output'` job that ends without `job.charge`, or fails, or is canceled before it, costs nothing. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="guest-2"></a> `guest?` | `boolean` | **`Experimental`** A signed-out visitor may start it too (`defineJobQueue({ guest })`): free for them, the app pays. A member who starts it pays as for any other kind. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
-| <a id="moderate-4"></a> `moderate?` | (`args`) => [`ModerationInput`](#moderationinput) | **`Experimental`** What to check with the safety classifier (`setupAi({ moderation })`), from the args: as the job's first step, before the charge. A flagged job fails with `invalid_input`, reason `content_blocked`, and its hold is released. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="moderate-4"></a> `moderate?` | (`args`) => [`ModerationInput`](#moderationinput) & `Pick`\<[`ModerationSubject`](#moderationsubject), `"subject"` \| `"stage"`\> | **`Experimental`** What to check with the safety classifier (`setupAi({ moderation })`), from the args: as the job's first step, before the charge. A job the policy blocks fails with `invalid_input`, reason `content_blocked`, and its hold is released; one flagged in a category the policy lets through runs, recorded. Its flag names the job and its starter; add `subject` and `stage` to name them in your words. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="args-3"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="handler-2"></a> `handler` | (`job`, `args`) => `Promise`\<`Result`\> | **`Experimental`** The steps, in order. Runs as a durable workflow: read data and call models in steps, never here. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
@@ -1174,7 +1175,7 @@ Defined in: [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/
 
 **`Experimental`**
 
-What the classifier said.
+What the classifier said, and what the app's policy makes of it.
 
 #### Properties
 
@@ -1182,6 +1183,76 @@ What the classifier said.
 | ------ | ------ | ------ | ------ |
 | <a id="flagged"></a> `flagged` | `boolean` | **`Experimental`** Whether it found anything its categories name. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 | <a id="categories"></a> `categories` | `string`[] | **`Experimental`** The classifier's own codes for what it found, such as Llama Guard's `S1` to `S14`; empty when nothing was. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="blocked"></a> `blocked` | `boolean` | **`Experimental`** Whether the policy refuses it (`moderation.block`): what `requireSafe` throws on. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="escalate"></a> `escalate` | `boolean` | **`Experimental`** Whether it falls in a category the policy has an administrator look at (`moderation.escalate`). | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+
+***
+
+### ModerationSubject
+
+Defined in: [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts)
+
+**`Experimental`**
+
+What a check was about, for the flag it records: who the content came from, and what and where.
+
+#### Extended by
+
+- [`ModerationFlag`](#moderationflag)
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="userid-5"></a> `userId?` | `string` | **`Experimental`** The account the content came from. Default: who is signed in. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="owner-2"></a> `owner?` | `string` | **`Experimental`** The billing entity it was checked for: a workspace, or the account under `billTo: 'user'`. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="subject"></a> `subject?` | `string` | **`Experimental`** Your id of what was checked: a document, an upload, a job. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="stage"></a> `stage?` | `string` | **`Experimental`** Where it was checked, in your words: `'title'`, `'upload'`, `'output'`. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+
+***
+
+### ModerationFlag
+
+Defined in: [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts)
+
+**`Experimental`**
+
+A flagged check as the Moderation tab lists it (`listModerationFlags`).
+
+#### Extends
+
+- [`ModerationSubject`](#moderationsubject)
+
+#### Properties
+
+| Property | Type | Description | Inherited from | Defined in |
+| ------ | ------ | ------ | ------ | ------ |
+| <a id="userid-6"></a> `userId?` | `string` | **`Experimental`** The account the content came from. Default: who is signed in. | [`ModerationSubject`](#moderationsubject).[`userId`](#userid-5) | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="owner-3"></a> `owner?` | `string` | **`Experimental`** The billing entity it was checked for: a workspace, or the account under `billTo: 'user'`. | [`ModerationSubject`](#moderationsubject).[`owner`](#owner-2) | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="subject-1"></a> `subject?` | `string` | **`Experimental`** Your id of what was checked: a document, an upload, a job. | [`ModerationSubject`](#moderationsubject).[`subject`](#subject) | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="stage-1"></a> `stage?` | `string` | **`Experimental`** Where it was checked, in your words: `'title'`, `'upload'`, `'output'`. | [`ModerationSubject`](#moderationsubject).[`stage`](#stage) | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="id-6"></a> `id` | `string` | **`Experimental`** | - | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="at"></a> `at` | `number` | **`Experimental`** When it was checked, in epoch ms. | - | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="categories-1"></a> `categories` | `string`[] | **`Experimental`** | - | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="blocked-1"></a> `blocked` | `boolean` | **`Experimental`** | - | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="escalate-1"></a> `escalate` | `boolean` | **`Experimental`** | - | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="model-10"></a> `model` | `string` | **`Experimental`** The classifier that flagged it. | - | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+
+***
+
+### ModerationLog
+
+Defined in: [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts)
+
+**`Experimental`**
+
+How long flags are kept, and whether at all (`moderation.log`).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="days-1"></a> `days` | `number` | **`Experimental`** Days a flag is kept before the maintenance pass prunes it. Default `90`. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 
 ***
 
@@ -1191,13 +1262,16 @@ Defined in: [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/
 
 **`Experimental`**
 
-`setupAi({ moderation })`: the classifier content is checked with.
+`setupAi({ moderation })`: the classifier content is checked with, and the policy over its verdicts.
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="model-10"></a> `model?` | `LanguageModel` | **`Experimental`** The classifier, a `provider/model` id or a model object, always used when named. By default, the one the gateway that answers serves: `meta-llama/llama-guard-4-12b` through the Convex AI Gateway, which reads images too; `openai/gpt-oss-safeguard-20b` through the Vercel AI Gateway (a pinned `inferenceRegion`, a Vercel-first order with the key, or the Convex one unable to serve the deployment), which reads text only: a check with images is then refused as unchecked. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="model-11"></a> `model?` | `LanguageModel` | **`Experimental`** The classifier, a `provider/model` id or a model object, always used when named. By default, the one the gateway that answers serves: `meta-llama/llama-guard-4-12b` through the Convex AI Gateway, which reads images too; `openai/gpt-oss-safeguard-20b` through the Vercel AI Gateway (a pinned `inferenceRegion`, a Vercel-first order with the key, or the Convex one unable to serve the deployment), which reads text only: a check with images is then refused as unchecked. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="block"></a> `block?` | `"all"` \| readonly `string`[] | **`Experimental`** The categories that refuse content: `requireSafe`, a `moderate` option and a job's check throw on them, and `moderate` answers `blocked`. The rest are recorded and let through. Default `'all'`: any flag refuses. A flag naming no category is refused under any policy. **Example** `// Family photos trip privacy (S7) and intellectual property (S8) without harm. moderation: { block: ['S1', 'S3', 'S4', 'S9', 'S10', 'S11', 'S12'] }` | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="escalate-2"></a> `escalate?` | readonly `string`[] | **`Experimental`** The categories an administrator looks at: their flags read `escalate`, stand out in the admin console's Moderation tab, and log `ai.content_escalated` as an error, which reaches your error monitoring. Default none. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="log"></a> `log?` | `false` \| [`ModerationLog`](#moderationlog) | **`Experimental`** Keep a record of every flagged check, categories only, never the content: who, what, where, and whether it was refused. Default `{ days: 90 }`; `false` keeps none. An account's erasure deletes the records about it. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 
 ***
 
@@ -1232,7 +1306,7 @@ A model call's token counts, as the SDKs report them.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="model-11"></a> `model` | `string` | **`Experimental`** The model id — the key looked up in the price table. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
+| <a id="model-12"></a> `model` | `string` | **`Experimental`** The model id — the key looked up in the price table. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
 | <a id="input-2"></a> `input` | `number` | **`Experimental`** Input (prompt) tokens billed at the full rate. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
 | <a id="output-2"></a> `output` | `number` | **`Experimental`** Output (completion) tokens. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |
 | <a id="cachedinput-1"></a> `cachedInput?` | `number` | **`Experimental`** Cache-read input tokens, when the model reports them separately. | [src/convex/integrations/ai/pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/pricing.ts) |

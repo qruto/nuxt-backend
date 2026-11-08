@@ -238,6 +238,17 @@ export const ACCOUNT_DATA_SOURCES = {
     retention: 'Until a member removes it, or its workspace goes.',
     exported: true,
   },
+  aiFlags: {
+    capability: 'ai',
+    where: 'component',
+    tables: ['aiFlags'],
+    holds: 'What the safety classifier flagged in content an account sent (`setupAi({ moderation })`): the categories, whether it was refused or escalated, the classifier, and the app\'s id and stage of what was checked, never the content.',
+    keyedBy: ['account', 'entity'],
+    erasure: 'deleted',
+    erasureNote: 'Every flag about the account, and every flag of a workspace deleted with it, is removed.',
+    retention: 'The days the app keeps flags (`moderation.log.days`, 90 by default), or none with `log: false`.',
+    exported: false,
+  },
   aiProvenance: {
     capability: 'ai',
     where: 'component',
