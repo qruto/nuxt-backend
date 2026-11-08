@@ -8,6 +8,9 @@ export type ReportReason = 'abuse' | 'sexual' | 'violence' | 'spam' | 'intimate'
 /** Every reason, in the order the notice form lists them. */
 export const REPORT_REASONS: readonly ReportReason[] = ['illegal', 'intimate', 'child_abuse', 'abuse', 'sexual', 'violence', 'spam', 'other']
 
+/** The longest a report's or a notice's details may be, in characters. */
+export const REPORT_DETAILS_MAX = 4000
+
 /** How long an intimate-image removal request may wait: 48 hours (the TAKE IT DOWN Act). */
 export const REMOVAL_DEADLINE_MS = 48 * 60 * 60 * 1000
 

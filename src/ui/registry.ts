@@ -32,6 +32,8 @@ export interface UiEntry {
   lazy?: true
   /** It has no stylesheet of its own. */
   unstyled?: true
+  /** Registered globally, so Markdown in a Content page renders it by name (`::legal-processors`). */
+  global?: true
 }
 
 // A component and a part are written as one object, its `name` first: the
@@ -153,6 +155,13 @@ export const UI_ENTRIES: readonly UiEntry[] = [
   part({ name: 'AccountMenu', parent: 'AppShell', folder: 'shell', capability: 'auth' }),
   part({ name: 'WorkspaceSwitcher', parent: 'AppShell', folder: 'shell', capability: 'auth' }),
   component({ name: 'AiLabel', folder: 'shell', capability: 'auth' }),
+  // The legal pages' public parts, for a Content page of the app's: the tables read src/convex/legal.ts, styled by LegalDocument.css.
+  component({ name: 'LegalProcessors', folder: 'shell', capability: 'auth', unstyled: true, global: true }),
+  component({ name: 'LegalStorage', folder: 'shell', capability: 'auth', unstyled: true, global: true }),
+  component({ name: 'LegalDetail', folder: 'shell', capability: 'auth', unstyled: true, global: true }),
+  component({ name: 'LegalVersion', folder: 'shell', capability: 'auth', unstyled: true, global: true }),
+  component({ name: 'LegalContactPoints', folder: 'shell', capability: 'auth', unstyled: true, global: true }),
+  component({ name: 'LegalModeration', folder: 'shell', capability: 'auth', unstyled: true, global: true }),
   internal('ErrorPage', 'shell', 'auth', { unstyled: true }),
   internal('PageFrame', 'shell', 'auth'),
 ]
@@ -205,8 +214,7 @@ export const UI_INTERNALS: readonly UiEntry[] = [
   internal('ReportAppeal', 'shell', 'auth'),
   internal('LegalDocument', 'shell', 'auth'),
   internal('LegalDataMap', 'shell', 'auth', { unstyled: true }),
-  internal('LegalProcessors', 'shell', 'auth', { unstyled: true }),
-  internal('LegalStorage', 'shell', 'auth', { unstyled: true }),
+  internal('LegalCompany', 'shell', 'auth', { unstyled: true }),
   internal('ReferralLanding', 'billing', 'billing'),
   internal('ConsentPromptDialog', 'account', 'auth'),
   internal('ConsentPromptItem', 'account', 'auth'),

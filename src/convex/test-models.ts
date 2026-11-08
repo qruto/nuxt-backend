@@ -1,5 +1,5 @@
 import type { MeteredModel } from './integrations/ai/config.js'
-import { TEST_EMBEDDING_MODELS, TEST_MODELS } from './integrations/ai/models.js'
+import { TEST_EMBEDDING_MODELS, TEST_IMAGE_MODELS, TEST_MODELS } from './integrations/ai/models.js'
 
 // The model every `provider/model` id gets under `nuxt-backend/test`: a mock
 // from the AI SDK's own test entry (`ai/test`) that repeats the prompt and
@@ -16,7 +16,7 @@ import { TEST_EMBEDDING_MODELS, TEST_MODELS } from './integrations/ai/models.js'
 export const TEST_MODEL_USD = 0.001
 
 /** The AI SDK and its test entry, when they are installed: an app that never names a model has neither. */
-const sdk = await Promise.all([import('ai'), import('ai/test')]).then(([ai, test]) => ({ simulateReadableStream: ai.simulateReadableStream, MockLanguageModelV4: test.MockLanguageModelV4, MockEmbeddingModelV4: test.MockEmbeddingModelV4 }), () => null)
+const sdk = await Promise.all([import('ai'), import('ai/test')]).then(([ai, test]) => ({ simulateReadableStream: ai.simulateReadableStream, MockLanguageModelV4: test.MockLanguageModelV4, MockEmbeddingModelV4: test.MockEmbeddingModelV4, MockImageModelV4: test.MockImageModelV4 }), () => null)
 
 /** The text of the last user message of a prompt: what the mock repeats. */
 function lastUserText(prompt: Parameters<MeteredModel['doGenerate']>[0]['prompt']): string {
@@ -117,6 +117,29 @@ export function testEmbeddingModel(modelId: string, dimension = 1536) {
   })
 }
 
+/** What one image through the mock image model costs, in US dollars. */
+export const TEST_IMAGE_USD = 0.04
+
+/**
+ * The mock image model for an id (`ctx.image()`): {@link TEST_IMAGE_PNG} for
+ * each image asked for, with its tokens and a fixed cost per image.
+ */
+export function testImageModel(modelId: string) {
+  if (!sdk) throw new Error('[nuxt-backend/test] An image model under test needs the AI SDK: install it with `pnpm add ai`.')
+  return new sdk.MockImageModelV4({
+    provider: 'test',
+    modelId,
+    maxImagesPerCall: 1,
+    doGenerate: async ({ n }) => ({
+      images: Array.from({ length: n }, () => TEST_IMAGE_PNG),
+      warnings: [],
+      usage: { inputTokens: 10, outputTokens: 100 * n, totalTokens: 10 + 100 * n },
+      providerMetadata: { gateway: { images: [], cost: String(TEST_IMAGE_USD * n) } },
+      response: { timestamp: new Date(0), modelId, headers: undefined },
+    }),
+  })
+}
+
 /**
  * Answer every `provider/model` id with {@link testModel} where no key or
  * gateway does, in this process. Read through the global, so a copy of the
@@ -126,4 +149,5 @@ export function installTestModels(): void {
   if (!sdk) return
   ;(globalThis as Record<symbol, unknown>)[TEST_MODELS] = testModel
   ;(globalThis as Record<symbol, unknown>)[TEST_EMBEDDING_MODELS] = testEmbeddingModel
+  ;(globalThis as Record<symbol, unknown>)[TEST_IMAGE_MODELS] = testImageModel
 }

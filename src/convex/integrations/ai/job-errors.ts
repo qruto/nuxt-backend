@@ -122,12 +122,29 @@ export function classifyStepError(error: unknown, calls: readonly ModelCall[] = 
   const wait = retryAfter === undefined ? {} : { retryAfter }
   if (status === 402 || says(chain, /quota_for_entity_exceeded/)) return { kind: 'refused' }
   if (status === 429 || says(chain, /RateLimit|rate[_ ]limit/i)) return { kind: 'throttled', ...wait }
-  if (calls.some(call => call.finishReason === 'content-filter') || says(chain, /content[-_ ]filter|content_policy/i)) return { kind: 'blocked' }
-  const retryable = chain.some(link => link.isRetryable === true)
+  // An error marked retryable (`retryable()`, or a provider's) is tried again, whatever a call's answer was.
+  const marked = chain.some(link => link.isRetryable === true)
+  if (!marked && (calls.some(call => call.finishReason === 'content-filter') || says(chain, /content[-_ ]filter|content_policy/i))) return { kind: 'blocked' }
+  const retryable = marked
     || (status !== undefined && (status === 408 || status >= 500))
     || says(chain, /Timeout|timed out|AbortError|ECONNRESET/i)
   if (retryable) return { kind: 'retryable', ...wait }
   return { kind: 'fatal' }
+}
+
+/**
+ * An error a job step throws for a failure another attempt may not meet,
+ * such as a model that answered with no image: the queue waits and runs
+ * the step again, up to 4 attempts, as for a provider's passing error,
+ * instead of failing the job at once.
+ *
+ * @example
+ * ```ts
+ * if (!image) throw retryable(`The model returned no image (${result.finishReason})`)
+ * ```
+ */
+export function retryable(message: string): Error {
+  return Object.assign(new Error(message), { isRetryable: true })
 }
 
 /** Whether a failure may pass on another attempt: a throttle, a timeout or a passing provider error. */

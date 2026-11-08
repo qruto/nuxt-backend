@@ -26,6 +26,14 @@
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-production-checkout-waits-for-billing-to-launch-and-welcome-credits-come-from-the-catalog"
     },
     {
+      "from": "jobs.step",
+      "to": "jobs.step",
+      "change": "reshaped",
+      "section": "A job step stops its model calls at its timeout",
+      "note": "a step aborts its model calls at `timeout`, by default 3 minutes or 80% of `stallAfter`; set `timeout` for a longer step, below `stallAfter`",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-step-stops-its-model-calls-at-its-timeout"
+    },
+    {
       "from": "access.invites.create with a label per member",
       "to": "access.memberTickets({ uses, lifetime })",
       "change": "reshaped",
@@ -48,6 +56,14 @@
       "section": "A job joins on a balance never read",
       "note": "a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready`",
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-joins-on-a-balance-never-read"
+    },
+    {
+      "from": "useMutation(api.admin.reportContent)",
+      "to": "useReportForm(subject, { mode: 'quick' })",
+      "change": "reshaped",
+      "section": "Report forms send notices, and the legal pages fill your own",
+      "note": "or `useReportForm(subject)` for a notice (DSA Art. 16) through `sendNotice`, with the fields it requires",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#report-forms-send-notices-and-the-legal-pages-fill-your-own"
     },
     {
       "from": "@sentry/nuxt",

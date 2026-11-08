@@ -68,6 +68,8 @@ const ERROR_LABELS = {
   invalid_input_passkey_cancelled: 'The passkey prompt was closed. Try again, or continue with an email code.',
   invalid_input_no_password: 'This app signs in with codes and passkeys: there is no password to reset.',
   invalid_input_comment: 'That comment is too long. Keep it to 500 characters.',
+  invalid_input_reason: 'Pick a reason.',
+  invalid_input_goodFaith: 'Confirm that your report is accurate and made in good faith.',
   // A plan's lifecycle with nothing to act on: what the subscription already is.
   invalid_input_cancel_scheduled: 'This plan is already set to cancel at the end of its period.',
   invalid_input_no_cancel_scheduled: 'This plan isn\'t set to cancel, so there is nothing to undo.',

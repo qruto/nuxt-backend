@@ -88,6 +88,7 @@ Every name on this surface is brand-neutral: no export, value or type, and no re
   - `authRoute`
   - `css`
   - `devtools`
+  - `installable`, and its keys `themeColor`, `backgroundColor`, `description`, `icons` and `maskable`
   - `pages`
   - `redirects`
   - `url`
@@ -158,10 +159,21 @@ Every name on this surface is brand-neutral: no export, value or type, and no re
   - `labels.waitlist`
   - `labels.withdrawal`
   - `legal.address`
+  - `legal.capital`
   - `legal.company`
   - `legal.contact`
+  - `legal.contactPoints`
+  - `legal.director`
   - `legal.dpo`
   - `legal.host`
+  - `legal.locations`
+  - `legal.mediator`
+  - `legal.moderation`
+  - `legal.phone`
+  - `legal.processors`
+  - `legal.registration`
+  - `legal.storage`
+  - `legal.vat`
   - `monitoring.feedback`
 - the label keys: every group and key of `BackendLabels` (the `useLabels` types), the same names an app overrides as `labels.<group>.<key>` in `appConfig.backend` and translates as `backend.<group>.<key>` messages of `@nuxtjs/i18n`, and the `{param}` names each one fills in. A key or a param is never renamed or removed outside the deprecation cycle; a minor release may add a key, or a plural form to a message. `test/unit/label-keys.json` holds every key with its params, and a test fails when the labels and it differ. The English wording is not covered and may change in any release: pin a sentence by overriding its key. Every key is stable, the `email` group included, except the keys of a component in the experimental tier, which follow that component. [Change copy and labels](https://nuxt-backend.dev/docs/build/ui/customize/labels) lists the groups.
 - `redirects.afterSignIn`, where the sign-in page sends a person without a usable `?redirect=`
@@ -230,11 +242,13 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `useReferralAdmin` — the admin console's Referrals tab as data: the totals, the top referrers, the flagged queue, and the decision an administrator makes on a flagged referral
   - `useReferralInvite` — the page a referral link opens, headless: what the link offers, read on the server too, the sign-in that returns to it, and the claim
   - `useReferrals` — a person's referral code and link, the share text that discloses the reward, the referrals it earned by state, copy and share, and the choice to carry the code on share pages
+  - `useReportForm` — a report about content without its markup: by default a notice (DSA Art. 16) through `sendNotice`, with the page's address, the reason, why, the reporter, the good-faith statement, the honeypot and the deployment's refusals; or, with `mode: 'quick'`, a signed-in person's one-click report through `reportContent`
   - `useReturnPath` — where the person goes once a page that interrupted them is done: the `?redirect=` kept to this site, else the sign-in landing
   - `useSandboxInbox`
   - `useSearch`
   - `useSessions`
   - `useShareLink` — a row's share link: whether it is live and since when, and turning it on, rotating it and turning it off
+  - `useSignInAlerts` — the account's latest sign-ins from a new device or with its recovery code, each with its device and time, and signing that session out while it is still signed in
   - `useUploadField` — `<UploadField>` without its markup: state, actions and bindings
   - `useUsage`
   - `useWaitlist` — join the waitlist, verify the address by a sign-in code, read the place in line live, and leave
@@ -262,6 +276,12 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `ContactForm` — a contact form for visitors and a feedback form for signed-in people: the bot check, a honeypot and a limit per sender, and a message stored before anything is sent to the team
   - `Gate` — its content only for the people its props admit: signed in, an app-wide role, a workspace or a workspace role, a plan feature, room in a quota (the quota check is experimental, below)
   - `HowDidYouHear` — one optional question after sign-up, "How did you hear about us?", kept next to the first campaign link the person arrived through, asked once
+  - `LegalContactPoints` — the single points of contact the Digital Services Act asks for, for authorities and for users, with the languages answered in, globally registered for Content pages
+  - `LegalDetail` — one company detail from `appConfig.backend.legal` inside a sentence of the app's, globally registered for Content pages
+  - `LegalModeration` — how content is moderated: a person decides every report, notice and appeal, and the automated tools that check content with how each decides, globally registered for Content pages
+  - `LegalProcessors` — the processors of the capabilities the app uses and its own, as a table, globally registered for Content pages
+  - `LegalStorage` — every cookie and storage key the package writes and the app's own, as a table, globally registered for Content pages
+  - `LegalVersion` — the version of a document as `setupAccount({ consents })` declares it, globally registered for Content pages
   - `NotificationInbox` — what the app told a person, in the app: a button with the unread count in its name and the list it opens, newest first
   - `OnboardingFlow` — the first run at `/welcome`: name and picture, the workspace, teammates and, when the catalog sells one, a plan, with steps of the app's own in named slots
   - `PricingTable`
@@ -611,7 +631,7 @@ The package ships its agent guidance under `skills/`: the core skill, `skills/nu
 Tagged `@experimental` in the source and in the API reference. These may change shape in a minor release of the 0.x line without the deprecation cycle; from `1.0` they either graduate into the promise or keep the tag:
 
 - `nuxt-backend/monitoring` — `reportError`, `reportingErrors`, `checkIn` and `checkingIn`: error reports and cron check-ins from an app's own actions. Their options follow the monitoring service's cron monitors, which may still move. The tags a report carries and the health routes are stable (above).
-- `nuxt-backend/ai` — `setupAi`: the reserve → run → settle metering model over provider meter events, and the models it calls: `provider/model` ids through the AI gateways in the order `setupAi({ gateway })` names, the cost each call reports (`ReportedCost`), `ctx.model()` and `modelStatus`, and `getCosts` from `ai.api`, what each person's AI calls cost. A model call is refused, saying why, where no route answers it. `defineJobQueue`: the generation queue, its tiers, model limits and credit hold, a kind charged by output (`charge: 'output'`, `job.charge`) and a free job (`{ free: true }`), the functions `jobs.api` exports, `jobs.get` and `jobs.cancel` for the app's own functions, and `onJobEnd` with the args it receives (`vJobEnd`). `ai.chat` and `ai.knowledge`: chat threads and knowledge search on the Agent and RAG components (both pre-1.0), the functions each exports, and the EU inference pin (`inferenceRegion`).
+- `nuxt-backend/ai` — `setupAi`: the reserve → run → settle metering model over provider meter events, and the models it calls: `provider/model` ids through the AI gateways in the order `setupAi({ gateway })` names, the cost each call reports (`ReportedCost`), `ctx.model()` and `modelStatus`, and `getCosts` from `ai.api`, what each person's AI calls cost. A model call is refused, saying why, where no route answers it. `defineJobQueue`: the generation queue, its tiers, model limits and credit hold, a kind charged by output (`charge: 'output'`, `job.charge`) and a free job (`{ free: true }`), the functions `jobs.api` exports, `jobs.get` and `jobs.cancel` for the app's own functions, and `onJobEnd` with the args it receives (`vJobEnd`). Image models in job steps (`ctx.image()`), a step's `timeout` and `callSettings`, `retryable`, and per-model gateway `routes`. `ai.chat` and `ai.knowledge`: chat threads and knowledge search on the Agent and RAG components (both pre-1.0), the functions each exports, and the EU inference pin (`inferenceRegion`).
 - `useAiStream` — paired with `nuxt-backend/ai`.
 - `useJob` — paired with `defineJobQueue`.
 - `useInboxAdmin` — paired with the support inbox (`setupEmail({ inbound: { support } })`), which follows the email provider's Inboxes, new in October 2026; with `getInboxConsole`, `replyToInbox` and `syncInbound` of `setupEmail(…).api`, and the admin console's Inbox tab.

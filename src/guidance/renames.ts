@@ -58,8 +58,10 @@ export function sectionUrl(section: string): string {
 }
 
 const LAUNCH = 'A production checkout waits for billing to launch, and welcome credits come from the catalog'
+const STEP_TIMEOUT = 'A job step stops its model calls at its timeout'
 const MEMBER_TICKETS = 'Members bring friends with a ticket of their own, and the waitlist records the campaign'
 const COLD_BALANCE = 'A job joins on a balance never read'
+const REPORTS_LEGAL = 'Report forms send notices, and the legal pages fill your own'
 const TUNNEL = 'Browser error reports go through a tunnel on the app\'s own origin'
 const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
 
@@ -73,12 +75,17 @@ export const RENAMES: readonly Rename[] = [
   { from: '`not_ready` (reason `no_catalog`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog`' },
   { from: 'billing.refundCredits in onUserCreated', to: 'credits: { meter, units, once: true }', change: 'reshaped', section: LAUNCH, note: 'welcome credits on the free plan, granted once after the reverse trial; drop the hand-rolled grant' },
 
+  // A job step aborts its model calls at its timeout, 3 minutes by default.
+  { from: 'jobs.step', to: 'jobs.step', change: 'reshaped', section: STEP_TIMEOUT, note: 'a step aborts its model calls at `timeout`, by default 3 minutes or 80% of `stallAfter`; set `timeout` for a longer step, below `stallAfter`' },
   // 0.3: member tickets, and the waitlist's campaign source.
   { from: 'access.invites.create with a label per member', to: 'access.memberTickets({ uses, lifetime })', change: 'reshaped', section: MEMBER_TICKETS, note: 're-export its `api` (`getMemberTicket`, `issueMemberTicket`) and read it with `useMemberTicket()`; drop the table of links the app kept' },
   { from: 'useWaitlist({ source })', to: 'useWaitlist({ source, campaign })', change: 'reshaped', section: MEMBER_TICKETS, note: 'the address\'s `utm_source` and `utm_campaign` follow the source; `campaign: false` records the source alone' },
 
   // A job joins on a balance never read, and reads it as it starts.
   { from: 'jobs.enqueue', to: 'jobs.enqueue', change: 'reshaped', section: COLD_BALANCE, note: 'a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready`' },
+
+  // The report form is a composable: a notice by default, the one-click report as a mode.
+  { from: 'useMutation(api.admin.reportContent)', to: 'useReportForm(subject, { mode: \'quick\' })', change: 'reshaped', section: REPORTS_LEGAL, note: 'or `useReportForm(subject)` for a notice (DSA Art. 16) through `sendNotice`, with the fields it requires' },
   // The managed tunnel needs a newer SDK: the peer range moves.
   { from: '@sentry/nuxt', to: '@sentry/nuxt@^11.10.0', change: 'reshaped', section: TUNNEL, note: 'the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn' },
   // One attribute marks every packaged component, in place of a list of families.

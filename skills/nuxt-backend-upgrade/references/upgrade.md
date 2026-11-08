@@ -25,6 +25,12 @@ agent files and skills.
 | ``not_ready` (reason `no_catalog`) from a production checkout` | ``unavailable` (reason `not_launched`)` | reshaped | a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog` |
 | `billing.refundCredits in onUserCreated` | `credits: { meter, units, once: true }` | reshaped | welcome credits on the free plan, granted once after the reverse trial; drop the hand-rolled grant |
 
+## [A job step stops its model calls at its timeout](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-step-stops-its-model-calls-at-its-timeout)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `jobs.step` | `jobs.step` | reshaped | a step aborts its model calls at `timeout`, by default 3 minutes or 80% of `stallAfter`; set `timeout` for a longer step, below `stallAfter` |
+
 ## [Members bring friends with a ticket of their own, and the waitlist records the campaign](https://nuxt-backend.dev/docs/ship/releases/upgrade#members-bring-friends-with-a-ticket-of-their-own-and-the-waitlist-records-the-campaign)
 
 | Was | Now | Change | Note |
@@ -37,6 +43,12 @@ agent files and skills.
 | Was | Now | Change | Note |
 |---|---|---|---|
 | `jobs.enqueue` | `jobs.enqueue` | reshaped | a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready` |
+
+## [Report forms send notices, and the legal pages fill your own](https://nuxt-backend.dev/docs/ship/releases/upgrade#report-forms-send-notices-and-the-legal-pages-fill-your-own)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `useMutation(api.admin.reportContent)` | `useReportForm(subject, { mode: 'quick' })` | reshaped | or `useReportForm(subject)` for a notice (DSA Art. 16) through `sendNotice`, with the fields it requires |
 
 ## [Browser error reports go through a tunnel on the app's own origin](https://nuxt-backend.dev/docs/ship/releases/upgrade#browser-error-reports-go-through-a-tunnel-on-the-apps-own-origin)
 

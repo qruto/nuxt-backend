@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runDoctorChecks } from '../../src/doctor'
 import { CAPABILITIES, capabilityStatus } from '../../src/capabilities'
 import { MODEL_ID, NAMED_MODEL } from '../../src/convex/integrations/ai/model-id'
-import { chosenGateways, modelIdsIn, namedModels } from '../../src/named-models'
+import { chosenGateways, chosenRoutes, modelIdsIn, namedModels } from '../../src/named-models'
 
 // The gateway key is needed once the backend names a `provider/model` id, and
 // only then: doctor reads the ids from the backend's source and reports the
@@ -267,7 +267,7 @@ describe('doctor\'s model route on Convex Cloud, with the Convex AI Gateway\'s p
         installProvider()
         const found = await keyFinding()
         expect(found.status).toBe('warn')
-        expect(CAPABILITIES.ai.detect({ ...context, findings: [found] })).toEqual({ state: 'missing', reason: 'its models are refused: no gateway in setupAi({ gateway }) can serve this deployment' })
+        expect(CAPABILITIES.ai.detect({ ...context, findings: [found] })).toEqual({ state: 'missing', reason: 'its models are refused: no gateway in setupAi({ gateway }) or a route of setupAi({ routes }) can serve this deployment' })
         expect(capabilityStatus('ai', { ...context, findings: [found] }).missingEnv).toEqual([])
       }
     })
@@ -342,6 +342,70 @@ describe('doctor\'s model route on Convex Cloud, with the Convex AI Gateway\'s p
       expect(await keyFinding()).toMatchObject({ status: 'pass', message: expect.stringContaining('first in setupAi({ gateway })') })
     })
 
+    describe('and the routes setupAi({ routes }) gives some models', () => {
+      const withRoutes = (routes: string, extra = '') => ({ ...NAMES_A_MODEL, 'ai.ts': `export const ai = setupAi(components, { billing, model: 'openai/gpt-5-mini'${extra}, routes: ${routes} })\n` })
+
+      it('reads the routes from a literal map, and says when they are none it reads', () => {
+        app({ deployment: 'dev:happy-otter-123', backend: withRoutes(`{ 'anthropic/*': 'vercel', "openai/gpt-image-2": ['vercel', 'convex', 'vercel'] }`) })
+        expect(chosenRoutes(rootDir)).toEqual({ 'anthropic/*': ['vercel'], 'openai/gpt-image-2': ['vercel', 'convex'] })
+        app({ deployment: 'dev:happy-otter-123', backend: withRoutes('{}') })
+        expect(chosenRoutes(rootDir)).toBeUndefined()
+        for (const routes of [`{ [MODEL]: 'vercel' }`, `{ 'anthropic/*': route }`, `{ 'anthropic/*': { order: ['vertex'] } }`, 'ROUTES']) {
+          app({ deployment: 'dev:happy-otter-123', backend: withRoutes(routes) })
+          expect(chosenRoutes(rootDir), routes).toBe('unread')
+        }
+        app({ deployment: 'dev:happy-otter-123', backend: { ...NAMES_A_MODEL, 'ai.ts': `const routes = { 'anthropic/*': 'vercel' }\nexport const ai = setupAi(components, { billing, routes })\n` } })
+        expect(chosenRoutes(rootDir)).toBe('unread')
+      })
+
+      it('reports routes it cannot read as unchecked, never as none', async () => {
+        app({ deployment: 'dev:happy-otter-123', backend: withRoutes('ROUTES') })
+        installProvider()
+        const found = await keyFinding()
+        expect(found).toMatchObject({ status: 'warn', message: expect.stringContaining('Doctor cannot read the gateway order: setupAi({ routes })') })
+        expect(found.fixHint).toContain('Write `routes` in setupAi')
+      })
+
+      it('reads a model named only in ctx.image(), and checks it by its route', async () => {
+        app({ deployment: 'dev:happy-otter-123', backend: { ...withRoutes(`{ 'bfl/*': 'vercel' }`), 'covers.ts': `const { image } = await generateImage({ model: ctx.image('bfl/flux-2-pro'), prompt })\n` } })
+        installProvider()
+        expect(namedModels(rootDir)).toContain('bfl/flux-2-pro')
+        const found = await keyFinding()
+        expect(found.status).toBe('warn')
+        expect(found.message).toContain('Routed by \'bfl/*\' (vercel)')
+        expect(found.message).toContain('bfl/flux-2-pro')
+        // The key's own fix leads, so status names the key as what is missing.
+        expect(found.fixHint).toMatch(/^Add AI_GATEWAY_API_KEY/)
+      })
+
+      it('reports each route beside the order, and checks its models by the route\'s order', async () => {
+        app({ deployment: 'dev:happy-otter-123', backend: withRoutes(`{ 'anthropic/*': 'vercel' }`) })
+        installProvider()
+        const unkeyed = await keyFinding()
+        expect(unkeyed.status).toBe('warn')
+        expect(unkeyed.message).toContain('Under setupAi({ gateway })\'s order: openai/gpt-5-mini go through the Convex AI Gateway')
+        expect(unkeyed.message).toContain('Routed by \'anthropic/*\' (vercel): its route \'anthropic/*\' in setupAi({ routes }) sends anthropic/claude-sonnet-4.5 through the Vercel AI Gateway alone')
+        expect((await keyFinding({ prod: true })).status).toBe('fail')
+        deployed.names = 'AUTH_SECRET\nSITE_URL\nAI_GATEWAY_API_KEY\n'
+        expect((await keyFinding()).status).toBe('pass')
+      })
+
+      it('says a route to the Convex AI Gateway alone never reads the key for its models', async () => {
+        deployed.names = 'AUTH_SECRET\nSITE_URL\nAI_GATEWAY_API_KEY\n'
+        app({ deployment: 'dev:happy-otter-123', backend: withRoutes(`{ 'anthropic/claude-sonnet-4.5': 'convex' }`, `, gateway: 'vercel'`) })
+        installProvider()
+        const found = await keyFinding()
+        expect(found.status).toBe('pass')
+        expect(found.message).toContain('AI_GATEWAY_API_KEY is never read for anthropic/claude-sonnet-4.5')
+      })
+
+      it('warns when a region pin comes with a route that has no Vercel AI Gateway', async () => {
+        app({ deployment: 'dev:happy-otter-123', backend: withRoutes(`{ 'anthropic/*': 'convex' }`, `, inferenceRegion: 'eu'`) })
+        installProvider()
+        expect(await keyFinding()).toMatchObject({ status: 'warn', message: expect.stringContaining('the push fails') })
+      })
+    })
+
     it('warns when a region pin comes with an order that has no Vercel AI Gateway', async () => {
       app({ deployment: 'dev:happy-otter-123', backend: withGateway(`'convex'`, `, inferenceRegion: 'eu'`) })
       installProvider()
@@ -365,7 +429,7 @@ describe('the ai capability and its models', () => {
     deployed.names = 'AUTH_SECRET\nSITE_URL\nAI_GATEWAY_API_KEY\n'
     app({ deployment: 'dev:happy-otter-123', backend: { ...NAMES_A_MODEL, 'ai.ts': `export const ai = setupAi(components, { billing, model: 'openai/gpt-5-mini', gateway: 'convex' })\n` } })
     const keyed = { ...context, deployed: new Set(['BILLING_ACCESS_TOKEN', 'AI_GATEWAY_API_KEY']) }
-    expect(CAPABILITIES.ai.detect({ ...keyed, findings: [await keyFinding()] })).toEqual({ state: 'missing', reason: 'its models are refused: no gateway in setupAi({ gateway }) can serve this deployment' })
+    expect(CAPABILITIES.ai.detect({ ...keyed, findings: [await keyFinding()] })).toEqual({ state: 'missing', reason: 'its models are refused: no gateway in setupAi({ gateway }) or a route of setupAi({ routes }) can serve this deployment' })
   })
 
   it('is test on a local deployment while no finding says its models are refused: billing decides', () => {

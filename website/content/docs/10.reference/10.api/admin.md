@@ -538,7 +538,7 @@ The report functions `backend/admin.ts` re-exports beside the console's reads.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="reportcontent"></a> `reportContent` | `RegisteredMutation`\<`"public"`, \{ `subject`: \{ `table`: `string`; `id`: `string`; \}; `reason`: [`ReportReason`](#reportreason); `details?`: `string`; \}, `Promise`\<`null`\>\> | Report a thing, signed in: one open report per person and thing, at most 10 an hour (the `report` limit). | [src/convex/integrations/reports.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/reports.ts) |
+| <a id="reportcontent"></a> `reportContent` | `RegisteredMutation`\<`"public"`, \{ `subject`: \{ `table`: `string`; `id`: `string`; \}; `reason`: [`ReportReason`](#reportreason); `details?`: `string`; `website?`: `string`; \}, `Promise`\<`null`\>\> | Report a thing, signed in: one open report per person and thing, at most 10 an hour (the `report` limit). A filled `website`, the honeypot, files nothing. | [src/convex/integrations/reports.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/reports.ts) |
 | <a id="sendnotice"></a> `sendNotice` | `RegisteredAction`\<`"public"`, [`NoticeInput`](#noticeinput), `Promise`\<`null`\>\> | The public notice form's send, for anyone: the bot check, the `report` limit per address and `reportGlobal`, and a receipt by email. | [src/convex/integrations/reports.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/reports.ts) |
 | <a id="getappeal"></a> `getAppeal` | `RegisteredQuery`\<`"public"`, \{ `token`: `string`; \}, `Promise`\<[`AppealView`](#appealview) \| `null`\>\> | A decision by its appeal link's token; `null` for a token no decision has. | [src/convex/integrations/reports.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/reports.ts) |
 | <a id="appealdecision"></a> `appealDecision` | `RegisteredMutation`\<`"public"`, \{ `token`: `string`; `text`: `string`; \}, `Promise`\<`null`\>\> | Appeal a decision by its token: once, within six months. | [src/convex/integrations/reports.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/reports.ts) |
@@ -714,6 +714,7 @@ type NoticeInput = {
   };
   locale?: string;
   human?: string | null;
+  website?: string;
 };
 ```
 
@@ -737,6 +738,7 @@ What a notice sends: the fields DSA Art. 16(2) and the TAKE IT DOWN Act ask for.
 | `subject.id` | `string` | - | [src/convex/integrations/reports.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/reports.ts) |
 | <a id="locale"></a> `locale?` | `string` | - | [src/convex/integrations/reports.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/reports.ts) |
 | <a id="human"></a> `human?` | `string` \| `null` | The bot check's token (`useHumanCheck().token('report', email)`). | [src/convex/integrations/reports.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/reports.ts) |
+| <a id="website"></a> `website?` | `string` | The honeypot, a field people never see: filled, the notice is a bot's, and nothing is filed or sent. | [src/convex/integrations/reports.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/reports.ts) |
 
 ***
 

@@ -21,7 +21,7 @@ import { refuseCaller } from '../access.js'
 import type { AiModel, MeteredCost, MeteredUsage, RunCtx } from './config.js'
 import type { AiContext } from './context.js'
 import type { AiMetering } from './metering.js'
-import { failedRun, type ModelCall, modelRefusal, requireModelId, routeModel } from './models.js'
+import { failedRun, type ModelCall, modelRefusal, refusalRouting, requireModelId, routeModel } from './models.js'
 import { estimateCost, finalizeCost, isReportedCost, requireReportedCost } from './pricing.js'
 import type { Knowledge } from './knowledge.js'
 import { KNOWLEDGE_SEARCH } from './knowledge.js'
@@ -335,7 +335,7 @@ export function createChats(context: AiContext, metering: AiMetering, agentCompo
         const { usage, reservation } = app
           ? await prepareAppReply(ctx, caller.userId)
           : await prepare(ctx as unknown as RunCtx, { meter: meter as string | false, limit: definition.limit, cost, allowOverage: definition.allowOverage, model: model ?? undefined, allowRefresh: false })
-        if (definition.knowledge && !definition.knowledge.reachable()) throw modelRefusal({ id: definition.knowledge.modelId, ...routing })
+        if (definition.knowledge && !definition.knowledge.reachable()) throw modelRefusal(refusalRouting(definition.knowledge.modelId, routing))
         const agent = await loadAgent()
         const component = agentComponent as Parameters<AgentModule['saveMessage']>[1]
         let threadId = existing?.threadId

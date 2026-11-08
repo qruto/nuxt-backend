@@ -537,6 +537,7 @@ const config = {
   },
   brand: {},
   labels: {},
+  legal: {} as Record<string, unknown>,
 }
 const checkoutLink = vi.fn(never)
 const portalSession = vi.fn(never)
@@ -616,6 +617,9 @@ const notifications = {
 const completeRef = { name: 'completeOnboarding' }
 const dismissRef = { name: 'dismissActivation' }
 const activationRef = { name: 'getActivation' }
+// The documents backend/account.ts declares, as getConsentTerms reads them for <LegalVersion>.
+const consentTermsRef = { name: 'getConsentTerms' }
+const consentDocuments = ref<Array<{ kind: string, version: string }>>([])
 const completeOnboarding = vi.fn(async (): Promise<{ onboardedAt: number }> => {
   if (world.onboardingOutcome.value === 'hang') return never()
   if (world.onboardingOutcome.value === 'fail') throw backendError('unavailable', { service: 'backend', reason: 'down' }, 'It failed.')
@@ -732,14 +736,16 @@ vi.mock('../../src/runtime/vue/composables/use-flags', async importOriginal => (
 vi.mock('../../src/runtime/vue/utils/namespace', () => ({
   useBackendNamespace: () => ({ generateCustomerPortalUrl: {}, generateUploadUrl: {}, submitContactMessage: contactRef, getCancelFlow: cancelFlowRef }),
   // The shell's seams: finishing the first run, the checklist, and a catalog that sells a plan.
-  useApiNamespace: (name: string) => ({ account: { completeOnboarding: completeRef }, audit: { getActivation: activationRef, dismissActivation: dismissRef }, billing: { getPricing: {} } } as Record<string, unknown>)[name],
+  useApiNamespace: (name: string) => ({ account: { completeOnboarding: completeRef, getConsentTerms: consentTermsRef }, audit: { getActivation: activationRef, dismissActivation: dismissRef }, billing: { getPricing: {} } } as Record<string, unknown>)[name],
 }))
 // The checklist's live read, and the cancel flow's: what the world says they are.
 vi.mock('../../src/runtime/vue/utils/live-query', async importOriginal => ({
   ...await importOriginal<Record<string, unknown>>(),
-  useLiveQuery: (query: unknown) => query === cancelFlowRef
-    ? { data: computed(() => world.cancelFlow.value), isLoading: computed(() => false), error: computed(() => null) }
-    : { data: computed(() => world.activation.value), isLoading: computed(() => world.activationLoading.value), error: computed(() => null) },
+  useLiveQuery: (query: unknown) => query === consentTermsRef
+    ? { data: computed(() => ({ documents: consentDocuments.value })), isLoading: computed(() => false), error: computed(() => null) }
+    : query === cancelFlowRef
+      ? { data: computed(() => world.cancelFlow.value), isLoading: computed(() => false), error: computed(() => null) }
+      : { data: computed(() => world.activation.value), isLoading: computed(() => world.activationLoading.value), error: computed(() => null) },
 }))
 // The contact form asks for a bot-check token before it sends: this app checks no one.
 vi.mock('../../src/runtime/vue/composables/use-human-check', () => ({ useHumanCheck: () => ({ token: async () => null }) }))
@@ -1566,6 +1572,43 @@ const STAGING: Record<ContractedComponent, Staging> = {
         },
         shows: '[data-reauthenticate="error"]',
       },
+    },
+  },
+  LegalProcessors: {
+    states: {
+      ready: { shows: '[data-backend][data-legal="table-scroll"] [data-legal="processors"] [data-processor="deployment"] [data-legal="agreement-link"][href="https://www.convex.dev/legal/dpa"]' },
+    },
+  },
+  LegalStorage: {
+    states: {
+      ready: { shows: '[data-backend][data-legal="table-scroll"] [data-legal="storage"] [data-storage="session"][data-consent="necessary"] code' },
+    },
+  },
+  LegalDetail: {
+    props: { field: 'contact' },
+    states: {
+      ready: { before: () => (config.legal = { contact: 'privacy@panels.example' }), shows: '[data-backend][data-legal="detail"][data-field="contact"] [data-legal="detail-link"][href="mailto:privacy@panels.example"]' },
+      // Unset, it renders nothing outside development.
+      missing: { before: () => (config.legal = {}), shows: null, absent: ['[data-legal="detail"]', '[data-legal="detail-unset"]'] },
+    },
+  },
+  LegalContactPoints: {
+    states: {
+      ready: { before: () => (config.legal = { contact: 'support@panels.example', contactPoints: { authorities: 'dsa@panels.example', languages: ['en', 'fr'] } }), shows: '[data-backend][data-legal="contact-points"] [data-audience="authorities"] [data-legal="contact-link"][href="mailto:dsa@panels.example"]' },
+      // No contact at all: nothing to name.
+      empty: { before: () => (config.legal = {}), shows: null, absent: ['[data-legal="contact-points"]'] },
+    },
+  },
+  LegalModeration: {
+    states: {
+      ready: { before: () => (config.legal = { moderation: [{ name: 'Llama Guard', checks: 'Photos and titles, as they are added.', decides: true }] }), shows: '[data-backend][data-legal="moderation"] [data-legal="moderation-table"] [data-legal="tool"][data-decides="alone"]' },
+    },
+  },
+  LegalVersion: {
+    props: { kind: 'privacy' },
+    states: {
+      ready: { before: () => (consentDocuments.value = [{ kind: 'privacy', version: '2026-11-04' }]), shows: '[data-backend][data-legal="version"][data-kind="privacy"]' },
+      empty: { before: () => (consentDocuments.value = []), shows: null, absent: ['[data-legal="version"]'] },
     },
   },
   AiLabel: {

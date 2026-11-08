@@ -348,7 +348,8 @@ vi.mock('../../src/runtime/vue/composables/use-sessions', async importOriginal =
 vi.mock('../../src/runtime/vue/composables/use-backend-config', () => ({ useBackendConfig: () => backendConfig }))
 // The Alerts section's list: the latest sign-ins from a new device.
 const signInAlerts = ref<Array<Record<string, unknown>> | undefined>([])
-vi.mock('../../src/runtime/vue/components/account/security-alerts', () => ({
+vi.mock('../../src/runtime/vue/components/account/security-alerts', async importOriginal => ({
+  ...await importOriginal<Record<string, unknown>>(),
   useSignInAlertsState: () => ({ alerts: computed(() => signInAlerts.value), isLoading: computed(() => false), error: computed(() => null) }),
 }))
 // The shipped pages set the document title through the auto-imported useHead.

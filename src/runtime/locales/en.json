@@ -1640,6 +1640,12 @@
       "sending": "Sending…",
       "sent": "Thanks. We received your report and will email you our decision.",
       "sentAnonymous": "Thanks. We received your report.",
+      "content": {
+        "reason": "Why are you reporting it?",
+        "details": "Anything else? (optional)",
+        "sent": "Thanks. A person on our team will look at it.",
+        "trap": "Leave this field empty"
+      },
       "appeal": {
         "title": "Appeal a decision",
         "checking": "Checking the link…",
@@ -1674,8 +1680,32 @@
         "company": "{app} is run by {company}.",
         "address": "Postal address: {address}",
         "contact": "Contact: {contact}",
-        "dpo": "Data protection officer: {dpo}"
+        "dpo": "Data protection officer: {dpo}",
+        "registration": "Registration number: {registration}",
+        "vat": "VAT: {vat}",
+        "phone": "Phone: {phone}",
+        "capital": "Share capital: {capital}",
+        "director": "Publication director: {director}",
+        "host": "Host: {host}"
       },
+      "contactPoints": {
+        "title": "Points of contact",
+        "authorities": "For authorities of the EU member states, the Commission and the Board",
+        "users": "For people who use {app}",
+        "languages": "Languages we answer in"
+      },
+      "moderation": {
+        "title": "How we moderate content",
+        "review": "A person on our team decides every report and every notice about content, and every appeal against a decision.",
+        "tools": "These automated tools check content too:",
+        "tool": "Tool",
+        "checks": "What it checks",
+        "decides": "How it decides",
+        "decidesAlone": "On its own; a person reviews it if you appeal",
+        "flagsOnly": "It flags content for a person to decide"
+      },
+      "version": "Version {version}",
+      "versionUnset": "No version: declare the {kind} consent in backend/account.ts.",
       "privacy": {
         "intro": "This policy says what {app} keeps about you, for how long, who processes it for us, and how you get a copy of it or have it deleted.",
         "controller": "We decide what happens to your personal data: we are its controller.",
@@ -1719,7 +1749,9 @@
         "privacy": "How we handle your data is in our privacy policy.",
         "contactTitle": "Contact",
         "contact": "Questions about these terms: {contact}.",
-        "changes": "We tell you before a change to these terms takes effect."
+        "changes": "We tell you before a change to these terms takes effect.",
+        "disputesTitle": "Disputes",
+        "disputes": "Write to us first. If we cannot settle it, you can take the dispute to our consumer mediator, free of charge:"
       },
       "subprocessors": {
         "intro": "The services that process personal data for {app}, what each one handles and where it keeps it.",
@@ -2483,6 +2515,8 @@
       "invalid_input_passkey_cancelled": "The passkey prompt was closed. Try again, or continue with an email code.",
       "invalid_input_no_password": "This app signs in with codes and passkeys: there is no password to reset.",
       "invalid_input_comment": "That comment is too long. Keep it to 500 characters.",
+      "invalid_input_reason": "Pick a reason.",
+      "invalid_input_goodFaith": "Confirm that your report is accurate and made in good faith.",
       "invalid_input_cancel_scheduled": "This plan is already set to cancel at the end of its period.",
       "invalid_input_no_cancel_scheduled": "This plan isn't set to cancel, so there is nothing to undo.",
       "invalid_input_withdrawal_closed": "No purchase is inside its withdrawal period any more, so there is nothing to withdraw from.",

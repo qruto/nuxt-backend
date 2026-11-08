@@ -1656,6 +1656,12 @@
         "open": "Danke. Eine Person aus unserem Team prüft Ihre Beschwerde und teilt Ihnen das Ergebnis per E-Mail mit.",
         "upheld": "Wir haben Ihre Beschwerde geprüft und unsere Entscheidung beibehalten.",
         "reversed": "Wir haben Ihre Beschwerde geprüft und unsere Entscheidung aufgehoben."
+      },
+      "content": {
+        "reason": "Warum melden Sie das?",
+        "details": "Noch etwas? (optional)",
+        "sent": "Danke. Eine Person aus unserem Team sieht sich das an.",
+        "trap": "Dieses Feld leer lassen"
       }
     },
     "legal": {
@@ -1674,7 +1680,13 @@
         "company": "{app} wird von {company} betrieben.",
         "address": "Postanschrift: {address}",
         "contact": "Kontakt: {contact}",
-        "dpo": "Datenschutzbeauftragte(r): {dpo}"
+        "dpo": "Datenschutzbeauftragte(r): {dpo}",
+        "registration": "Registernummer: {registration}",
+        "vat": "Umsatzsteuer: {vat}",
+        "phone": "Telefon: {phone}",
+        "capital": "Stammkapital: {capital}",
+        "director": "Verantwortlich für die Veröffentlichung: {director}",
+        "host": "Hosting: {host}"
       },
       "privacy": {
         "intro": "Diese Erklärung beschreibt, was {app} über Sie speichert, wie lange, wer die Daten für uns verarbeitet und wie Sie eine Kopie erhalten oder die Daten löschen lassen.",
@@ -1719,7 +1731,9 @@
         "privacy": "Wie wir mit Ihren Daten umgehen, steht in unserer Datenschutzerklärung.",
         "contactTitle": "Kontakt",
         "contact": "Fragen zu diesen Bedingungen: {contact}.",
-        "changes": "Wir informieren Sie, bevor eine Änderung dieser Bedingungen wirksam wird."
+        "changes": "Wir informieren Sie, bevor eine Änderung dieser Bedingungen wirksam wird.",
+        "disputesTitle": "Streitigkeiten",
+        "disputes": "Schreiben Sie uns zuerst. Können wir den Streit nicht beilegen, können Sie ihn kostenlos unserer Verbraucherschlichtungsstelle vorlegen:"
       },
       "subprocessors": {
         "intro": "Die Dienste, die personenbezogene Daten für {app} verarbeiten, was jeder davon verarbeitet und wo er die Daten speichert.",
@@ -2019,6 +2033,24 @@
           "why": "Zeichnet maskiert die Minute vor einem Fehler und den Rest dieses Besuchs auf, um die Ursache zu finden.",
           "lasts": "Bis der Tab geschlossen wird."
         }
+      },
+      "version": "Version {version}",
+      "versionUnset": "Keine Version: Deklarieren Sie die Einwilligung {kind} in backend/account.ts.",
+      "contactPoints": {
+        "title": "Kontaktstellen",
+        "authorities": "Für Behörden der EU-Mitgliedstaaten, die Kommission und das Gremium",
+        "users": "Für Menschen, die {app} nutzen",
+        "languages": "Sprachen, in denen wir antworten"
+      },
+      "moderation": {
+        "title": "Wie wir Inhalte moderieren",
+        "review": "Eine Person aus unserem Team entscheidet über jede Meldung zu Inhalten und über jeden Widerspruch gegen eine Entscheidung.",
+        "tools": "Diese automatischen Werkzeuge prüfen Inhalte ebenfalls:",
+        "tool": "Werkzeug",
+        "checks": "Was es prüft",
+        "decides": "Wie es entscheidet",
+        "decidesAlone": "Selbst; wenn Sie widersprechen, prüft es eine Person",
+        "flagsOnly": "Es markiert Inhalte für die Entscheidung einer Person"
       }
     },
     "consent": {
@@ -2520,7 +2552,9 @@
       "unavailable_ai_paused": "KI-Funktionen sind vorerst pausiert. Versuchen Sie es später erneut.",
       "unavailable_stalled": "Dieser Job reagiert nicht mehr. Ihre Credits wurden erstattet.",
       "unavailable_job_failed": "Dieser Job ist fehlgeschlagen. Ihre Credits wurden erstattet.",
-      "unavailable_unexpected": "Etwas ist schiefgelaufen."
+      "unavailable_unexpected": "Etwas ist schiefgelaufen.",
+      "invalid_input_reason": "Wählen Sie einen Grund.",
+      "invalid_input_goodFaith": "Bestätigen Sie, dass Ihre Meldung zutreffend ist und in gutem Glauben erfolgt."
     },
     "email": {
       "layout": {

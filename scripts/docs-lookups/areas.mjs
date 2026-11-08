@@ -62,6 +62,8 @@ export const COMPOSABLE_AREAS = {
   useBackendPagePath: 'ui',
   useEmailStatus: 'email',
   useContactForm: 'email',
+  useReportForm: 'ship',
+  useSignInAlerts: 'auth',
   useInboxAdmin: 'email',
   useOnboarding: 'auth',
   useActivation: 'auth',
@@ -110,6 +112,12 @@ export const COMPONENT_AREAS = {
   ActivationChecklist: 'auth',
   HowDidYouHear: 'auth',
   AiLabel: 'ai',
+  LegalProcessors: 'ship',
+  LegalStorage: 'ship',
+  LegalDetail: 'ship',
+  LegalVersion: 'ship',
+  LegalContactPoints: 'ship',
+  LegalModeration: 'ship',
 }
 
 /** The ready-made pages, by their `backend.pages` key. */

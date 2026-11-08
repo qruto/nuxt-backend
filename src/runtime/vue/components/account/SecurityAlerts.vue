@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { busyAttributes } from '../../a11y'
 import type { SecurityAlertsProps } from '../../parts'
-import type { SignInAlert } from './security-alerts'
+import { alertDevice, type SignInAlert } from './security-alerts'
 import { useSecurityView } from './security-settings'
 
 /**
@@ -20,7 +20,7 @@ const list = computed(() => props.alerts.alerts.value ?? [])
 const sessions = computed(() => view.context.value.sessions.sessions.value ?? [])
 /** The session an alert opened, while it is still signed in. */
 const sessionOf = (alert: SignInAlert) => (alert.sessionId ? sessions.value.find(row => row.id === alert.sessionId) : undefined)
-const device = (alert: SignInAlert) => (alert.os ? t('device', { browser: alert.browser ?? t('browser'), os: alert.os }) : alert.browser ?? t('unknownDevice'))
+const device = (alert: SignInAlert) => alertDevice(alert, t)
 const sentence = (alert: SignInAlert) => t(alert.recovery ? 'alertRecovery' : 'alertNewDevice', { device: device(alert), date: view.date(alert.at) })
 </script>
 

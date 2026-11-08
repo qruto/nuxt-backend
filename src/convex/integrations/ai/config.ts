@@ -251,6 +251,27 @@ export type AiModel = LanguageModel
 export type AiGateway = 'convex' | 'vercel'
 
 /**
+ * The gateways some models go through instead of `setupAi({ gateway })`'s
+ * order (`setupAi({ routes })`), keyed by a `provider/model` id or by a
+ * pattern ending in `*`: `google/*` for every model of a provider,
+ * `google/gemini-3-*` for a family. One {@link AiGateway} sends them to
+ * that gateway alone, a list in that order. An id's own key beats a
+ * pattern, and a longer pattern beats a shorter one.
+ *
+ * @example
+ * ```ts
+ * setupAi(components, {
+ *   billing,
+ *   routes: {
+ *     'google/*': 'vercel',                       // a provider the Vercel AI Gateway serves better
+ *     'openai/gpt-image-2': ['vercel', 'convex'], // the Vercel AI Gateway first for one model
+ *   },
+ * })
+ * ```
+ */
+export type ModelRoutes = Readonly<Record<string, AiGateway | readonly AiGateway[]>>
+
+/**
  * The model a metered handler calls (`ctx.model()`): an AI SDK language
  * model, so `generateText`, `streamText` and the rest of the SDK take it
  * as they take any other. Every call made through it counts toward the run's
@@ -344,6 +365,20 @@ export interface SetupAiConfig {
    * Convex region.
    */
   inferenceRegion?: InferenceRegion
+  /**
+   * A gateway order for some models, over `gateway` ({@link ModelRoutes}):
+   * keyed by `provider/model` id or a pattern ending in `*`, each a gateway
+   * or an order. Applies to language, embedding and image models alike. A
+   * route to `'convex'` alone never reads `AI_GATEWAY_API_KEY` for those
+   * models. With `inferenceRegion`, a route that leaves out `'vercel'` is
+   * refused, like such a `gateway`.
+   *
+   * @example
+   * ```ts
+   * setupAi(components, { billing, routes: { 'google/*': 'vercel', 'openai/gpt-image-2': 'vercel' } })
+   * ```
+   */
+  routes?: ModelRoutes
   /**
    * Content credentials on what a model made (EU AI Act Art. 50): every
    * image stored through `ctx.storeImage` gets a C2PA manifest signed with
