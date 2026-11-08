@@ -69,8 +69,9 @@ describe('pages ahead of the code', () => {
     expect(keyed.map(page => page.route)).toEqual([])
   })
 
-  it('arrive in the first release of the line these docs describe', () => {
-    expect(PLANNED_RELEASE).toBe(DOCS_VERSION.line.replace(/x$/, '0'))
+  it('arrive in the next minor once the line these docs describe is released, else in its first release', () => {
+    const [major, minor] = DOCS_VERSION.line.split('.').map(Number) as [number, number]
+    expect(PLANNED_RELEASE).toBe(DOCS_VERSION.released ? `${major}.${minor + 1}.0` : `${major}.${minor}.0`)
   })
 })
 

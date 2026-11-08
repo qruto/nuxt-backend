@@ -19,7 +19,7 @@ import { valueExports } from './source.mjs'
 export const USE_FOR = {
   '.': 'The Nuxt module: `modules: [\'nuxt-backend\']`, configured under the `backend` key',
   './auth': '`setupAuth`, the app\'s auth from one call, and `APIError` for hooks that refuse',
-  './http': '`registerBackendRoutes`: the auth routes, both webhooks, `/ai/stream`, the agent token exchange and the health route in one call',
+  './http': '`registerBackendRoutes`: the auth routes, both webhooks, the one-click unsubscribe, `/ai/stream`, the health route and, when it is passed `storage`, the signed file URLs, in one call',
   './functions': '`createFunctions` (every access tier from one call: `authed`, `workspace`, `admin`, `withRole`, `withFeature` and `setUserRole`), the error catalog, `verifyHuman`, the sensitive-action table, `defineRetention` (rows that age out, deleted in batches) and the token helpers `randomToken`, `sha256Hex` and `normalizeEmail`',
   './app': '`backendEnv`: the typed deployment env contract `convex.config.ts` passes to `defineApp`',
   './billing': '`setupBilling` and `defineBillingCatalog`: subscriptions, credits, gifts and the catalog',

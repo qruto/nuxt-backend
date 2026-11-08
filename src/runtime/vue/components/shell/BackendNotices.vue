@@ -17,8 +17,8 @@ import NoticePastDue from './NoticePastDue.vue'
  * until a notice applies, then shows each one that does, most important
  * first (`NOTICE_ORDER`). Each notice has a named slot that replaces it and
  * receives its state and actions; an empty slot turns it off. Its words are
- * the `impersonation`, `maintenance`, `pastDue`, `deletion`, `credits`, and
- * `announcement` `gift` labels.
+ * the `impersonation`, `maintenance`, `pastDue`, `deletion`, `credits`,
+ * `gift` and `announcement` labels.
  *
  * The packaged pages render it in their frame. A page shows one region
  * however many are mounted: the first one set up (the layout's, before a

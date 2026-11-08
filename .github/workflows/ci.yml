@@ -468,6 +468,10 @@ jobs:
         with:
           prepare: lib
 
+      # The local backend every consumer codegen below runs: restored from the
+      # cache, or fetched through the GitHub API (.github/actions/convex-backend).
+      - uses: ./.github/actions/convex-backend
+
       # Runs `prepack` (the full build) and produces the exact artifact a release
       # would publish.
       - name: Pack
@@ -823,6 +827,12 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           prepare: full
+
+      # The local backend the codegen below runs (.github/actions/convex-backend).
+      # This job is the one that saves it, on main only.
+      - uses: ./.github/actions/convex-backend
+        with:
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
 
       # `website/backend/_generated` is Convex codegen, committed so a Vercel
       # build needs no deployment. It must regenerate identically
