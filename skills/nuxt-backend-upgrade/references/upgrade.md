@@ -52,6 +52,12 @@ agent files and skills.
 | `AuthEmailTemplateOverrides` | `EmailTemplateOverrides` |
 | `CreateBetterAuthOptions` | `SetupAuthOptions` |
 
+## [Browser error reports go through a tunnel on the app's own origin](https://nuxt-backend.dev/docs/ship/releases/upgrade#browser-error-reports-go-through-a-tunnel-on-the-apps-own-origin)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `@sentry/nuxt` | `@sentry/nuxt@^11.10.0` | reshaped | the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn |
+
 ## [The packaged UI reads its faces, lines and shadows from tokens](https://nuxt-backend.dev/docs/ship/releases/upgrade#the-packaged-ui-reads-its-faces-lines-and-shadows-from-tokens)
 
 | Was | Now | Change | Note |

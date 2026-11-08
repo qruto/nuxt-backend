@@ -53,6 +53,7 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const TUNNEL = 'Browser error reports go through a tunnel on the app\'s own origin'
 const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
 const ONE_WAY = 'One way to do each thing'
 const ENVIRONMENT = 'One variable says what kind of deployment this is'
@@ -94,6 +95,8 @@ const SESSIONS = 'Sessions are listed and revoked by id'
 
 /** Every rename, newest section first, as the Upgrade page orders them. */
 export const RENAMES: readonly Rename[] = [
+  // The managed tunnel needs a newer SDK: the peer range moves.
+  { from: '@sentry/nuxt', to: '@sentry/nuxt@^11.10.0', change: 'reshaped', section: TUNNEL, note: 'the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn' },
   // One attribute marks every packaged component, in place of a list of families.
   { from: '[data-auth=\'form\'], [data-pricing=\'table\'], [data-admin]', to: '[data-backend]', change: 'reshaped', section: UI_TOKENS, note: 'the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root' },
   // One way per action. The boundaries, the banners, the auth members and
