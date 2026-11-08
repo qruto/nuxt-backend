@@ -116,7 +116,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 
 <!-- generated:readme-composables (pnpm docs:lookups, from src/nuxt/registry.ts) -->
 
-- `useAccessAdmin` — the admin console's Access tab, as data: the launch phase and its change, the invite codes and access links, and the invitations by address, through `backend/access.ts`
+- `useAccessAdmin` — the admin console's Access tab, as data: the launch phase and its change, the invite codes and access links, the member tickets, and the invitations by address, through `backend/access.ts`
 - `useAccessPhase` — the app's launch phase, so a page offers what a visitor can do now: join the waitlist in early access, bring an invite code while invite only, sign up once public
 - `useAccount` — the account itself: its profile, its export and its deletion
 - `useActivation` — the activation checklist without its markup: the first tasks `defineActivation` declares, which of them are done, the progress, and dismissing it

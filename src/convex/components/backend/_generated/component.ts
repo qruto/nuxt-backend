@@ -27,7 +27,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       admission: FunctionReference<
         "query",
         "internal",
-        { email?: string; tokenHash?: string; workspaceInvitations?: number },
+        {
+          email?: string;
+          members?: { chain: boolean };
+          tokenHash?: string;
+          workspaceInvitations?: number;
+        },
         {
           invite: null | {
             kind?: "code" | "link";
@@ -101,6 +106,16 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             status: "valid" | "expired" | "used-up" | "revoked" | "unknown";
             uses: number;
           }>;
+          memberTickets: Array<{
+            createdAt: number;
+            email: null | string;
+            expiresAt: number;
+            holder: string;
+            id: string;
+            maxUses: number;
+            status: "valid" | "expired" | "used-up" | "revoked" | "unknown";
+            uses: number;
+          }>;
         },
         Name
       >;
@@ -145,7 +160,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       redeem: FunctionReference<
         "mutation",
         "internal",
-        { email: string; tokenHash?: string; workspaceInvitations?: number },
+        {
+          email: string;
+          members?: { chain: boolean };
+          tokenHash?: string;
+          workspaceInvitations?: number;
+        },
         | { label?: string; ticket: string }
         | { refused: "valid" | "expired" | "used-up" | "revoked" | "unknown" },
         Name

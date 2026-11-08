@@ -2,7 +2,6 @@ import type { DefaultFunctionArgs, FunctionReference } from 'convex/server'
 import { computed, inject, ref, type ComputedRef, type Ref } from 'vue'
 import { ConvexAuthStateKey, useMutation } from 'nuxt-convex-module/client'
 import { useAsyncQuery } from 'nuxt-convex-module/app'
-import { useRequestURL } from '#imports'
 import type { AccessConsole, AccessPhaseState, AdmitResult, MemberTicket } from '../../../convex/integrations/launch'
 import type { AccessPhase, InviteKind, InviteStatus } from '../../../convex/access-tickets'
 import { useActionState } from '../utils/action-state'
@@ -173,7 +172,7 @@ export interface UseAccessAdminOptions {
 }
 
 export interface UseAccessAdminReturn {
-  /** The Access tab's data, live: the phase, the codes and links, the invitations by address. `null` for a caller who is no administrator, `undefined` while it is read. */
+  /** The Access tab's data, live: the phase, the codes and links, the member tickets, the invitations by address. `null` for a caller who is no administrator, `undefined` while it is read. */
   console: ComputedRef<AccessConsole | null | undefined>
   /** `true` while it is first read. */
   isLoading: ComputedRef<boolean>
@@ -187,7 +186,7 @@ export interface UseAccessAdminReturn {
   setPhase: (phase: AccessPhase) => Promise<void>
   /** Make a code or a link and answer it, once. Takes a recent sign-in. Rejects on failure. */
   createInvite: (input: { kind: InviteKind, label: string, maxUses: number, expiresAt?: number }) => Promise<{ id: string, code: string }>
-  /** Close a code or a link, or delete an unused invitation by address. Takes a recent sign-in. Rejects on failure. */
+  /** Close a code, a link or a member's ticket, or delete an unused invitation by address. Takes a recent sign-in. Rejects on failure. */
   revoke: (id: string) => Promise<void>
   /** Invite addresses: with no email, unless `email` asks for one ("Email them", about a hundred an hour). Takes a recent sign-in. Rejects on failure. */
   admit: (emails: string[], label?: string, options?: { email?: boolean }) => Promise<AdmitResult>
@@ -195,8 +194,8 @@ export interface UseAccessAdminReturn {
 
 /**
  * The admin console's Access tab, as data: the launch phase and its
- * change, the invite codes and access links, and the invitations by
- * address, through `backend/access.ts`. Every change is an
+ * change, the invite codes and access links, the member tickets, and
+ * the invitations by address, through `backend/access.ts`. Every change is an
  * administrator's in person and takes a recent sign-in
  * (`useReauthentication().withReauthentication` asks for one).
  */
@@ -254,7 +253,7 @@ export interface UseMemberTicketReturn {
    * signed out, `undefined` while it is read.
    */
   ticket: ComputedRef<MemberTicket | null | undefined>
-  /** The link to share once issued, `<site>/invite#<token>` (the `invite` page's path), else `null`. */
+  /** The link to share once issued, `<origin>/invite#<token>` on the page's own origin in the browser (the `invite` page's path; the path alone while rendered on the server), else `null`. */
   link: ComputedRef<string | null>
   /** Mint the member's ticket, or answer the one they hold. Rejects on failure, which `error` holds too. */
   issue: () => Promise<MemberTicket>
@@ -297,7 +296,6 @@ export function useMemberTicket(options: UseMemberTicketOptions = {}): UseMember
   // What `issue` answered, until the live read catches up with it.
   const issued = ref<MemberTicket | null>(null)
   const invitePath = useBackendPagePath('invite')
-  const origin = useRequestURL().origin
   const ticket = computed<MemberTicket | null | undefined>(() => {
     if (authLoading.value) return undefined
     if (signedOut.value) return null
@@ -307,7 +305,10 @@ export function useMemberTicket(options: UseMemberTicketOptions = {}): UseMember
     ticket,
     link: computed(() => {
       const current = ticket.value
-      return current?.state === 'issued' && invitePath.value ? `${origin}${invitePath.value}#${current.token}` : null
+      if (current?.state !== 'issued' || !invitePath.value) return null
+      // The page's own origin, as the browser sees it: a server behind a proxy may know another.
+      const origin = typeof window === 'undefined' ? '' : window.location.origin
+      return `${origin}${invitePath.value}#${current.token}`
     }),
     issue: () => run(async () => {
       if (!runIssue) throw new Error('[nuxt-backend] A member ticket needs `issueMemberTicket` re-exported from access.memberTickets(…).api in backend/access.ts, or pass `{ api }` to useMemberTicket().')

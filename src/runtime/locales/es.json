@@ -1014,6 +1014,9 @@
         "revoking": "Revocando…",
         "revokeConfirm": "¿Revocar {label}? Deja de admitir a nadie de inmediato.",
         "noInvites": "Aún no hay códigos ni enlaces.",
+        "memberTicketsTitle": "Entradas de miembros",
+        "memberTicketsHint": "El enlace propio de cada miembro para sus amigos, nunca se muestra aquí. Revocarlo lo detiene al instante, y el miembro no recibe otro hasta que habría terminado.",
+        "member": "Miembro",
         "admitTitle": "Invitar por dirección",
         "admitHint": "Una dirección por línea o separadas por comas, hasta 500. No se envía ningún correo salvo que lo pidas: anúncialo con un envío masivo a quienes se suscribieron. Cada invitación dura 30 días.",
         "emailThem": "Enviarles un correo",
@@ -1764,8 +1767,8 @@
           "kept": "Un año después de la última vez que se vio el dispositivo."
         },
         "access": {
-          "holds": "Las invitaciones por dirección que un administrador creó para la dirección, qué invitación dio acceso a la cuenta mientras la aplicación estaba cerrada (el registro de canjes), los códigos y enlaces que creó como administrador, y su entrada en la lista de espera: la dirección, sus respuestas, su posición y el estado de su contacto para noticias del lanzamiento (el consentimiento para esas noticias consta en el registro de consentimientos).",
-          "kept": "Una invitación por dirección, hasta que se use o se revoque; el registro de la invitación, mientras exista la cuenta; una entrada en la lista de espera, hasta que la persona salga o se suprima, y una inscripción cuyo código nunca se verificó, un día."
+          "holds": "Las invitaciones por dirección que un administrador creó para la dirección, qué invitación dio acceso a la cuenta mientras la aplicación estaba cerrada (el registro de canjes, que nombra al miembro cuya entrada dio acceso a un amigo), los códigos y enlaces que creó como administrador, sus entradas de miembro (un hash de cada enlace, sus usos y su fin), y su entrada en la lista de espera: la dirección, sus respuestas, su posición, su procedencia (el formulario, seguido del utm_source y el utm_campaign de la dirección de la página, que eligió quien creó el enlace y pueden llevar un identificador) y el estado de su contacto para noticias del lanzamiento (el consentimiento para esas noticias consta en el registro de consentimientos).",
+          "kept": "Una invitación por dirección, hasta que se use o se revoque; el registro de la invitación, mientras exista la cuenta; una entrada de miembro, hasta 30 días después de terminar; una entrada en la lista de espera, hasta que la persona salga o se suprima, y una inscripción cuyo código nunca se verificó, un día."
         },
         "consents": {
           "holds": "El registro de consentimientos: una fila por cada vez que la cuenta (o, antes de registrarse, un hash de su dirección) aceptó un documento o una suscripción voluntaria, la retiró o eligió un almacenamiento opcional, con el tipo, su versión, la hora y su procedencia.",

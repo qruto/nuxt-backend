@@ -1014,6 +1014,9 @@
         "revoking": "Wird widerrufen…",
         "revokeConfirm": "{label} widerrufen? Damit wird sofort niemand mehr zugelassen.",
         "noInvites": "Noch keine Codes oder Links.",
+        "memberTicketsTitle": "Mitglieder-Tickets",
+        "memberTicketsHint": "Der eigene Link jedes Mitglieds für Freunde, hier nie gezeigt. Widerrufen stoppt ihn sofort, und das Mitglied erhält keinen neuen, bis er geendet hätte.",
+        "member": "Mitglied",
         "admitTitle": "Per Adresse einladen",
         "admitHint": "Eine Adresse pro Zeile oder durch Kommas getrennt, bis zu 500. Es wird nur dann eine E-Mail gesendet, wenn Sie es wünschen: Kündigen Sie es per Broadcast an Personen an, die eingewilligt haben. Jede Einladung gilt 30 Tage.",
         "emailThem": "Per E-Mail benachrichtigen",
@@ -1764,8 +1767,8 @@
           "kept": "Ein Jahr, nachdem das Gerät zuletzt gesehen wurde."
         },
         "access": {
-          "holds": "Die adressbezogenen Einladungen, die ein Administrator für die Adresse erstellt hat, welches Ticket das Konto zugelassen hat, während die App geschlossen war (das Einlösungsprotokoll), die Codes und Links, die es als Administrator erstellt hat, und sein Wartelisteneintrag: die Adresse, ihre Antworten, ihr Platz und der Status ihres Kontakts für Startneuigkeiten (die Einwilligung in Startneuigkeiten selbst steht im Einwilligungsprotokoll).",
-          "kept": "Eine adressbezogene Einladung, bis sie verwendet oder widerrufen wird; der Ticketeintrag so lange wie das Konto; ein Wartelisteneintrag, bis die Person die Liste verlässt oder gelöscht wird, und eine Eintragung, deren Code nie bestätigt wurde, einen Tag."
+          "holds": "Die adressbezogenen Einladungen, die ein Administrator für die Adresse erstellt hat, welches Ticket das Konto zugelassen hat, während die App geschlossen war (das Einlösungsprotokoll, das bei einem Freund das Mitglied nennt, dessen Ticket ihn zugelassen hat), die Codes und Links, die es als Administrator erstellt hat, seine Mitglieder-Tickets (ein Hash jedes Links, seine Verwendungen und sein Ende) und sein Wartelisteneintrag: die Adresse, ihre Antworten, ihr Platz, ihre Herkunft (das Formular, gefolgt von utm_source und utm_campaign der Seitenadresse, die der Ersteller des Links gewählt hat und die eine Kennung enthalten können) und der Status ihres Kontakts für Startneuigkeiten (die Einwilligung in Startneuigkeiten selbst steht im Einwilligungsprotokoll).",
+          "kept": "Eine adressbezogene Einladung, bis sie verwendet oder widerrufen wird; der Ticketeintrag so lange wie das Konto; ein Mitglieder-Ticket bis 30 Tage nach seinem Ende; ein Wartelisteneintrag, bis die Person die Liste verlässt oder gelöscht wird, und eine Eintragung, deren Code nie bestätigt wurde, einen Tag."
         },
         "consents": {
           "holds": "Das Einwilligungsprotokoll: eine Zeile für jedes Mal, wenn das Konto (oder vor der Registrierung ein Hash seiner Adresse) einem Dokument oder einem Opt-in zugestimmt, die Zustimmung widerrufen oder optionale Speicherung gewählt hat, mit Art, Version, Zeitpunkt und Herkunft.",

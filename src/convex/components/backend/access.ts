@@ -35,6 +35,36 @@ function statusOf(invite: Doc<'accessInvites'> | null, now: number): InviteStatu
 const inviteByHash = (ctx: QueryCtx, tokenHash: string) =>
   ctx.db.query('accessInvites').withIndex('tokenHash', q => q.eq('tokenHash', tokenHash)).first()
 
+/** How long a member ticket stays after it ended, so a friend opening an old link reads `expired`: then the maintenance sweep removes it. */
+export const MEMBER_TICKET_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+
+/** The member-ticket program as a sign-up meets it, from the app: absent while it is off, or the app runs none. */
+const vMembers = v.optional(v.object({ chain: v.boolean() }))
+
+/** The ledger label of the sign-ups a member's tickets admitted, and what it becomes once the member is erased. */
+const memberLabel = (holder: string) => `member:${holder}`
+const ERASED_MEMBER_LABEL = 'member'
+
+/**
+ * A code's or link's state as a sign-up meets it: a member's ticket is
+ * `revoked` while the program is off (`members` absent), and once its
+ * member is banned (a ban that has not lifted), gone, or, without chains,
+ * admitted by a member's ticket themselves. Checked here, in the
+ * transaction that takes the use, so a ban lands on the next sign-up.
+ */
+async function signUpStatus(ctx: QueryCtx, invite: Doc<'accessInvites'> | null, members: { chain: boolean } | undefined, now: number): Promise<InviteStatus> {
+  const status = statusOf(invite, now)
+  const holder = invite?.holder
+  if (status !== 'valid' || holder === undefined) return status
+  if (!members) return 'revoked'
+  const id = ctx.db.normalizeId('user', holder)
+  const member = id ? await ctx.db.get('user', id) : null
+  if (!member || (member.banned === true && !(typeof member.banExpires === 'number' && member.banExpires <= now))) return 'revoked'
+  if (members.chain) return status
+  const own = await ctx.db.query('accessRedemptions').withIndex('userId', q => q.eq('userId', holder)).order('desc').first()
+  return own?.ticket === 'member-ticket' ? 'revoked' : status
+}
+
 /** The address's unused, unexpired invitation by address, the newest. */
 async function liveAdmission(ctx: QueryCtx, email: string, now: number): Promise<Doc<'accessAdmissions'> | null> {
   const rows = await ctx.db.query('accessAdmissions').withIndex('email', q => q.eq('email', email)).order('desc').take(20)
@@ -109,16 +139,17 @@ export const setPhase = mutation({
  * The one read behind a sign-up and an invite check: the stored phase,
  * the ticket the address holds (an invitation by address, an admitted
  * waitlist entry, a workspace invitation, a gift), and the state of the
- * code or link given. Writes nothing.
+ * code or link given (a member's ticket as a sign-up meets it, with
+ * `members`). Writes nothing.
  */
 export const admission = query({
-  args: { email: v.optional(v.string()), tokenHash: v.optional(v.string()), workspaceInvitations: v.optional(v.number()) },
+  args: { email: v.optional(v.string()), tokenHash: v.optional(v.string()), workspaceInvitations: v.optional(v.number()), members: vMembers },
   returns: v.object({
     phase: v.union(v.null(), v.string()),
     ticket: v.union(v.null(), vTicket),
     invite: v.union(v.null(), v.object({ status: vInviteStatus, kind: v.optional(v.union(v.literal('code'), v.literal('link'))), label: v.optional(v.string()) })),
   }),
-  handler: async (ctx, { email, tokenHash, workspaceInvitations }) => {
+  handler: async (ctx, { email, tokenHash, workspaceInvitations, members }) => {
     const now = Date.now()
     const phase = (await ctx.db.query('accessSettings').first())?.phase ?? null
     const held = email ? await addressTicket(ctx, email, now, workspaceInvitations ?? WORKSPACE_INVITATIONS_DEFAULT) : null
@@ -126,7 +157,7 @@ export const admission = query({
     return {
       phase,
       ticket: held ? { kind: held.kind, ...(held.label ? { label: held.label } : {}) } : null,
-      invite: invite ? { status: statusOf(invite, now), kind: invite.kind, label: invite.label } : (tokenHash ? { status: 'unknown' as const } : null),
+      invite: invite ? { status: await signUpStatus(ctx, invite, members, now), kind: invite.kind, label: invite.label } : (tokenHash ? { status: 'unknown' as const } : null),
     }
   },
 })
@@ -136,15 +167,16 @@ export const admission = query({
  * first (so a typed code is not spent when the address needed none), then
  * the code or link given, counting its use. Records the ledger row, keyed
  * by the address until `attachUser` names the account. Answers the ticket,
- * or why the code admits nobody (`unknown` when none was given).
+ * or why the code admits nobody (`unknown` when none was given). A
+ * member's ticket is checked against its member and `members` here.
  */
 export const redeem = mutation({
-  args: { email: v.string(), tokenHash: v.optional(v.string()), workspaceInvitations: v.optional(v.number()) },
+  args: { email: v.string(), tokenHash: v.optional(v.string()), workspaceInvitations: v.optional(v.number()), members: vMembers },
   returns: v.union(
     v.object({ ticket: v.string(), label: v.optional(v.string()) }),
     v.object({ refused: vInviteStatus }),
   ),
-  handler: async (ctx, { email, tokenHash, workspaceInvitations }) => {
+  handler: async (ctx, { email, tokenHash, workspaceInvitations, members }) => {
     const now = Date.now()
     const record = async (ticket: AccessTicket, label?: string, ids: { inviteId?: Id<'accessInvites'>, inviterId?: string } = {}) => {
       await ctx.db.insert('accessRedemptions', { email, ticket, ...(label ? { label } : {}), ...ids, at: now })
@@ -157,7 +189,7 @@ export const redeem = mutation({
       return await record(held.kind, held.label, held.inviterId ? { inviterId: held.inviterId } : {})
     }
     const invite = tokenHash ? await inviteByHash(ctx, tokenHash) : null
-    const status = statusOf(invite, now)
+    const status = await signUpStatus(ctx, invite, members, now)
     if (!invite || status !== 'valid') return { refused: status }
     await ctx.db.patch('accessInvites', invite._id, { uses: invite.uses + 1 })
     return await record(invite.holder !== undefined ? 'member-ticket' : invite.kind === 'code' ? 'invite-code' : 'access-link', invite.label, { inviteId: invite._id })
@@ -198,7 +230,7 @@ export const ticketOf = query({
   },
 })
 
-/** Store a new code or link by its hash. */
+/** Store a new code or link by its hash; a member's ticket keeps its end again, for the sweep that removes it after. */
 export const createInvite = mutation({
   args: {
     kind: v.union(v.literal('code'), v.literal('link')),
@@ -212,7 +244,8 @@ export const createInvite = mutation({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
-    const id = await ctx.db.insert('accessInvites', { ...args, uses: 0, createdAt: Date.now() })
+    const held = args.holder !== undefined && args.expiresAt !== undefined ? { heldUntil: args.expiresAt } : {}
+    const id = await ctx.db.insert('accessInvites', { ...args, ...held, uses: 0, createdAt: Date.now() })
     return id as string
   },
 })
@@ -381,6 +414,18 @@ const vConsoleInvite = v.object({
   createdAt: v.number(),
 })
 
+const vConsoleMemberTicket = v.object({
+  id: v.string(),
+  holder: v.string(),
+  /** The member's address, for the administrator to know whose it is; `null` once the account is gone. */
+  email: v.union(v.null(), v.string()),
+  maxUses: v.number(),
+  uses: v.number(),
+  status: vInviteStatus,
+  expiresAt: v.number(),
+  createdAt: v.number(),
+})
+
 const vConsoleAdmission = v.object({
   id: v.string(),
   email: v.string(),
@@ -391,16 +436,36 @@ const vConsoleAdmission = v.object({
   createdAt: v.number(),
 })
 
-/** The Access tab's rows: the newest codes and links (never a code), and the newest invitations by address. */
+/**
+ * The Access tab's rows: the newest codes and links (never a code), the
+ * member tickets that end last (never a token), each with its member's
+ * address, and the newest invitations by address.
+ */
 export const consoleRows = query({
   args: {},
-  returns: v.object({ invites: v.array(vConsoleInvite), admissions: v.array(vConsoleAdmission) }),
+  returns: v.object({ invites: v.array(vConsoleInvite), memberTickets: v.array(vConsoleMemberTicket), admissions: v.array(vConsoleAdmission) }),
   handler: async (ctx) => {
     const now = Date.now()
-    // Member tickets are the members' own: the ledger counts what they admitted, by label.
+    // The administrators' codes and links, apart from the members' tickets: those have a list of their own.
     const invites = await ctx.db.query('accessInvites').withIndex('holder', q => q.eq('holder', undefined)).order('desc').take(CONSOLE_ROWS)
+    const held = await ctx.db.query('accessInvites').withIndex('heldUntil', q => q.gt('heldUntil', 0)).order('desc').take(CONSOLE_ROWS)
     const admissions = await ctx.db.query('accessAdmissions').withIndex('createdAt').order('desc').take(CONSOLE_ROWS)
+    const memberTickets = await Promise.all(held.map(async (row) => {
+      const id = ctx.db.normalizeId('user', row.holder!)
+      const member = id ? await ctx.db.get('user', id) : null
+      return {
+        id: row._id as string,
+        holder: row.holder!,
+        email: member?.email ?? null,
+        maxUses: row.maxUses,
+        uses: row.uses,
+        status: statusOf(row, now),
+        expiresAt: row.heldUntil!,
+        createdAt: row.createdAt,
+      }
+    }))
     return {
+      memberTickets,
       invites: invites.map(row => ({
         id: row._id as string,
         kind: row.kind,
@@ -429,8 +494,9 @@ const FORGET_BATCH = 200
 
 /**
  * Launch access's part of an account's erasure: the invitations by address
- * waiting for it, the ledger rows that name it, and its name on the codes
- * and links it made as an administrator. `true` while rows are left.
+ * waiting for it, the ledger rows that name it, its member tickets, its
+ * name on the ledger rows of the friends those admitted, and its name on
+ * the codes and links it made as an administrator. `true` while rows are left.
  */
 export async function forgetAccess(ctx: MutationCtx, { userId, email }: { userId?: string, email?: string }): Promise<boolean> {
   let left = FORGET_BATCH
@@ -448,6 +514,11 @@ export async function forgetAccess(ctx: MutationCtx, { userId, email }: { userId
     // The member's own tickets go: their label names the member, and nobody may use them after.
     for (const row of await ctx.db.query('accessInvites').withIndex('holder', q => q.eq('holder', userId)).take(left)) {
       await ctx.db.delete('accessInvites', row._id)
+      left--
+    }
+    // The friends they admitted keep their ticket, without the member's name.
+    for (const row of await ctx.db.query('accessRedemptions').withIndex('label_at', q => q.eq('label', memberLabel(userId))).take(left)) {
+      await ctx.db.patch('accessRedemptions', row._id, { label: ERASED_MEMBER_LABEL })
       left--
     }
     for (const row of await ctx.db.query('accessInvites').withIndex('createdBy', q => q.eq('createdBy', userId)).take(left)) {

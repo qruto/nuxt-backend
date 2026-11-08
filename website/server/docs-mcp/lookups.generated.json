@@ -1046,7 +1046,7 @@
     "useAccessAdmin": {
       "tab": "Auth",
       "tier": "stable",
-      "summary": "The admin console's Access tab, as data: the launch phase and its change, the invite codes and access links, and the invitations by address, through `backend/access.ts`.",
+      "summary": "The admin console's Access tab, as data: the launch phase and its change, the invite codes and access links, the member tickets, and the invitations by address, through `backend/access.ts`.",
       "api": "/docs/reference/api/use-access",
       "url": "/docs/reference/nuxt/composables"
     },

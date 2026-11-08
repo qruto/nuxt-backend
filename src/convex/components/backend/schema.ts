@@ -1563,12 +1563,18 @@ export const accessTables = {
      * expiry under the auth secret, so only the hash is kept, as for any link.
      */
     holder: v.optional(v.string()),
+    /**
+     * A member ticket's `expiresAt` again, so the Access tab lists the member tickets apart and
+     * the maintenance sweep removes each 30 days after it ended. Absent on an administrator's code or link.
+     */
+    heldUntil: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('tokenHash', ['tokenHash'])
     .index('createdAt', ['createdAt'])
     .index('createdBy', ['createdBy'])
     .index('holder', ['holder', 'createdAt'])
+    .index('heldUntil', ['heldUntil'])
     .index('revokedAt_keyVersion', ['revokedAt', 'keyVersion']),
   accessAdmissions: defineTable({
     /** The address, trimmed and lower-cased. */

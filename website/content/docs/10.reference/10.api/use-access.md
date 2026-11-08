@@ -110,14 +110,14 @@ Defined in: [src/runtime/vue/composables/use-access.ts](https://github.com/qruto
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="console"></a> `console` | `ComputedRef`\< \| [`AccessConsole`](/docs/reference/api/access#accessconsole) \| `null` \| `undefined`\> | The Access tab's data, live: the phase, the codes and links, the invitations by address. `null` for a caller who is no administrator, `undefined` while it is read. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
+| <a id="console"></a> `console` | `ComputedRef`\< \| [`AccessConsole`](/docs/reference/api/access#accessconsole) \| `null` \| `undefined`\> | The Access tab's data, live: the phase, the codes and links, the member tickets, the invitations by address. `null` for a caller who is no administrator, `undefined` while it is read. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="isloading-1"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` while it is first read. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="isrefused"></a> `isRefused` | `ComputedRef`\<`boolean`\> | `true` once the read answered that this caller is no administrator. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="ispending-1"></a> `isPending` | `ComputedRef`\<`boolean`\> | `true` while a change is saved. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="error-2"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the last change failed, else why the read failed, else `null`. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="setphase"></a> `setPhase` | (`phase`) => `Promise`\<`void`\> | Move the app to a phase. Takes a recent sign-in. Rejects on failure. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="createinvite-1"></a> `createInvite` | (`input`) => `Promise`\<\{ `id`: `string`; `code`: `string`; \}\> | Make a code or a link and answer it, once. Takes a recent sign-in. Rejects on failure. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
-| <a id="revoke"></a> `revoke` | (`id`) => `Promise`\<`void`\> | Close a code or a link, or delete an unused invitation by address. Takes a recent sign-in. Rejects on failure. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
+| <a id="revoke"></a> `revoke` | (`id`) => `Promise`\<`void`\> | Close a code, a link or a member's ticket, or delete an unused invitation by address. Takes a recent sign-in. Rejects on failure. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="admit"></a> `admit` | (`emails`, `label?`, `options?`) => `Promise`\<[`AdmitResult`](/docs/reference/api/access#admitresult)\> | Invite addresses: with no email, unless `email` asks for one ("Email them", about a hundred an hour). Takes a recent sign-in. Rejects on failure. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 
 ***
@@ -143,7 +143,7 @@ Defined in: [src/runtime/vue/composables/use-access.ts](https://github.com/qruto
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="ticket"></a> `ticket` | `ComputedRef`\< \| [`MemberTicket`](/docs/reference/api/access#memberticket) \| `null` \| `undefined`\> | The signed-in member's ticket, live: `open` once the app is public, `off` while the program is, `none` until they ask for one, then `issued` with its token, its uses, the ones left and its end. `null` signed out, `undefined` while it is read. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
-| <a id="link"></a> `link` | `ComputedRef`\<`string` \| `null`\> | The link to share once issued, `<site>/invite#<token>` (the `invite` page's path), else `null`. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
+| <a id="link"></a> `link` | `ComputedRef`\<`string` \| `null`\> | The link to share once issued, `<origin>/invite#<token>` on the page's own origin in the browser (the `invite` page's path; the path alone while rendered on the server), else `null`. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="issue"></a> `issue` | () => `Promise`\<[`MemberTicket`](/docs/reference/api/access#memberticket)\> | Mint the member's ticket, or answer the one they hold. Rejects on failure, which `error` holds too. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="isloading-2"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` while the ticket is first read. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="ispending-2"></a> `isPending` | `ComputedRef`\<`boolean`\> | `true` while `issue` runs. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
@@ -270,8 +270,8 @@ function useAccessAdmin(options?): UseAccessAdminReturn;
 Defined in: [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts)
 
 The admin console's Access tab, as data: the launch phase and its
-change, the invite codes and access links, and the invitations by
-address, through `backend/access.ts`. Every change is an
+change, the invite codes and access links, the member tickets, and
+the invitations by address, through `backend/access.ts`. Every change is an
 administrator's in person and takes a recent sign-in
 (`useReauthentication().withReauthentication` asks for one).
 

@@ -326,6 +326,7 @@ const RETENTION = [
   ['src/convex/components/backend/maintenance.ts', 'ABANDONED_EMAIL_RETENTION_MS', 'Email record with no final status', value => `${after('it was created')(value)}, unless \`setupEmail({ retention })\` says otherwise`],
   ['src/convex/components/backend/email.ts', 'SECRET_OUTBOX_TTL_MS', 'Secret email (sign-in code)', value => `no record; its message until the provider answers, ${duration(value)} at most`],
   ['src/convex/components/backend/maintenance.ts', 'EXPIRED_INVITATION_RETENTION_MS', 'Expired invitation', after('expiry')],
+  ['src/convex/components/backend/access.ts', 'MEMBER_TICKET_RETENTION_MS', 'Ended member ticket', after('it ended')],
   ['src/convex/integrations/account.ts', 'DEFAULT_GRACE_MS', 'Deletion grace period', value => `${duration(value)}, unless \`setupAccount({ graceMs })\` says otherwise`],
   ['src/convex/components/backend/maintenance.ts', 'AUDIT_EVENT_RETENTION_MS', 'Audit event', after('it was recorded')],
   ['src/convex/components/backend/account.ts', 'ACCOUNT_EXPORT_LINK_MS', 'Account export link', value => `${duration(value)}, then its file is deleted`],

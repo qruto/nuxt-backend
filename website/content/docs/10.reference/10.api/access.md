@@ -91,6 +91,27 @@ One invite code or access link as the Access tab lists it: never the code itself
 
 ***
 
+### AccessMemberTicket
+
+Defined in: [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts)
+
+One member's ticket as the Access tab lists it: never its token.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id-1"></a> `id` | `string` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="holder"></a> `holder` | `string` | The member's account id. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="email"></a> `email` | `string` \| `null` | The member's address; `null` once the account is gone. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="maxuses-1"></a> `maxUses` | `number` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="uses-1"></a> `uses` | `number` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="status-1"></a> `status` | [`InviteStatus`](/docs/reference/api/use-access#invitestatus) | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="expiresat-1"></a> `expiresAt` | `number` | When it stops admitting, epoch ms. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="createdat-1"></a> `createdAt` | `number` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+
+***
+
 ### AccessAdmission
 
 Defined in: [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts)
@@ -101,13 +122,13 @@ One invitation by address as the Access tab lists it.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="id-1"></a> `id` | `string` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
-| <a id="email"></a> `email` | `string` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="id-2"></a> `id` | `string` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="email-1"></a> `email` | `string` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="source"></a> `source` | `"waitlist"` \| `"invitation"` | `invitation` for an administrator's, `waitlist` for an admitted waitlist entry. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="label-1"></a> `label` | `string` \| `null` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
-| <a id="expiresat-1"></a> `expiresAt` | `number` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="expiresat-2"></a> `expiresAt` | `number` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="usedat"></a> `usedAt` | `number` \| `null` | When the address signed up with it; `null` while it waits. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
-| <a id="createdat-1"></a> `createdAt` | `number` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="createdat-2"></a> `createdAt` | `number` | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 
 ***
 
@@ -127,7 +148,8 @@ Everything the Access tab shows.
 | ------ | ------ | ------ | ------ | ------ |
 | <a id="phase-1"></a> `phase` | [`AccessPhase`](/docs/reference/api/use-access#accessphase) | The phase the app is in now. | [`AccessPhaseState`](#accessphasestate).[`phase`](#phase) | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="phases-1"></a> `phases` | [`AccessPhase`](/docs/reference/api/use-access#accessphase)[] | The phases the app goes through, in order (`setupAccess`'s `phases`). | [`AccessPhaseState`](#accessphasestate).[`phases`](#phases) | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
-| <a id="invites"></a> `invites` | [`AccessInvite`](#accessinvite)[] | The newest codes and links, at most 200. | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="invites"></a> `invites` | [`AccessInvite`](#accessinvite)[] | The newest codes and links, at most 200: the administrators' and server code's, never a member's ticket. | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="membertickets"></a> `memberTickets` | [`AccessMemberTicket`](#accessmemberticket)[] | The member tickets that end last, at most 200 (`access.memberTickets`); none without the program. | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="admissions"></a> `admissions` | [`AccessAdmission`](#accessadmission)[] | The newest invitations by address, at most 200. | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 
 ***
@@ -159,10 +181,10 @@ The public functions `backend/access.ts` re-exports.
 | ------ | ------ | ------ | ------ |
 | <a id="getaccessphase"></a> `getAccessPhase` | `RegisteredQuery`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\<[`AccessPhaseState`](#accessphasestate)\>\> | The launch phase now, for `useAccessPhase`. Anyone may read it, signed in or not. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="checkinvite"></a> `checkInvite` | `RegisteredMutation`\<`"public"`, \{ `code`: `string`; \}, `Promise`\<\{ `status`: [`InviteStatus`](/docs/reference/api/use-access#invitestatus); \}\>\> | How an invite code or an access link's token checks now, for `useInvite`: `valid`, `expired`, `used-up`, `revoked` or `unknown`. Uses nothing up. Anyone may call it, rate-limited (`inviteCheck` per signed-in caller, `inviteCheckGlobal` across the deployment). | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
-| <a id="getaccessconsole"></a> `getAccessConsole` | `RegisteredQuery`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\<[`AccessConsole`](#accessconsole) \| `null`\>\> | The Access tab: the phase, the codes and links, the invitations by address. `null` for anyone who is not an administrator now. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="getaccessconsole"></a> `getAccessConsole` | `RegisteredQuery`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\<[`AccessConsole`](#accessconsole) \| `null`\>\> | The Access tab: the phase, the codes and links, the member tickets, the invitations by address. `null` for anyone who is not an administrator now. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="setaccessphase"></a> `setAccessPhase` | `RegisteredMutation`\<`"public"`, \{ `phase`: [`AccessPhase`](/docs/reference/api/use-access#accessphase); \}, `Promise`\<`null`\>\> | Move the app to a phase it lists. An administrator's, in person, with a recent sign-in; recorded as `access.phase_changed`. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="createinvite"></a> `createInvite` | `RegisteredMutation`\<`"public"`, \{ `kind`: [`InviteKind`](/docs/reference/api/use-access#invitekind); `label`: `string`; `maxUses`: `number`; `expiresAt?`: `number`; \}, `Promise`\<\{ `id`: `string`; `code`: `string`; \}\>\> | Make an invite code (`kind: 'code'`) or an access link (`'link'`, which needs `expiresAt`), answering it once: the database keeps only a hash. An administrator's, in person, with a recent sign-in. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
-| <a id="revokeinvite"></a> `revokeInvite` | `RegisteredMutation`\<`"public"`, \{ `id`: `string`; \}, `Promise`\<`null`\>\> | Close a code or a link at once, or delete an unused invitation by address; an id nothing has does nothing. An administrator's, in person, with a recent sign-in. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="revokeinvite"></a> `revokeInvite` | `RegisteredMutation`\<`"public"`, \{ `id`: `string`; \}, `Promise`\<`null`\>\> | Close a code, a link or a member's ticket at once, or delete an unused invitation by address; an id nothing has does nothing. An administrator's, in person, with a recent sign-in. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="admitemails"></a> `admitEmails` | `RegisteredMutation`\<`"public"`, \{ `emails`: `string`[]; `label?`: `string`; `email?`: `boolean`; \}, `Promise`\<[`AdmitResult`](#admitresult)\>\> | Invite addresses (at most 500 at a time). No email unless `email` asks for one: then each person gets a plain "You're invited" email with a one-click unsubscribe, about a hundred an hour (`setupAccess({ email })` needed). An administrator's, in person, with a recent sign-in. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="emailinvitations"></a> `emailInvitations` | `RegisteredAction`\<`"internal"`, \{ `ids`: `string`[]; \}, `Promise`\<`null`\>\> | Internal: sends the invitation emails "Email them" asked for, by the invitations' ids; scheduled by `admitEmails` under this name. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 
@@ -172,16 +194,16 @@ The public functions `backend/access.ts` re-exports.
 
 Defined in: [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts)
 
-Options for [Access.memberTickets](#membertickets-1).
+Options for [Access.memberTickets](#membertickets-2).
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="uses-1"></a> `uses?` | `number` | How many new addresses one member's ticket admits. Default `3`. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="uses-2"></a> `uses?` | `number` | How many new addresses one member's ticket admits. Default `3`. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="lifetime"></a> `lifetime?` | `number` | How long a ticket works from when the member asks for it, in milliseconds. Default 60 days, at most a year. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
-| <a id="enabled"></a> `enabled?` | (`ctx`) => `boolean` \| `Promise`\<`boolean`\> | Whether the program runs now, for a switch of the app's own (a flag, say): `false` answers `off` and issues nothing. Default: while the app is closed. **Guarantee** - Runs: in the query or mutation that reads or mints a member's ticket, in its transaction - Delivery: once per read and per mint; a live read runs it again whenever what it read changes - Order: after the phase is read (a public app answers `open` without asking), before the member's ticket is read - When it throws: the read or the mint fails with its error, and nothing is minted - Idempotency: a read: it may run many times for one member, and writes nothing | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
-| <a id="chain"></a> `chain?` | `boolean` | Let an account a member ticket admitted hold one of its own (default `false`). Without it, such an account reads `off`: one member brings their friends, as a workspace invitation does, not a chain of strangers past the waitlist. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="enabled"></a> `enabled?` | (`ctx`) => `boolean` \| `Promise`\<`boolean`\> | Whether the program runs now, for a switch of the app's own (a flag, say): `false` answers `off`, issues nothing, and the links already shared admit nobody (`revoked`) until it is on again. Default: while the app is closed. **Guarantee** - Runs: in the query or mutation that reads or mints a member's ticket, and in each code check and sign-up that brings a code or link (nobody signed in), in its transaction - Delivery: once per read, per mint and per code checked; a live read runs it again whenever what it read changes - Order: a read or a mint asks it after the phase (a public app answers `open` without asking), before the member's ticket; a code check or a sign-up, before the code's row is read - When it throws: the read, the mint, the check or the sign-up fails with its error, and nothing is minted or taken - Idempotency: a read: it may run many times for one member or code, and writes nothing | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="chain"></a> `chain?` | `boolean` | Let an account a member ticket admitted hold one of its own (default `false`). Without it, such an account reads `off`, and a ticket it held from before admits nobody: one member brings their friends, as a workspace invitation does, not a chain of strangers past the waitlist. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 
 ***
 
@@ -195,7 +217,7 @@ The functions `backend/access.ts` re-exports for member tickets.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="getmemberticket"></a> `getMemberTicket` | `RegisteredQuery`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\<[`MemberTicket`](#memberticket) \| `null`\>\> | The signed-in member's ticket, for `useMemberTicket`: `null` for a visitor, and for an administrator acting as the member. Never mints one. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="getmemberticket"></a> `getMemberTicket` | `RegisteredQuery`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\<[`MemberTicket`](#memberticket) \| `null`\>\> | The signed-in member's ticket, for `useMemberTicket`: `null` for a visitor, a banned account, and an administrator acting as the member. Never mints one. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="issuememberticket"></a> `issueMemberTicket` | `RegisteredMutation`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\<[`MemberTicket`](#memberticket)\>\> | Mint the member's ticket, or answer the one they hold: the member's own, in person. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 
 ***
@@ -204,13 +226,13 @@ The functions `backend/access.ts` re-exports for member tickets.
 
 Defined in: [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts)
 
-Member tickets, from [Access.memberTickets](#membertickets-1).
+Member tickets, from [Access.memberTickets](#membertickets-2).
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="uses-2"></a> `uses` | `number` | How many new addresses one ticket admits. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="uses-3"></a> `uses` | `number` | How many new addresses one ticket admits. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="lifetime-1"></a> `lifetime` | `number` | How long a ticket works, in milliseconds. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="api"></a> `api` | [`MemberTicketsApi`](#memberticketsapi) | The functions `backend/access.ts` re-exports. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 
@@ -231,7 +253,7 @@ The app's launch access, from [setupAccess](#setupaccess).
 | <a id="invites-1"></a> `invites` | \{ `create`: (`ctx`, `input`) => `Promise`\<`string`\>; \} | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | `invites.create` | (`ctx`, `input`) => `Promise`\<`string`\> | Make an invite code from server code and answer it, once: the database keeps only a hash. `kind: 'link'` makes an access link's token instead, for `/invite#<token>`. Recorded as `access.invite_created`. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="admit"></a> `admit` | (`ctx`, `input`) => `Promise`\<[`AdmitResult`](#admitresult)\> | Invite addresses from server code, with no email: each signs up while the app is closed, for 30 days. Existing accounts, malformed addresses and reserved domains are skipped. Recorded as `access.admitted`. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
-| <a id="membertickets-1"></a> `memberTickets` | (`options?`) => [`MemberTickets`](#membertickets) | Member tickets: while the app is closed, every member can hold one access link that admits `uses` new addresses for `lifetime`, minted the first time they ask and read back after, to share with friends. A sign-up through one is the `member-ticket` ticket, labelled `member:<userId>`. Re-export its `api` from `backend/access.ts` for `useMemberTicket`. **Example** `[backend/access.ts] export const memberTickets = access.memberTickets({ uses: 3, lifetime: 60 * DAY }) export const { getMemberTicket, issueMemberTicket } = memberTickets.api` | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="membertickets-2"></a> `memberTickets` | (`options?`) => [`MemberTickets`](#membertickets-1) | Member tickets: while the app is closed, every member can hold one access link that admits `uses` new addresses for `lifetime`, minted the first time they ask and read back after, to share with friends. A sign-up through one is the `member-ticket` ticket, labelled `member:<userId>`, and is checked against its member then: a banned member's link, or one while the program is off, admits nobody. Declare it once, in `backend/access.ts`, and re-export its `api` there for `useMemberTicket`. Recorded as `access.invite_created` (label `member`) on each mint. **Example** `[backend/access.ts] export const memberTickets = access.memberTickets({ uses: 3, lifetime: 60 * DAY }) export const { getMemberTicket, issueMemberTicket } = memberTickets.api` | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="api-1"></a> `api` | [`AccessApi`](#accessapi) | The public functions `backend/access.ts` re-exports. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="gate"></a> `gate` | `AccessGate` | What `setupAuth({ access })` asks while a new address signs up. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 
@@ -253,7 +275,7 @@ Defined in: [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-ba
 | `rateLimiter.limit` | (`ctx`, `name`, `options?`) => `Promise`\<\{ `ok`: `boolean`; `retryAfter?`: `number`; \}\> | - | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="adminroles"></a> `adminRoles?` | readonly `string`[] | The app-wide roles that run the Access tab, read fresh. Default `['admin']`. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="adminuserids"></a> `adminUserIds?` | readonly `string`[] | Accounts that run the Access tab whatever their role, by id. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
-| <a id="email-1"></a> `email?` | [`AccessEmail`](#accessemail) | The email instance (`setupEmail`), for "Email them": the invitation is rendered in its layout, with the brand and a one-click unsubscribe, under the weekly cap and quiet hours. Without it, invitations by address send no email. Re-export `emailInvitations` with it. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="email-2"></a> `email?` | [`AccessEmail`](#accessemail) | The email instance (`setupEmail`), for "Email them": the invitation is rendered in its layout, with the brand and a one-click unsubscribe, under the weekly cap and quiet hours. Without it, invitations by address send no email. Re-export `emailInvitations` with it. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="paths"></a> `paths?` | `Partial`\<[`BackendPaths`](/docs/reference/api/auth#backendpaths)\> | The paths the Nuxt module writes to `paths.generated.ts`: an invitation email links to the sign-in page and the privacy policy there. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 
 ***
@@ -334,7 +356,7 @@ Defined in: [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="access-1"></a> `access` | [`Access`](#access) | The `setupAccess` instance the waitlist is built on: its phases, its administrators and its tickets. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
-| <a id="email-2"></a> `email` | `Pick`\<[`Email`](/docs/reference/api/email#email-23), `"sendTemplate"`\> | The app's `setupEmail` instance: the "You're in" email goes through it, so its overrides restyle it. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
+| <a id="email-3"></a> `email` | `Pick`\<[`Email`](/docs/reference/api/email#email-23), `"sendTemplate"`\> | The app's `setupEmail` instance: the "You're in" email goes through it, so its overrides restyle it. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | <a id="questions-1"></a> `questions?` | `Readonly`\<`Record`\<`string`, readonly `string`[]\>\> | Questions asked beside the address: each key holds the choices an answer must be one of (at most 5 questions of 20 choices). | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | <a id="ratelimiter-2"></a> `rateLimiter?` | \{ `limit`: (`ctx`, `name`, `options?`) => `Promise`\<\{ `ok`: `boolean`; `retryAfter?`: `number`; \}\>; \} | Your `setupRateLimiter` instance, for the join's limits (`waitlistJoin`, `waitlistJoinGlobal`). Default: the rate limiter component mounted as `rateLimiter`, with the package's limits. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | `rateLimiter.limit` | (`ctx`, `name`, `options?`) => `Promise`\<\{ `ok`: `boolean`; `retryAfter?`: `number`; \}\> | - | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
@@ -402,8 +424,11 @@ A member's ticket as `getMemberTicket` answers it:
 
 - `open`: the app is public, and nobody needs a ticket;
 - `off`: the program is off now (`memberTickets({ enabled })` said so), or
-  for this member: one a member ticket admitted holds none, unless `chain`;
-- `none`: the member holds no ticket that works, and may ask for one of `uses`;
+  for this member: one a member ticket admitted holds none, unless `chain`,
+  and an administrator revoked theirs (until it would have ended);
+- `none`: the member holds no ticket that works, and may ask for one of
+  `uses` (after a retired `AUTH_SECRET`, the uses their ticket has left:
+  asking gives it a new link);
 - `issued`: the member's access link token, for `/invite#<token>`, how many
   new addresses it admits in all, how many it still admits, and when it
   stops. Asking again answers the same ticket until it expires, used up or not.
