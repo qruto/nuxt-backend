@@ -5,22 +5,31 @@ import { logBackend } from '../../log.js'
 import type { AiModel } from './config.js'
 import type { RecordCost } from './costs.js'
 import { upstreamErrorOf } from './job-errors.js'
-import { loadSdk, meteredModel, modelIdOf, type ModelCall, type ModelRouting, requireModelId, routeModel } from './models.js'
+import { convexGatewayModel, FALLBACK_NAME, loadSdk, meteredModel, modelIdOf, type ModelCall, modelRefusal, type ModelRoute, type ModelRouting, noticeConvexGateway, requireModelId, routeModel } from './models.js'
 
 // Content safety's check (`ai.moderate`, `ai.requireSafe`, `moderate` on a
 // metered action, a stream, a chat or a job): a call to a safety classifier
 // through the same gateway as every model call. Neither gateway has a
 // moderation endpoint of its own, so the check is a chat call to a model
-// trained to classify: Llama Guard 4 by default, which reads text and images
+// trained to classify. By default, the one the answering gateway serves:
+// Llama Guard 4 through the Convex AI Gateway, which reads text and images
 // and answers `safe`, or `unsafe` and the hazard codes (`S1` to `S14`) on the
-// next line. A policy-following classifier (gpt-oss-safeguard) is given the
-// same categories and asked for the same answer. The call is the app's,
+// next line; gpt-oss-safeguard through the Vercel AI Gateway, which serves no
+// Llama Guard, reads text only, and is given the same categories and asked
+// for the same answer. The call is the app's,
 // on its gateway bill: nothing is reserved from the person's credits for it,
 // and its cost is recorded like any run's, so the Costs tab and the
 // `spendLimit` count it.
 
-/** The classifier `setupAi` checks with unless `moderation.model` names another: Llama Guard 4, served by the Convex AI Gateway. */
+/** The classifier `setupAi` checks with through the Convex AI Gateway, unless `moderation.model` names another: Llama Guard 4, which reads images too. */
 export const DEFAULT_MODERATION_MODEL = 'meta-llama/llama-guard-4-12b'
+
+/**
+ * The classifier `setupAi` checks with through the Vercel AI Gateway, unless
+ * `moderation.model` names another: that gateway serves no Llama Guard. It
+ * reads text only, so a check with images is refused as unchecked.
+ */
+export const VERCEL_MODERATION_MODEL = 'openai/gpt-oss-safeguard-20b'
 
 /** What to check: text, and images as file storage ids. */
 export interface ModerationInput {
@@ -41,11 +50,13 @@ export interface ModerationVerdict {
 /** `setupAi({ moderation })`: the classifier content is checked with. */
 export interface ModerationConfig {
   /**
-   * The classifier, a `provider/model` id or a model object. Default
-   * `meta-llama/llama-guard-4-12b`, which the Convex AI Gateway serves and
-   * which reads images too. On the Vercel AI Gateway route, name one that
-   * gateway serves, such as `openai/gpt-oss-safeguard-20b`, which reads text
-   * only: a check with images is then refused as unchecked.
+   * The classifier, a `provider/model` id or a model object, always used
+   * when named. By default, the one the gateway that answers serves:
+   * `meta-llama/llama-guard-4-12b` through the Convex AI Gateway, which
+   * reads images too; `openai/gpt-oss-safeguard-20b` through the Vercel AI
+   * Gateway (a pinned `inferenceRegion`, a Vercel-first order with the key,
+   * or the Convex one unable to serve the deployment), which reads text only:
+   * a check with images is then refused as unchecked.
    */
   model?: AiModel
 }
@@ -139,12 +150,42 @@ function checkFailure(id: string, error: unknown): Error {
 }
 
 /** Refuse a check with images its classifier cannot read: passing them unread would call them safe. */
-function refuseUnreadImages(id: string): never {
+function refuseUnreadImages(id: string, defaulted: boolean): never {
+  // The default reads text only where the Vercel AI Gateway answers, which serves no Llama Guard.
+  const fix = defaulted
+    ? `the Vercel AI Gateway answers here, and serves no classifier that reads images: route moderation through the Convex AI Gateway, or name a model that reads images in setupAi({ moderation: { model } })`
+    : `name a classifier that reads images, such as ${DEFAULT_MODERATION_MODEL} through the Convex AI Gateway`
   if (!imagesUncheckedNoticed) {
     imagesUncheckedNoticed = true
-    logBackend('error', 'ai.moderation_images_unchecked', `The moderation model ${id} reads text only: a check with images is refused as unchecked. Name a classifier that reads images, such as ${DEFAULT_MODERATION_MODEL}.`)
+    logBackend('error', 'ai.moderation_images_unchecked', `The moderation model ${id} reads text only: a check with images is refused as unchecked. To check images, ${fix}.`)
   }
-  throw backendError('unavailable', { service: 'ai', reason: 'not_configured' }, `[nuxt-backend] The moderation model ${id} reads text only, so it cannot check images: name one that does, such as ${DEFAULT_MODERATION_MODEL}.`)
+  throw backendError('unavailable', { service: 'ai', reason: 'not_configured' }, `[nuxt-backend] The moderation model ${id} reads text only, so it cannot check images: ${fix}.`)
+}
+
+/** A classifier to call: its id, and the route its calls take. */
+interface Classifier { id: string, route: ModelRoute }
+
+/** The Vercel AI Gateway's classifier, under the key a route to it carries. */
+const vercelClassifier = (apiKey: string): Classifier =>
+  ({ id: VERCEL_MODERATION_MODEL, route: { route: 'gateway', id: VERCEL_MODERATION_MODEL, apiKey } })
+
+/**
+ * The default classifier, by the gateway that answers: Llama Guard 4
+ * through the Convex AI Gateway, gpt-oss-safeguard through the Vercel one.
+ * Which answers a `convex` route is known only once its token is asked
+ * for, so it is asked here, before the prompt is built for either.
+ */
+async function defaultClassifier(routing: ModelRouting): Promise<Classifier> {
+  const route = routeModel(DEFAULT_MODERATION_MODEL, undefined, routing)
+  if (route.route === 'gateway') return vercelClassifier(route.apiKey)
+  if (route.route !== 'convex') return { id: DEFAULT_MODERATION_MODEL, route }
+  const convex = await convexGatewayModel(DEFAULT_MODERATION_MODEL)
+  if ('model' in convex) return { id: DEFAULT_MODERATION_MODEL, route: { route: 'own', id: DEFAULT_MODERATION_MODEL, model: convex.model } }
+  const { fallback } = route
+  noticeConvexGateway(DEFAULT_MODERATION_MODEL, convex.unavailable, FALLBACK_NAME[fallback.route])
+  if (fallback.route === 'gateway') return vercelClassifier(fallback.apiKey)
+  if (fallback.route === 'missing') throw modelRefusal(fallback, convex.unavailable)
+  return { id: DEFAULT_MODERATION_MODEL, route: fallback }
 }
 
 /**
@@ -152,10 +193,12 @@ function refuseUnreadImages(id: string): never {
  * throws the refusal a flagged prompt gets.
  */
 export function createModeration(config: { moderation?: ModerationConfig, routing: ModelRouting }, storage: StorageBytesRef | undefined, recordCost?: RecordCost) {
-  const model = config.moderation?.model ?? DEFAULT_MODERATION_MODEL
-  requireModelId(model, 'setupAi({ moderation })')
-  const id = modelIdOf(model)
-  const images = readsImages(model)
+  const named = config.moderation?.model
+  requireModelId(named, 'setupAi({ moderation })')
+  /** The classifier a check calls: the app's own when it names one, else the answering gateway's. */
+  const classifier = async (): Promise<Classifier> => named === undefined
+    ? defaultClassifier(config.routing)
+    : { id: modelIdOf(named), route: routeModel(named, undefined, config.routing) }
 
   /** An image's bytes: an upload in the component's storage first, then a file of the app's own. */
   const readerFor = (ctx: ModerationCtx): ImageReader => async (storageId) => {
@@ -197,8 +240,9 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
   const moderate = async (ctx: ModerationCtx, input: ModerationInput): Promise<ModerationVerdict> => {
     const text = typeof input?.text === 'string' ? input.text.trim() : ''
     const imageIds = Array.isArray(input?.images) ? input.images.filter(image => typeof image === 'string' && image) : []
-    if (imageIds.length > 0 && !images) refuseUnreadImages(id)
     if (!text && imageIds.length === 0) return { flagged: false, categories: [] }
+    const { id, route } = await classifier()
+    if (imageIds.length > 0 && !readsImages(named ?? id)) refuseUnreadImages(id, named === undefined)
     const parts = await imageParts(ctx, imageIds)
     const llamaGuard = isLlamaGuard(id)
     const words = text || IMAGES_ALONE
@@ -210,14 +254,14 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
     // The check's own calls: never priced against anyone's credits, but
     // recorded as the app's cost, against who asked when someone is signed in.
     const calls: ModelCall[] = []
-    const classifier = meteredModel(routeModel(model, undefined, config.routing), calls, config.routing.region)
+    const checking = meteredModel(route, calls, config.routing.region)
     let result: Awaited<ReturnType<typeof sdk.generateText>>
     // A gateway that hangs must not hold the caller's action until it times out.
     const deadline = new AbortController()
     const timer = setTimeout(() => deadline.abort(new Error(`The moderation model ${id} did not answer within ${MODERATION_TIMEOUT_MS / 1000} s.`)), MODERATION_TIMEOUT_MS)
     try {
       result = await sdk.generateText({
-        model: classifier,
+        model: checking,
         ...(llamaGuard ? {} : { system: POLICY }),
         messages: [{ role: 'user', content }],
         ...answerBudget(llamaGuard),
@@ -247,7 +291,7 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
     throw backendError('invalid_input', { field, reason: 'content_blocked' }, `[nuxt-backend] The moderation model flagged this content (${verdict.categories.join(', ') || 'no category named'}).`)
   }
 
-  return { moderate, requireSafe, modelId: id }
+  return { moderate, requireSafe, modelId: modelIdOf(named) ?? DEFAULT_MODERATION_MODEL }
 }
 
 export type Moderation = ReturnType<typeof createModeration>

@@ -218,9 +218,8 @@ function resolveGateways<M>(id: string, gateways: readonly AiGateway[], env: Env
   }
   if (first === 'convex') {
     if (!convexGatewayPossible(env)) return resolveGateways(id, rest, env, end)
-    const fallback = resolveGateways(id, rest, env, end)
-    // An order that names the Convex AI Gateway twice tries it once.
-    return { route: 'convex', id, fallback: fallback.route === 'convex' ? fallback.fallback : fallback }
+    // routingOf names each gateway once, so what follows the Convex AI Gateway is its fallback.
+    return { route: 'convex', id, fallback: resolveGateways(id, rest, env, end) as FallbackRoute<M> }
   }
   return end()
 }
@@ -276,7 +275,7 @@ export function modelStatusOf(model: AiModel | undefined, env: Env = runtimeEnv(
 }
 
 /** The fix a refusal names when the Vercel AI Gateway's key is what is missing. */
-const KEY_FIX = 'add it to .env.local and run `npx nuxt-backend env push` (`--prod` for production), or pass a model object with your provider\'s own key.'
+const KEY_FIX = 'add it to .env.local and run `npx nuxt-backend env push` (production takes a key of its own: `npx convex env set --prod AI_GATEWAY_API_KEY`), or pass a model object with your provider\'s own key.'
 
 /** Why a model with no route is refused, and the fix, by the order it went through. */
 function refusalReason(route: { id: string, region?: InferenceRegion, gateways?: readonly AiGateway[] }, convexReason?: string): string {

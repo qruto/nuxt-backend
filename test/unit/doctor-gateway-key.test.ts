@@ -202,12 +202,98 @@ describe('doctor\'s model route on Convex Cloud, with the Convex AI Gateway\'s p
       expect(chosenGateways(rootDir)).toEqual(['vercel', 'convex'])
       for (const code of [
         `generateText({ model, providerOptions: { gateway: { order: ['vertex'] } } })`,
-        `setupAi(components, { billing, gateway: process.env.AI_ROUTE })`,
         `// setupAi(components, { billing, gateway: 'vercel' })`,
+        `setupAi(components, { billing, providerOptions: { gateway: { order: ['vertex'] } } })`,
+        `const help = "setupAi(components, { gateway: 'vercel' })"`,
       ]) {
         app({ deployment: 'dev:happy-otter-123', backend: { 'ai.ts': `${code}\n` } })
         expect(chosenGateways(rootDir)).toBeUndefined()
       }
+    })
+
+    it('says when the order is no literal it reads, rather than assume the default', () => {
+      for (const code of [
+        `setupAi(components, { billing, gateway: process.env.AI_ROUTE })`,
+        `const gateway = 'vercel'\nsetupAi(components, { billing, gateway })`,
+        `setupAi(components, { billing, gateway: [] })`,
+        `setupAi(components, { ...options, billing })`,
+        `setupAi(components, options)`,
+      ]) {
+        app({ deployment: 'dev:happy-otter-123', backend: { 'ai.ts': `${code}\n` } })
+        expect(chosenGateways(rootDir), code).toBe('unread')
+      }
+      app({ deployment: 'dev:happy-otter-123', backend: { 'ai.ts': `setupAi(components, { gateway: 'vercel' })\n`, 'other.ts': `setupAi(components, { gateway: 'convex' })\n` } })
+      expect(chosenGateways(rootDir)).toBe('unread')
+      app({ deployment: 'dev:happy-otter-123', backend: { 'ai.ts': `setupAi(components, { gateway: 'vercel' })\n`, 'other.ts': `setupAi(components, { "gateway": ['vercel'] })\n` } })
+      expect(chosenGateways(rootDir)).toEqual(['vercel'])
+    })
+
+    it('reports an order it cannot read as unchecked, and leaves the ai capability to billing', async () => {
+      app({ deployment: 'dev:happy-otter-123', backend: withGateway('process.env.AI_ROUTE') })
+      installProvider()
+      const found = await keyFinding()
+      expect(found).toMatchObject({ status: 'warn', message: expect.stringContaining('Doctor cannot read the gateway order') })
+      expect(found.message).toContain('is not checked')
+      const context = { env: {}, deployed: new Set(['BILLING_ACCESS_TOKEN']), deployment: 'cloud-dev' as const, findings: [found] }
+      expect(CAPABILITIES.ai.detect(context).state).not.toBe('missing')
+      expect(capabilityStatus('ai', context).missingEnv).toEqual([])
+    })
+
+    it('passes the Convex AI Gateway alone on a local deployment linked to a project, and warns on an anonymous one', async () => {
+      app({ deployment: 'local:local-happy-otter', backend: withGateway(`'convex'`) })
+      installProvider()
+      expect(await keyFinding()).toMatchObject({ status: 'pass', message: expect.stringContaining('the project this local deployment is linked to') })
+      app({ deployment: 'anonymous:anonymous-happy-otter', backend: withGateway(`'convex'`) })
+      const anonymous = await keyFinding()
+      expect(anonymous.status).toBe('warn')
+      expect(anonymous.message).toContain('an anonymous local deployment cannot reach')
+      expect(anonymous.fixHint).toMatch(/^Run `npx convex login`/)
+    })
+
+    it('takes the default order through a linked local deployment as Convex Cloud does', async () => {
+      app({ deployment: 'local:local-happy-otter', backend: NAMES_A_MODEL })
+      installProvider()
+      expect(await keyFinding()).toMatchObject({ status: 'pass', message: expect.stringContaining('go through the Convex AI Gateway') })
+      app({ deployment: 'anonymous:anonymous-happy-otter', backend: NAMES_A_MODEL })
+      expect(await keyFinding()).toMatchObject({ status: 'warn', message: expect.stringContaining('an anonymous local deployment cannot reach the Convex AI Gateway') })
+    })
+
+    it('never blames the key where the order does not read it', async () => {
+      const context = { env: {}, deployed: new Set(['BILLING_ACCESS_TOKEN']), deployment: 'self-hosted' as const }
+      writeFileSync(join(rootDir, '.env.local'), 'CONVEX_SELF_HOSTED_URL=https://convex.example.com\n')
+      mkdirSync(join(rootDir, 'backend'), { recursive: true })
+      for (const gateway of [`'convex'`, `'convex', inferenceRegion: 'eu'`]) {
+        writeFileSync(join(rootDir, 'backend/ai.ts'), `export const ai = setupAi(components, { billing, model: 'openai/gpt-5-mini', gateway: ${gateway} })\n`)
+        installProvider()
+        const found = await keyFinding()
+        expect(found.status).toBe('warn')
+        expect(CAPABILITIES.ai.detect({ ...context, findings: [found] })).toEqual({ state: 'missing', reason: 'its models are refused: no gateway in setupAi({ gateway }) can serve this deployment' })
+        expect(capabilityStatus('ai', { ...context, findings: [found] }).missingEnv).toEqual([])
+      }
+    })
+
+    it('warns when the backend checks images and the Vercel AI Gateway answers its default classifier', async () => {
+      const imagesFinding = async () => (await runDoctorChecks(rootDir, { prod: false, only: ['ai'] })).find(found => found.id === 'ai-moderation-images')!
+      const uploads = { 'uploads.ts': `export const check = action({ handler: async (ctx, { id }) => ai.requireSafe(ctx, { images: [id] }) })\n` }
+      deployed.names = 'AUTH_SECRET\nSITE_URL\nAI_GATEWAY_API_KEY\n'
+      installProvider()
+      app({ deployment: 'dev:happy-otter-123', backend: { ...withGateway(`'vercel'`), ...uploads } })
+      expect(await imagesFinding()).toMatchObject({ status: 'warn', message: expect.stringContaining('openai/gpt-oss-safeguard-20b reads text only') })
+      app({ deployment: 'dev:happy-otter-123', backend: { ...withGateway(`'vercel'`, `, moderation: { model: 'acme/vision-guard' }`), ...uploads } })
+      expect((await imagesFinding()).status).toBe('pass')
+      app({ deployment: 'dev:happy-otter-123', backend: { ...NAMES_A_MODEL, ...uploads } })
+      expect(await imagesFinding()).toMatchObject({ status: 'pass', message: expect.stringContaining('Llama Guard 4') })
+      rmSync(join(rootDir, 'backend/uploads.ts'))
+      app({ deployment: 'dev:happy-otter-123', backend: withGateway(`'vercel'`) })
+      expect(await imagesFinding()).toMatchObject({ status: 'pass', message: expect.stringContaining('No backend file checks images') })
+    })
+
+    it('sends production to a key of its own: env push --prod never forwards the development one', async () => {
+      app({ deployment: 'dev:happy-otter-123', backend: withGateway(`'vercel'`) })
+      const found = await keyFinding({ prod: true })
+      expect(found.status).toBe('fail')
+      expect(found.fixHint).toContain('npx convex env set --prod AI_GATEWAY_API_KEY')
+      expect(found.fixHint).not.toContain('env push --prod')
     })
 
     it('needs the key for the Vercel AI Gateway alone, even on a plan with the Convex one', async () => {

@@ -1228,6 +1228,7 @@
     "ai-stream-route": "ai",
     "ai-components": "ai",
     "ai-spend-limit": "ai",
+    "ai-moderation-images": "ai",
     "deployment-ai-gateway-api-key": "ai",
     "deployment-provenance-private-key": "ai",
     "deployment-provenance-certificate": "ai",

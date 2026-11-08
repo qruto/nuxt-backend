@@ -8,6 +8,7 @@ import { setupAi, type AiComponents } from '../../src/convex/integrations/ai'
 import type { Billing, SpendReservation } from '../../src/convex/integrations/billing'
 import { convexGatewayPossible, failedRun, modelRefusal, modelStatusOf, reportedUsd, routeModel, routingOf, TEST_EMBEDDING_MODELS, TEST_MODELS, type ModelCall } from '../../src/convex/integrations/ai/models'
 import { embeddingReachable } from '../../src/convex/integrations/ai/embeddings'
+import { createModeration, DEFAULT_MODERATION_MODEL, VERCEL_MODERATION_MODEL } from '../../src/convex/integrations/ai/moderation'
 import { priceModelCalls } from '../../src/convex/integrations/ai/pricing'
 import { TEST_IMAGE_PNG, TEST_MODEL_USD, TEST_UNSAFE_MARKER, testModel } from '../../src/convex/test-models'
 import { getBackendError } from '../../src/convex/errors'
@@ -1096,5 +1097,73 @@ describe('pricing the calls a run made', () => {
   it('refuses to guess a call it cannot price', () => {
     expect(priceModelCalls([call(0.1), call(undefined, 'acme-1')], { creditsPerUsd: 10 })).toBeUndefined()
     expect(priceModelCalls([call(undefined, 'acme-1')], { creditsPerUsd: 10, prices: { 'acme-1': { input: 1, output: 1 } } })).toBe(110)
+  })
+})
+
+describe('the default safety classifier, by the gateway that answers', () => {
+  const ctx = { auth: { getUserIdentity: async () => null } }
+  /** A moderation check whose recorded calls say which classifier it called. */
+  const check = (gateway?: Parameters<typeof routingOf>[0]['gateway'], model?: string, inferenceRegion?: 'eu') => {
+    const recordCost = vi.fn(async () => {})
+    const moderation = createModeration({ ...(model ? { moderation: { model } } : {}), routing: routingOf({ gateway, inferenceRegion }) }, undefined, recordCost)
+    const called = () => (recordCost.mock.calls[0] as unknown as [unknown, unknown, ModelCall[]] | undefined)?.[2].map(call => call.model)
+    return { moderation, called }
+  }
+  /** The Vercel AI Gateway's classifier answer, through a stubbed fetch. */
+  const vercelSays = (text: string) => vi.stubGlobal('fetch', vi.fn(async () => Response.json({
+    content: [{ type: 'text', text }],
+    finishReason: { unified: 'stop', raw: 'stop' },
+    usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } },
+    providerMetadata: { gateway: { cost: '0.0001' } },
+    warnings: [],
+  })))
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+    convexGateway.token.mockReset().mockRejectedValue(new Error('AiGatewayUnavailable: this deployment cannot use the AI Gateway'))
+    convexGateway.models.length = 0
+  })
+
+  it('checks with gpt-oss-safeguard through the Vercel AI Gateway, which serves no Llama Guard', async () => {
+    vi.stubEnv('CONVEX_CLOUD_URL', CLOUD)
+    vi.stubEnv('AI_GATEWAY_API_KEY', 'k')
+    vercelSays('safe')
+    for (const [gateway, region] of [['vercel'], [['vercel', 'convex']], [undefined, 'eu']] as const) {
+      const { moderation, called } = check(gateway, undefined, region)
+      expect(await moderation.moderate(ctx as never, { text: 'A fox who wants to fly' })).toEqual({ flagged: false, categories: [] })
+      expect(called()).toEqual([VERCEL_MODERATION_MODEL])
+    }
+    expect(convexGateway.token).not.toHaveBeenCalled()
+  })
+
+  it('checks with Llama Guard through the Convex AI Gateway, and with gpt-oss-safeguard once it cannot serve the deployment', async () => {
+    vi.stubEnv('CONVEX_CLOUD_URL', CLOUD)
+    vi.stubEnv('AI_GATEWAY_API_KEY', 'k')
+    convexGateway.token.mockResolvedValue('deployment-jwt')
+    const convex = check()
+    // The mock's answer is no verdict: what matters is who was asked.
+    await expect(convex.moderation.moderate(ctx as never, { text: 'A fox' })).rejects.toThrow(/gave no verdict/)
+    expect(convexGateway.models).toEqual([DEFAULT_MODERATION_MODEL])
+    expect(convex.called()).toEqual([DEFAULT_MODERATION_MODEL])
+    convexGateway.token.mockRejectedValue(new Error('AiGatewayDisabled: the AI Gateway needs a paid plan'))
+    vercelSays('safe')
+    const fallback = check()
+    expect(await fallback.moderation.moderate(ctx as never, { text: 'A fox' })).toEqual({ flagged: false, categories: [] })
+    expect(fallback.called()).toEqual([VERCEL_MODERATION_MODEL])
+  })
+
+  it('refuses an image check as unchecked where the Vercel AI Gateway answers, and says how to check images', async () => {
+    vi.stubEnv('AI_GATEWAY_API_KEY', 'k')
+    const { moderation } = check('vercel')
+    await expect(moderation.moderate(ctx as never, { images: ['kg2abc'] })).rejects.toThrow(/serves no classifier that reads images/)
+  })
+
+  it('always calls the classifier the app names', async () => {
+    vi.stubEnv('AI_GATEWAY_API_KEY', 'k')
+    vercelSays('safe')
+    const { moderation, called } = check('vercel', DEFAULT_MODERATION_MODEL)
+    expect(await moderation.moderate(ctx as never, { text: 'A fox' })).toEqual({ flagged: false, categories: [] })
+    expect(called()).toEqual([DEFAULT_MODERATION_MODEL])
   })
 })

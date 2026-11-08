@@ -467,6 +467,7 @@ The backend component's maintenance is part of this surface by its windows: what
 
 - `ai`:
   - `ai-components`
+  - `ai-moderation-images`
   - `ai-spend-limit`
   - `ai-stream-route`
   - `deployment-ai-gateway-api-key`

@@ -1130,7 +1130,7 @@ Defined in: [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="model-10"></a> `model?` | `LanguageModel` | **`Experimental`** The classifier, a `provider/model` id or a model object. Default `meta-llama/llama-guard-4-12b`, which the Convex AI Gateway serves and which reads images too. On the Vercel AI Gateway route, name one that gateway serves, such as `openai/gpt-oss-safeguard-20b`, which reads text only: a check with images is then refused as unchecked. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
+| <a id="model-10"></a> `model?` | `LanguageModel` | **`Experimental`** The classifier, a `provider/model` id or a model object, always used when named. By default, the one the gateway that answers serves: `meta-llama/llama-guard-4-12b` through the Convex AI Gateway, which reads images too; `openai/gpt-oss-safeguard-20b` through the Vercel AI Gateway (a pinned `inferenceRegion`, a Vercel-first order with the key, or the Convex one unable to serve the deployment), which reads text only: a check with images is then refused as unchecked. | [src/convex/integrations/ai/moderation.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/moderation.ts) |
 
 ***
 

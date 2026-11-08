@@ -63,29 +63,147 @@ export function pinnedRegion(rootDir: string): string | undefined {
 /** A gateway `setupAi({ gateway })` may name. */
 export type NamedGateway = 'convex' | 'vercel'
 
-/**
- * `setupAi({ gateway: 'vercel' })` or `gateway: ['vercel', 'convex']`, as a
- * literal. The object `providerOptions: { gateway: { … } }` takes is never
- * one: it starts with a brace.
- */
-const GATEWAY_ORDER = /\bgateway\s*:\s*(?:(['"`])(convex|vercel)\1|\[([^\]]*)\])/
 /** What a list of gateways holds: quoted names, and commas between them. */
 const GATEWAY_LIST = /^\s*(?:(['"`])(?:convex|vercel)\1\s*(?:,\s*)?)+$/
 const GATEWAY_NAME = /['"`](convex|vercel)['"`]/g
+/** One quoted gateway name, whole. */
+const GATEWAY_LITERAL = /^(['"`])(convex|vercel)\1$/
+
+/**
+ * `code` twice, each the same length so an index points at the same
+ * character in both: `plain` with comments blanked, `bare` with the
+ * insides of strings blanked too, where only the code's structure is left.
+ */
+function blanked(code: string): { plain: string, bare: string } {
+  const spaces = (token: string) => token.replace(/[^\n]/g, ' ')
+  const plain = code.replace(STRINGS_AND_COMMENTS, token => token.startsWith('/') ? spaces(token) : token)
+  const bare = code.replace(STRINGS_AND_COMMENTS, token => token.startsWith('/') ? spaces(token) : token[0] + spaces(token.slice(1, -1)) + token.at(-1))
+  return { plain, bare }
+}
+
+const OPEN = '([{'
+const CLOSE = ')]}'
+
+/** The index of the bracket that closes the one at `at`, in `bare`; `-1` when none does. */
+function closing(bare: string, at: number): number {
+  let depth = 0
+  for (let index = at; index < bare.length; index++) {
+    if (OPEN.includes(bare[index]!)) depth++
+    else if (CLOSE.includes(bare[index]!) && --depth === 0) return index
+  }
+  return -1
+}
+
+/** The top-level parts of a bracketed span of `bare` (`from` and `to` the brackets), split at its commas. */
+function topLevelParts(bare: string, from: number, to: number): Array<[number, number]> {
+  const parts: Array<[number, number]> = []
+  let depth = 0
+  let start = from + 1
+  for (let index = from + 1; index < to; index++) {
+    const char = bare[index]!
+    if (OPEN.includes(char)) depth++
+    else if (CLOSE.includes(char)) depth--
+    else if (char === ',' && depth === 0) {
+      parts.push([start, index])
+      start = index + 1
+    }
+  }
+  if (bare.slice(start, to).trim()) parts.push([start, to])
+  return parts
+}
+
+/** A gateway order as `setupAi` was given it, or `'unread'` when doctor cannot read it as a literal. */
+type ReadOrder = NamedGateway[] | 'unread' | undefined
+
+/**
+ * The order one `setupAi(…)` call names: `undefined` when its options
+ * leave `gateway` out, `'unread'` when they are no object literal, spread
+ * another object in, or give `gateway` as anything but a quoted name or a
+ * list of them (a variable, the shorthand `{ gateway }`, an empty list).
+ */
+function orderOfCall(plain: string, bare: string, open: number): ReadOrder {
+  const close = closing(bare, open)
+  if (close < 0) return 'unread'
+  const options = topLevelParts(bare, open, close)[1]
+  if (!options) return undefined
+  const start = options[0] + (bare.slice(options[0], options[1]).length - bare.slice(options[0], options[1]).trimStart().length)
+  if (bare[start] !== '{') return 'unread'
+  const end = closing(bare, start)
+  let order: ReadOrder
+  for (const [from, to] of topLevelParts(bare, start, end)) {
+    const property = bare.slice(from, to).trim()
+    if (property.startsWith('...')) return 'unread'
+    // The key read off `plain`, where a quoted key keeps its name.
+    const text = plain.slice(from, to).trim()
+    const key = /^(['"`]?)gateway\1\s*(:|$)/.exec(text)
+    if (!key) continue
+    if (!key[2]) return 'unread'
+    const value = text.slice(key[0].length).trim()
+    const single = GATEWAY_LITERAL.exec(value)
+    if (single) order = [single[2] as NamedGateway]
+    else if (value.startsWith('[') && value.endsWith(']') && GATEWAY_LIST.test(value.slice(1, -1))) order = [...new Set([...value.matchAll(GATEWAY_NAME)].map(([, name]) => name as NamedGateway))]
+    else return 'unread'
+  }
+  return order
+}
 
 /**
  * The gateways the backend in `rootDir` sends its model ids through, in
- * order, when it names them as a literal; `undefined` when it names none or
- * builds the order at run time, read as the default order.
+ * order, read off its `setupAi(…)` calls: `undefined` when none names one
+ * (the default order), `'unread'` when doctor cannot read it as a literal
+ * (see {@link orderOfCall}) or two calls name different orders.
  */
-export function chosenGateways(rootDir: string): NamedGateway[] | undefined {
+export function chosenGateways(rootDir: string): NamedGateway[] | 'unread' | undefined {
+  const orders: ReadOrder[] = []
   for (const code of backendSources(rootDir)) {
-    const match = GATEWAY_ORDER.exec(code.replace(STRINGS_AND_COMMENTS, token => token.startsWith('/') ? '' : token))
-    if (!match || (match[3] !== undefined && !GATEWAY_LIST.test(match[3]))) continue
-    const names = match[2] ? [match[2]] : [...match[3]!.matchAll(GATEWAY_NAME)].map(([, name]) => name!)
-    return [...new Set(names as NamedGateway[])]
+    const { plain, bare } = blanked(code)
+    for (const call of bare.matchAll(/\bsetupAi\s*\(/g)) orders.push(orderOfCall(plain, bare, call.index + call[0].length - 1))
   }
-  return undefined
+  if (orders.includes('unread')) return 'unread'
+  const named = new Set(orders.map(order => (order as NamedGateway[] | undefined)?.join(',') ?? 'convex,vercel'))
+  if (named.size > 1) return 'unread'
+  return orders.find(order => order !== undefined) as NamedGateway[] | undefined
+}
+
+/** The end of the value that starts at `from` in `bare`: the comma or closing bracket at its own depth. */
+function valueEnd(bare: string, from: number): number {
+  let depth = 0
+  for (let index = from; index < bare.length; index++) {
+    const char = bare[index]!
+    if (OPEN.includes(char)) depth++
+    else if (CLOSE.includes(char) && depth-- === 0) return index
+    else if (char === ',' && depth === 0) return index
+  }
+  return bare.length
+}
+
+/**
+ * Whether the backend in `rootDir` checks images with the safety classifier:
+ * `images` inside an `ai.moderate(…)` or `ai.requireSafe(…)` call, or in a
+ * `moderate` option of an action, a stream or a job.
+ */
+export function checksImages(rootDir: string): boolean {
+  return backendSources(rootDir).some((code) => {
+    const { bare } = blanked(code)
+    for (const match of bare.matchAll(/\b(?:moderate|requireSafe)\s*([(:])/g)) {
+      const at = match.index + match[0].length - 1
+      const end = match[1] === '(' ? closing(bare, at) : valueEnd(bare, at + 1)
+      if (/\bimages\b/.test(bare.slice(at, end < 0 ? bare.length : end))) return true
+    }
+    return false
+  })
+}
+
+/** Whether the backend in `rootDir` names its own safety classifier: `moderation: { model }` in `setupAi`. */
+export function namesModerationModel(rootDir: string): boolean {
+  return backendSources(rootDir).some((code) => {
+    const { bare } = blanked(code)
+    for (const match of bare.matchAll(/\bmoderation\s*:\s*\{/g)) {
+      const open = match.index + match[0].length - 1
+      if (/\bmodel\b/.test(bare.slice(open, closing(bare, open)))) return true
+    }
+    return false
+  })
 }
 
 /** `setupAi({ provenance })` turned on (anything but `false`), or a `ctx.storeImage(…)` call. */
