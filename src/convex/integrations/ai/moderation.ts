@@ -5,7 +5,7 @@ import { logBackend } from '../../log.js'
 import type { AiModel, InferenceRegion } from './config.js'
 import type { RecordCost } from './costs.js'
 import { upstreamErrorOf } from './job-errors.js'
-import { loadSdk, meteredModel, modelIdOf, type ModelCall, requireModelId, routeModel } from './models.js'
+import { loadSdk, meteredModel, modelIdOf, type ModelCall, type ModelRoutes, requireModelId, routeModel } from './models.js'
 
 // Content safety's check (`ai.moderate`, `ai.requireSafe`, `moderate` on a
 // metered action, a stream, a chat or a job): a call to a safety classifier
@@ -151,7 +151,7 @@ function refuseUnreadImages(id: string): never {
  * The check `setupAi` builds: `moderate` answers the verdict, `requireSafe`
  * throws the refusal a flagged prompt gets.
  */
-export function createModeration(config: { moderation?: ModerationConfig, inferenceRegion?: InferenceRegion }, storage: StorageBytesRef | undefined, recordCost?: RecordCost) {
+export function createModeration(config: { moderation?: ModerationConfig, inferenceRegion?: InferenceRegion, routes?: ModelRoutes }, storage: StorageBytesRef | undefined, recordCost?: RecordCost) {
   const model = config.moderation?.model ?? DEFAULT_MODERATION_MODEL
   requireModelId(model, 'setupAi({ moderation })')
   const id = modelIdOf(model)
@@ -210,7 +210,7 @@ export function createModeration(config: { moderation?: ModerationConfig, infere
     // The check's own calls: never priced against anyone's credits, but
     // recorded as the app's cost, against who asked when someone is signed in.
     const calls: ModelCall[] = []
-    const classifier = meteredModel(routeModel(model, undefined, config.inferenceRegion), calls, config.inferenceRegion)
+    const classifier = meteredModel(routeModel(model, undefined, { region: config.inferenceRegion, routes: config.routes }), calls, config.inferenceRegion)
     let result: Awaited<ReturnType<typeof sdk.generateText>>
     // A gateway that hangs must not hold the caller's action until it times out.
     const deadline = new AbortController()

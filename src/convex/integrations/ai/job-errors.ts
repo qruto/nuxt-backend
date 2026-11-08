@@ -130,6 +130,21 @@ export function classifyStepError(error: unknown, calls: readonly ModelCall[] = 
   return { kind: 'fatal' }
 }
 
+/**
+ * An error a job step throws for a failure another attempt may not meet,
+ * such as a model that answered with no image: the queue waits and runs
+ * the step again, up to 4 attempts, as for a provider's passing error,
+ * instead of failing the job at once.
+ *
+ * @example
+ * ```ts
+ * if (!image) throw retryable(`The model returned no image (${result.finishReason})`)
+ * ```
+ */
+export function retryable(message: string): Error {
+  return Object.assign(new Error(message), { isRetryable: true })
+}
+
 /** Whether a failure may pass on another attempt: a throttle, a timeout or a passing provider error. */
 export function isPassing(failure: StepFailure): failure is Extract<StepFailure, { kind: 'throttled' | 'retryable' }> {
   return failure.kind === 'throttled' || failure.kind === 'retryable'

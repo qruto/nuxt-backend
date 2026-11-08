@@ -6,7 +6,7 @@ import { MockLanguageModelV4 } from 'ai/test'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setupAi, type AiComponents } from '../../src/convex/integrations/ai'
 import type { Billing, SpendReservation } from '../../src/convex/integrations/billing'
-import { convexGatewayPossible, failedRun, modelRefusal, modelStatusOf, reportedUsd, routeModel, type ModelCall } from '../../src/convex/integrations/ai/models'
+import { convexGatewayPossible, failedRun, modelRefusal, modelStatusOf, reportedUsd, routeFor, routeModel, type ModelCall } from '../../src/convex/integrations/ai/models'
 import { priceModelCalls } from '../../src/convex/integrations/ai/pricing'
 import { TEST_IMAGE_PNG, TEST_MODEL_USD, TEST_UNSAFE_MARKER, testModel } from '../../src/convex/test-models'
 import { getBackendError } from '../../src/convex/errors'
@@ -938,5 +938,37 @@ describe('pricing the calls a run made', () => {
   it('refuses to guess a call it cannot price', () => {
     expect(priceModelCalls([call(0.1), call(undefined, 'acme-1')], { creditsPerUsd: 10 })).toBeUndefined()
     expect(priceModelCalls([call(undefined, 'acme-1')], { creditsPerUsd: 10, prices: { 'acme-1': { input: 1, output: 1 } } })).toBe(110)
+  })
+})
+
+describe('setupAi({ routes })', () => {
+  const routes = { 'google/*': 'vercel-gateway', 'google/gemini-3-flash': 'convex-gateway', 'openai/gpt-image-2': 'vercel-gateway' } as const
+
+  it('names a gateway by the id\'s own key first, then the longest provider pattern', () => {
+    expect(routeFor('google/gemini-3-flash', routes)).toBe('convex-gateway')
+    expect(routeFor('google/gemini-3.1-flash-image-preview', routes)).toBe('vercel-gateway')
+    expect(routeFor('openai/gpt-image-2', routes)).toBe('vercel-gateway')
+    expect(routeFor('openai/gpt-5-mini', routes)).toBeUndefined()
+    expect(routeFor('google/x', { 'google/*': 'convex-gateway', 'goo*': 'vercel-gateway' } as never)).toBe('convex-gateway')
+  })
+
+  it('skips the Convex AI Gateway for a vercel-gateway route, and gives a convex-gateway route no Vercel fallback', () => {
+    const env = { CONVEX_CLOUD_URL: CLOUD, AI_GATEWAY_API_KEY: 'k' }
+    expect(routeModel('google/gemini-3.1-flash-image-preview', env, { routes })).toEqual({ route: 'gateway', id: 'google/gemini-3.1-flash-image-preview', apiKey: 'k' })
+    expect(routeModel('google/gemini-3-flash', env, { routes })).toEqual({ route: 'convex', id: 'google/gemini-3-flash', fallback: { route: 'missing', id: 'google/gemini-3-flash' } })
+    // A model no route names goes the usual way.
+    expect(routeModel('openai/gpt-5-mini', env, { routes })).toEqual({ route: 'convex', id: 'openai/gpt-5-mini', fallback: { route: 'gateway', id: 'openai/gpt-5-mini', apiKey: 'k' } })
+    expect(modelStatusOf('google/gemini-3.1-flash-image-preview', env, { routes })).toEqual({ model: 'google/gemini-3.1-flash-image-preview', state: 'live', route: 'vercel-gateway' })
+    // Off Convex Cloud, a convex-gateway route has nowhere to go.
+    expect(modelStatusOf('google/gemini-3-flash', { CONVEX_CLOUD_URL: SELF_HOSTED, AI_GATEWAY_API_KEY: 'k' }, { routes })).toEqual({ model: 'google/gemini-3-flash', state: 'missing', route: null })
+    // A pinned region wins over a route.
+    expect(routeModel('google/gemini-3-flash', env, { region: 'eu', routes })).toEqual({ route: 'gateway', id: 'google/gemini-3-flash', apiKey: 'k' })
+  })
+
+  it('refuses routes it cannot keep where setupAi is called', () => {
+    const components = {} as AiComponents
+    expect(() => setupAi(components, { billing: {} as Billing, routes: { gemini: 'vercel-gateway' } as never })).toThrow(/no provider\/model id or provider\/\* pattern/)
+    expect(() => setupAi(components, { billing: {} as Billing, routes: { 'google/*': 'openrouter' } as never })).toThrow(/'vercel-gateway' or 'convex-gateway'/)
+    expect(() => setupAi(components, { billing: {} as Billing, routes: ['google/*'] as never })).toThrow(/maps model ids/)
   })
 })

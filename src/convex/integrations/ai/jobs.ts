@@ -49,6 +49,7 @@ import { AI_CONTEXTS } from './context.js'
 import { usageOf } from './costs.js'
 import { catalogPayload, classifyStepError, failurePayload, isPassing, modelOutcomeOf } from './job-errors.js'
 import type { ModerationInput } from './moderation.js'
+import { type AiImageModel, meteredImageModel } from './images.js'
 import { settledAmount } from './metering.js'
 import { meteredModel, type ModelCall, modelIdOf, modelRefusal, requireModelId, routeModel } from './models.js'
 import { provenVisitor } from '../../visitor.js'
@@ -83,6 +84,9 @@ const CLAIM_ATTEMPTS = 7
 
 /** The wait before the claim's next look: a second, doubling. */
 const claimBackoff = (attempt: number): number => 2 ** attempt * 1000
+
+/** How long a step's model calls may run, unless it sets its own `timeout`: three minutes, or less under a shorter `stallAfter`. */
+const DEFAULT_STEP_TIMEOUT = 3 * 60 * 1000
 
 /** How many times a step may find no free turn before its job fails: about a day at one call a minute. */
 const MAX_WAITS = 1500
@@ -274,14 +278,43 @@ export interface JobDefinition<Args extends PropertyValidators, Result> {
 export interface JobStepContext extends ImageStoreContext {
   /** The model to call: the step's own, or another by id or object. */
   model: (model?: AiModel) => MeteredModel
+  /**
+   * The image model to call with the AI SDK's `generateImage`: the step's
+   * own, or another by id or object. Through the same route as `ctx.model()`
+   * (`setupAi({ routes })` included), and metered the same way: its cost
+   * counts in the job's cost report, the Costs tab and `spendLimit`, and
+   * `ctx.storeImage` names it in the image's provenance.
+   */
+  image: (model?: AiImageModel) => ImageModelOf
+  /** Aborted when the step's `timeout` runs out: every `ctx.model()` and `ctx.image()` call gets it unless it brings its own. */
+  signal: AbortSignal
+  /**
+   * Settings to spread into `generateText`, `streamText` or
+   * `generateImage`: no retries of the AI SDK's own (the queue retries the
+   * step, under the model's limit), and the step's `signal`.
+   */
+  callSettings: { maxRetries: 0, abortSignal: AbortSignal }
   /** The job it runs for, and which attempt this is. */
   job: { id: string, attempt: number }
 }
 
+/** The image model `ctx.image()` returns: an AI SDK image model. */
+export type ImageModelOf = ReturnType<typeof meteredImageModel>
+
 /** A step of a job: `jobs.step`. */
 export interface JobStepDefinition<Args extends PropertyValidators, Result> {
-  /** The model its calls go to: the step takes a turn from this model's limit before it runs. */
+  /**
+   * The model its calls go to, a language or an image model's id: the step
+   * takes a turn from this model's limit before it runs, and `ctx.model()`
+   * or `ctx.image()` calls it when named no other.
+   */
   model?: AiModel
+  /**
+   * How long its model calls may run, in ms, before they are aborted and the
+   * attempt is tried again as a timeout. Default 3 minutes, or 80% of
+   * `stallAfter` when that is less; it must be shorter than `stallAfter`.
+   */
+  timeout?: number
   args: Args
   handler: (ctx: GenericActionCtx<GenericDataModel> & JobStepContext, args: ObjectType<Args>) => Promise<Result>
 }
@@ -714,6 +747,10 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   const step: JobQueue['step'] = (definition) => {
     if (definition.model !== undefined) requireModelId(definition.model, 'jobs.step')
     const modelId = definition.model === undefined ? undefined : modelIdOf(definition.model)
+    const timeout = definition.timeout ?? Math.min(DEFAULT_STEP_TIMEOUT, Math.floor(policy.stallAfter * 0.8))
+    if (!(Number.isFinite(timeout) && timeout > 0 && timeout < policy.stallAfter)) {
+      throw new TypeError(`[nuxt-backend] jobs.step: \`timeout\` is a number of ms above 0 and below the queue's \`stallAfter\` (${policy.stallAfter}), or the job would be failed as stalled while its step still runs.`)
+    }
     return internalActionGeneric({
       args: { ...definition.args, queuedJob: v.optional(v.object({ id: v.string(), attempt: v.number() })) },
       returns: v.any(),
@@ -725,19 +762,33 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
         if (waiting) return waiting
         await ctx.runMutation(queue.touch, { jobId, until: lease(), attempt: true })
         const calls: ModelCall[] = []
+        const routing = { region: aiConfig.inferenceRegion, routes: aiConfig.routes }
+        // The step's deadline: every model call gets it, and a timeout is tried again like a provider's.
+        const deadline = new AbortController()
+        const timer = setTimeout(() => deadline.abort(Object.assign(new Error(`The step timed out after ${timeout / 1000}s.`), { name: 'TimeoutError' })), timeout)
         const pick = (model?: AiModel): MeteredModel => {
           const chosen = model ?? definition.model ?? aiConfig.model
           if (chosen === undefined) throw new Error('[nuxt-backend] ctx.model(): no model to call — set `model` on the step or on setupAi, or pass one.')
           requireModelId(chosen, 'ctx.model()')
-          return meteredModel(routeModel(chosen, undefined, aiConfig.inferenceRegion), calls, aiConfig.inferenceRegion)
+          return meteredModel(routeModel(chosen, undefined, routing), calls, aiConfig.inferenceRegion, deadline.signal)
         }
+        const image = (model?: AiImageModel): ImageModelOf => {
+          const chosen = model ?? (typeof definition.model === 'string' ? definition.model : undefined)
+          if (chosen === undefined) throw new Error('[nuxt-backend] ctx.image(): no image model to call — set `model` on the step to an image model\'s id, or pass one.')
+          if (typeof chosen === 'string') requireModelId(chosen, 'ctx.image()')
+          return meteredImageModel(chosen, calls, { ...routing, signal: deadline.signal })
+        }
+        const callSettings = { maxRetries: 0 as const, abortSignal: deadline.signal }
         let value: unknown
         try {
           const storeImage = imageStore(ctx, aiConfig.provenance, provenanceRows, { jobId, calls, model: modelId })
-          value = await definition.handler(Object.assign(ctx, { model: pick, job: { id: jobId, attempt }, storeImage }) as never, args as never)
+          value = await definition.handler(Object.assign(ctx, { model: pick, image, signal: deadline.signal, callSettings, job: { id: jobId, attempt }, storeImage }) as never, args as never)
         }
         catch (error) {
           return await failedAttempt(ctx, { jobId, attempt, modelId }, error, calls)
+        }
+        finally {
+          clearTimeout(timer)
         }
         const usage = usageOf(calls)
         await ctx.runMutation(queue.touch, defined({ jobId, until: lease(), usage, spendLimitUsd: aiConfig.spendLimit?.usdPerDay }))
@@ -809,7 +860,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   /** Refuse a job when a model the queue lists, or setupAi's, has no route on this deployment. */
   const requireModelRoutes = (): void => {
     for (const model of [...modelDefaults.keys(), ...(aiConfig.model === undefined ? [] : [aiConfig.model])]) {
-      const route = routeModel(model, undefined, aiConfig.inferenceRegion)
+      const route = routeModel(model, undefined, { region: aiConfig.inferenceRegion, routes: aiConfig.routes })
       if (route.route === 'missing') throw modelRefusal(route)
     }
   }

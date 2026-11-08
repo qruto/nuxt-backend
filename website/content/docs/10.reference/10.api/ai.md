@@ -404,6 +404,7 @@ Defined in: [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt
 | <a id="streamtimeout"></a> `streamTimeout?` | `number` \| `false` | **`Experimental`** How long a started stream may hold its reservation before it is released automatically (ms). Default 5 minutes; `false` disables the timer. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="guest"></a> `guest?` | [`AiGuestConfig`](#aiguestconfig) | **`Experimental`** What happens to a visitor's guest jobs (`defineJobQueue({ guest })`) once they sign up. See [AiGuestConfig](#aiguestconfig). | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="inferenceregion"></a> `inferenceRegion?` | `"eu"` | **`Experimental`** Pin every model call to providers' endpoints in one region. `'eu'` sends every `provider/model` id through the Vercel AI Gateway with `AI_GATEWAY_API_KEY` (the Convex AI Gateway documents no inference region, so it is never tried), and adds the gateway's `providerOptions.gateway.inferenceRegion: { scope: 'zone', geoRegion: 'eu' }` to every call through `ctx.model()`. A model no provider serves in the region is refused by the gateway, and the run's reservation released. A call that reports running elsewhere logs `ai.region_mismatch`. The pin covers inference only: the deployment's data stays in its Convex region. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
+| <a id="routes"></a> `routes?` | `Readonly`\<`Record`\<`string`, `"convex-gateway"` \| `"vercel-gateway"`\>\> | **`Experimental`** Send some models' calls through one gateway, by id or by a `provider/*` pattern: `'vercel-gateway'` skips the Convex AI Gateway (a model it does not serve, or a provider it serves slower), `'convex-gateway'` never falls back to `AI_GATEWAY_API_KEY`. An id's own key wins over a pattern, and a longer pattern over a shorter one. Applies to language and image models alike; `inferenceRegion` overrides it. **Example** `setupAi(components, { billing, routes: { 'google/*': 'vercel-gateway', 'openai/gpt-image-2': 'vercel-gateway' } })` | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="provenance"></a> `provenance?` | [`ProvenanceConfig`](#provenanceconfig) | **`Experimental`** Content credentials on what a model made (EU AI Act Art. 50): every image stored through `ctx.storeImage` gets a C2PA manifest signed with `PROVENANCE_PRIVATE_KEY` and the IPTC `trainedAlgorithmicMedia` digital source type, and a provenance record of the models, the time and its inputs' ids; job results carry `provenance`. `true` for the defaults, `{ name }` for the generator name each manifest shows. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="moderation"></a> `moderation?` | [`ModerationConfig`](#moderationconfig) | **`Experimental`** The safety classifier `ai.moderate`, `ai.requireSafe` and every `moderate` option check content with: a model call through the gateway, on the app's bill, never on the person's credits. Its cost is recorded like any run's, so `spendLimit` counts it. Default `{ model: 'meta-llama/llama-guard-4-12b' }`. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
 | <a id="spendlimit"></a> `spendLimit?` | [`AiSpendLimit`](#aispendlimit) | **`Experimental`** The daily ceiling on what AI costs the whole app ([AiSpendLimit](#aispendlimit)). A `sandbox` deployment, a public demo, refuses every metered call, stream, job and chat reply without one (`not_ready`, reason `no_budget`): anyone may sign up there, and the model calls are real. | [src/convex/integrations/ai/config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/config.ts) |
@@ -837,6 +838,11 @@ What a step's handler gets beside the action context.
 | Property | Type | Description | Inherited from | Defined in |
 | ------ | ------ | ------ | ------ | ------ |
 | <a id="model-6"></a> `model` | (`model?`) => `LanguageModelV4` | **`Experimental`** The model to call: the step's own, or another by id or object. | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="image"></a> `image` | (`model?`) => `ImageModelV4` | **`Experimental`** The image model to call with the AI SDK's `generateImage`: the step's own, or another by id or object. Through the same route as `ctx.model()` (`setupAi({ routes })` included), and metered the same way: its cost counts in the job's cost report, the Costs tab and `spendLimit`, and `ctx.storeImage` names it in the image's provenance. | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="signal"></a> `signal` | `AbortSignal` | **`Experimental`** Aborted when the step's `timeout` runs out: every `ctx.model()` and `ctx.image()` call gets it unless it brings its own. | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="callsettings"></a> `callSettings` | \{ `maxRetries`: `0`; `abortSignal`: `AbortSignal`; \} | **`Experimental`** Settings to spread into `generateText`, `streamText` or `generateImage`: no retries of the AI SDK's own (the queue retries the step, under the model's limit), and the step's `signal`. | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| `callSettings.maxRetries` | `0` | - | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| `callSettings.abortSignal` | `AbortSignal` | - | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="job"></a> `job` | \{ `id`: `string`; `attempt`: `number`; \} | **`Experimental`** The job it runs for, and which attempt this is. | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | `job.id` | `string` | - | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | `job.attempt` | `number` | - | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
@@ -863,7 +869,8 @@ A step of a job: `jobs.step`.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="model-7"></a> `model?` | `LanguageModel` | **`Experimental`** The model its calls go to: the step takes a turn from this model's limit before it runs. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="model-7"></a> `model?` | `LanguageModel` | **`Experimental`** The model its calls go to, a language or an image model's id: the step takes a turn from this model's limit before it runs, and `ctx.model()` or `ctx.image()` calls it when named no other. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="timeout"></a> `timeout?` | `number` | **`Experimental`** How long its model calls may run, in ms, before they are aborted and the attempt is tried again as a timeout. Default 3 minutes, or 80% of `stallAfter` when that is less; it must be shorter than `stallAfter`. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="args-4"></a> `args` | `Args` | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="handler-3"></a> `handler` | (`ctx`, `args`) => `Promise`\<`Result`\> | **`Experimental`** | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
@@ -1408,6 +1415,20 @@ An embedding model: a `provider/model` id from the gateway's list, or an AI SDK 
 
 ***
 
+### AiImageModel
+
+```ts
+type AiImageModel = string | Exclude<ImageModel, string>;
+```
+
+Defined in: [src/convex/integrations/ai/images.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/images.ts)
+
+**`Experimental`**
+
+An image model: a `provider/model` id from the gateway's list, or an AI SDK image model object.
+
+***
+
 ### JobEnd
 
 ```ts
@@ -1488,6 +1509,22 @@ Defined in: [src/convex/integrations/ai/knowledge.ts](https://github.com/qruto/n
 **`Experimental`**
 
 What adding a document costs, from the length of the text it embeds.
+
+***
+
+### ModelRoutes
+
+```ts
+type ModelRoutes = Readonly<Record<string, "vercel-gateway" | "convex-gateway">>;
+```
+
+Defined in: [src/convex/integrations/ai/models.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/models.ts)
+
+**`Experimental`**
+
+Which gateway a model's calls take, by id or by `provider/*` pattern
+(`setupAi({ routes })`): `vercel-gateway` skips the Convex AI Gateway,
+`convex-gateway` never falls back to the Vercel one.
 
 ***
 
@@ -1605,6 +1642,39 @@ How a job ended, as `onJobEnd` receives it: use these as your function's
 | <a id="property-args"></a> `args` | `VAny`\<`any`, `"required"`, `string`\> | The args it was put in line with. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
 ## Functions
+
+### retryable()
+
+```ts
+function retryable(message): Error;
+```
+
+Defined in: [src/convex/integrations/ai/job-errors.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/job-errors.ts)
+
+**`Experimental`**
+
+An error a job step throws for a failure another attempt may not meet,
+such as a model that answered with no image: the queue waits and runs
+the step again, up to 4 attempts, as for a provider's passing error,
+instead of failing the job at once.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `message` | `string` |
+
+#### Returns
+
+`Error`
+
+#### Example
+
+```ts
+if (!image) throw retryable(`The model returned no image (${result.finishReason})`)
+```
+
+***
 
 ### defineJobQueue()
 

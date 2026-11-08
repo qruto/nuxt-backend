@@ -4,7 +4,7 @@ import { AI_CONTEXTS, createAiContext } from './context.js'
 import { costsApi } from './costs.js'
 import { createKnowledge } from './knowledge.js'
 import { createMetering } from './metering.js'
-import { modelStatusOf } from './models.js'
+import { modelStatusOf, requireRoutes } from './models.js'
 import { provenanceReader, type ProvenanceRefs } from './provenance.js'
 import { createStreams } from './stream.js'
 
@@ -26,12 +26,13 @@ import { createStreams } from './stream.js'
  * ```
  */
 export function setupAi(components: AiComponents, config: SetupAiConfig): Ai {
+  requireRoutes(config.routes)
   const context = createAiContext(components, config)
   const metering = createMetering(context)
   const { stream, httpHandler } = createStreams(context, metering)
   const { meteredAction } = metering
   const { corsOrigin } = context
-  const modelStatus: Ai['modelStatus'] = model => modelStatusOf(model ?? config.model, undefined, config.inferenceRegion)
+  const modelStatus: Ai['modelStatus'] = model => modelStatusOf(model ?? config.model, undefined, { region: config.inferenceRegion, routes: config.routes })
 
   // The Agent and RAG components are the app's own mounts, reached only when a chat or a store runs.
   const mounted = components as AiComponents & { agent?: unknown, rag?: unknown }

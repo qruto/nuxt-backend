@@ -155,7 +155,7 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
       throw new Error('[nuxt-backend] ctx.model(): no model to call — set `model` on setupAi or on the action, or pass one.')
     }
     requireModelId(chosen, 'ctx.model()')
-    return meteredModel(routeModel(chosen, undefined, config.inferenceRegion), calls, config.inferenceRegion)
+    return meteredModel(routeModel(chosen, undefined, { region: config.inferenceRegion, routes: config.routes }), calls, config.inferenceRegion)
   }
 
   /**
@@ -182,7 +182,7 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
     // the caller is known, refuse before the rate limit, the budget or the
     // balance counts anything.
     if (options.model !== undefined) {
-      const route = routeModel(options.model, undefined, config.inferenceRegion)
+      const route = routeModel(options.model, undefined, { region: config.inferenceRegion, routes: config.routes })
       if (route.route === 'missing') throw modelRefusal(route)
     }
 

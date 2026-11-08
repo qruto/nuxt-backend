@@ -368,7 +368,7 @@ export function createChats(context: AiContext, metering: AiMetering, agentCompo
     const prepareAppReply = async (ctx: MutationCtx, userId: string): Promise<{ usage: MeteredUsage, reservation: SpendReservation }> => {
       await refuseAi(ctx as never)
       if (model !== undefined) {
-        const route = routeModel(model, undefined, config.inferenceRegion)
+        const route = routeModel(model, undefined, { region: config.inferenceRegion, routes: config.routes })
         if (route.route === 'missing') throw modelRefusal(route)
       }
       const limitName = definition.limit ?? 'ai'

@@ -9,6 +9,7 @@ import type { Chat, ChatConfig } from './chat.js'
 import type { Knowledge, KnowledgeConfig } from './knowledge.js'
 import type { TokenPriceTable } from './pricing.js'
 import type { ModerationConfig, ModerationCtx, ModerationInput, ModerationVerdict } from './moderation.js'
+import type { ModelRoutes } from './models.js'
 import type { ImageStoreContext, JobProvenance, ProvenanceConfig } from './provenance.js'
 
 // What `setupAi` is configured with and what it hands back: every public type
@@ -308,6 +309,20 @@ export interface SetupAiConfig {
    * Convex region.
    */
   inferenceRegion?: InferenceRegion
+  /**
+   * Send some models' calls through one gateway, by id or by a
+   * `provider/*` pattern: `'vercel-gateway'` skips the Convex AI Gateway
+   * (a model it does not serve, or a provider it serves slower),
+   * `'convex-gateway'` never falls back to `AI_GATEWAY_API_KEY`. An id's own
+   * key wins over a pattern, and a longer pattern over a shorter one. Applies
+   * to language and image models alike; `inferenceRegion` overrides it.
+   *
+   * @example
+   * ```ts
+   * setupAi(components, { billing, routes: { 'google/*': 'vercel-gateway', 'openai/gpt-image-2': 'vercel-gateway' } })
+   * ```
+   */
+  routes?: ModelRoutes
   /**
    * Content credentials on what a model made (EU AI Act Art. 50): every
    * image stored through `ctx.storeImage` gets a C2PA manifest signed with

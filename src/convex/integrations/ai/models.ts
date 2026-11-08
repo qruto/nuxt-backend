@@ -133,6 +133,53 @@ export const TEST_MODELS = Symbol.for('nuxt-backend.testModels')
 /** The same, for an embedding model's id (`ai.knowledge`). */
 export const TEST_EMBEDDING_MODELS = Symbol.for('nuxt-backend.testEmbeddingModels')
 
+/** The same, for an image model's id (`ctx.image()` in a job step). */
+export const TEST_IMAGE_MODELS = Symbol.for('nuxt-backend.testImageModels')
+
+/**
+ * Which gateway a model's calls take, by id or by `provider/*` pattern
+ * (`setupAi({ routes })`): `vercel-gateway` skips the Convex AI Gateway,
+ * `convex-gateway` never falls back to the Vercel one.
+ */
+export type ModelRoutes = Readonly<Record<string, 'vercel-gateway' | 'convex-gateway'>>
+
+/** What routes an id beside the env: the pinned region, and the app's routes. */
+export interface RouteOptions {
+  region?: InferenceRegion
+  routes?: ModelRoutes
+}
+
+const ROUTE_KEY = /^[a-z0-9][\w.-]*\/(?:\*|[\w.:@-]+)$/i
+
+/**
+ * Refuse `setupAi({ routes })` that cannot route: a key that is no
+ * `provider/model` id or `provider/*` pattern, or a gateway it does not know.
+ */
+export function requireRoutes(routes: unknown): void {
+  if (routes === undefined) return
+  if (typeof routes !== 'object' || routes === null || Array.isArray(routes)) throw new TypeError('[nuxt-backend] setupAi: `routes` maps model ids or `provider/*` patterns to \'vercel-gateway\' or \'convex-gateway\'.')
+  for (const [key, gateway] of Object.entries(routes)) {
+    if (!ROUTE_KEY.test(key)) throw new TypeError(`[nuxt-backend] setupAi({ routes }): '${key}' is no provider/model id or provider/* pattern, such as 'google/*'.`)
+    if (gateway !== 'vercel-gateway' && gateway !== 'convex-gateway') throw new TypeError(`[nuxt-backend] setupAi({ routes }): '${key}' goes to '${String(gateway)}'; a route is 'vercel-gateway' or 'convex-gateway'.`)
+  }
+}
+
+/** The gateway `routes` names for an id: its own key first, then the longest `provider/*` pattern before it. */
+export function routeFor(id: string, routes: ModelRoutes | undefined): 'vercel-gateway' | 'convex-gateway' | undefined {
+  if (!routes) return undefined
+  if (routes[id]) return routes[id]
+  let best: { length: number, gateway: 'vercel-gateway' | 'convex-gateway' } | undefined
+  for (const [key, gateway] of Object.entries(routes)) {
+    if (!key.endsWith('/*')) continue
+    const prefix = key.slice(0, -1)
+    if (id.startsWith(prefix) && (!best || prefix.length > best.length)) best = { length: prefix.length, gateway }
+  }
+  return best?.gateway
+}
+
+/** A route's options, from a pinned region alone (the older form) or the whole set. */
+const optionsOf = (options: InferenceRegion | RouteOptions | undefined): RouteOptions => typeof options === 'string' ? { region: options } : (options ?? {})
+
 /** The model a test installed for an id, when one did. */
 function testDouble(id: string): Exclude<AiModel, string> | undefined {
   const make = (globalThis as Record<symbol, unknown>)[TEST_MODELS]
@@ -153,11 +200,19 @@ function fallbackRoute(id: string, env: Env): FallbackRoute {
  * then through the Vercel AI Gateway with the key, and nowhere without it.
  * A pinned inference region (`setupAi({ inferenceRegion })`) skips the
  * Convex AI Gateway, which documents no region: the Vercel route pins it.
+ * `setupAi({ routes })` sends an id to one gateway: `vercel-gateway` skips
+ * the Convex one, `convex-gateway` has no Vercel fallback.
  */
-export function routeModel(model: AiModel, env: Env = runtimeEnv(), region?: InferenceRegion): ModelRoute {
-  if (typeof model !== 'string') return { route: 'own', id: model.modelId, model }
+export function routeModel(model: AiModel | { modelId: string }, env: Env = runtimeEnv(), options?: InferenceRegion | RouteOptions): ModelRoute {
+  if (typeof model !== 'string') return { route: 'own', id: model.modelId, model: model as Exclude<AiModel, string> }
+  const { region, routes } = optionsOf(options)
   const fallback = fallbackRoute(model, env)
   if (region !== undefined) return fallback.route === 'missing' ? { ...fallback, region } : fallback
+  const gateway = routeFor(model, routes)
+  if (gateway === 'vercel-gateway') return fallback
+  // The Convex AI Gateway alone: a test's model still answers under test, where no gateway does.
+  const convexOnly: FallbackRoute = fallback.route === 'own' ? fallback : { route: 'missing', id: model }
+  if (gateway === 'convex-gateway') return convexGatewayPossible(env) ? { route: 'convex', id: model, fallback: convexOnly } : convexOnly
   return convexGatewayPossible(env) ? { route: 'convex', id: model, fallback } : fallback
 }
 
@@ -176,9 +231,9 @@ const STATUS_ROUTE = {
  * says so); on a local deployment it may answer, so the state is its
  * fallback's.
  */
-export function modelStatusOf(model: AiModel | undefined, env: Env = runtimeEnv(), region?: InferenceRegion): ModelStatus {
+export function modelStatusOf(model: AiModel | undefined, env: Env = runtimeEnv(), options?: InferenceRegion | RouteOptions): ModelStatus {
   if (model === undefined) return { model: null, state: 'missing', route: null }
-  const route = routeModel(model, env, region)
+  const route = routeModel(model, env, options)
   const settled = route.route === 'convex' && isLoopback(env.CONVEX_CLOUD_URL ?? '') ? route.fallback : route
   const state = settled.route === 'missing' ? 'missing' : 'live'
   return { model: route.id, state, route: STATUS_ROUTE[route.route] }
@@ -378,10 +433,19 @@ export function checkRegion(id: string, metadata: unknown, region: InferenceRegi
  * part, which carries the usage and the cost, or `failed` at an error part.
  * A stream the handler stops reading stays `open`: its cost is unknown.
  */
-function recordCalls(id: string, calls: ModelCall[], region?: InferenceRegion): LanguageModelMiddleware {
+function recordCalls(id: string, calls: ModelCall[], region?: InferenceRegion, signal?: AbortSignal): LanguageModelMiddleware {
   return {
     specificationVersion: 'v4',
-    ...(region === undefined ? {} : { transformParams: async ({ params }) => ({ ...params, providerOptions: pinProviderOptions(params.providerOptions, region) as typeof params.providerOptions }) }),
+    ...(region === undefined && signal === undefined
+      ? {}
+      : {
+          transformParams: async ({ params }) => ({
+            ...params,
+            ...(region === undefined ? {} : { providerOptions: pinProviderOptions(params.providerOptions, region) as typeof params.providerOptions }),
+            // A job step's deadline, for a call that brings none of its own.
+            ...(signal === undefined || params.abortSignal ? {} : { abortSignal: signal }),
+          }),
+        }),
     wrapGenerate: async ({ doGenerate }) => {
       const result = await doGenerate()
       checkRegion(id, result.providerMetadata, region)
@@ -424,14 +488,14 @@ async function recordRefusal<T>(id: string, calls: ModelCall[], call: () => Prom
  * once and loaded on its first call, that records every call into `calls`. A
  * model this deployment cannot reach refuses each call `unavailable`.
  */
-export function meteredModel(route: ModelRoute, calls: ModelCall[], region?: InferenceRegion): MeteredModel {
+export function meteredModel(route: ModelRoute, calls: ModelCall[], region?: InferenceRegion, signal?: AbortSignal): MeteredModel {
   let loaded: Promise<MeteredModel> | undefined
   const load = () => (loaded ??= (async () => {
     if (route.route === 'missing') throw modelRefusal(route)
     const sdk = await loadSdk()
     // The pin rides on every call to an id; a model object of your own has no gateway to pin.
     const pin = route.route === 'own' && !route.double ? undefined : region
-    return sdk.wrapLanguageModel({ model: await baseModel(sdk, route), middleware: recordCalls(route.id, calls, pin) })
+    return sdk.wrapLanguageModel({ model: await baseModel(sdk, route), middleware: recordCalls(route.id, calls, pin, signal) })
   })())
   const provider = route.route === 'own' ? route.model.provider : route.route === 'convex' ? 'convexGateway' : route.route
   return {
