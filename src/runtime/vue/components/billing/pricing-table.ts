@@ -122,6 +122,12 @@ export interface PricingTableSlots {
   'loading': (context: PricingSlotContext) => unknown
   /** When no plan is on sale. */
   'empty': (context: PricingSlotContext) => unknown
+  /**
+   * While billing is not launched on this deployment (`usePricing().launched`
+   * is `false`): in place of the plans and packs. The `pricing.soon` label
+   * by default, "Plans open soon".
+   */
+  'soon': (context: PricingSlotContext) => unknown
   /** A whole plan card. */
   'plan': (context: PricingSlotContext & { plan: ResolvedPlan }) => unknown
   /** A plan card's button. */

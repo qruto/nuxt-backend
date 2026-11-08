@@ -280,6 +280,8 @@ export interface EventRecord {
   externalId: string | null
   metadata: Record<string, string | number | boolean>
   timestamp: number
+  /** Taken but not applied to any meter yet: the provider's worker applies an event a moment after its ingest (`lagEvents`). */
+  pending?: boolean
 }
 
 /** The organization settings an update changed, camel-cased: merged over the fake's defaults. */
@@ -333,6 +335,12 @@ export interface FakeState {
   deliveries: DeliveryRecord[]
   /** Scopes the access token lacks, so the routes that need one refuse it (`metrics:read`): none by default. */
   deniedScopes?: string[]
+  /**
+   * Take ingested events without applying them to any meter until
+   * `applyPendingEvents` runs, as the provider's worker does a moment after
+   * an ingest: a balance read in between does not count them yet.
+   */
+  lagEvents?: boolean
 }
 
 /**

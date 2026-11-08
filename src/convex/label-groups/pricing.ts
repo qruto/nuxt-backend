@@ -26,11 +26,15 @@ const PRICING_LABELS = {
   // While the plans load.
   loading: 'Loading plans…',
   empty: 'No plans are configured yet.',
+  // While billing is not launched on the deployment (usePricing().launched is false): in place of the plans.
+  soon: 'Plans open soon.',
   // What a plan grants every cycle, by its interval. `{unit}` is the meter's unit, as the `credits` group says.
   credits: {
     month: '{count} {unit} / month',
     year: '{count} {unit} / year',
   },
+  // The free plan's welcome credits (credits: { once: true }), granted once. `{unit}` as in `credits`.
+  welcome: '{count} {unit} to start',
   // A retired plan, shown only to the people still on it.
   retired: 'No longer offered',
   // A credit pack: what it holds, and what one of its units costs, compared.

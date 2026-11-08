@@ -210,6 +210,19 @@ export const vEntitlementBenefit = v.object({
   repository: v.optional(v.string()),
 })
 
+/**
+ * A credit the cache added before the provider applied its event (a refund,
+ * welcome credits), kept for a few minutes (`PENDING_CREDIT_TTL_MS`): a
+ * provider read in that time, which may not count the event yet, never takes
+ * the meter below what the cache holds. See `credit` and `upsert`.
+ */
+export const vPendingCredit = v.object({
+  meterId: v.string(),
+  amount: v.number(),
+  externalId: v.string(),
+  at: v.number(),
+})
+
 export const vEntitlementMeter = v.object({
   meterId: v.string(),
   consumedUnits: v.number(),
@@ -397,10 +410,24 @@ export const billingTables = {
     // In-flight spend reservations; see vPendingSpend. Optional so existing
     // rows validate.
     pendingSpends: v.optional(v.array(vPendingSpend)),
+    // Credits added ahead of the provider; see vPendingCredit.
+    pendingCredits: v.optional(v.array(vPendingCredit)),
     updatedAt: v.number(),
   })
     .index('userId', ['userId'])
     .index('customerId', ['customerId']),
+  // Welcome credits given, one row per person: the hash of the owner's
+  // address (tags and dots taken out, as the reverse trial keys it, never the
+  // address) and the billing entity that got them. A second workspace of the
+  // same owner, and an account made again with the same address, get none.
+  billingWelcomes: defineTable({
+    address: v.string(),
+    /** The entity that got them; empty once an account's erasure took that entity, the digest kept. */
+    entityId: v.string(),
+    at: v.number(),
+  })
+    .index('address', ['address'])
+    .index('entityId', ['entityId']),
   // Live benefit metadata, snapshotted per benefit (not per grant): feature
   // gating joins this at read time, so a `benefit.updated` webhook patches
   // one row here and every `useFeatures()` subscriber updates reactively —

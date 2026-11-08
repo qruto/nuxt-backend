@@ -209,6 +209,10 @@ const resolvedPlans = computed<ResolvedPlan[]>(() => {
     return plan && (!plan.isRetired || plan.isCurrent) ? [plan] : []
   })
 })
+// While billing is not launched on the deployment, nothing is on sale: no switch, no pack, a "Plans open soon" status.
+const onSale = computed(() => pricing.launched.value !== false)
+const switchesInterval = computed(() => onSale.value && pricing.intervals.value.length >= 2)
+const switchesCurrency = computed(() => onSale.value && pricing.currencies.value.length >= 2)
 const resolvedPacks = computed<ResolvedPack[]>(() => {
   const offers = new Map((pricing.packs.value ?? []).map(pack => [pack.key, pack]))
   return packCards.value.flatMap((card) => {
@@ -500,6 +504,7 @@ providePricingView({
   offersTrial: plan => plan.trial != null && !plan.isCurrent && billing.isFree.value,
 })
 
+const listsPacks = computed(() => onSale.value && props.showPacks && resolvedPacks.value.length > 0)
 // Busy while the pricing loads, while an action (checkout, switch, cancel,
 // portal) is in flight, and while a return from checkout reads the new plan.
 const busy = computed(() => billing.isLoading.value || pricing.isLoading.value || pending.value !== null || billing.isFinishingCheckout.value)
@@ -533,7 +538,7 @@ const statusText = computed(() => progress.value?.() ?? (billing.isFinishingChec
     >
       {{ t('finishingPurchase') }}
     </p>
-    <template v-if="pricing.intervals.value.length >= 2">
+    <template v-if="switchesInterval">
       <slot
         name="interval"
         v-bind="context"
@@ -541,7 +546,7 @@ const statusText = computed(() => progress.value?.() ?? (billing.isFinishingChec
         <PricingPeriodSwitch :pricing="table" />
       </slot>
     </template>
-    <template v-if="pricing.currencies.value.length >= 2">
+    <template v-if="switchesCurrency">
       <slot
         name="currency"
         v-bind="context"
@@ -561,6 +566,20 @@ const statusText = computed(() => progress.value?.() ?? (billing.isFinishingChec
         aria-live="polite"
       >
         {{ t('loading') }}
+      </p>
+    </slot>
+    <!-- Billing not launched on this deployment: nothing is on sale yet, and the table says so. -->
+    <slot
+      v-else-if="!onSale"
+      name="soon"
+      v-bind="context"
+    >
+      <p
+        data-pricing="soon"
+        role="status"
+        aria-live="polite"
+      >
+        {{ t('soon') }}
       </p>
     </slot>
     <template v-else-if="pricing.plans.value !== undefined">
@@ -643,7 +662,7 @@ const statusText = computed(() => progress.value?.() ?? (billing.isFinishingChec
     >
       {{ t('managed', { unit: unit.word(credits.unit.value ?? resolvedPacks[0]?.offer.credits?.unit) }) }}
     </p>
-    <template v-if="showPacks && resolvedPacks.length > 0">
+    <template v-if="listsPacks">
       <slot
         name="packs"
         v-bind="context"

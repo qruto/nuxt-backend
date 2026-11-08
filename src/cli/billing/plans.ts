@@ -120,6 +120,31 @@ export function refuseInvalidPrices(catalog: BillingCatalog): void {
   }
 }
 
+/** Why a plan's welcome credits (`credits: { once: true }`) can't be granted, if they can't. */
+function onceCreditsProblem(catalog: BillingCatalog, key: string, plan: CatalogPlan): string | undefined {
+  const grant = plan.credits
+  if (!grant?.once) return undefined
+  if (plan.retired || !isFreePlan(plan)) return `plans.${key} grants its credits \`once\`, which only the free plan does: welcome credits for every new billing entity. Drop \`once\` to grant them every cycle`
+  if (typeof grant.units !== 'number' || !Number.isInteger(grant.units) || grant.units <= 0) return `plans.${key} grants its welcome credits \`once\`: \`units\` is one whole number above 0, not one per interval`
+  const meter = catalog.meters?.[grant.meter]
+  if (!meter) return `plans.${key} grants its welcome credits on \`${grant.meter}\`, which is no meter of the catalog — declare it in \`meters\``
+  if (meter.aggregation === 'count') return `plans.${key} grants its welcome credits on \`${grant.meter}\`, which counts events: they are given as a refund, which only a sum meter takes`
+  return undefined
+}
+
+/**
+ * Refuse welcome credits the runtime could not grant, before the provider
+ * hears of anything: `once` on a plan that is not the free plan, `units`
+ * that are no whole number above 0 (or one per interval), and a count
+ * meter, which takes no refund-shaped event.
+ */
+export function refuseOnceCredits(catalog: BillingCatalog): void {
+  for (const [key, plan] of Object.entries(catalog.plans ?? {})) {
+    const problem = onceCreditsProblem(catalog, key, plan)
+    if (problem) throw new Error(`[nuxt-backend] billing sync: ${problem}.`)
+  }
+}
+
 /**
  * Refuse a per-currency price without the provider's default currency, once
  * the sync knows it (a catalog without `currency` uses the organization's):

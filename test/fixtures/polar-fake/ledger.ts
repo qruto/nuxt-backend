@@ -22,7 +22,7 @@ function counts(state: FakeState, event: EventRecord, meter: MeterRecord, custom
 export function meterUsage(state: FakeState, meter: MeterRecord, customerId: string, since: number): number {
   let usage = 0
   for (const event of state.events) {
-    if (!counts(state, event, meter, customerId, since)) continue
+    if (event.pending || !counts(state, event, meter, customerId, since)) continue
     if (meter.aggregation.func === 'count') usage += 1
     else {
       const value = event.metadata[meter.aggregation.property]
@@ -41,7 +41,29 @@ export function customerMeterBalance(state: FakeState, customerId: string, meter
   return { credited, consumed, balance: credited - consumed }
 }
 
-/** The customer's row for a meter, created on first credit. */
+/**
+ * A customer's meters an ingested event reaches, made as it lands: at the
+ * provider a customer meter exists once credits or an event touched it, so a
+ * refund-shaped event (welcome credits) shows on a free plan without a
+ * meter-credit benefit.
+ */
+export function touchMeters(state: FakeState, event: EventRecord, now: number): void {
+  if (!event.customerId) return
+  for (const meter of Object.values(state.meters)) {
+    if (meter.eventName === event.name) meterRow(state, event.customerId, meter.id, now)
+  }
+}
+
+/** Apply every event taken while `lagEvents` held them back: the provider's worker catching up. */
+export function applyPendingEvents(state: FakeState, now: number): void {
+  for (const event of state.events) {
+    if (!event.pending) continue
+    delete event.pending
+    touchMeters(state, event, now)
+  }
+}
+
+/** The customer's row for a meter, created on first credit or event. */
 function meterRow(state: FakeState, customerId: string, meterId: string, now: number): CustomerMeterRecord {
   const found = Object.values(state.customerMeters).find(row => row.customerId === customerId && row.meterId === meterId)
   if (found) return found

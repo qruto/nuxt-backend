@@ -72,6 +72,8 @@ export const LOG_CODES = {
   'billing.withdrawal_receipt_failed': 'An EU withdrawal went through at the provider, but its receipt email could not be sent; the activity trail holds its date and time.',
   'billing.consent_unrecorded': 'A renewing checkout was created, but the proof of its renewal consent could not be kept.',
   'billing.reverse_trial_failed': 'A new workspace stayed on the free plan: its reverse trial could not start.',
+  'billing.welcome_credits_unqueued': 'A new billing entity started on the free plan, but its welcome credits could not be queued.',
+  'billing.welcome_credits_unsynced': 'Welcome credits were granted, but the balance could not be read back yet.',
   'billing.pass_period_unaligned': 'A claimed plan pass kept the provider\'s billing period instead of starting its first month at the claim; its end date still holds, enforced by the sweep.',
   'billing.pass_claim_unrecorded': 'A plan pass\'s start did not finish, and its subscription could not be switched back to the free plan: it is on the pass product with nothing following it.',
   'billing.gift_claimed_after_refund': 'A gift was claimed after its purchase was refunded: the recipient holds credits nobody paid for.',

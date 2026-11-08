@@ -74,6 +74,8 @@ const world = {
   currencies: ref<string[]>(['usd']),
   // A promotion getPricing was asked for: its terms, and the prices it applies to carry their offer.
   promotion: ref<PricedPromotion | undefined>(undefined),
+  // Whether billing sells on the deployment: `false` makes the table read "Plans open soon".
+  launched: ref(true),
   subscription: ref<Record<string, unknown> | null | undefined>(null),
   pendingChange: ref<{ productId: string, appliesAt: Date } | null>(null),
   benefits: ref<Array<Record<string, unknown>>>([]),
@@ -521,6 +523,7 @@ const pricing = {
   currency: computed(() => world.currencies.value[0]),
   currencies: computed(() => world.currencies.value),
   promotion: computed(() => world.promotion.value),
+  launched: computed(() => world.launched.value),
   setCurrency: vi.fn(),
   packFor: () => world.packs.value?.[0],
   refresh: vi.fn(async () => {}),
@@ -827,6 +830,7 @@ function reset(): void {
   world.pricingError.value = null
   world.currencies.value = ['usd']
   world.promotion.value = undefined
+  world.launched.value = true
   config.billing.contact = { name: 'Enterprise', features: ['Volume pricing'], href: 'mailto:sales@example.com' }
   world.subscription.value = null
   world.pendingChange.value = null
@@ -1054,6 +1058,8 @@ const STAGING: Record<ContractedComponent, Staging> = {
         },
         shows: '[data-pricing="empty"]',
       },
+      // Billing not launched on the deployment: one status, no plan or pack to buy.
+      'soon': { before: () => (world.launched.value = false), shows: '[data-pricing="soon"][role="status"]', absent: ['[data-pricing="plan"]', '[data-pricing="pack"]'] },
       'ready': { shows: '[data-pricing="plan"] [data-intent="subscribe"]' },
       // The switch to yearly prices, from the keyboard's radio group.
       'yearly': {

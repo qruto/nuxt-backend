@@ -188,6 +188,7 @@ Each action takes an optional `subscriptionId`. You need it only with `setupBill
 | any change of the free subscription | `invalid_input` (`free_plan`) | The free plan is never changed, cancelled or paused |
 | any action | `forbidden` (`not_billing_manager`, `impersonating`, `not_owner`) | The caller may not manage this plan ([Who may buy for a workspace](/docs/build/billing/setup#who-may-buy-for-a-workspace)) |
 | a plan change while purchases are paused | `unavailable` (`checkout_paused`) | The [`pause_checkout`](/docs/ship/operate/flags#kill-switches) kill switch is on |
+| a switch to a paid plan before billing launches | `unavailable` (`not_launched`) | A production deployment with no token or no production catalog ([Before billing launches](/docs/build/billing/setup#before-billing-launches)) |
 
 [Errors](/docs/reference/backend/errors) lists every code and its fields.
 

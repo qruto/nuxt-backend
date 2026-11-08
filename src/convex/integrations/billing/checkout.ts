@@ -79,7 +79,7 @@ export function isIpAddress(value: string): boolean {
 
 /** The checkout link: the entity's own provider customer, then a checkout session by its external id. */
 export function createCheckout(
-  { components, config, provider, cache, catalogIds, requireEntity, requireProviderAccess, unwrapProvider, throttle, recordEvent }: BillingContext,
+  { components, config, provider, cache, catalogIds, requireEntity, requireLaunched, unwrapProvider, throttle, recordEvent }: BillingContext,
   { requireTrustedUrl, requireCatalogProducts, requireClientMetadata, requireCurrency }: PurchaseRules,
   { ensureCustomer, profileOf, trialAllowed }: BillingCustomers,
   { freeSubscriptionOf, isFreeProduct }: Pick<BillingFreePlan, 'freeSubscriptionOf' | 'isFreeProduct'>,
@@ -400,7 +400,7 @@ export function createCheckout(
     const { userId } = entity
     // Who is asking first, then whether checkout is paused, before anything is checked or asked of the provider.
     await refusePaused(paused, ctx, 'checkout')
-    requireProviderAccess('checkout')
+    requireLaunched('checkout')
     requireCatalogProducts(options.productIds, 'productIds')
     requireTrustedUrl(options.origin, 'origin')
     requireTrustedUrl(options.successUrl, 'successUrl')

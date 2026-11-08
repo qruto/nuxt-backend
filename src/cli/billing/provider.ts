@@ -37,6 +37,8 @@ export interface CatalogIds {
   quotas?: Record<string, string>
   /** The free plan's key: what every billing entity starts on, and returns to when a paid plan ends. */
   free?: string
+  /** The free plan's welcome credits: granted once per person, never a benefit at the provider. */
+  welcome?: { meter: string, units: number }
   /** The currency a visitor pays in when the catalog does not price their own: the catalog's, else the organization's. */
   currency?: string
   /** Discount key → the discount and its terms as the provider holds them after the sync; retired ones left out. */
