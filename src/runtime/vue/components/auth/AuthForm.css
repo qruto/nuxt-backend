@@ -99,6 +99,7 @@
   [data-auth='skip'] {
     border: 0;
     background: none;
+    box-shadow: none;
     font-weight: 500;
     color: var(--auth-muted);
   }

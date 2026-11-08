@@ -1673,19 +1673,21 @@ function violations(name: ContractedComponent, wrapper: VueWrapper): string[] {
   const { family } = COMPONENT_CONTRACT[name] as { family: string | null }
   const found: string[] = []
   const elements = roots(wrapper).flatMap(root => [root, ...root.querySelectorAll('*')])
-  if (family) {
-    // The package's own root, not markup an app passed through a slot, is the one `[data-backend]` an app themes.
-    // The shell frames the app's own pages, so its root stays unmarked and its own controls carry it.
-    for (const root of roots(wrapper)) {
-      if (name === 'AppShell') {
-        for (const own of root.querySelectorAll(':scope > [data-shell="skip"], :scope > [data-shell="status"], [data-shell="switcher"], [data-shell="account"], [data-shell="sign-in"]')) {
-          if (!own.hasAttribute('data-backend')) found.push(`the shell's own <${own.tagName.toLowerCase()} data-shell="${own.getAttribute('data-shell')}"> without data-backend`)
-        }
-        if (root.hasAttribute('data-backend')) found.push('the shell\'s root carries data-backend, which would reach the app\'s own pages')
-        continue
+  // The package's own root, not markup an app passed through a slot, is the one `[data-backend]` an app themes.
+  // The shell frames the app's own pages, so its root stays unmarked and its own controls carry it.
+  for (const root of roots(wrapper)) {
+    if (name === 'AppShell') {
+      for (const own of root.querySelectorAll(':scope > [data-shell="skip"], :scope > [data-shell="status"], [data-shell="switcher"], [data-shell="account"], [data-shell="sign-in"]')) {
+        if (!own.hasAttribute('data-backend')) found.push(`the shell's own <${own.tagName.toLowerCase()} data-shell="${own.getAttribute('data-shell')}"> without data-backend`)
       }
-      if (root.hasAttribute(`data-${family}`) && !root.hasAttribute('data-backend')) found.push(`root <${root.tagName.toLowerCase()} data-${family}="${root.getAttribute(`data-${family}`)}"> without data-backend`)
+      if (root.hasAttribute('data-backend')) found.push('the shell\'s root carries data-backend, which would reach the app\'s own pages')
+      continue
     }
+    // Markup an app passed through a slot (the contract's markers) is the app's, and carries none.
+    if (root.hasAttribute('data-slot')) continue
+    if (!root.hasAttribute('data-backend')) found.push(`root <${root.tagName.toLowerCase()} ${[...root.attributes].filter(a => a.name.startsWith('data-')).map(a => `${a.name}="${a.value}"`).join(' ')}> without data-backend`)
+  }
+  if (family) {
     for (const element of elements) {
       // A contracted component inside this one (the notices, the connection status, the consent dialog, the pricing table) is held to its own row.
       if (PHRASING.has(element.tagName) || element.hasAttribute(`data-${family}`) || element.closest('[data-notices], [data-connection], [data-consent], [data-pricing]')) continue

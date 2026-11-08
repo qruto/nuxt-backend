@@ -47,6 +47,7 @@
   [data-credits='dismiss'] {
     padding: 0.15rem 0.45rem;
     border-color: transparent;
+    box-shadow: none;
     color: var(--bk-muted);
     font-size: 1rem;
     line-height: 1;

@@ -1,16 +1,18 @@
 /*
  * The rules every packaged component shares: buttons, a busy button, fields,
  * the focus ring, section titles, messages, and the frame of the packaged
- * pages. Inside `@layer nuxt-backend`, so any rule of the app's wins.
+ * pages. Inside `@layer nuxt-backend`, so any rule of the app's wins; the
+ * two face rules sit in `@layer nuxt-backend-tokens`, below every layer.
  */
-@layer nuxt-backend {
-  /* ── The faces ────────────────────────────────────────────────────────────
-     `data-backend` marks the outermost element of every packaged component
-     and page. Its text reads `--bk-font`, its headings `--bk-font-heading`;
-     each component's button rule reads `--bk-font-control`. With a token
-     unset, `var()` leaves the face inherited: the page's. No specificity:
-     every component rule, and every rule of the app's, wins. */
-
+/* ── The faces ──────────────────────────────────────────────────────────────
+   `data-backend` marks the outermost element of every packaged component
+   and page. Its text reads `--bk-font`, its headings `--bk-font-heading`;
+   each component's button rule reads `--bk-font-control`. With a token
+   unset, `var()` leaves the face inherited: the page's. These two rules sit
+   in `nuxt-backend-tokens`, the lowest layer, beside the tokens: a rule of
+   the app's in any layer, such as a heading face in Tailwind's `base`, wins
+   over them, token set or not. */
+@layer nuxt-backend-tokens {
   :where([data-backend]) {
     font-family: var(--bk-font);
   }
@@ -18,7 +20,9 @@
   :where([data-backend]) :where(h1, h2, h3, h4, h5, h6) {
     font-family: var(--bk-font-heading, var(--bk-font));
   }
+}
 
+@layer nuxt-backend {
   /* ── Shared element defaults across all families ─────────────────────────── */
 
   :where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-gift='banner'], [data-history='root'], [data-usage='root'], [data-account='root'], [data-audit='root'], [data-admin='users'], [data-admin='workspaces'], [data-admin='system'], [data-admin='console'], [data-impersonation='banner'], [data-credits='banner'], [data-access='root']) :where(button) {

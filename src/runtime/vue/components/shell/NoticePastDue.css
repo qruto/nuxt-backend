@@ -27,6 +27,7 @@
     padding: 0.4rem 0.8rem;
     border: var(--bk-border-width) solid var(--bk-accent);
     box-shadow: var(--bk-shadow-control);
+    font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
     border-radius: var(--bk-radius-control);
     background: var(--bk-accent);

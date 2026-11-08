@@ -52,6 +52,12 @@ agent files and skills.
 | `AuthEmailTemplateOverrides` | `EmailTemplateOverrides` |
 | `CreateBetterAuthOptions` | `SetupAuthOptions` |
 
+## [The packaged UI reads its faces, lines and shadows from tokens](https://nuxt-backend.dev/docs/ship/releases/upgrade#the-packaged-ui-reads-its-faces-lines-and-shadows-from-tokens)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `[data-auth='form'], [data-pricing='table'], [data-admin]` | `[data-backend]` | reshaped | the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root |
+
 ## [One way to do each thing](https://nuxt-backend.dev/docs/ship/releases/upgrade#one-way-to-do-each-thing)
 
 | Was | Now | Change | Note |

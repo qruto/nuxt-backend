@@ -53,6 +53,7 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
 const ONE_WAY = 'One way to do each thing'
 const ENVIRONMENT = 'One variable says what kind of deployment this is'
 const SANDBOXES = 'Development runs on the providers\' sandboxes, with nothing simulated'
@@ -93,6 +94,8 @@ const SESSIONS = 'Sessions are listed and revoked by id'
 
 /** Every rename, newest section first, as the Upgrade page orders them. */
 export const RENAMES: readonly Rename[] = [
+  // One attribute marks every packaged component, in place of a list of families.
+  { from: '[data-auth=\'form\'], [data-pricing=\'table\'], [data-admin]', to: '[data-backend]', change: 'reshaped', section: UI_TOKENS, note: 'the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root' },
   // One way per action. The boundaries, the banners, the auth members and
   // the wrapper subpaths each have one replacement.
   { from: 'setupAuthorization', to: 'createFunctions', change: 'removed', section: ONE_WAY, note: 'one call in `backend/functions.ts` takes `{ components, billing, rateLimiter }` and returns every tier and `setUserRole`' },

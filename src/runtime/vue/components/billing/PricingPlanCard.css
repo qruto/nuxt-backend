@@ -17,7 +17,8 @@
 
   [data-pricing='plan'][data-current] {
     border-color: var(--bk-accent);
-    box-shadow: 0 0 0 var(--bk-border-width) var(--bk-accent);
+    /* A second line, drawn as an outline so the card keeps its --bk-shadow. */
+    outline: var(--bk-border-width) solid var(--bk-accent);
   }
 
   [data-pricing='plan'][data-highlight] {
@@ -64,7 +65,7 @@
 
   [data-pricing='plan'][data-canceling] {
     border-color: color-mix(in srgb, var(--bk-warn) 60%, transparent);
-    box-shadow: 0 0 0 var(--bk-border-width) color-mix(in srgb, var(--bk-warn) 60%, transparent);
+    outline: var(--bk-border-width) solid color-mix(in srgb, var(--bk-warn) 60%, transparent);
   }
 
   [data-pricing='plan-trial'] {
