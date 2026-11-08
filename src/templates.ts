@@ -196,12 +196,13 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // lifecycle (each resolves the caller's own billing entity), the order and
     // usage history read live from the provider, the admin-only refund and
     // revenue metrics (the admin console's Revenue view), the free plan every new
-    // workspace starts on (internal; run by the workpool), and the gift sweep
+    // workspace starts on (internal; run by the workpool), the entitlement resync
+    // (internal; \`nuxt-backend billing resync\` runs it), and the gift sweep
     // (internal; woken by the component's cron, and scheduled for a gift dated
     // for later).
     export const {
       getPricing, getConfiguredProducts, getBillingAccess, getFeatures, getCredits,
-      getCurrentSubscription, listAllSubscriptions, syncEntitlements, syncProducts, startFreePlan,
+      getCurrentSubscription, listAllSubscriptions, syncEntitlements, syncProducts, startFreePlan, resyncEntitlements,
       generateCheckoutLink, generateCustomerPortalUrl,
       updateSubscription, cancelSubscription, getCancelFlow, acceptSaveOffer, uncancelSubscription,
       cancelPendingChange, pauseSubscription, resumeSubscription,

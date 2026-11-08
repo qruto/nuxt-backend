@@ -505,6 +505,7 @@ The backend component's maintenance is part of this surface by its windows: what
   - `billing-access`
   - `billing-benefit-grace`
   - `billing-catalog-production`
+  - `billing-checkout-links`
   - `billing-customer-emails`
   - `billing-customer-mapping`
   - `billing-feature-benefits`
@@ -647,7 +648,7 @@ A public name is never removed in the release that replaces it. It is marked `@d
 
 - A **breaking change in a `better-auth` or `@convex-dev/*` minor** — an API that consumers of this package touch (auth plugin options, component function signatures, schema shape) — is a **major here** (a minor on the 0.x line, announced as breaking). The dependency ranges stay pinned to the last compatible line until then.
 - A non-breaking upstream update is a patch here.
-- `convex` follows its peer range (`>=1.46.0 <2` — the floor is what `nuxt-convex-module` 0.11 needs for `FunctionReference_future`, above the lowest version every bundled `@convex-dev/*` component and `convex-helpers` accept; `check:manifest` verifies it against the installed tree); a Convex major is a major here. `vue` is a peer too (`^3.5.41`, the floor the bundled MCP toolkit needs), satisfied by any Nuxt 4.6+ app. `@convex-dev/eslint-plugin` (`^5.0.0`) and `eslint` (`^9.0.0 || ^10.0.0`) are optional peers, needed only by `nuxt-backend/eslint`; a major of either is a minor here. So is `@sentry/nuxt` (`^11.0.0`), the error-reporting SDK the module wires once it is installed and a DSN is set.
+- `convex` follows its peer range (`>=1.46.0 <2` — the floor is what `nuxt-convex-module` 0.11 needs for `FunctionReference_future`, above the lowest version every bundled `@convex-dev/*` component and `convex-helpers` accept; `check:manifest` verifies it against the installed tree); a Convex major is a major here. `vue` is a peer too (`^3.5.41`, the floor the bundled MCP toolkit needs), satisfied by any Nuxt 4.6+ app. `@convex-dev/eslint-plugin` (`^5.0.0`) and `eslint` (`^9.0.0 || ^10.0.0`) are optional peers, needed only by `nuxt-backend/eslint`; a major of either is a minor here. So is `@sentry/nuxt` (`^11.10.0`, the first with the managed tunnel), the error-reporting SDK the module wires once it is installed and a DSN is set.
 - Nuxt majors are majors here. `nuxt-convex-module` is a true dependency, installed and configured for you; its own stability policy applies to the core composables it registers.
 
 `test/unit/peer-ranges.test.ts` keeps the declared ranges honest against the installed versions and against what the upstreams declare for each other. [Ecosystem](https://nuxt-backend.dev/docs/reference/ecosystem) lists every upstream package this one ships, bundles, supports or plans, and the docs contract keeps that page in step with `package.json`.
@@ -665,7 +666,7 @@ Nuxt `^4.6.2` (Nuxt 4 from 4.6.2, where the `nuxt/server` API the server code is
 | `@convex-dev/eslint-plugin` | `^5.0.0` | `nuxt-backend/eslint` |
 | `@convex-dev/crons` | `^0.2.3` | jobs an app schedules at runtime, imported directly (installed and mounted by the app) |
 | `botid` | `^1.5.11` | the bot check on the app's server and in the browser on Vercel (Vercel BotID): wired on a Vercel build once it is installed; without it the module imports nothing of it |
-| `@sentry/nuxt` | `^11.0.0` | error reports and traces from the browser and the Nuxt server (the monitoring layer): wired once it is installed and a DSN is set (`MONITORING_DSN`, or `NEXT_PUBLIC_SENTRY_DSN`); without it the module imports nothing of it |
+| `@sentry/nuxt` | `^11.10.0` | error reports and traces from the browser and the Nuxt server (the monitoring layer): wired once it is installed and a DSN is set (`MONITORING_DSN`, or `NEXT_PUBLIC_SENTRY_DSN`); without it the module imports nothing of it |
 | `ai` | `^7.0.129` | a model named in `nuxt-backend/ai` (`setupAi`'s `model`, `ctx.model()`): the AI SDK, with the Vercel AI Gateway provider it ships. The model types of `nuxt-backend/ai` (`AiModel`, `MeteredModel`) are the SDK's own: without `ai` installed they read as `any` under `skipLibCheck` (the Nuxt and Convex default), and a type check without it reports the missing module |
 | `@convex-dev/ai-sdk-provider` | `^0.3.0` | a model id through the Convex AI Gateway (`nuxt-backend/ai`), tried first on Convex Cloud: Convex's own provider for it. Without it, ids go to the Vercel AI Gateway |
 | `@modelcontextprotocol/sdk` | `^1.32.1` | `npx nuxt-backend mcp`, the developer MCP server: `init` adds it to the app's `devDependencies` beside the server it writes into `.mcp.json`; without it the command names the install |

@@ -1,4 +1,5 @@
 import { deployKeyType } from '../../env-push'
+import { execBinary, type PackageManager, runScript } from './package-manager'
 import { generateSecret, productionOrigin, type DeployBackend } from './run'
 
 // `nuxt-backend deploy --build`: the host's build command for an app that
@@ -6,22 +7,46 @@ import { generateSecret, productionOrigin, type DeployBackend } from './run'
 // integration gives the Vercel project its deploy keys and nothing else, so
 // the first push would fail on the env the scaffold requires. This puts
 // that env there, then runs the build command every host uses: the backend
-// first, then the app against it.
+// first, then the app against it, with the project's own package manager.
+// A new preview deployment also loads the provider's products, so its
+// pricing renders before any product webhook reaches it.
+
+/** What a new preview runs once its functions are pushed: the products table filled from the provider. */
+export const PREVIEW_PRODUCT_SYNC = 'billing:syncProducts'
 
 export interface BuildDeps {
   backend: Pick<DeployBackend, 'envNames' | 'setEnv'>
   /** `convex deploy` with these arguments, its output the build's; resolves with its exit code. */
   convexDeploy: (args: string[]) => Promise<number>
   env: Readonly<Record<string, string | undefined>>
+  /** The project's package manager: what runs the app's build and the package's CLI. */
+  packageManager: PackageManager
   print: (line: string) => void
 }
 
+/** The preview's own origin, as the shell `convex deploy` runs the command in expands it: the branch's stable URL, else this deployment's. */
+function previewSite(env: Readonly<Record<string, string | undefined>>): string {
+  // A deployment made outside Git (`vercel deploy`) has no branch URL.
+  if (env.VERCEL_BRANCH_URL) return ' --site-url "https://$VERCEL_BRANCH_URL"'
+  return env.VERCEL_URL ? ' --site-url "https://$VERCEL_URL"' : ''
+}
+
 /** What `--cmd` runs: the app's build, after the preview's own env where the key is a preview's. */
-export function buildCmd(preview: boolean, env: Readonly<Record<string, string | undefined>>): string {
-  if (!preview) return 'npm run build'
-  // The branch's stable URL is the preview's origin, expanded by the shell `convex deploy` runs the command in.
-  const site = env.VERCEL_BRANCH_URL ? ' --site-url "https://$VERCEL_BRANCH_URL"' : ''
-  return `npx nuxt-backend env push --preview${site} && npm run build`
+export function buildCmd(preview: boolean, env: Readonly<Record<string, string | undefined>>, manager: PackageManager = 'npm'): string {
+  const build = runScript(manager, 'build')
+  if (!preview) return build
+  return `${execBinary(manager, 'nuxt-backend')} env push --preview${previewSite(env)} && ${build}`
+}
+
+/**
+ * What a new preview runs after its push: the product sync, when the
+ * build's env holds the billing token `env push --preview` puts on it.
+ * Without one the sync is refused, and the refusal would fail the build.
+ */
+function previewRun(env: Readonly<Record<string, string | undefined>>, print: (line: string) => void): string[] {
+  if (env.BILLING_ACCESS_TOKEN) return ['--preview-run', PREVIEW_PRODUCT_SYNC]
+  print(`[nuxt-backend] deploy --build: the preview's products are not loaded: this build's env has no BILLING_ACCESS_TOKEN. Add a sandbox token to the host's preview env, or run npx convex run --preview-name <branch> ${PREVIEW_PRODUCT_SYNC}.`)
+  return []
 }
 
 /**
@@ -63,5 +88,5 @@ export async function runBuild(deps: BuildDeps): Promise<number> {
       return 1
     }
   }
-  return deps.convexDeploy(['deploy', '--cmd', buildCmd(preview, deps.env), '--cmd-url-env-var-name', 'NUXT_PUBLIC_BACKEND_URL'])
+  return deps.convexDeploy(['deploy', '--cmd', buildCmd(preview, deps.env, deps.packageManager), '--cmd-url-env-var-name', 'NUXT_PUBLIC_BACKEND_URL', ...preview ? previewRun(deps.env, deps.print) : []])
 }

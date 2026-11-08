@@ -176,7 +176,7 @@ Take production from nothing to a passing doctor --prod: link or create the prod
 - `--cwd`: Project directory
 - `--dry-run`: Print every step it would take, and change nothing
 - `--sandbox`: A demo or staging app: set BACKEND_ENVIRONMENT=sandbox instead of production, and sync to the providers' test modes
-- `--build`: Run as the host's build command: put the env the first push needs on production (AUTH_SECRET, SITE_URL from the host), then convex deploy builds the app against the backend
+- `--build`: Run as the host's build command: put the env the first push needs on production (AUTH_SECRET, SITE_URL from the host), then convex deploy builds the app against the backend with the project's package manager; a new preview also loads the billing products when the build env holds BILLING_ACCESS_TOKEN, and skips that step, saying so, without it
 - `--json`: Print the outcome as one JSON document; progress goes to stderr
 
 `--json`: `{ dryRun, environment, host, steps: [{ id, capability, title, outcome, detail }], doctor }`: `outcome` is `done`, `unchanged`, `planned`, `skipped` or `failed`, `doctor` is `{ pass, warn, fail, failing }` or null; values never appear.

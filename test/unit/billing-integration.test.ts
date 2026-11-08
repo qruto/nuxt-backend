@@ -645,6 +645,22 @@ const storedProducts = (runMutation: ReturnType<typeof vi.fn>) => runMutation.mo
   .filter(([, args]) => (args as { product?: unknown }).product !== undefined)
   .map(([, args]) => (args as { product: { id: string } }).product.id)
 
+describe('resyncEntitlements', () => {
+  const handler = (instance: Billing) => (instance.api.resyncEntitlements as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler
+  const ctx = () => ({ runQuery: vi.fn(), runMutation: vi.fn(), runAction: vi.fn(), scheduler: { runAfter: vi.fn() }, auth: { getUserIdentity: vi.fn(async () => null) } })
+
+  // With `billTo: 'user'` an app's own resolver may bill a team of its own
+  // tables: paging the accounts would read entities that are not its, and
+  // say every one was read again.
+  it('pages nothing for an app that bills entities of its own, and says so', async () => {
+    const own = setupBilling(components, { ...(config as object), billTo: 'user', resolveEntity: vi.fn(async () => null) } as never)
+    const run = ctx()
+    await expect(handler(own)(run, {})).resolves.toBe('custom_entities')
+    expect(run.runQuery).not.toHaveBeenCalled()
+    expect(run.scheduler.runAfter).not.toHaveBeenCalled()
+  })
+})
+
 describe('syncProducts', () => {
   // A fresh deployment has never seen a `product.*` webhook, so the reactive
   // products table is empty and every pricing page renders "no plans" until
