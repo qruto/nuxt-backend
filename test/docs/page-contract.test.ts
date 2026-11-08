@@ -133,7 +133,7 @@ describe('API names', () => {
   const a11y = new Set([...read('src/runtime/vue/a11y.ts').matchAll(/^export function (use[A-Z]\w*)/gm)].map(([, name]) => name!))
   const known = (name: string) => ours.has(name) || base.has(name) || a11y.has(name) || NUXT_NAMES.has(name) || AUTH_CLIENT_HOOKS.has(name)
   // With the commands the 0.2.0 units add (`deploy`, `email sync`, `analyze`, `eject`; `dev --anonymous` is `dev`; `mcp` is built).
-  const commands = new Set(['init', 'dev', 'doctor', 'status', 'env', 'billing', 'inbox', 'upgrade', 'deploy', 'email', 'analyze', 'eject', 'mcp'])
+  const commands = new Set(['init', 'dev', 'doctor', 'status', 'env', 'billing', 'access', 'inbox', 'upgrade', 'deploy', 'email', 'analyze', 'eject', 'mcp'])
   const checked = built.filter(file => !NAME_EXEMPT.includes(contentRoute(file)))
 
   it('reads both registries', () => {

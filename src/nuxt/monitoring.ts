@@ -1,9 +1,11 @@
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { addNitroPlugin, addPlugin, addServerHandler, type Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 import { computeDeployment } from '../deployment'
 import { readEnvFiles } from '../env-push'
-import { appMonitoringDsn, MONITORING_SDK, monitoringSdkInstalled, SOURCE_MAP_ENV } from '../monitoring'
+import { appMonitoringDsn, MONITORING_SDK, monitoringSdkVersion, sdkServesTunnel, SOURCE_MAP_ENV, TUNNEL_SDK_VERSION } from '../monitoring'
 import { HEALTH_ROUTE, LOCAL_LOG_ROUTE } from '../convex/constants'
 import { logger } from './logger'
 
@@ -24,10 +26,14 @@ export interface MonitoringWiring {
   dsn?: string
   /** Whether the SDK is installed in the app. */
   sdk: boolean
+  /** Whether the installed SDK has the managed tunnel ({@link TUNNEL_SDK_VERSION} or later). */
+  tunnel: boolean
   /** Both: the module installs the SDK's module with the package's config. */
   wired: boolean
   /** The env the decision read: `.env`, `.env.local`, then the process env over them. */
   env: Readonly<Record<string, string | undefined>>
+  /** The installed SDK's version, for the build's warning. */
+  version?: string
 }
 
 /** The env a build reads: `.env`, `.env.local`, then the process env over them. */
@@ -39,10 +45,11 @@ function buildEnv(rootDir: string): Record<string, string | undefined> {
  * Whether to wire the SDK: only when it is installed and a DSN is set, so an
  * app without either never bundles it, and never imports it.
  */
-export function resolveMonitoring(rootDir: string, env: Readonly<Record<string, string | undefined>> = buildEnv(rootDir), installed: (rootDir: string) => boolean = monitoringSdkInstalled): MonitoringWiring {
+export function resolveMonitoring(rootDir: string, env: Readonly<Record<string, string | undefined>> = buildEnv(rootDir), installed: (rootDir: string) => string | null = monitoringSdkVersion): MonitoringWiring {
   const dsn = appMonitoringDsn(env)
-  const sdk = installed(rootDir)
-  return { ...dsn ? { dsn } : {}, sdk, wired: Boolean(dsn) && sdk, env }
+  const version = installed(rootDir)
+  const sdk = version !== null
+  return { ...dsn ? { dsn } : {}, sdk, tunnel: sdkServesTunnel(version), wired: Boolean(dsn) && sdk, env, ...version ? { version } : {} }
 }
 
 /**
@@ -77,19 +84,65 @@ export interface MonitoringPublicConfig {
   dsn: string
   /** The environment its reports name: `BACKEND_ENVIRONMENT` where the host sets it, else the host's (`VERCEL_ENV`), else `production`. */
   environment: string
+  /** Whether the package's client reports through the managed tunnel: the SDK has it, and the package's server config is the one that answers it. */
+  tunnel: boolean
+}
+
+/** The SDK's config files of one kind in the app, as the SDK's module finds them: at the root of any layer, the app's own first. */
+const CONFIG_EXTENSIONS = ['ts', 'js', 'mjs', 'cjs', 'mts', 'cts']
+
+/**
+ * Whether the app has its own `sentry.<kind>.config.*`, which the SDK uses in
+ * place of the package's: at the root of any layer, or in a
+ * `sentry.configDir` of the app's own, the SDK's fallback. The package's
+ * own directory (`packageDir`, the default it gives `configDir`) is never
+ * the app's.
+ */
+export function ownSdkConfig(nuxt: Pick<Nuxt, 'options'>, kind: 'client' | 'server', packageDir?: string): boolean {
+  const roots = nuxt.options._layers?.map(layer => layer.cwd) ?? [nuxt.options.rootDir]
+  const configDir = (nuxt.options as { sentry?: { configDir?: unknown } }).sentry?.configDir
+  if (typeof configDir === 'string' && configDir) {
+    const dir = resolve(nuxt.options.rootDir, configDir)
+    if (!packageDir || dir !== resolve(packageDir)) roots.push(dir)
+  }
+  return roots.some(root => CONFIG_EXTENSIONS.some(extension => existsSync(resolve(root, `sentry.${kind}.config.${extension}`))))
+}
+
+/** Whether the build is static files (`nuxt generate`, or Nitro's `static`): no server answers a tunnel there. */
+export function staticBuild(nuxt: Pick<Nuxt, 'options'>): boolean {
+  const options = nuxt.options as { _generate?: boolean, nitro?: { static?: boolean } }
+  return Boolean(options._generate || options.nitro?.static)
+}
+
+/**
+ * How the browser's reports leave: through the managed tunnel, when the SDK
+ * has it and the package's own server config answers it; otherwise straight
+ * to the ingest, which needs the DSN's origin in `connect-src`: an SDK before
+ * 11.10, an app's own server config, or a static build, which has no server
+ * to answer the tunnel. An app's own
+ * client config may or may not set `tunnel`, so its DSN's origin is let out
+ * too.
+ */
+export function reportPath(wiring: Pick<MonitoringWiring, 'tunnel'>, own: { client: boolean, server: boolean }, isStatic = false): { tunnel: boolean, direct: boolean } {
+  const tunnel = wiring.tunnel && !own.server && !isStatic
+  return { tunnel, direct: !tunnel || own.client }
 }
 
 /**
  * Register the monitoring layer's runtime: the DSN in runtime config, the
- * health route, the SDK's tagging and capture and its origin in the security
- * headers where it is wired, and in dev the local error log.
+ * health route, the SDK's tagging and capture where it is wired, and in dev
+ * the local error log.
  */
 export function registerMonitoring(resolver: Resolver, nuxt: Nuxt, wiring: MonitoringWiring = monitoringWiring(nuxt)): void {
   const { env } = wiring
+  const packageDir = resolver.resolve(SDK_DIR)
+  const own = wiring.wired ? { client: ownSdkConfig(nuxt, 'client', packageDir), server: ownSdkConfig(nuxt, 'server', packageDir) } : { client: false, server: false }
+  const isStatic = staticBuild(nuxt)
+  const path = reportPath(wiring, own, isStatic)
   const runtimeConfig = nuxt.options.runtimeConfig
   runtimeConfig.public.backend = {
     ...(runtimeConfig.public.backend as Record<string, unknown> | undefined),
-    monitoring: { dsn: wiring.wired ? wiring.dsn! : '', environment: env.BACKEND_ENVIRONMENT || env.VERCEL_ENV || 'production' } satisfies MonitoringPublicConfig,
+    monitoring: { dsn: wiring.wired ? wiring.dsn! : '', environment: env.BACKEND_ENVIRONMENT || env.VERCEL_ENV || 'production', tunnel: wiring.wired && path.tunnel } satisfies MonitoringPublicConfig,
   } as unknown as typeof runtimeConfig.public.backend
   const kind = computeDeployment(nuxt.options.rootDir, env).kind
   runtimeConfig.backendHealth = {
@@ -109,14 +162,18 @@ export function registerMonitoring(resolver: Resolver, nuxt: Nuxt, wiring: Monit
     addPlugin({ src: resolver.resolve(`${SDK_DIR}/observe.client`), mode: 'client' })
     const capture = resolver.resolve(`${SDK_DIR}/capture.server`)
     addNitroPlugin({ nitro2: capture, nitro3: capture })
-    // The security headers let the browser's reports out. Nitro runs the
-    // policy hook in plugin order, and the base module's plugin narrows
-    // `connect-src`, so this one goes in once every module has set up: ahead
-    // of the base module's it would find the directive unset, and leave it.
-    nuxt.hook('modules:done', () => {
-      const csp = resolver.resolve('./runtime/server/monitoring/csp')
-      addNitroPlugin({ nitro2: csp, nitro3: csp })
-    })
+    if (path.direct) {
+      // Reports that go straight to the ingest need its origin in the security
+      // headers. Nitro runs the policy hook in plugin order, and the base
+      // module's plugin narrows `connect-src`, so this one goes in once every
+      // module has set up: ahead of the base module's it would find the
+      // directive unset, and leave it.
+      nuxt.hook('modules:done', () => {
+        const csp = resolver.resolve('./runtime/server/monitoring/csp')
+        addNitroPlugin({ nitro2: csp, nitro3: csp })
+      })
+    }
+    warnOnDirectReports(wiring, own)
     warnWithoutSourceMaps(env)
   }
 
@@ -131,6 +188,24 @@ export function registerMonitoring(resolver: Resolver, nuxt: Nuxt, wiring: Monit
     const localLog = resolver.resolve('./runtime/server/monitoring/local-log')
     addNitroPlugin({ nitro2: localLog, nitro3: localLog })
     addPlugin({ src: resolver.resolve('./runtime/vue/plugins/monitoring-log.client'), mode: 'client' })
+  }
+}
+
+/**
+ * Say once at build time when the browser's reports skip the managed tunnel:
+ * an SDK too old for it, or a config file of the app's own that the
+ * package's other config can't pair with.
+ */
+function warnOnDirectReports(wiring: MonitoringWiring, own: { client: boolean, server: boolean }): void {
+  if (!wiring.tunnel) {
+    logger.warn(`Monitoring: ${MONITORING_SDK} ${wiring.version ?? ''} is older than ${TUNNEL_SDK_VERSION}, so the browser reports straight to the ingest, whose origin the security headers let out, and ad blockers drop them. Upgrade it to ^${TUNNEL_SDK_VERSION} for the managed tunnel.`)
+    return
+  }
+  if (own.server && !own.client) {
+    logger.warn('Monitoring: the app has its own sentry.server.config, so the package\'s browser config sends its reports straight to the ingest (its origin let out in connect-src) rather than through a tunnel nothing may answer. For the tunnel, add Sentry.serveTunnelIntegration() to your server config and a sentry.client.config with tunnel: true.')
+  }
+  else if (own.client) {
+    logger.warn('Monitoring: the app has its own sentry.client.config: the security headers let the ingest of the DSN the module reads (MONITORING_DSN) out in connect-src; a DSN of another origin in your config needs that origin listed there. Set tunnel: true in it to report through the managed tunnel' + (own.server ? ', with Sentry.serveTunnelIntegration() in your server config.' : ', which the package\'s server config answers.'))
   }
 }
 

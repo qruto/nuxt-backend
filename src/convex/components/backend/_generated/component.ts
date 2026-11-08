@@ -5033,7 +5033,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       recordError: FunctionReference<
         "mutation",
         "internal",
-        { error: any; jobId: string; lastError?: string },
+        { error: any; jobId: string; lastError?: string; replace?: boolean },
         null,
         Name
       >;

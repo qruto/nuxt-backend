@@ -115,6 +115,21 @@ Types: `ConsentDeclaration`, `ConsentDeclarations`, `StorageChoice`, `StoragePur
 
 Types: `SetupWebhooksOptions`, `WebhookDeliveryRow`, `WebhookOutcome`, `WebhookReplay`, `Webhooks`, `WebhooksApi`, `WebhooksComponents`, `WebhookService`, `FunnelBreakdownRow`, `FunnelCohort`, `FunnelDimension`, `FunnelReport`, `FunnelStep`, `PersonStep`, `AppealView`, `DescribedSubject`, `NoticeInput`, `ReportAppeal`, `ReportedSubject`, `ReportNotice`, `ReportReason`, `ReportsApi`, `ReportsConsole`, `ReportsOptions`, `ReportSubject`, `AdminUser`, `AdminUserPage`, `AdminMembership`, `AdminSession`, `AdminUserDetail`, `AdminWorkspace`, `AdminWorkspacePage`, `AdminWorkspaceMember`, `AdminInvitation`, `AdminWorkspaceDetail`, `AdminApi`, `Admin`, `SetupAdminOptions`, `SetupAdminReportsOptions`, `AdminWithReports`, `AdminComponents`.
 
+## CLI
+
+### `npx nuxt-backend access admit`
+
+Let addresses sign up while the app is closed: an invitation by address each, as the admin console's Access tab gives one, with no email sent. An address with an account is skipped.
+
+- `<email>`: The address to admit; name several, or separate them with commas
+- `--cwd`: Project directory
+- `--prod`: Admit on the production deployment
+- `--label`: What the Access tab lists the invitations under (default "command line")
+- `--days`: How many days the invitations admit (default 30, at most 365)
+- `--json`: Print the outcome as one JSON document; progress goes to stderr
+
+`--json`: `{ deployment: "dev" | "production", status: "admitted" | "refused" | "missing" | "failed", admitted, skipped: [{ email, reason: "malformed" | "reserved" | "account" }], expiresAt, note? }`: `expiresAt` is epoch ms, or `null` when refused.
+
 ## Doctor findings
 
 `npx nuxt-backend doctor --json` reports these ids, each with a `docsUrl` that explains it.

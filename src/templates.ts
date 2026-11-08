@@ -120,6 +120,9 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // spendLimit is the most a UTC day of model calls may cost the whole app:
     // past it, the pause_ai switch turns on until the day ends. Raise it as
     // your app grows; a sandbox deployment, a public demo, refuses AI without one.
+    // Model ids go through the Convex AI Gateway on a paid plan, else the Vercel
+    // AI Gateway with AI_GATEWAY_API_KEY: \`gateway: 'convex'\` or \`'vercel'\`
+    // picks one (https://nuxt-backend.dev/docs/services/ai-gateway#choose-a-gateway).
     export const ai = setupAi(components, { billing, rateLimiter, spendLimit: { usdPerDay: 10 } })
 
     // What each person's AI calls cost: the admin console's Costs tab reads it,
@@ -193,12 +196,13 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // lifecycle (each resolves the caller's own billing entity), the order and
     // usage history read live from the provider, the admin-only refund and
     // revenue metrics (the admin console's Revenue view), the free plan every new
-    // workspace starts on (internal; run by the workpool), and the gift sweep
+    // workspace starts on (internal; run by the workpool), the entitlement resync
+    // (internal; \`nuxt-backend billing resync\` runs it), and the gift sweep
     // (internal; woken by the component's cron, and scheduled for a gift dated
     // for later).
     export const {
       getPricing, getConfiguredProducts, getBillingAccess, getFeatures, getCredits,
-      getCurrentSubscription, listAllSubscriptions, syncEntitlements, syncProducts, startFreePlan,
+      getCurrentSubscription, listAllSubscriptions, syncEntitlements, syncProducts, startFreePlan, resyncEntitlements,
       generateCheckoutLink, generateCustomerPortalUrl,
       updateSubscription, cancelSubscription, getCancelFlow, acceptSaveOffer, uncancelSubscription,
       cancelPendingChange, pauseSubscription, resumeSubscription,

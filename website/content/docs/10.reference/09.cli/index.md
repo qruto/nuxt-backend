@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: "npx nuxt-backend: init, dev, doctor, status, env push, env rotate, billing sync, billing reset, email sync, inbox, upgrade, deploy, analyze, eject and mcp, with every flag and each command's contract."
+description: "npx nuxt-backend: init, dev, doctor, status, env push, env rotate, billing sync, billing reset, billing resync, access admit, email sync, inbox, upgrade, deploy, analyze, eject and mcp, with every flag and each command's contract."
 kind: reference
 capability: tools
 source: src/cli/contract.ts
@@ -194,7 +194,7 @@ nuxt-backend status · dev:happy-otter-123 (cloud dev deployment)
     ⚠ Billing access: BILLING_ACCESS_TOKEN is not set (optional): billing queries return empty and checkout actions fail on invocation.
 ◐ email         test       Resend: BACKEND_ENVIRONMENT is development: only the provider's test addresses receive mail
 ◐ notifications test       Web Push: runs on the cloud dev deployment
-○ ai            missing    AI SDK, Vercel AI Gateway, Convex persistent text streaming, Polar: its credits need billing: BILLING_ACCESS_TOKEN is not set
+○ ai            missing    AI SDK, Convex AI Gateway, Vercel AI Gateway, Convex persistent text streaming, Polar: its credits need billing: BILLING_ACCESS_TOKEN is not set
 ◐ protection    test       Vercel BotID, Cloudflare Turnstile: test mode: the dev server's bot check answers human, as BotID does in development
 ◐ monitoring    test       Sentry: no DSN is set, so errors go to the dev server's local error log (DevTools › Monitoring)
     unset: MONITORING_DSN
@@ -229,7 +229,7 @@ npx nuxt-backend env push --preview my-branch --site-url https://my-branch.examp
 
 | Flag | Effect |
 |---|---|
-| `--prod` | Acts on the project's **production** deployment (`convex env set --prod`), whichever deployment `.env.local` names. It invents no value but `BACKEND_ENVIRONMENT`, which it derives, and fails (exit 1) on missing required env. It forwards from `.env.local` only what is the app's everywhere: never a `SITE_URL` that is no public https origin (pass production's with `--site-url`), `PROTECTION_PROOF_SECRET` (production's own) or the challenge provider's test secret key. Refuses to run when `CONVEX_DEPLOY_KEY` is a dev or preview key: the Convex CLI follows the key and ignores `--prod`, so the push would land there. |
+| `--prod` | Acts on the project's **production** deployment (`convex env set --prod`), whichever deployment `.env.local` names. It invents no value but `BACKEND_ENVIRONMENT`, which it derives, and fails (exit 1) on missing required env. It forwards from `.env.local` only what is the app's everywhere: never a `SITE_URL` that is no public https origin (pass production's with `--site-url`), `PROTECTION_PROOF_SECRET` (production's own), the challenge provider's test secret key, or `AI_GATEWAY_API_KEY` (development's key: set production's own with `npx convex env set --prod AI_GATEWAY_API_KEY`). Refuses to run when `CONVEX_DEPLOY_KEY` is a dev or preview key: the Convex CLI follows the key and ignores `--prod`, so the push would land there. |
 | `--preview [name]` | Acts on the preview deployment of that name (`convex env set --preview-name`). Without a name, the branch the CI build names, read as `convex deploy` reads it (`VERCEL_GIT_COMMIT_REF` on Vercel, `HEAD` on Netlify, …). Generates `AUTH_SECRET` and sets `BACKEND_ENVIRONMENT` to `preview` when nothing else sets them; `SITE_URL` comes from `--site-url` only. Refuses a deploy key that is not a preview key. |
 | `--defaults preview\|dev` | Writes the project's env defaults for new deployments of that type (`convex env default set --type`) instead of a deployment: a generated `AUTH_SECRET`, `SITE_URL`, and `BACKEND_ENVIRONMENT` as `preview` or `development`; dev defaults add `EMAIL_DEV_INBOX=1`. A default already set is kept unless `--force` names it. `prod` is refused, and so is a production deploy key. |
 | `--site-url <url>` | The `SITE_URL` to write, replacing the one already set: giving it is asking for it. A preview's only source of one, and required for `--defaults preview` until the project has that default. |
@@ -373,6 +373,60 @@ In order, it:
 
 Paid subscriptions of the old organization stay there: the reset forgets them, it cancels nothing.
 
+## `billing resync`
+
+Read the billing entities' entitlements again from the billing provider into the deployment's cache, as `syncEntitlements` does for one signed-in entity: every workspace, or every account with `billTo: 'user'`, or the entities `--entity` names. Run it when the cache may have missed what the provider holds: the webhook endpoint was off or its secret changed while purchases went through, or the deployment was restored from a backup. The webhooks keep the cache current otherwise, so a healthy app never needs it.
+
+<!-- generated:cli-billing-resync (pnpm docs:lookups, from src/cli/contract.ts) -->
+
+**Side effects:** writes the dev deployment; --prod: writes production. **`--json`:** `{ deployment: "dev" | "production", status: "queued" | "synced" | "custom_entities" | "refused" | "missing" | "failed", queued, more, entities: [{ id, outcome: "synced" | "gone" }], note? }`: `queued` counts the billing entities of the first page, and `more` says further pages follow on the deployment's scheduler; `entities` lists each one `--entity` named that was read. **Exit codes:** `0` queued: every billing entity's entitlements are read again on the deployment, the first page now and the rest as its scheduler reaches them; or synced: each entity `--entity` named was read again; `1` refused or not run: a deploy key for another deployment than the flags name, an `--entity` list that is empty or names more than 100, an app that bills entities of its own (`billTo: "user"` with its own `resolveEntity`) resynced without `--entity`, a deployment whose billing.ts does not export resyncEntitlements (scaffolded before it), or one that refused the resync.
+
+<!-- /generated:cli-billing-resync -->
+
+```bash
+npx nuxt-backend billing resync          # the dev deployment
+npx nuxt-backend billing resync --prod   # production
+npx nuxt-backend billing resync --entity team_1,team_2   # these entities only
+```
+
+| Flag | Effect |
+|---|---|
+| `--prod` | Resync the production deployment instead of the dev one. A dev or preview `CONVEX_DEPLOY_KEY` is refused; without `--prod`, so is a key for anything but a dev deployment, since the Convex CLI follows the key whatever the flags say. |
+| `--entity <id>[,<id>…]` | Read only these billing entities again, by the id billing knows them by, at most 100, one at a time, and wait for each. `entities` lists them, each `synced`, or `gone` while an erasure deletes it. |
+| `--json` | Print the outcome as one JSON document (`{ deployment, status, queued, more, entities, note? }`), a refusal included; progress goes to stderr. |
+
+Without `--entity` it runs the scaffold's `billing:resyncEntitlements '{}'` on the deployment and returns. The deployment pages its billing entities (workspaces, or accounts with `billTo: 'user'`) a hundred at a time, each page scheduling the next, and reads each entity on the queue the free plan uses, which retries a request the provider's rate limit refused. `queued` counts the first page; with `more`, the rest follow after the command ends. An entity an erasure is deleting is left alone.
+
+An app whose own `resolveEntity` bills entities of its own with `billTo: 'user'` (a team in its own tables) has entities the deployment cannot list, and its accounts are not them. The sweep queues nothing there and says so (`status: "custom_entities"`), and the command fails: name the entities with `--entity`. With `billTo: 'workspace'` a resolver of your own still returns workspaces, so the sweep covers them.
+
+An app scaffolded before `resyncEntitlements` existed lacks it: the command says so (`status: "missing"`) and fails. Add `resyncEntitlements` to the names `backend/billing.ts` re-exports from `billing.api`, push the backend, and run it again. `doctor` does not ask for it: no composable calls it.
+
+## `access admit`
+
+Let addresses sign up while the app is closed: an invitation by address for each, as the admin console's Access tab gives one, for a drill, an end-to-end test or a first tester, with nobody signed in to the console. No email is sent. It goes through the `backend` component's `access:admit`, so the app's own `backend/access.ts` needs no change.
+
+<!-- generated:cli-access-admit (pnpm docs:lookups, from src/cli/contract.ts) -->
+
+**Side effects:** writes the dev deployment; --prod: writes production. **`--json`:** `{ deployment: "dev" | "production", status: "admitted" | "refused" | "missing" | "failed", admitted, skipped: [{ email, reason: "malformed" | "reserved" | "account" }], expiresAt, note? }`: `expiresAt` is epoch ms, or `null` when refused. **Exit codes:** `0` the admission ran: each address named holds an invitation, or was skipped with its reason; `1` refused or not admitted: no address or too many, a label or a lifetime out of range, a deploy key for another deployment than the flags name, a deployment without launch access, or one that refused.
+
+<!-- /generated:cli-access-admit -->
+
+```bash
+npx nuxt-backend access admit ada@acme.dev
+npx nuxt-backend access admit ada@acme.dev grace@acme.dev --label drill --days 2
+npx nuxt-backend access admit ada@acme.dev --prod
+```
+
+| Flag | Effect |
+|---|---|
+| `<email>…` | The addresses to admit: several, or separated by commas, at most 500. Each is trimmed and lower-cased; a malformed one, or one on a domain reserved for documentation and tests (`example.com`, `.test`), is skipped, as the Access tab skips it. |
+| `--label <text>` | What the Access tab lists the invitations under, 1 to 64 characters. Default: `command line`. |
+| `--days <n>` | How many days the invitations admit, from 1 to 365. Default: 30, the Access tab's. |
+| `--prod` | Admit on the production deployment. A dev or preview `CONVEX_DEPLOY_KEY` is refused; without `--prod`, so is a key for anything but a dev deployment. |
+| `--json` | Print the outcome as one JSON document (`{ deployment, status, admitted, skipped, expiresAt, note? }`), a refusal included (`status: "refused"`, `expiresAt: null`); progress goes to stderr. |
+
+An address that has an account already is skipped (`reason: "account"`): it signs in whatever the phase. One admitted before and not used yet keeps the later of its two expiry dates. The invitation is not on the activity trail, since no account made it; the Access tab lists it under its label, where an administrator revokes it. [Invite people by address](/docs/build/growth/launch/invites#invite-people-by-address) covers the Access tab's side, and [Launch in phases](/docs/build/growth/launch) every other ticket.
+
 ## `email sync`
 
 Push what `backend/email.ts` declares to the email provider, as [`billing sync`](#billing-sync) does for the catalog. The deployment does the provider's side with its own `EMAIL_API_KEY` (`email:syncEmail`, which `backend/email.ts` re-exports from `setupEmail(…).api`), so the key never leaves it. It creates the topics under `topics`, the segment that holds your app's accounts, and the contact properties under `contactProperties`. It points the deployment's `/email/events` webhook at every event the package reads; a webhook it creates has its signing secret stored on the deployment as `EMAIL_WEBHOOK_SECRET`, never printed. It reads each sender's domain for its region and DMARC policy. The ids it creates stay on the deployment, so no provider id sits in your code.
@@ -430,7 +484,7 @@ It reads dev-class deployments only (`dev:`, `local:` and `anonymous:`) and refu
 
 ## `upgrade`
 
-Move the app to the version installed. It does two things: it repairs the scaffold, as `doctor --fix` does, and it runs the package's own data migrations on the deployment. It rewrites no code: a release's renamed names are in the [changelog](/docs/ship/releases/changelog) and, for the previews of `main`, on the [Upgrade page](/docs/ship/releases/upgrade), and no release ships codemods. Run it after installing a new version, and again whenever it says so: every step is safe to repeat, and a second run changes nothing the first one finished.
+Move the app to the version installed. It repairs the scaffold, as `doctor --fix` does, runs the package's own data migrations on the deployment, and starts the workpool backfill on every pool there. It rewrites no code: a release's renamed names are in the [changelog](/docs/ship/releases/changelog) and, for the previews of `main`, on the [Upgrade page](/docs/ship/releases/upgrade), and no release ships codemods. Run it after installing a new version, and again whenever it says so: every step is safe to repeat, and a second run changes nothing the first one finished.
 
 ```bash
 npx nuxt-backend upgrade --dry-run      # each scaffold change as a diff, and where the migrations stand; writes nothing
@@ -441,7 +495,7 @@ npx nuxt-backend upgrade --json         # the report as one JSON document
 
 <!-- generated:cli-upgrade (pnpm docs:lookups, from src/cli/contract.ts) -->
 
-**Side effects:** writes project files; writes the dev deployment; --dry-run: reads only; --diff: reads only; --prod --yes: writes project files, writes production. **`--json`:** `{ to, dryRun, scaffold: { written, changes, diffs }, ejected: [{ target, file, from, to, changes }], data: { deployment, state, reason, migrations }, next }`: `data.state` is `done`, `running`, `pending`, `none`, `skipped`, `needs-push` or `failed`; `scaffold.diffs` comes with `--dry-run` only; with `--diff`, `[{ target, file, from, to, changes, diff }]` alone; progress goes to stderr. **Exit codes:** `0` done: the scaffold repaired; the data migrated, still migrating, waiting for a push, or skipped with no dev deployment; `1` refused, a data migration failed, or with `--prod`, production could not be migrated.
+**Side effects:** writes project files; writes the dev deployment; --dry-run: reads only; --diff: reads only; --prod --yes: writes project files, writes production. **`--json`:** `{ to, dryRun, scaffold: { written, changes, diffs }, ejected: [{ target, file, from, to, changes }], data: { deployment, state, reason, migrations }, pools: { state, pools, failed: [{ component, reason }], reason }, next }`: `data.state` is `done`, `running`, `pending`, `none`, `skipped`, `needs-push` or `failed`; `pools.state` is `started`, `none`, `pending`, `skipped` or `failed`; `scaffold.diffs` comes with `--dry-run` only; with `--diff`, `[{ target, file, from, to, changes, diff }]` alone; progress goes to stderr. **Exit codes:** `0` done: the scaffold repaired; the data migrated, still migrating, waiting for a push, or skipped with no dev deployment; the workpool backfill started on every pool, or none needs it; `1` refused, a data migration or a pool's backfill failed, or with `--prod`, production could not be migrated.
 
 <!-- /generated:cli-upgrade -->
 
@@ -458,6 +512,7 @@ In order, it:
 1. **repairs the scaffold**, exactly as [`doctor --fix`](#doctor) does before it pushes env: the scaffold files this version adds, the mounts, forwarded env names and route groups `convex.config.ts` and `http.ts` lack, and a `dev` script that stalls. It pushes no env.
 2. **lists the ejected files**: each file whose stamp names an older version, with a count of upstream changes and the `upgrade --diff <name>` command that shows them.
 3. **migrates the data.** The package's own migrations run on the migrations component nested in `backend`, which records how far each one got. A finished one is skipped, one that stopped, failed or was canceled resumes where it stopped, and they run one after another. It follows them for up to two minutes; past that they go on in the deployment, and a later run reports them. A deployment runs the code it was last pushed, so one that predates this version has no migrations to run yet: the data step reports `needs-push`, and the run after `npx nuxt-backend dev` (or production's deploy) migrates it. With no dev deployment configured, the step is skipped.
+4. **backfills every workpool.** `@convex-dev/workpool` records on each piece of queued work the start entry it waits on, and its 0.5 line expects every entry to carry it; work queued before a pool recorded it does not. So the step runs the pool's own one-off `migrations:backfillPendingStartIds` on every pool the deployment mounts: the app's `workpool`, and the ones other components nest (the email component's two, the workflow component's, the `backend` component's waitlist mirror). The deployment lists its component paths, each is asked (four at a time), and one without the backfill, not a pool or a pool from before it, is left out. The backfill pages itself on the deployment and the command does not wait for it; running it again is harmless. A dry run starts nothing (`pools.state: "pending"`), and with no dev deployment the step is skipped with the data one.
 
 It ends with the commands to run next: `init --agents` when the agent files are missing or name another version, `dev` and `upgrade` again while the dev data waits for a push (production's deploy, then `upgrade --prod --yes`, for production), then `doctor` and the app's type check.
 
@@ -470,6 +525,14 @@ It ends with the commands to run next: `init --agents` when the agent files are 
 | `skipped` | No dev deployment is configured, it did not answer, or a file of the app could not be written. |
 | `needs-push` | The deployment runs a backend older than this version. |
 | `failed` | A migration stopped on an error (`migrations[].error`), or production did not answer. |
+
+| `pools.state` | Means |
+|---|---|
+| `started` | The backfill started on every pool in `pools`, and goes on in the deployment. |
+| `none` | No pool on the deployment has the backfill: none is mounted, or each predates it. |
+| `pending` | A dry run: nothing started. |
+| `skipped` | The deployment was not reached, or did not list its components (`reason`). |
+| `failed` | A pool refused it (`failed[]`, each with its `component` and `reason`); the others still started, and the command exits `1`. |
 
 ## `deploy`
 
@@ -493,7 +556,7 @@ The project file it writes is `backend/billing.generated.ts`, as `billing sync` 
 |---|---|
 | `--dry-run` | Print every step it would take, and change nothing. |
 | `--sandbox` | Set `BACKEND_ENVIRONMENT=sandbox` instead of `production`, publish the [dev inbox](/docs/develop/dev-inbox) (`EMAIL_DEV_INBOX=1`), and sync to the providers' test modes ([Deploy a demo or staging app](/docs/ship/deploy/staging)). |
-| `--build` | Run as the host's build command, as the [deploy template](/docs/ship/deploy/template) does: put what the first push needs on production where it lacks it (a generated `AUTH_SECRET`, and `SITE_URL` from the host's production URL), then run `convex deploy --cmd 'npm run build'`, the backend first and the app against it. With a preview deploy key it fills the preview's env as [`env push --preview`](#preview-deployments) does. It never sets `BACKEND_ENVIRONMENT`, so a new app stays on the test modes until `deploy` makes it live. |
+| `--build` | Run as the host's build command, as the [deploy template](/docs/ship/deploy/template) does: put what the first push needs on production where it lacks it (a generated `AUTH_SECRET`, and `SITE_URL` from the host's production URL), then run `convex deploy --cmd '<package manager> run build'`, the backend first and the app against it. The package manager is the one `package.json`'s `packageManager` pins, else the one whose lockfile sits in the project or above it in the repository (a workspace's root), else npm; it runs the build and the package's CLI (`pnpm exec nuxt-backend`, `yarn nuxt-backend`, `bunx nuxt-backend`, `npx nuxt-backend`). With a preview deploy key it fills the preview's env as [`env push --preview`](#preview-deployments) does, its `SITE_URL` from `VERCEL_BRANCH_URL`, else `VERCEL_URL` for a deployment made outside Git, and a new preview loads the billing products once pushed (`--preview-run billing:syncProducts`) when the build's env holds `BILLING_ACCESS_TOKEN`; without one it says so and skips it, since the sync would be refused and fail the build. It never sets `BACKEND_ENVIRONMENT`, so a new app stays on the test modes until `deploy` makes it live. |
 | `--json` | Print the outcome as one JSON document; progress goes to stderr. |
 
 In order, it:

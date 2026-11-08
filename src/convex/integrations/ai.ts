@@ -7,10 +7,11 @@
  *
  * Models are named as `provider/model` ids and called through the AI SDK (an
  * optional peer: install `ai` to call one), each call charged at the cost
- * the gateway reports. An id goes to the Convex AI Gateway first, on Convex
- * Cloud with a paid plan (install `@convex-dev/ai-sdk-provider`), then
- * through the Vercel AI Gateway with `AI_GATEWAY_API_KEY`. Without either, a
- * call is refused, saying why.
+ * the gateway reports. An id goes through the gateways `setupAi({ gateway })`
+ * names, in order: by default the Convex AI Gateway first, on Convex Cloud
+ * with a paid plan (install `@convex-dev/ai-sdk-provider`), then the Vercel
+ * AI Gateway with `AI_GATEWAY_API_KEY`. When none answers, a call is refused,
+ * saying why.
  *
  * Composes the billing spend reservation (`setupBilling`), the rate limiter,
  * and the upstream persistent-text-streaming component — usage recording IS
@@ -37,6 +38,7 @@ export type {
   CreditsBalanceEvent,
   AiCreditsConfig,
   AiModel,
+  AiGateway,
   InferenceRegion,
   MeteredModel,
   ModelStatus,
@@ -64,13 +66,16 @@ export { setupAi } from './ai/setup.js'
 export type { ModerationConfig, ModerationCtx, ModerationInput, ModerationVerdict } from './ai/moderation.js'
 export type {
   AdminJobView,
+  CancelOptions,
   DefineJobQueueOptions,
   EnqueueOptions,
   GuestJobs,
   JobContext,
   JobDefinition,
+  JobEnd,
   JobModelLimit,
   JobProgress,
+  JobRecord,
   JobQueue,
   JobQueueApi,
   JobQueueComponents,
@@ -78,7 +83,8 @@ export type {
   JobStepDefinition,
   JobTier,
   JobView,
+  OnJobEnd,
   QueueChange,
   StepResult,
 } from './ai/jobs.js'
-export { defineJobQueue } from './ai/jobs.js'
+export { defineJobQueue, vJobEnd } from './ai/jobs.js'

@@ -12,6 +12,9 @@ import { rateLimiter } from './rateLimiter'
 // spendLimit is the most a UTC day of model calls may cost the whole app:
 // past it, the pause_ai switch turns on until the day ends. Raise it as
 // your app grows; a sandbox deployment, a public demo, refuses AI without one.
+// Model ids go through the Convex AI Gateway on a paid plan, else the Vercel
+// AI Gateway with AI_GATEWAY_API_KEY: `gateway: 'convex'` or `'vercel'`
+// picks one (https://nuxt-backend.dev/docs/services/ai-gateway#choose-a-gateway).
 export const ai = setupAi(components, { billing, rateLimiter, spendLimit: { usdPerDay: 10 } })
 
 // What each person's AI calls cost: the admin console's Costs tab reads it,

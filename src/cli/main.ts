@@ -12,6 +12,7 @@ import { bootstrapAdmin } from './admin'
 import { askOnTerminal } from './ask'
 import { changeConfirmation, fixProviderSettings } from './provider-fix'
 import { envRotate } from './rotate'
+import { access } from './access'
 import { analyze } from './analyze'
 import { billing } from './billing'
 import { progress, withContract } from './contract'
@@ -467,5 +468,5 @@ export const main = defineCommand({
     version: packageVersion(),
     description: 'The complete backend for a Nuxt app on Convex — scaffold and check your project',
   },
-  subCommands: { init, dev, doctor, status, env, billing, email, inbox, upgrade, eject: ejectCommand, deploy, analyze, mcp },
+  subCommands: { init, dev, doctor, status, env, billing, access, email, inbox, upgrade, eject: ejectCommand, deploy, analyze, mcp },
 })

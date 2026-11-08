@@ -80,6 +80,7 @@ export const CONSOLE_DETENTS: ConsoleDetent[] = [
       { id: 'deployment-ai-gateway-api-key', status: 'pass', title: 'Deployment AI_GATEWAY_API_KEY', message: 'AI_GATEWAY_API_KEY is not set, and no backend file names a provider/model id that needs a model route.' },
       { id: 'deployment-provenance-private-key', status: 'pass', title: 'Deployment PROVENANCE_PRIVATE_KEY', message: 'PROVENANCE_PRIVATE_KEY is not needed: no backend file turns provenance on.' },
       { id: 'deployment-provenance-certificate', status: 'pass', title: 'Deployment PROVENANCE_CERTIFICATE', message: 'PROVENANCE_CERTIFICATE is not needed: no backend file turns provenance on.' },
+      { id: 'ai-moderation-images', status: 'pass', title: 'Image checks and the safety classifier', message: 'No backend file checks images with the safety classifier.' },
       { id: 'ai-components', status: 'pass', title: 'Chat and knowledge components', message: 'No backend file declares a chat or a knowledge store.' },
     ],
   },

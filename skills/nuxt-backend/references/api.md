@@ -323,8 +323,9 @@ Types: `WorkflowId`, `WorkflowStatus`, `WorkflowComponents`, `EmailSequenceStep`
 | `priceTokens()` | Price a model call in credits from its token usage and a price table the app owns. |
 | `setupAi()` | Configure the AI rails over billing + rate limiting + streaming. |
 | `defineJobQueue()` | Declare the app's generation queue, once, in `backend/jobs.ts`: kinds of jobs (`jobs.define`) run their steps (`jobs.step`) in a fair line with tiers from plan features, each model under a limit that adapts to `429`s, credits held while a job waits, charged when it starts and refunded when it fails, and each job's cost reported to the billing provider. |
+| `vJobEnd` | How a job ended, as `onJobEnd` receives it: use these as your function's `args` (`internalMutation({ args: vJobEnd, handler })`). |
 
-Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBalanceEvent`, `AiCreditsConfig`, `AiModel`, `InferenceRegion`, `MeteredModel`, `ModelStatus`, `SetupAiConfig`, `AiGuestConfig`, `GuestClaim`, `MeteredUsage`, `FinalizedCost`, `ReportedCost`, `MeteredCost`, `MeteredContext`, `MeteredActionConfig`, `MeteredStreamConfig`, `PersonCost`, `AiCosts`, `AiApi`, `Ai`, `ModelPrice`, `TokenPriceTable`, `TokenUsage`, `GeneratedImage`, `ImageStoreContext`, `JobProvenance`, `ProvenanceConfig`, `StoreImageOptions`, `Chat`, `ChatConfig`, `ChatMessage`, `ChatReply`, `ChatThread`, `AiEmbeddingModel`, `Knowledge`, `KnowledgeAddCost`, `KnowledgeApi`, `KnowledgeConfig`, `KnowledgeDocument`, `KnowledgePassage`, `ModerationConfig`, `ModerationCtx`, `ModerationInput`, `ModerationVerdict`, `AdminJobView`, `DefineJobQueueOptions`, `EnqueueOptions`, `GuestJobs`, `JobContext`, `JobDefinition`, `JobModelLimit`, `JobProgress`, `JobQueue`, `JobQueueApi`, `JobQueueComponents`, `JobStepContext`, `JobStepDefinition`, `JobTier`, `JobView`, `QueueChange`, `StepResult`.
+Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBalanceEvent`, `AiCreditsConfig`, `AiModel`, `AiGateway`, `InferenceRegion`, `MeteredModel`, `ModelStatus`, `SetupAiConfig`, `AiGuestConfig`, `GuestClaim`, `MeteredUsage`, `FinalizedCost`, `ReportedCost`, `MeteredCost`, `MeteredContext`, `MeteredActionConfig`, `MeteredStreamConfig`, `PersonCost`, `AiCosts`, `AiApi`, `Ai`, `ModelPrice`, `TokenPriceTable`, `TokenUsage`, `GeneratedImage`, `ImageStoreContext`, `JobProvenance`, `ProvenanceConfig`, `StoreImageOptions`, `Chat`, `ChatConfig`, `ChatMessage`, `ChatReply`, `ChatThread`, `AiEmbeddingModel`, `Knowledge`, `KnowledgeAddCost`, `KnowledgeApi`, `KnowledgeConfig`, `KnowledgeDocument`, `KnowledgePassage`, `ModerationConfig`, `ModerationCtx`, `ModerationInput`, `ModerationVerdict`, `AdminJobView`, `CancelOptions`, `DefineJobQueueOptions`, `EnqueueOptions`, `GuestJobs`, `JobContext`, `JobDefinition`, `JobEnd`, `JobModelLimit`, `JobProgress`, `JobRecord`, `JobQueue`, `JobQueueApi`, `JobQueueComponents`, `JobStepContext`, `JobStepDefinition`, `JobTier`, `JobView`, `OnJobEnd`, `QueueChange`, `StepResult`.
 
 ### `nuxt-backend/storage`
 
@@ -517,6 +518,30 @@ Start the dev deployment's billing over in the organization BILLING_ACCESS_TOKEN
 
 `--json`: { sync: <billing sync --json>, cleared: [{ component, table, status: "cleared" | "failed" | "skipped", note? }], freePlan: { status: "queued" | "skipped" | "failed", note? } }.
 
+### `npx nuxt-backend billing resync`
+
+Read every billing entity's entitlements again from the billing provider into the deployment's cache (billing:resyncEntitlements), a page at a time on the deployment: after missed webhooks, or a restored deployment. An app that bills entities of its own (billTo: "user" with its own resolveEntity) names them with --entity.
+
+- `--cwd`: Project directory
+- `--prod`: Resync the production deployment
+- `--entity`: Read only these billing entities again, by id, comma-separated (at most 100), and wait for each: the way for an app whose own resolveEntity bills entities of its own
+- `--json`: Print the outcome as one JSON document; progress goes to stderr
+
+`--json`: `{ deployment: "dev" | "production", status: "queued" | "synced" | "custom_entities" | "refused" | "missing" | "failed", queued, more, entities: [{ id, outcome: "synced" | "gone" }], note? }`: `queued` counts the billing entities of the first page, and `more` says further pages follow on the deployment's scheduler; `entities` lists each one `--entity` named that was read.
+
+### `npx nuxt-backend access admit`
+
+Let addresses sign up while the app is closed: an invitation by address each, as the admin console's Access tab gives one, with no email sent. An address with an account is skipped.
+
+- `<email>`: The address to admit; name several, or separate them with commas
+- `--cwd`: Project directory
+- `--prod`: Admit on the production deployment
+- `--label`: What the Access tab lists the invitations under (default "command line")
+- `--days`: How many days the invitations admit (default 30, at most 365)
+- `--json`: Print the outcome as one JSON document; progress goes to stderr
+
+`--json`: `{ deployment: "dev" | "production", status: "admitted" | "refused" | "missing" | "failed", admitted, skipped: [{ email, reason: "malformed" | "reserved" | "account" }], expiresAt, note? }`: `expiresAt` is epoch ms, or `null` when refused.
+
 ### `npx nuxt-backend email sync`
 
 Create the email topics, the accounts' segment and the contact properties backend/email.ts declares at the email provider, point the deployment's webhook at every event the package reads (storing a new webhook's secret), read each sender's region and DMARC, and sync the support inbox.
@@ -542,7 +567,7 @@ Print the sign-in codes a dev deployment sent to a sandbox address (default deli
 
 ### `npx nuxt-backend upgrade`
 
-Move the app to the installed version: repair the scaffold as doctor --fix does, and run the package's data migrations. It rewrites none of the app's code.
+Move the app to the installed version: repair the scaffold as doctor --fix does, run the package's data migrations, and start the workpool backfill on every pool. It rewrites none of the app's code.
 
 - `--cwd`: Project directory
 - `--dry-run`: Show what the scaffold repairs would change, as diffs, and where the data migrations stand; write nothing
@@ -551,7 +576,7 @@ Move the app to the installed version: repair the scaffold as doctor --fix does,
 - `--yes`: Confirm --prod: the production data is migrated
 - `--json`: Machine-readable output
 
-`--json`: `{ to, dryRun, scaffold: { written, changes, diffs }, ejected: [{ target, file, from, to, changes }], data: { deployment, state, reason, migrations }, next }`: `data.state` is `done`, `running`, `pending`, `none`, `skipped`, `needs-push` or `failed`; `scaffold.diffs` comes with `--dry-run` only; with `--diff`, `[{ target, file, from, to, changes, diff }]` alone; progress goes to stderr.
+`--json`: `{ to, dryRun, scaffold: { written, changes, diffs }, ejected: [{ target, file, from, to, changes }], data: { deployment, state, reason, migrations }, pools: { state, pools, failed: [{ component, reason }], reason }, next }`: `data.state` is `done`, `running`, `pending`, `none`, `skipped`, `needs-push` or `failed`; `pools.state` is `started`, `none`, `pending`, `skipped` or `failed`; `scaffold.diffs` comes with `--dry-run` only; with `--diff`, `[{ target, file, from, to, changes, diff }]` alone; progress goes to stderr.
 
 ### `npx nuxt-backend eject`
 
@@ -572,7 +597,7 @@ Take production from nothing to a passing doctor --prod: link or create the prod
 - `--cwd`: Project directory
 - `--dry-run`: Print every step it would take, and change nothing
 - `--sandbox`: A demo or staging app: set BACKEND_ENVIRONMENT=sandbox instead of production, and sync to the providers' test modes
-- `--build`: Run as the host's build command: put the env the first push needs on production (AUTH_SECRET, SITE_URL from the host), then convex deploy builds the app against the backend
+- `--build`: Run as the host's build command: put the env the first push needs on production (AUTH_SECRET, SITE_URL from the host), then convex deploy builds the app against the backend with the project's package manager; a new preview also loads the billing products when the build env holds BILLING_ACCESS_TOKEN, and skips that step, saying so, without it
 - `--json`: Print the outcome as one JSON document; progress goes to stderr
 
 `--json`: `{ dryRun, environment, host, steps: [{ id, capability, title, outcome, detail }], doctor }`: `outcome` is `done`, `unchanged`, `planned`, `skipped` or `failed`, `doctor` is `{ pass, warn, fail, failing }` or null; values never appear.
@@ -683,6 +708,7 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `billing-portal` | billing | Customer portal |
 | `billing-customer-emails` | billing | Customer emails |
 | `billing-team-customers` | billing | Team customers |
+| `billing-checkout-links` | billing | Provider checkout links |
 | `billing-gift-twins` | billing | Gift products |
 | `billing-pass-products` | billing | Plan pass products |
 | `billing-feature-benefits` | billing | Feature benefits |
@@ -714,6 +740,7 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `ai-stream-route` | ai | AI stream route |
 | `ai-components` | ai | Chat and knowledge components |
 | `ai-spend-limit` | ai | AI spend limit on a sandbox |
+| `ai-moderation-images` | ai | Image checks and the safety classifier |
 | `deployment-ai-gateway-api-key` | ai | Deployment AI_GATEWAY_API_KEY |
 | `deployment-provenance-private-key` | ai | Deployment PROVENANCE_PRIVATE_KEY |
 | `deployment-provenance-certificate` | ai | Deployment PROVENANCE_CERTIFICATE |
@@ -753,7 +780,7 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `EMAIL_DEV_INBOX` | email | deployment | dev-only | the dev inbox's page reader (getSandboxInbox, behind useSandboxInbox) answers nothing; the CLI's inbox still reads |
 | `BILLING_ACCESS_TOKEN` | billing | deployment | optional | billing queries return empty and checkout actions fail on invocation |
 | `BILLING_WEBHOOK_SECRET` | billing | deployment | optional | billing events are rejected — entitlements refresh only on demand (syncEntitlements) |
-| `AI_GATEWAY_API_KEY` | ai | deployment | optional | a provider/model id the backend names goes through the Convex AI Gateway alone, on Convex Cloud with a paid plan and @convex-dev/ai-sdk-provider installed; anywhere else (a free plan, a self-hosted deployment) it is refused when called |
+| `AI_GATEWAY_API_KEY` | ai | deployment | optional | a provider/model id the backend names goes through the Convex AI Gateway alone, on Convex Cloud with a paid plan and @convex-dev/ai-sdk-provider installed; anywhere else (a free plan, a self-hosted deployment) it is refused when called. Under setupAi({ gateway: 'vercel' }) it is refused everywhere |
 | `PROVENANCE_PRIVATE_KEY` | ai | deployment | optional | generated images are stored with the IPTC source type and no signed C2PA manifest (`ai.provenance_unsigned`); `doctor --prod` fails once the backend turns provenance on |
 | `PROVENANCE_CERTIFICATE` | ai | deployment | optional | as without PROVENANCE_PRIVATE_KEY: the two sign together |
 | `PUSH_PUBLIC_KEY` | notifications | deployment | optional | the in-app inbox and email notifications work, but web push does not: `getPushConfig` answers no key, so `usePushSubscription` reads unsupported |

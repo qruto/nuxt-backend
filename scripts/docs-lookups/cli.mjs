@@ -226,6 +226,11 @@ export const FINDING_DOCS = {
     why: 'A workspace\'s owner and admins manage its billing through the customer\'s members.',
     fix: 'Turn on team customers, and give the token the member and customer-session scopes.',
   },
+  'billing-checkout-links': {
+    checks: 'No checkout link made in the provider\'s dashboard sells a product of the catalog (an archived product sells nothing). The package never makes one. No finding when the token may not read the organization\'s checkout links.',
+    why: 'A purchase through such a link names no billing entity: the provider makes a customer of the buyer\'s email, which the app maps to nobody, so the buyer pays and the app grants nothing, or a second plan lands beside the free one.',
+    fix: 'Delete those links in the provider\'s dashboard, and link to the app\'s pricing page instead: its checkout names the billing entity.',
+  },
   'billing-gift-twins': {
     checks: 'Every pack has a private gift product with no benefits, at its pack\'s live prices in every currency. A pack or twin with no live fixed price warns too.',
     why: 'A gift buys the pack\'s twin; without one, gifts of that pack are refused, sold at the wrong price or in the wrong currency, or grant a benefit twice.',
@@ -288,10 +293,15 @@ export const FINDING_DOCS = {
     why: 'Anyone may sign up to a demo, and its model calls are real: a sandbox refuses every metered call, stream, job and chat reply (`not_ready`, reason `no_budget`) until a daily ceiling caps what they cost.',
     fix: 'Pass `spendLimit: { usdPerDay }` to `setupAi` in `backend/ai.ts` ([Cap the daily spend](/docs/build/ai/models#cap-the-daily-spend)).',
   },
+  'ai-moderation-images': {
+    checks: 'Whether the image checks a backend file asks for (`images` in an `ai.moderate` or `ai.requireSafe` call, or in a `moderate` option) can run. The default safety classifier follows the gateway that answers: Llama Guard 4 through the Convex AI Gateway, which reads images, and `openai/gpt-oss-safeguard-20b` through the Vercel AI Gateway, which reads text only. A classifier named in `setupAi({ moderation: { model } })` passes as the app\'s own choice.',
+    why: 'A check with images that its classifier cannot read is refused as unchecked (`unavailable`, reason `not_configured`) rather than passed: every upload checked that way is refused.',
+    fix: 'Route moderation through the Convex AI Gateway: a paid Convex plan, `@convex-dev/ai-sdk-provider` installed, and `\'convex\'` first in `setupAi({ gateway })`. Or name a classifier that reads images in `setupAi({ moderation: { model } })`. See [Content safety](/docs/build/ai/content-safety).',
+  },
   'deployment-ai-gateway-api-key': {
-    checks: '`AI_GATEWAY_API_KEY` is set on the deployment, once a backend file names a `provider/model` id (in a `model` option or a `ctx.model()` call, as a string). With no model named, nothing needs it; on Convex Cloud with `@convex-dev/ai-sdk-provider` installed, the Convex AI Gateway answers on a paid plan, so it is optional there. An id built at run time is not read.',
-    why: 'Convex runs actions on its own servers, never on Vercel, so the AI Gateway\'s keyless sign-in never reaches them: without the key, every call to a named model is refused.',
-    fix: 'Create a key in the AI Gateway dashboard, add it to `.env.local`, then push it: `npx nuxt-backend env push` (`--prod` for production), or `doctor --fix`. See [Choose a model](/docs/build/ai/models).',
+    checks: 'A route for every `provider/model` id a backend file names (in a `model` option or a `ctx.model()` call, as a string), through the order `setupAi({ gateway })` names as a literal (the default order when it names none). With no model named, nothing needs one. In the default order, on Convex Cloud with `@convex-dev/ai-sdk-provider` installed, the Convex AI Gateway answers on a paid plan, so `AI_GATEWAY_API_KEY` is optional there. `gateway: \'vercel\'` needs the key everywhere; `gateway: \'convex\'` never reads it, and warns without the provider package, on an anonymous local deployment, and on a self-hosted one; a local deployment linked to a project passes, on that team\'s plan. An order it cannot read as a literal (a variable, the shorthand `{ gateway }`, an empty list, spread options, two `setupAi` calls that differ) warns that the route is not checked. An id built at run time is not read.',
+    why: 'Without a gateway in the order that can serve the deployment, every call to a named model is refused. Convex runs actions on its own servers, never on Vercel, so the Vercel AI Gateway\'s keyless sign-in never reaches them: it needs the key.',
+    fix: 'For the Vercel AI Gateway, create a key in its dashboard, add it to `.env.local`, then push it: `npx nuxt-backend env push`, or `doctor --fix`. Production takes a key of its own, with its own budget: `npx convex env set --prod AI_GATEWAY_API_KEY` (`env push --prod` never sends `.env.local`\'s). For the Convex AI Gateway, install `@convex-dev/ai-sdk-provider` and use Convex Cloud on a paid plan. See [Choose a gateway](/docs/services/ai-gateway#choose-a-gateway).',
   },
   'deployment-provenance-private-key': {
     checks: '`PROVENANCE_PRIVATE_KEY` is set on the deployment, once a backend file turns provenance on (`setupAi({ provenance })` with anything but `false`, or a `ctx.storeImage` call). With provenance off, nothing needs it.',
@@ -533,9 +543,9 @@ export const FINDING_DOCS = {
     fix: 'Add the DSN to `.env.local` and push it: `npx nuxt-backend env push --prod`, or `doctor --fix` on a dev deployment.',
   },
   'monitoring-app': {
-    checks: 'Where a DSN is visible to the app (`MONITORING_DSN`, or the `NEXT_PUBLIC_SENTRY_DSN` Sentry\'s Vercel integration sets), that `@sentry/nuxt` is installed for the module to wire it. Without a DSN it passes in dev; under `--prod` it warns, unless the app deploys to Vercel and its env is not here to read.',
-    why: 'A DSN without the SDK, or no DSN at all, reports nothing from the browser or the Nuxt server.',
-    fix: 'Install it: `npm install @sentry/nuxt`, and set the DSN where the app runs. The module wires it at the next build ([Monitoring](/docs/ship/operate/monitoring)).',
+    checks: 'Where a DSN is visible to the app (`MONITORING_DSN`, or the `NEXT_PUBLIC_SENTRY_DSN` Sentry\'s Vercel integration sets), that `@sentry/nuxt` is installed for the module to wire it, at 11.10 or later, the first with the managed tunnel: an older one warns. Without a DSN it passes in dev; under `--prod` it warns, unless the app deploys to Vercel and its env is not here to read.',
+    why: 'A DSN without the SDK, or no DSN at all, reports nothing from the browser or the Nuxt server; an SDK before 11.10 reports from the browser straight to the ingest, which ad blockers drop.',
+    fix: 'Install it, `npm install @sentry/nuxt@^11.10.0`, and set the DSN where the app runs. The module wires it at the next build ([Monitoring](/docs/ship/operate/monitoring)).',
   },
   'monitoring-source-maps': {
     checks: 'Reported only for an app that deploys to Vercel (a Vercel build, or a project linked with `vercel link`) with a DSN and the SDK: that `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` are visible, the names Sentry\'s Vercel integration sets.',

@@ -359,6 +359,8 @@ reference (`pnpm docs:reference:check`) must produce no diff — and the package
 [arethetypeswrong](https://arethetypeswrong.github.io), the content rules and the
 phantom-dependency walk in `scripts/check-tarball.mjs`), and the size budgets below.
 
+`pnpm lint` runs one worker and keeps a cache in `node_modules/.cache/eslint/`. ESLint builds a type-aware TypeScript program of the whole repository per worker, so a run with one worker per core took 16 to 20 GB, and two at once filled a laptop's swap. The cache is keyed on each file's own content: when only a file it imports changed, a type-aware result can be stale. CI runs `pnpm lint:ci`, uncached, with a worker per core.
+
 ## Budgets
 
 [`budgets.json`](./budgets.json) holds three size budgets, each with what it measured when it

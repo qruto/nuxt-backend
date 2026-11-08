@@ -391,7 +391,7 @@ describe('module registration (defaults)', () => {
       botDetection: false,
       challengeSiteKey: '',
       // No DSN: the browser reports nowhere, and nothing names the service.
-      monitoring: { dsn: '', environment: expect.any(String) },
+      monitoring: { dsn: '', environment: expect.any(String), tunnel: false },
       jobs: false,
       // No reports in setupAdmin: the console has no Reports tab.
       reports: false,

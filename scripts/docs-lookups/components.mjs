@@ -299,7 +299,14 @@ const TOKEN_ROLES = {
   '--bk-ok': 'Success messages',
   '--bk-warn': 'Warnings',
   '--bk-radius': 'Corners of cards, banners and messages',
-  '--bk-radius-control': 'Corners of buttons and inputs',
+  '--bk-radius-control': 'Corners of buttons and single-line inputs',
+  '--bk-font': 'The face of every component\'s text',
+  '--bk-font-heading': 'The face of headings, falling back to `--bk-font`',
+  '--bk-font-control': 'The face of buttons, falling back to `--bk-font`',
+  '--bk-border-width': 'The width of every outline: controls, fields, cards and dialogs',
+  '--bk-shadow': 'Cards, banners and panels',
+  '--bk-shadow-control': 'Buttons drawn as buttons',
+  '--bk-shadow-overlay': 'Dialogs, menus and popovers',
 }
 
 /** The shared tokens tokens.css declares in its first block, with their values. */
@@ -327,12 +334,22 @@ function familyStylesheets() {
     })
 }
 
+/** The tokens shared.css reads in a rule on `[data-backend]`, the root of every packaged component and page. */
+function everyComponentReads() {
+  const css = readText(`${COMPONENTS_DIR}/shared.css`).replace(/\/\*[\s\S]*?\*\//g, '')
+  return new Set([...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter(([, selector]) => selector.includes('[data-backend]'))
+    .flatMap(([, , body]) => [...body.matchAll(/var\((--bk-[\w-]+)/g)].map(([, token]) => token)))
+}
+
 /** One row per shared token: its role, its light and dark defaults, and the families that read it. */
 export function tokensTable() {
   const sheets = familyStylesheets()
+  const everywhere = everyComponentReads()
   return table(['Token', 'For', 'Light', 'Dark', 'Read by'], sharedTokens().map(({ name, light, dark }) => {
     const role = TOKEN_ROLES[name]
     if (!role) throw new Error(`${name} has no role in TOKEN_ROLES (scripts/docs-lookups/components.mjs)`)
+    if (everywhere.has(name)) return [code(name), role, code(light), code(dark), `Every component and page (${code('data-backend')})`]
     const families = [...new Set(sheets.filter(sheet => sheet.reads.has(name)).flatMap(sheet => sheet.families))].sort()
     return [code(name), role, code(light), code(dark), codes(families.map(family => `data-${family}`))]
   }))

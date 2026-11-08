@@ -148,6 +148,22 @@ export function admissionProblem(address: string): 'malformed' | 'reserved' | nu
   return RESERVED_DOMAINS.test(address.slice(address.lastIndexOf('@') + 1)) ? 'reserved' : null
 }
 
+/**
+ * A pasted list as admissions take it: each address trimmed and
+ * lower-cased, the ones that take none set aside with why. The admin
+ * console's Access tab and `nuxt-backend access admit` both clean through it.
+ */
+export function cleanAddresses(emails: readonly string[]): { clean: string[], skipped: Array<{ email: string, reason: 'malformed' | 'reserved' }> } {
+  const clean: string[] = []
+  const skipped: Array<{ email: string, reason: 'malformed' | 'reserved' }> = []
+  for (const email of emails.map(admissionEmail).filter(Boolean)) {
+    const problem = admissionProblem(email)
+    if (problem) skipped.push({ email, reason: problem })
+    else clean.push(email)
+  }
+  return { clean, skipped }
+}
+
 /** Whether an address's domain is one of `domains`, exactly (no subdomains). */
 export function inDomains(address: string, domains: readonly string[]): boolean {
   const normalized = admissionEmail(address)

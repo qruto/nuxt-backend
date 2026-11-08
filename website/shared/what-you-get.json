@@ -677,6 +677,10 @@
           "to": "/docs/reference/cli/diagnostics#billing-team-customers"
         },
         {
+          "name": "billing-checkout-links",
+          "to": "/docs/reference/cli/diagnostics#billing-checkout-links"
+        },
+        {
           "name": "billing-gift-twins",
           "to": "/docs/reference/cli/diagnostics#billing-gift-twins"
         },
@@ -988,6 +992,10 @@
         {
           "name": "ai-spend-limit",
           "to": "/docs/reference/cli/diagnostics#ai-spend-limit"
+        },
+        {
+          "name": "ai-moderation-images",
+          "to": "/docs/reference/cli/diagnostics#ai-moderation-images"
         },
         {
           "name": "deployment-ai-gateway-api-key",
@@ -1476,9 +1484,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "95 in all",
+          "name": "97 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "95 findings in all"
+          "label": "97 findings in all"
         }
       ]
     }

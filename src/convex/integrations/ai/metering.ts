@@ -62,7 +62,7 @@ function limitRefusal(limit: string, retryAfter: number | undefined, detail: str
  * settle what was spent (or release on failure) after, and fire the balance
  * hooks once a settle lands.
  */
-export function createMetering({ config, billing, rateLimiter, cache, refuseAi, streamTimeout, requests, moderation, recordCost }: AiContext) {
+export function createMetering({ config, billing, rateLimiter, cache, refuseAi, streamTimeout, requests, moderation, recordCost, routing }: AiContext) {
   /**
    * Check a metered definition where it is made, so a bad model id or rate
    * fails the push rather than a call.
@@ -155,7 +155,7 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
       throw new Error('[nuxt-backend] ctx.model(): no model to call — set `model` on setupAi or on the action, or pass one.')
     }
     requireModelId(chosen, 'ctx.model()')
-    return meteredModel(routeModel(chosen, undefined, config.inferenceRegion), calls, config.inferenceRegion)
+    return meteredModel(routeModel(chosen, undefined, routing), calls, routing.region)
   }
 
   /**
@@ -182,7 +182,7 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
     // the caller is known, refuse before the rate limit, the budget or the
     // balance counts anything.
     if (options.model !== undefined) {
-      const route = routeModel(options.model, undefined, config.inferenceRegion)
+      const route = routeModel(options.model, undefined, routing)
       if (route.route === 'missing') throw modelRefusal(route)
     }
 

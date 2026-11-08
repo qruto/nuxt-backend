@@ -20,7 +20,8 @@
   [data-audit='list'] {
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--bk-edge);
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
     overflow: hidden;
   }

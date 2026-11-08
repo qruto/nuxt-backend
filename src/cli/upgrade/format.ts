@@ -36,6 +36,17 @@ function data(report: UpgradeReport): string[] {
   return lines
 }
 
+/** Where the workpool backfill stands on the deployment's pools. */
+function pools(report: UpgradeReport): string[] {
+  const { state, pools: started, failed, reason } = report.pools
+  const lines = ['Workpools (the backfill each pool runs before workpool 0.5)']
+  if (reason) return [...lines, `  · ${state}: ${reason}`]
+  if (state === 'none') lines.push('  · no pool on the deployment has the backfill')
+  lines.push(...started.map(component => `  ✓ ${component}: started; it goes on in the deployment`))
+  lines.push(...failed.map(({ component, reason }) => `  ✗ ${component}: ${reason}`))
+  return lines
+}
+
 /** The report as the terminal shows it. */
 export function formatUpgrade(report: UpgradeReport): string[] {
   return [
@@ -45,6 +56,8 @@ export function formatUpgrade(report: UpgradeReport): string[] {
     '',
     ...(report.ejected.length ? [...formatEjected(report.ejected), ''] : []),
     ...data(report),
+    '',
+    ...pools(report),
     '',
     'Next',
     ...report.next.map(command => `  ${command}`),

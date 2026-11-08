@@ -19,7 +19,8 @@
   [data-auth='recovery-code'] {
     margin: 0;
     padding: 0.7rem 0.8rem;
-    border: 1px solid color-mix(in srgb, var(--bk-warn) 55%, transparent);
+    border: var(--bk-border-width) solid color-mix(in srgb, var(--bk-warn) 55%, transparent);
+    box-shadow: var(--bk-shadow);
     border-radius: var(--auth-radius);
     background: color-mix(in srgb, var(--bk-warn) 10%, transparent);
     font-variant-numeric: tabular-nums;

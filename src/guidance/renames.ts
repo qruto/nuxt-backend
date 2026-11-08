@@ -54,6 +54,8 @@ export function sectionUrl(section: string): string {
 }
 
 const MEMBER_TICKETS = 'Members bring friends with a ticket of their own, and the waitlist records the campaign'
+const TUNNEL = 'Browser error reports go through a tunnel on the app\'s own origin'
+const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
 const ONE_WAY = 'One way to do each thing'
 const ENVIRONMENT = 'One variable says what kind of deployment this is'
 const SANDBOXES = 'Development runs on the providers\' sandboxes, with nothing simulated'
@@ -98,6 +100,10 @@ export const RENAMES: readonly Rename[] = [
   { from: 'access.invites.create with a label per member', to: 'access.memberTickets({ uses, lifetime })', change: 'reshaped', section: MEMBER_TICKETS, note: 're-export its `api` (`getMemberTicket`, `issueMemberTicket`) and read it with `useMemberTicket()`; drop the table of links the app kept' },
   { from: 'useWaitlist({ source })', to: 'useWaitlist({ source, campaign })', change: 'reshaped', section: MEMBER_TICKETS, note: 'the address\'s `utm_source` and `utm_campaign` follow the source; `campaign: false` records the source alone' },
 
+  // The managed tunnel needs a newer SDK: the peer range moves.
+  { from: '@sentry/nuxt', to: '@sentry/nuxt@^11.10.0', change: 'reshaped', section: TUNNEL, note: 'the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn' },
+  // One attribute marks every packaged component, in place of a list of families.
+  { from: '[data-auth=\'form\'], [data-pricing=\'table\'], [data-admin]', to: '[data-backend]', change: 'reshaped', section: UI_TOKENS, note: 'the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root' },
   // One way per action. The boundaries, the banners, the auth members and
   // the wrapper subpaths each have one replacement.
   { from: 'setupAuthorization', to: 'createFunctions', change: 'removed', section: ONE_WAY, note: 'one call in `backend/functions.ts` takes `{ components, billing, rateLimiter }` and returns every tier and `setUserRole`' },

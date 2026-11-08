@@ -367,7 +367,7 @@ export const BACKEND_EVENTS = {
     data: { kind: STRING, refunded: 'boolean', running: 'boolean' },
     channels: [],
     description: 'Someone (the actor) canceled a job of the billing entity: `kind` is its `jobs.define` export, `running` whether it had started, and `refunded` whether its credits went back.',
-    recordedBy: '`jobs:cancelJob` (`defineJobQueue`), from `useJob().cancel()` or the admin console\'s Queue tab',
+    recordedBy: '`jobs:cancelJob` (`defineJobQueue`), from `useJob().cancel()` or the admin console\'s Queue tab, and `jobs.cancel` from the app\'s own mutation',
   },
   'job.retried': {
     scope: 'entity',
