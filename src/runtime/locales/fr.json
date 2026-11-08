@@ -1845,8 +1845,8 @@
           "kept": "Jusqu’à ce qu’un membre le retire, ou que son espace de travail disparaisse."
         },
         "aiFlags": {
-          "holds": "Ce que le classifieur de sécurité a signalé dans le contenu envoyé par un compte : les catégories, s’il a été refusé ou escaladé, le classifieur, ainsi que l’identifiant et l’étape de l’app pour ce qui a été vérifié, jamais le contenu.",
-          "kept": "Le nombre de jours pendant lesquels l’app conserve les signalements (moderation.log.days, 90 par défaut), ou aucun avec log: false."
+          "holds": "Ce que le classifieur de sécurité a signalé dans le contenu envoyé par un compte : les catégories, s’il a été refusé ou escaladé, le classifieur et la politique, ainsi que l’identifiant et l’étape de l’app pour ce qui a été vérifié, jamais le contenu.",
+          "kept": "Le nombre de jours pendant lesquels l’app conserve les signalements (moderation.log.days, 183 par défaut), ou aucun avec log: false."
         },
         "aiProvenance": {
           "holds": "Ce qui a produit chaque image générée stockée par les tâches d’un espace de travail : les modèles, la date, et les identifiants des lignes et fichiers à partir desquels elle a été créée, jamais leur contenu.",

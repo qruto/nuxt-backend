@@ -1845,8 +1845,8 @@
           "kept": "Until a member removes it, or its workspace goes."
         },
         "aiFlags": {
-          "holds": "What the safety classifier flagged in content an account sent: the categories, whether it was refused or escalated, the classifier, and the app's id and stage of what was checked, never the content.",
-          "kept": "The days the app keeps flags (moderation.log.days, 90 by default), or none with log: false."
+          "holds": "What the safety classifier flagged in content an account sent: the categories, whether it was refused or escalated, the classifier and the policy, and the app's id and stage of what was checked, never the content.",
+          "kept": "The days the app keeps flags (moderation.log.days, 183 by default), or none with log: false."
         },
         "aiProvenance": {
           "holds": "What made each generated image a workspace's jobs stored: the models, when, and the ids of the rows and files it was made from, never their content.",

@@ -579,9 +579,11 @@ export interface MeteredActionConfig<Args extends PropertyValidators, Result = u
    * What to check with the safety classifier before the reservation: the
    * args' text and images (file storage ids). A flagged call is refused
    * `invalid_input` with reason `content_blocked`, and nothing is
-   * reserved, counted against the budget or charged.
+   * reserved, counted against the budget or charged. Its flag names the
+   * caller and the entity that pays, at stage `prompt`; add `subject`, your
+   * id of what was checked, and `stage` to name them in your words.
    */
-  moderate?: (args: ObjectType<Args>) => ModerationInput
+  moderate?: (args: ObjectType<Args>) => ModerationInput & Pick<ModerationSubject, 'subject' | 'stage'>
   args: Args
   handler: (ctx: GenericActionCtx<GenericDataModel> & MeteredContext, args: ObjectType<Args>) => Promise<Result>
 }
@@ -608,9 +610,11 @@ export interface MeteredStreamConfig<Args extends PropertyValidators, Result = u
    * What to check with the safety classifier before the reservation: the
    * args' text and images (file storage ids). A flagged call is refused
    * `invalid_input` with reason `content_blocked`, and nothing is
-   * reserved, counted against the budget or charged.
+   * reserved, counted against the budget or charged. Its flag names the
+   * caller and the entity that pays, at stage `prompt`; add `subject`, your
+   * id of what was checked, and `stage` to name them in your words.
    */
-  moderate?: (args: ObjectType<Args>) => ModerationInput
+  moderate?: (args: ObjectType<Args>) => ModerationInput & Pick<ModerationSubject, 'subject' | 'stage'>
   args: Args
   /**
    * Produce the stream: `append(text)` pushes a chunk to the client AND

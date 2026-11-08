@@ -589,16 +589,6 @@ export const vAiDocument = v.object({
   removeNamespace: v.optional(v.string()),
 })
 
-/**
- * Metered-stream request plumbing for `setupAi().stream` — the HTTP stream
- * endpoint can't carry Convex args, so `start` records the request (args,
- * billing entity, reservation) and the HTTP dispatcher loads it by stream id.
- * Status mirrors the credit reservation: `reserved` → `streaming` (the
- * one dispatch that claimed it runs the model) → `settled` (event
- * ingested) or `released` (failed — nothing charged). Rows are plumbing, not
- * a usage ledger — the provider event is the durable record; they are safe to
- * prune.
- */
 /** A flag of the safety classifier, as `aiFlags` keeps it beside when it expires. */
 export const vAiFlag = {
   userId: v.optional(v.string()),
@@ -612,8 +602,22 @@ export const vAiFlag = {
   escalate: v.boolean(),
   /** The classifier that flagged it. */
   model: v.string(),
+  /** The policy it was judged under, as `setupAi({ moderation })` set it then. */
+  policy: v.optional(v.string()),
+  /** Kept through an erasure until it expires, under the pseudonym: escalated, or child sexual exploitation refused. */
+  legalHold: v.optional(v.boolean()),
 }
 
+/**
+ * Metered-stream request plumbing for `setupAi().stream` — the HTTP stream
+ * endpoint can't carry Convex args, so `start` records the request (args,
+ * billing entity, reservation) and the HTTP dispatcher loads it by stream id.
+ * Status mirrors the credit reservation: `reserved` → `streaming` (the
+ * one dispatch that claimed it runs the model) → `settled` (event
+ * ingested) or `released` (failed — nothing charged). Rows are plumbing, not
+ * a usage ledger — the provider event is the durable record; they are safe to
+ * prune.
+ */
 export const aiTables = {
   aiRequests: defineTable(vAiRequest)
     .index('streamId', ['streamId'])

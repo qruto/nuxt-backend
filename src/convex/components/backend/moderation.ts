@@ -7,19 +7,19 @@ import { vAiFlag } from './schema.js'
  * What the safety classifier flagged (`setupAi({ moderation })`): one row a
  * flagged check, categories only, never the content. Kept for the days the
  * app's `moderation.log` names, then pruned by the maintenance pass; an
- * account's erasure deletes the rows about it. The admin console's
+ * account's erasure deletes the rows about it, but for those on legal hold,
+ * kept under the pseudonym until they expire. The admin console's
  * Moderation tab lists them, newest first.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-/** Record one flagged check, kept `days`. */
+/** Record one flagged check, kept `days`: its id, which the escalation's log line names. */
 export const record = mutation({
   args: { ...vAiFlag, days: v.number() },
-  returns: v.null(),
+  returns: v.string(),
   handler: async (ctx, { days, ...flag }) => {
-    await ctx.db.insert('aiFlags', { ...flag, expiresAt: Date.now() + days * DAY_MS })
-    return null
+    return await ctx.db.insert('aiFlags', { ...flag, expiresAt: Date.now() + days * DAY_MS })
   },
 })
 

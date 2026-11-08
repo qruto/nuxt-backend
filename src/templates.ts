@@ -126,7 +126,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     export const ai = setupAi(components, { billing, rateLimiter, spendLimit: { usdPerDay: 10 } })
 
     // What each person's AI calls cost, and what the safety classifier flagged:
-    // the admin console's Costs and Flags tabs read them, for administrators only.
+    // the admin console's Costs and Moderation tabs read them, for administrators only.
     export const { getCosts, listModerationFlags } = ai.api
 
     // A metered action — swap the echo for your model call. Costs 1 credit

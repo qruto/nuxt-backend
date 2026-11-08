@@ -368,13 +368,33 @@ export const ERASURE_PARTICIPANTS = {
     return budget.spent
   },
 
-  // What the safety classifier flagged about the account, and in the workspaces that go.
+  // What the safety classifier flagged about the account, and in the
+  // workspaces that go. A flag on legal hold (escalated, or child sexual
+  // exploitation refused) is evidence the app may be obliged to keep (GDPR
+  // Art. 17(3)(b) and (e)): it stays until it expires, the account and the
+  // entities that go replaced by the pseudonym. The rest are deleted.
   aiFlags: async (ctx, erasure) => {
+    const { userId, alias } = erasure
     const budget = new Budget()
-    if (erasure.userId) await budget.remove(ctx, 'aiFlags', () => ctx.db.query('aiFlags').withIndex('by_userId', q => q.eq('userId', erasure.userId)).take(budget.left))
-    for (const entityId of entitiesOf(erasure)) {
+    const gone = new Set(entitiesOf(erasure))
+    const erase = async (rows: Array<Doc<'aiFlags'>>) => {
+      for (const flag of rows) {
+        if (flag.legalHold) {
+          await ctx.db.patch('aiFlags', flag._id, {
+            ...(userId && flag.userId === userId ? { userId: alias } : {}),
+            ...(flag.owner && gone.has(flag.owner) ? { owner: alias } : {}),
+          })
+        }
+        else {
+          await ctx.db.delete('aiFlags', flag._id)
+        }
+        budget.left--
+      }
+    }
+    if (userId) await erase(await ctx.db.query('aiFlags').withIndex('by_userId', q => q.eq('userId', userId)).take(budget.left))
+    for (const entityId of gone) {
       if (budget.spent) break
-      await budget.remove(ctx, 'aiFlags', () => ctx.db.query('aiFlags').withIndex('by_owner', q => q.eq('owner', entityId)).take(budget.left))
+      await erase(await ctx.db.query('aiFlags').withIndex('by_owner', q => q.eq('owner', entityId)).take(budget.left))
     }
     return budget.spent
   },

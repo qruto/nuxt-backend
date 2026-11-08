@@ -5337,8 +5337,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             categories: Array<string>;
             escalate: boolean;
             id: string;
+            legalHold?: boolean;
             model: string;
             owner?: string;
+            policy?: string;
             stage?: string;
             subject?: string;
             userId?: string;
@@ -5354,13 +5356,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           categories: Array<string>;
           days: number;
           escalate: boolean;
+          legalHold?: boolean;
           model: string;
           owner?: string;
+          policy?: string;
           stage?: string;
           subject?: string;
           userId?: string;
         },
-        null,
+        string,
         Name
       >;
     };

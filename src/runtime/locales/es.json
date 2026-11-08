@@ -1845,8 +1845,8 @@
           "kept": "Hasta que un miembro lo retire o desaparezca su espacio de trabajo."
         },
         "aiFlags": {
-          "holds": "Lo que el clasificador de seguridad marcó en el contenido que envió una cuenta: las categorías, si se rechazó o se escaló, el clasificador y el id y la etapa de la app de lo que se comprobó, nunca el contenido.",
-          "kept": "Los días que la app guarda las marcas (moderation.log.days, 90 por defecto), o ninguno con log: false."
+          "holds": "Lo que el clasificador de seguridad marcó en el contenido que envió una cuenta: las categorías, si se rechazó o se escaló, el clasificador, la política y el id y la etapa de la app de lo que se comprobó, nunca el contenido.",
+          "kept": "Los días que la app guarda las marcas (moderation.log.days, 183 por defecto), o ninguno con log: false."
         },
         "aiProvenance": {
           "holds": "Con qué se hizo cada imagen generada que almacenaron las tareas de un espacio de trabajo: los modelos, cuándo, y los ids de las filas y archivos a partir de los que se creó, nunca su contenido.",
