@@ -49,6 +49,7 @@ import { AI_CONTEXTS } from './context.js'
 import { usageOf } from './costs.js'
 import { catalogPayload, classifyStepError, failurePayload, isPassing, modelOutcomeOf } from './job-errors.js'
 import type { ModerationInput } from './moderation.js'
+import { settledAmount } from './metering.js'
 import { meteredModel, type ModelCall, modelIdOf, modelRefusal, requireModelId, routeModel } from './models.js'
 import { provenVisitor } from '../../visitor.js'
 import { imageStore, type ImageStoreContext, type JobProvenance, type ProvenanceRefs } from './provenance.js'
@@ -101,7 +102,7 @@ export interface JobQueueComponents {
 }
 
 /** The backend component's handles the queue calls. */
-type JobBackend = Pick<ComponentApi<'backend'>, 'jobs' | 'adapter'> & Partial<Pick<ComponentApi<'backend'>, 'flags' | 'audit'>>
+type JobBackend = Pick<ComponentApi<'backend'>, 'jobs' | 'adapter' | 'billing'> & Partial<Pick<ComponentApi<'backend'>, 'flags' | 'audit'>>
 
 /** Jobs a signed-out visitor may start (`defineJobQueue({ guest })`). */
 export interface GuestJobs {
@@ -137,6 +138,14 @@ export const vJobEnd = {
   retries: v.number(),
   /** When this run ended, in ms since the epoch. */
   endedAt: v.number(),
+  /**
+   * The credits this run was charged: its `cost`, or what `job.charge`
+   * charged; `0` for a run charged nothing. A refund may still be on its
+   * way for a failed or canceled one: the queue gives it.
+   */
+  charged: v.number(),
+  /** Put in line `{ free: true }`: it held, charged and counted nothing. */
+  free: v.boolean(),
 }
 
 /** A job's end as `onJobEnd` receives it ({@link vJobEnd}). */
@@ -148,6 +157,8 @@ export type JobEnd = {
   args: unknown
   retries: number
   endedAt: number
+  charged: number
+  free: boolean
 }
 
 /**
@@ -226,6 +237,14 @@ export interface JobContext {
   run: <Step extends FunctionReference<'action', 'internal'>>(step: Step, args: Omit<Step['_args'], 'queuedJob'>) => Promise<StepResult<Step['_returnType']>>
   /** Report how far the job got: `useJob` shows it, and it tells the queue the job is alive. */
   progress: (progress: JobProgress) => Promise<void>
+  /**
+   * Charge what the job made, for a kind defined with `charge: 'output'`:
+   * `credits`, at most the `cost` held when it joined; the rest of the
+   * hold goes back unbilled. Once: a later call changes nothing. A job that
+   * fails after it is refunded what it was charged. Throws in a kind that
+   * charges at start; does nothing in a job put in line `{ free: true }`.
+   */
+  charge: (credits: number) => Promise<void>
 }
 
 /**
@@ -241,8 +260,20 @@ export type StepResult<Returned> = 0 extends (1 & Returned)
 export interface JobDefinition<Args extends PropertyValidators, Result> {
   /** The credit meter its price is held from and charged to, or `false` for a free job. */
   meter: string | false
-  /** Its price in credits: a number, or read from the args once when it joins. Default `1`. */
+  /**
+   * Its price in credits: a number, or read from the args once when it
+   * joins. Default `1`. With `charge: 'output'`, the most it may cost:
+   * what is held while it waits and runs.
+   */
   cost?: number | ((args: ObjectType<Args>) => number)
+  /**
+   * When its credits are charged: `'start'` (the default), the whole
+   * `cost` as its first step; or `'output'`, what the handler passes to
+   * `job.charge(n)` once it knows what it made, the hold taken again as
+   * its first step. An `'output'` job that ends without `job.charge`, or
+   * fails, or is canceled before it, costs nothing.
+   */
+  charge?: 'start' | 'output'
   /**
    * A signed-out visitor may start it too (`defineJobQueue({ guest })`):
    * free for them, the app pays. A member who starts it pays as for any
@@ -300,6 +331,14 @@ export interface JobView {
    * inputs its `ctx.storeImage` calls named.
    */
   provenance?: JobProvenance
+  /**
+   * The credits it was charged so far: its `cost` once charged at start,
+   * what `job.charge` charged for a kind charged by output, `0` before a
+   * charge. A failed or canceled job's refund may still be on its way.
+   */
+  charged: number
+  /** Put in line `{ free: true }`: it holds, charges and counts nothing. */
+  free: boolean
 }
 
 /** A job as `jobs.get` reads it for your own functions: `getJob`'s view, with who owns it and its args. */
@@ -331,6 +370,8 @@ export interface AdminJobView {
   attempts: number
   retries: number
   cost: number
+  /** What `job.charge` charged, for a kind charged by output. */
+  price?: number
   joinedAt: number
   startedAt?: number
   endedAt?: number
@@ -360,13 +401,19 @@ export interface JobQueueApi {
   /** Internal: the pick, the stall sweep, a job's progress and each job's end. */
   runQueue: RegisteredMutation<'internal', Record<string, unknown>, Promise<null>>
   /** Internal: a job's charge, refund and cost report. */
-  billJob: RegisteredAction<'internal', { op: 'charge' | 'refund' | 'report' | 'moderate', jobId: string, attempt?: number, input?: ModerationInput }, Promise<null | { blocked: Record<string, unknown> }>>
+  billJob: RegisteredAction<'internal', { op: 'charge' | 'hold' | 'refund' | 'report' | 'moderate', jobId: string, attempt?: number, amount?: number, input?: ModerationInput }, Promise<null | { blocked: Record<string, unknown> }>>
 }
 
 /** What `jobs.enqueue` takes beside the kind and its args. */
 export interface EnqueueOptions {
   /** Who owns and pays for the job: the caller's billing entity (`'entity'`, the default), or the app itself (`'app'`, a `meter: false` kind). */
   billTo?: 'entity' | 'app'
+  /**
+   * Run this one job of a metered kind for nothing: it holds no credits,
+   * is never charged and counts in no tier's budget. Your mutation decides
+   * who gets it, such as a plan's monthly free generation.
+   */
+  free?: boolean
 }
 
 /** The queue `defineJobQueue` returns. */
@@ -426,6 +473,9 @@ type JobRow = {
   charged: boolean
   refunded: boolean
   charging?: number
+  free?: boolean
+  /** What `job.charge` charged, for a kind that charges by output. */
+  price?: number
   refundOwed?: 'pending' | 'given_up'
   refundAt?: number
   workflowId?: string
@@ -553,7 +603,10 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
 
   // ── Kinds and steps ─────────────────────────────────────────────────────
 
-  const jobContext = (step: WorkflowCtx, jobId: string): JobContext => ({
+  /** How a charge's step is tried: three times, two seconds apart and doubling. */
+  const BILL_RETRY = { maxAttempts: 3, initialBackoffMs: 2000, base: 2 }
+
+  const jobContext = (step: WorkflowCtx, jobId: string, mode: 'start' | 'output'): JobContext => ({
     id: jobId,
     run: (async (stepRef: FunctionReference<'action', 'internal'>, args: Record<string, unknown>) => {
       let attempt = 1
@@ -576,6 +629,12 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
     }) as JobContext['run'],
     progress: async (progress) => {
       await step.runMutation(RUN_QUEUE, { op: 'progress', jobId, progress }, { inline: true })
+    },
+    charge: async (credits) => {
+      if (mode !== 'output') throw new TypeError('[nuxt-backend] job.charge: this kind charges its whole `cost` as it starts. Define it with `charge: \'output\'` to charge what the job made.')
+      requireCreditAmount(credits, 'job.charge: `credits`', { orZero: true })
+      const billed = await step.runAction(BILL_JOB, { op: 'charge', jobId, amount: credits }, { retry: BILL_RETRY }) as Shortfall | null
+      if (billed?.blocked) throw new Error(`${CATALOG_MARK}${JSON.stringify(billed.blocked)}`)
     },
   })
 
@@ -602,19 +661,26 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   const define: JobQueue['define'] = (definition) => {
     if (definition.meter !== false) requireRefundableMeter(definition.meter)
     if (definition.meter !== false && typeof definition.cost === 'number') requireCreditAmount(definition.cost, 'jobs.define: `cost`')
+    const mode = definition.charge ?? 'start'
+    if (mode !== 'start' && mode !== 'output') throw new TypeError('[nuxt-backend] jobs.define: `charge` is \'start\' or \'output\'.')
+    if (mode === 'output' && definition.meter === false) throw new TypeError('[nuxt-backend] jobs.define: a `meter: false` kind charges nothing, so it cannot charge by output.')
     const kind = workflow.define({
       args: { jobId: v.string(), args: v.any() },
       handler: async (step, { jobId, args }): Promise<unknown> => {
         if (definition.moderate) {
           // The safety check first: a flagged job is never charged, and its hold goes back as it ends.
-          const checked = await step.runAction(BILL_JOB, { op: 'moderate', jobId, input: definition.moderate(args as never) }, { retry: { maxAttempts: 3, initialBackoffMs: 2000, base: 2 } }) as { blocked: Record<string, unknown> } | null
+          const checked = await step.runAction(BILL_JOB, { op: 'moderate', jobId, input: definition.moderate(args as never) }, { retry: BILL_RETRY }) as { blocked: Record<string, unknown> } | null
           if (checked?.blocked) throw new Error(`${CATALOG_MARK}${JSON.stringify(checked.blocked)}`)
         }
+        // A kind charged at start pays its whole cost now; one charged by
+        // output takes its hold again (a balance read for the first time, a
+        // hold past its week) and pays at `job.charge`.
         if (definition.meter !== false) {
-          await step.runAction(BILL_JOB, { op: 'charge', jobId }, { retry: { maxAttempts: 3, initialBackoffMs: 2000, base: 2 } })
+          const billed = await step.runAction(BILL_JOB, { op: mode === 'output' ? 'hold' : 'charge', jobId }, { retry: BILL_RETRY }) as Shortfall | null
+          if (billed?.blocked) throw new Error(`${CATALOG_MARK}${JSON.stringify(billed.blocked)}`)
         }
         try {
-          return await definition.handler(jobContext(step, jobId), args as never)
+          return await definition.handler(jobContext(step, jobId, mode), args as never)
         }
         catch (error) {
           throw markedError(error)
@@ -790,10 +856,27 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
     if (!ok) throw backendError('rate_limited', defined({ limit: 'ai', retryAfter: Number.isFinite(retryAfter) ? retryAfter : undefined }), '[nuxt-backend] Rate limit reached.')
   }
 
-  /** Hold a job's credits while it waits; nothing for a free job. */
-  const holdCredits = async (ctx: Ctx, owner: string, meter: string | false, cost: number) => meter === false
-    ? undefined
-    : holdData(await billing.reserveCredits(ctx as never, { userId: owner, meter, value: cost, externalId: `job-${crypto.randomUUID()}`, hold: HOLD_MS, allowRefresh: false }))
+  /**
+   * Hold a job's credits while it waits; nothing for a free job. A balance
+   * this deployment never read (`not_synced`, and no billing row at all)
+   * cannot be refreshed from a mutation: the job joins holding nothing yet,
+   * and its first step reads the balance and takes the hold, or fails the
+   * job short of credits. A balance read without a credit meter is refused
+   * here, as before: no step would find credits there.
+   */
+  const holdCredits = async (ctx: Ctx, owner: string, meter: string | false, cost: number) => {
+    if (meter === false) return undefined
+    const externalId = `job-${crypto.randomUUID()}`
+    try {
+      return holdData(await billing.reserveCredits(ctx as never, { userId: owner, meter, value: cost, externalId, hold: HOLD_MS, allowRefresh: false }))
+    }
+    catch (error) {
+      const refusal = getBackendError(error)
+      if (refusal?.code !== 'not_ready' || (refusal.data as { reason?: string }).reason !== 'not_synced') throw error
+      if (await ctx.runQuery(backend.billing.getByUser, { userId: owner })) throw error
+      return { externalId, reserved: false, value: cost, meter }
+    }
+  }
 
   /** The app-wide `aiGlobal` limit, unkeyed: what bounds the jobs the app pays for itself. */
   const limitGlobal = async (ctx: Ctx): Promise<void> => {
@@ -860,23 +943,43 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
     await refuseAi(ctx)
     requireModelRoutes()
     await limitCalls(ctx, owner)
-    // 5. The tier's budget. 6. The credits, held while the job waits.
-    const budget = await countBudget(ctx, owner, cost)
-    const hold = await holdCredits(ctx, owner, meter, cost)
+    // 5. The tier's budget. 6. The credits, held while the job waits. A free job counts and holds nothing.
+    const free = options.free === true
+    const budget = free ? { budgetCounted: 0 } : await countBudget(ctx, owner, cost)
+    const hold = free ? undefined : await holdCredits(ctx, owner, meter, cost)
     const jobId = await ctx.runMutation(queue.join, defined({
       kind: getFunctionName(kindRef),
       args,
       owner,
       userId: identity.subject,
-      cost,
-      meter: meter === false ? undefined : meter,
+      cost: free ? 0 : cost,
+      meter: meter === false || free ? undefined : meter,
       hold,
       ...budget,
+      ...(free ? { free: true } : {}),
       policy,
     }))
     await schedulePick(ctx)
     return { jobId }
   }
+
+  /** A charge or a hold no retry changes: short of credits, or no credits at all once the balance was read. */
+  type Shortfall = { blocked: Record<string, unknown> }
+
+  /**
+   * A refusal that fails the job at once, as `insufficient_credits`: the
+   * balance is short, or, read afresh, holds no credit meter (`not_ready`).
+   * Anything else is tried again.
+   */
+  const shortfallOf = (error: unknown, job: JobRow): Record<string, unknown> | undefined => {
+    const refusal = getBackendError(error)
+    if (refusal?.code === 'insufficient_credits') return payloadOf(error)
+    if (refusal?.code === 'not_ready') return defined({ code: 'insufficient_credits', meter: job.meter, balance: 0, need: job.cost })
+    return undefined
+  }
+
+  /** A hold to let go by its id: one an earlier try took and never noted is still let go, and none is a no-op. */
+  const released = (hold: SpendReservation): SpendReservation => ({ ...hold, reserved: true })
 
   /** A reservation as the job row keeps it. */
   const holdData = (hold: SpendReservation) => defined({ externalId: hold.externalId, reserved: hold.reserved, value: hold.value, meter: hold.meter, meterId: hold.meterId })
@@ -893,7 +996,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
     const onJobEnd = options.onJobEnd
     if (!onJobEnd || (job.status !== 'done' && job.status !== 'failed' && job.status !== 'canceled')) return
     try {
-      await ctx.scheduler.runAfter(0, onJobEnd as FunctionReference<'mutation', 'internal'>, defined({ jobId: job._id, kind: job.kind, status: job.status, error: job.status === 'failed' ? job.error : undefined, args: job.args, retries: job.retries, endedAt: job.endedAt ?? Date.now() }))
+      await ctx.scheduler.runAfter(0, onJobEnd as FunctionReference<'mutation', 'internal'>, defined({ jobId: job._id, kind: job.kind, status: job.status, error: job.status === 'failed' ? job.error : undefined, args: job.args, retries: job.retries, endedAt: job.endedAt ?? Date.now(), charged: chargedOf(job), free: job.free === true }))
     }
     catch (error) {
       logBackend('error', 'ai.job_end_unannounced', `Job ${job._id} ended ${job.status}, but onJobEnd could not be scheduled.`, error)
@@ -904,7 +1007,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   const afterEnd = async (ctx: Ctx, job: JobRow): Promise<void> => {
     const hold = reservationOf(job)
     // A charge on its way settles the hold, or lets it go, itself.
-    if (hold && !job.charged && job.charging === undefined) await billing.releaseSpend(ctx as never, hold)
+    if (hold && !job.charged && job.charging === undefined) await billing.releaseSpend(ctx as never, released(hold))
     if (job.refundOwed === 'pending') await scheduleRefund(ctx, job._id)
     if (job.status !== 'canceled' && job.usage && job.startedAt !== undefined) await ctx.scheduler.runAfter(0, BILL_JOB, { op: 'report', jobId: job._id })
     await announceEnd(ctx, job)
@@ -1012,6 +1115,25 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   })
 
   /**
+   * Why a hold or a charge was refused, recorded on the job: a shortfall
+   * fails the job at once; anything else is thrown, and tried again.
+   */
+  const billingRefused = async (ctx: ActionCtx, job: JobRow, error: unknown): Promise<Shortfall> => {
+    const short = shortfallOf(error, job)
+    await ctx.runMutation(queue.recordError, { jobId: job._id, error: short ?? (getBackendError(error) ? payloadOf(error) : failure('provider_refused')), lastError: errorText(error) })
+    if (short) return { blocked: short }
+    throw error
+  }
+
+  /** `job.charge(0)`: nothing made, nothing billed. The hold goes back, and the job is charged nothing. */
+  const chargeNothing = async (ctx: ActionCtx, job: JobRow, hold: SpendReservation): Promise<undefined> => {
+    await billing.releaseSpend(ctx as never, released(hold))
+    const { refund } = await ctx.runMutation(queue.mark, { jobId: job._id, charged: true as const, price: 0 })
+    if (refund) await scheduleRefund(ctx, job._id)
+    return undefined
+  }
+
+  /**
    * Charge a job's held credits, as its workflow's first step: only while
    * the job still runs and nobody canceled it. The hold is taken again under
    * the same id first, a no-op while it stands: after an attempt whose
@@ -1019,25 +1141,55 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
    * credits are taken again, or the job fails short of them, so the
    * provider never bills what the cached balance still shows.
    */
-  const charge = async (ctx: ActionCtx, job: JobRow): Promise<void> => {
+  const charge = async (ctx: ActionCtx, job: JobRow, amount?: number): Promise<Shortfall | undefined> => {
     const hold = reservationOf(job)
     if (job.charged || !hold) return
     const claim = await ctx.runMutation(queue.claimCharge, { jobId: job._id })
     if (claim === 'charged') return
     if (claim === 'ended') throw new Error(`[nuxt-backend] Job ${job._id} ended before its charge: nothing was billed.`)
+    // Charged by output: what it made, never above what it held; the rest goes back with the settle.
+    const price = amount === undefined ? undefined : settledAmount(job.cost, amount)
+    if (price === 0) return await chargeNothing(ctx, job, hold)
+    let held: SpendReservation | undefined
     try {
-      const held = await billing.reserveCredits(ctx as never, { userId: job.owner, meter: hold.meter, meterId: hold.meterId, value: job.cost, externalId: hold.externalId, hold: HOLD_MS })
+      // A hold that lapsed is taken again for what the job charges, not its whole cost.
+      held = await billing.reserveCredits(ctx as never, { userId: job.owner, meter: hold.meter, meterId: hold.meterId, value: price ?? job.cost, externalId: hold.externalId, hold: HOLD_MS })
       // The job's hold id is the event's idempotency key: a charge run again never bills twice.
-      await billing.settleSpend(ctx as never, held, { metadata: defined({ userId: job.userId, job: job.kind }) as Record<string, string> })
+      await billing.settleSpend(ctx as never, held, defined({ finalAmount: price, metadata: defined({ userId: job.userId, job: job.kind }) as Record<string, string> }))
     }
     catch (error) {
-      await billing.releaseSpend(ctx as never, hold)
-      await ctx.runMutation(queue.recordError, { jobId: job._id, error: getBackendError(error) ? payloadOf(error) : failure('provider_refused'), lastError: errorText(error) })
-      throw error
+      await billing.releaseSpend(ctx as never, released(held ?? hold))
+      return await billingRefused(ctx, job, error)
     }
     // A job that ended while its charge was on its way gets it back at once.
-    const { refund: owed } = await ctx.runMutation(queue.mark, { jobId: job._id, charged: true })
+    const { refund: owed } = await ctx.runMutation(queue.mark, defined({ jobId: job._id, charged: true as const, price }))
     if (owed) await scheduleRefund(ctx, job._id)
+  }
+
+  /**
+   * Take a job's hold again as it starts, for a kind charged by output: a
+   * no-op while it stands; a balance read for the first time, or a hold past
+   * its week, is taken now, or the job fails short of credits before any
+   * model is called. A hold taken for a job that ended meanwhile goes back.
+   */
+  const takeHold = async (ctx: ActionCtx, job: JobRow): Promise<Shortfall | undefined> => {
+    const hold = reservationOf(job)
+    if (job.charged || !hold) return
+    // A job that ended meanwhile: a hold an earlier try took and never noted goes back by its id.
+    if (job.status !== 'running') {
+      await billing.releaseSpend(ctx as never, released(hold))
+      return
+    }
+    let held: SpendReservation
+    try {
+      held = await billing.reserveCredits(ctx as never, { userId: job.owner, meter: hold.meter, meterId: hold.meterId, value: job.cost, externalId: hold.externalId, hold: HOLD_MS })
+    }
+    catch (error) {
+      return await billingRefused(ctx, job, error)
+    }
+    if (hold.reserved) return
+    const live = await ctx.runMutation(queue.holdTaken, { jobId: job._id, hold: holdData(held) })
+    if (!live) await billing.releaseSpend(ctx as never, held)
   }
 
   /**
@@ -1051,7 +1203,8 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
     if (job.refundOwed !== 'pending' || job.refunded || !job.meter || !hold) return
     try {
       // The refund's own idempotency key: a try run again never refunds twice.
-      await billing.refundCredits(ctx as never, { userId: job.owner, meter: job.meter, value: job.cost, externalId: `${hold.externalId}-refund` })
+      // What it was charged: its whole cost, or what `job.charge` charged.
+      await billing.refundCredits(ctx as never, { userId: job.owner, meter: job.meter, value: job.price ?? job.cost, externalId: `${hold.externalId}-refund` })
     }
     catch (error) {
       const next = attempt + 1
@@ -1084,13 +1237,15 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
 
   const billJob = internalActionGeneric({
     args: {
-      op: v.union(v.literal('charge'), v.literal('refund'), v.literal('report'), v.literal('moderate')),
+      op: v.union(v.literal('charge'), v.literal('hold'), v.literal('refund'), v.literal('report'), v.literal('moderate')),
       jobId: v.string(),
       attempt: v.optional(v.number()),
+      /** What `job.charge` charges, for a kind charged by output. */
+      amount: v.optional(v.number()),
       input: v.optional(v.object({ text: v.optional(v.string()), images: v.optional(v.array(v.string())) })),
     },
     returns: v.union(v.null(), v.object({ blocked: v.any() })),
-    handler: async (ctx, { op, jobId, attempt, input }): Promise<null | { blocked: Record<string, unknown> }> => {
+    handler: async (ctx, { op, jobId, attempt, amount, input }): Promise<null | { blocked: Record<string, unknown> }> => {
       if (op === 'moderate') {
         // A refusal the check throws (a gone image, a classifier with no verdict) fails the job as it is.
         try {
@@ -1104,7 +1259,11 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
         }
       }
       const job = await ctx.runQuery(queue.get, { jobId }) as JobRow | null
-      if (job) await ({ charge, refund: (actionCtx: ActionCtx, row: JobRow) => refund(actionCtx, row, attempt), report: reportJobCost })[op](ctx, job)
+      if (!job) return null
+      if (op === 'charge') return await charge(ctx, job, amount) ?? null
+      if (op === 'hold') return await takeHold(ctx, job) ?? null
+      if (op === 'refund') await refund(ctx, job, attempt)
+      else await reportJobCost(ctx, job)
       return null
     },
   })
@@ -1275,8 +1434,16 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
       // An administrator's retry counts in the owner's window now, and is never refused for it.
       // A guest job counts in none, also once claimed: the app pays for it.
       const budget = job.visitor === undefined ? await countBudget(ctx, job.owner, job.cost, true) : { budgetCounted: 0 }
-      // A charge that was never refunded carries over: the new run neither holds nor charges again.
-      const carry = job.charged && !job.refunded
+      // A job charged by output never runs on its old charge: what it made then is no price for the rerun.
+      // Its charge goes back first, then the rerun takes a fresh hold.
+      // This retry gives the charge back; the next one, once it lands, runs the job again.
+      if (job.price !== undefined && job.charged && !job.refunded && job.price > 0) {
+        if (await ctx.runMutation(queue.oweRefund, { jobId })) await scheduleRefund(ctx, jobId)
+        logBackend('info', 'ai.job_refund_retry', `Job ${jobId} was charged by output and never refunded: its refund is tried again first. Retry it once the refund lands.`)
+        return null
+      }
+      // A charge at start that was never refunded carries over: the new run neither holds nor charges again.
+      const carry = job.charged && !job.refunded && job.price === undefined
       const hold = carry ? undefined : await holdCredits(ctx, job.owner, job.meter ?? false, job.cost)
       await ctx.runMutation(queue.requeue, defined({ jobId, hold, carry: carry || undefined, ...budget, policy }))
       await billing.recordEvent(ctx as never, job.owner, { type: 'job.retried', actor, data: { kind: job.kind } } as never)
@@ -1342,7 +1509,14 @@ function jobViewOf(job: JobRow, standing: { waitingOn: string, position: number 
     startedAt: job.startedAt,
     endedAt: job.endedAt,
     canCancel,
+    charged: chargedOf(job),
+    free: job.free === true,
   })
+}
+
+/** The credits a job was charged: its `cost`, or what `job.charge` charged; `0` before a charge. */
+function chargedOf(job: JobRow): number {
+  return job.charged ? job.price ?? job.cost : 0
 }
 
 /** A job as the admin console lists it. */
@@ -1358,6 +1532,7 @@ function adminViewOf(job: JobRow): AdminJobView {
     attempts: job.attempts,
     retries: job.retries,
     cost: job.cost,
+    price: job.price,
     joinedAt: job.joinedAt,
     startedAt: job.startedAt,
     endedAt: job.endedAt,

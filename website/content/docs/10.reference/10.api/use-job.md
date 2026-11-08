@@ -52,6 +52,8 @@ A job as `getJob` reads it, for `useJob`.
 | <a id="endedat"></a> `endedAt?` | `number` | - | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="cancancel"></a> `canCancel` | `boolean` | Whether the caller may cancel it. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 | <a id="provenance"></a> `provenance?` | [`JobProvenance`](#jobprovenance) | What made its result, once it is `done` and `setupAi({ provenance })` is on: the models its steps called, when it finished, and the ids of the inputs its `ctx.storeImage` calls named. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="charged"></a> `charged` | `number` | The credits it was charged so far: its `cost` once charged at start, what `job.charge` charged for a kind charged by output, `0` before a charge. A failed or canceled job's refund may still be on its way. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
+| <a id="free"></a> `free` | `boolean` | Put in line `{ free: true }`: it holds, charges and counts nothing. | [src/convex/integrations/ai/jobs.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/ai/jobs.ts) |
 
 ***
 

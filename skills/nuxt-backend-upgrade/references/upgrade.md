@@ -59,6 +59,12 @@ agent files and skills.
 | `access.invites.create with a label per member` | `access.memberTickets({ uses, lifetime })` | reshaped | re-export its `api` (`getMemberTicket`, `issueMemberTicket`) and read it with `useMemberTicket()`; drop the table of links the app kept |
 | `useWaitlist({ source })` | `useWaitlist({ source, campaign })` | reshaped | the address's `utm_source` and `utm_campaign` follow the source; `campaign: false` records the source alone |
 
+## [A job joins on a balance never read](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-joins-on-a-balance-never-read)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `jobs.enqueue` | `jobs.enqueue` | reshaped | a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready` |
+
 ## [Browser error reports go through a tunnel on the app's own origin](https://nuxt-backend.dev/docs/ship/releases/upgrade#browser-error-reports-go-through-a-tunnel-on-the-apps-own-origin)
 
 | Was | Now | Change | Note |

@@ -54,6 +54,7 @@ export function sectionUrl(section: string): string {
 }
 
 const MEMBER_TICKETS = 'Members bring friends with a ticket of their own, and the waitlist records the campaign'
+const COLD_BALANCE = 'A job joins on a balance never read'
 const TUNNEL = 'Browser error reports go through a tunnel on the app\'s own origin'
 const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
 const ONE_WAY = 'One way to do each thing'
@@ -100,6 +101,8 @@ export const RENAMES: readonly Rename[] = [
   { from: 'access.invites.create with a label per member', to: 'access.memberTickets({ uses, lifetime })', change: 'reshaped', section: MEMBER_TICKETS, note: 're-export its `api` (`getMemberTicket`, `issueMemberTicket`) and read it with `useMemberTicket()`; drop the table of links the app kept' },
   { from: 'useWaitlist({ source })', to: 'useWaitlist({ source, campaign })', change: 'reshaped', section: MEMBER_TICKETS, note: 'the address\'s `utm_source` and `utm_campaign` follow the source; `campaign: false` records the source alone' },
 
+  // A job joins on a balance never read, and reads it as it starts.
+  { from: 'jobs.enqueue', to: 'jobs.enqueue', change: 'reshaped', section: COLD_BALANCE, note: 'a balance never read no longer refuses `not_synced`: the job joins, and its first step reads the balance or fails `insufficient_credits`; a balance read with no credit meter is still refused `not_ready`' },
   // The managed tunnel needs a newer SDK: the peer range moves.
   { from: '@sentry/nuxt', to: '@sentry/nuxt@^11.10.0', change: 'reshaped', section: TUNNEL, note: 'the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn' },
   // One attribute marks every packaged component, in place of a list of families.
