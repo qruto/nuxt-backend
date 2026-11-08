@@ -86,7 +86,7 @@ export function allowCrossOriginResources(nuxt: Pick<Nuxt, 'options'>, paths: re
     const rule = (routeRules[path] ?? {}) as CrossOriginRule
     const own = rule.headers?.['Cross-Origin-Resource-Policy'] ?? rule.security?.headers?.crossOriginResourcePolicy
     const value = own ?? CROSS_ORIGIN
-    routeRules[path] = defu({ headers: { 'Cross-Origin-Resource-Policy': value }, security: { headers: { crossOriginResourcePolicy: value } } }, rule) as typeof routeRules[string]
+    routeRules[path] = defu({ headers: { 'Cross-Origin-Resource-Policy': value }, security: { headers: { crossOriginResourcePolicy: value } } }, rule) as unknown as typeof routeRules[string]
   }
 }
 
