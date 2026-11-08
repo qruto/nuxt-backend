@@ -15,9 +15,9 @@ import { rateLimiter } from './rateLimiter'
 // Declare your credit meter in billing.catalog.ts.
 export const ai = setupAi(components, { billing, rateLimiter })
 
-// What each person's AI calls cost: the admin console's Costs tab reads it,
-// and it answers administrators only.
-export const { getCosts } = ai.api
+// What each person's AI calls cost, and what the safety classifier flagged:
+// the admin console's Costs and Moderation tabs read them, for administrators only.
+export const { getCosts, listModerationFlags } = ai.api
 
 // A metered action — swap the echo for your model call. Costs 1 credit
 // from the 'credits' meter per call (see billing.catalog.ts).

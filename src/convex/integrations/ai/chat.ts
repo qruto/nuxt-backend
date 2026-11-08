@@ -460,8 +460,8 @@ export function createChats(context: AiContext, metering: AiMetering, agentCompo
     const blocked = async (ctx: ActionCtx, args: { threadId: string, promptMessageId: string, text: string, userId: string }): Promise<boolean> => {
       let refusal: unknown
       try {
-        const verdict = await context.moderation.moderate(ctx, { text: args.text })
-        if (!verdict.flagged) return false
+        const verdict = await context.moderation.moderate(ctx, { text: args.text }, { userId: args.userId, subject: args.threadId, stage: 'chat' })
+        if (!verdict.blocked) return false
         refusal = backendError('invalid_input', { field: 'prompt', reason: 'content_blocked' }, `[nuxt-backend] The moderation model flagged a message of the '${chatLabel}' chat (${verdict.categories.join(', ') || 'no category named'}).`)
       }
       catch (error) {

@@ -8,7 +8,7 @@ import type { BillingComponents } from '../billing/types/setup.js'
 import type { Chat, ChatConfig } from './chat.js'
 import type { Knowledge, KnowledgeConfig } from './knowledge.js'
 import type { TokenPriceTable } from './pricing.js'
-import type { ModerationConfig, ModerationCtx, ModerationInput, ModerationVerdict } from './moderation.js'
+import type { ModerationConfig, ModerationCtx, ModerationFlag, ModerationInput, ModerationSubject, ModerationVerdict } from './moderation.js'
 import type { ImageStoreContext, JobProvenance, ProvenanceConfig } from './provenance.js'
 
 // What `setupAi` is configured with and what it hands back: every public type
@@ -579,9 +579,11 @@ export interface MeteredActionConfig<Args extends PropertyValidators, Result = u
    * What to check with the safety classifier before the reservation: the
    * args' text and images (file storage ids). A flagged call is refused
    * `invalid_input` with reason `content_blocked`, and nothing is
-   * reserved, counted against the budget or charged.
+   * reserved, counted against the budget or charged. Its flag names the
+   * caller and the entity that pays, at stage `prompt`; add `subject`, your
+   * id of what was checked, and `stage` to name them in your words.
    */
-  moderate?: (args: ObjectType<Args>) => ModerationInput
+  moderate?: (args: ObjectType<Args>) => ModerationInput & Pick<ModerationSubject, 'subject' | 'stage'>
   args: Args
   handler: (ctx: GenericActionCtx<GenericDataModel> & MeteredContext, args: ObjectType<Args>) => Promise<Result>
 }
@@ -608,9 +610,11 @@ export interface MeteredStreamConfig<Args extends PropertyValidators, Result = u
    * What to check with the safety classifier before the reservation: the
    * args' text and images (file storage ids). A flagged call is refused
    * `invalid_input` with reason `content_blocked`, and nothing is
-   * reserved, counted against the budget or charged.
+   * reserved, counted against the budget or charged. Its flag names the
+   * caller and the entity that pays, at stage `prompt`; add `subject`, your
+   * id of what was checked, and `stage` to name them in your words.
    */
-  moderate?: (args: ObjectType<Args>) => ModerationInput
+  moderate?: (args: ObjectType<Args>) => ModerationInput & Pick<ModerationSubject, 'subject' | 'stage'>
   args: Args
   /**
    * Produce the stream: `append(text)` pushes a chunk to the client AND
@@ -662,6 +666,12 @@ export interface AiApi {
    * anyone else. The caller passes the moment, so the query reads no clock.
    */
   getCosts: RegisteredQuery<'public', { since: number }, Promise<AiCosts | null>>
+  /**
+   * What the safety classifier flagged, newest first, a page at a time, the
+   * escalated ones alone with `escalated`, for administrators; `null` for
+   * anyone else. The admin console's Moderation tab reads it.
+   */
+  listModerationFlags: RegisteredQuery<'public', { paginationOpts: { numItems: number, cursor: string | null }, escalated?: boolean }, Promise<{ page: ModerationFlag[], isDone: boolean, continueCursor: string } | null>>
 }
 
 export interface Ai {
@@ -791,23 +801,28 @@ export interface Ai {
   provenanceOf: (ctx: { runQuery: GenericActionCtx<GenericDataModel>['runQuery'] }, storageId: string) => Promise<JobProvenance | null>
   /**
    * Check text and images with the safety classifier
-   * (`setupAi({ moderation })`) and answer its verdict: `flagged`, and
+   * (`setupAi({ moderation })`) and answer its verdict: `flagged`,
    * `categories`, the classifier's own codes (Llama Guard's `S1` to
-   * `S14`). Images are file storage ids, an upload not yet claimed
-   * included. In an action; the call is on the app's gateway bill, its
-   * cost recorded against `spendLimit`, and it is refused while `pause_ai`
-   * is on (`unavailable`, reason `ai_paused`).
+   * `S14`), and what the policy makes of them: `blocked` and `escalate`.
+   * A flagged check is recorded for the admin console's Moderation tab, with
+   * `about`: who the content came from (default: who is signed in), and
+   * your id and stage of what was checked. Images are file storage ids, an
+   * upload not yet claimed included. In an action; the call is on the app's
+   * gateway bill, its cost recorded against `spendLimit`, and it is
+   * refused while `pause_ai` is on (`unavailable`, reason `ai_paused`).
    *
    * @example
    * ```ts
-   * const { flagged, categories } = await ai.moderate(ctx, { text: caption, images: [photoId] })
+   * const { blocked } = await ai.moderate(ctx, { text: title }, { subject: comicId, stage: 'title' })
    * ```
    */
-  moderate: (ctx: ModerationCtx, input: ModerationInput) => Promise<ModerationVerdict>
+  moderate: (ctx: ModerationCtx, input: ModerationInput, about?: ModerationSubject) => Promise<ModerationVerdict>
   /**
-   * {@link Ai.moderate}, refusing flagged content: `invalid_input` with
-   * reason `content_blocked` (on `prompt` when there is text, else on
-   * `images`). Call it where your code accepts an upload, before you keep it.
+   * {@link Ai.moderate}, refusing content the policy blocks: `invalid_input`
+   * with reason `content_blocked` (on `prompt` when there is text, else on
+   * `images`). Content flagged in a category `moderation.block` leaves out
+   * passes, recorded. Call it where your code accepts an upload, before you
+   * keep it.
    *
    * @example
    * ```ts
@@ -820,14 +835,16 @@ export interface Ai {
    * })
    * ```
    */
-  requireSafe: (ctx: ModerationCtx, input: ModerationInput) => Promise<void>
+  requireSafe: (ctx: ModerationCtx, input: ModerationInput, about?: ModerationSubject) => Promise<void>
   /**
    * The admin console's functions, to re-export from `backend/ai.ts`:
-   * `getCosts`, what each person's AI calls cost, which the Costs tab reads.
+   * `getCosts`, what each person's AI calls cost, which the Costs tab
+   * reads, and `listModerationFlags`, what the safety classifier flagged,
+   * which the Moderation tab reads.
    *
    * @example
    * ```ts
-   * export const { getCosts } = ai.api
+   * export const { getCosts, listModerationFlags } = ai.api
    * ```
    */
   api: AiApi

@@ -5325,6 +5325,61 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
     };
+    moderation: {
+      list: FunctionReference<
+        "query",
+        "internal",
+        {
+          escalated?: boolean;
+          paginationOpts: {
+            cursor: string | null;
+            endCursor?: string | null;
+            id?: number;
+            maximumBytesRead?: number;
+            maximumRowsRead?: number;
+            numItems: number;
+          };
+        },
+        {
+          continueCursor: string;
+          isDone: boolean;
+          page: Array<{
+            at: number;
+            blocked: boolean;
+            categories: Array<string>;
+            escalate: boolean;
+            id: string;
+            legalHold?: boolean;
+            model: string;
+            owner?: string;
+            policy?: string;
+            stage?: string;
+            subject?: string;
+            userId?: string;
+          }>;
+        },
+        Name
+      >;
+      record: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          blocked: boolean;
+          categories: Array<string>;
+          days: number;
+          escalate: boolean;
+          legalHold?: boolean;
+          model: string;
+          owner?: string;
+          policy?: string;
+          stage?: string;
+          subject?: string;
+          userId?: string;
+        },
+        string,
+        Name
+      >;
+    };
     notifications: {
       channelOpen: FunctionReference<
         "mutation",

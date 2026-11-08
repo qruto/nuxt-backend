@@ -1132,7 +1132,7 @@ describe('the default safety classifier, by the gateway that answers', () => {
     vercelSays('safe')
     for (const [gateway, region] of [['vercel'], [['vercel', 'convex']], [undefined, 'eu']] as const) {
       const { moderation, called } = check(gateway, undefined, region)
-      expect(await moderation.moderate(ctx as never, { text: 'A fox who wants to fly' })).toEqual({ flagged: false, categories: [] })
+      expect(await moderation.moderate(ctx as never, { text: 'A fox who wants to fly' })).toEqual({ flagged: false, categories: [], blocked: false, escalate: false })
       expect(called()).toEqual([VERCEL_MODERATION_MODEL])
     }
     expect(convexGateway.token).not.toHaveBeenCalled()
@@ -1150,7 +1150,7 @@ describe('the default safety classifier, by the gateway that answers', () => {
     convexGateway.token.mockRejectedValue(new Error('AiGatewayDisabled: the AI Gateway needs a paid plan'))
     vercelSays('safe')
     const fallback = check()
-    expect(await fallback.moderation.moderate(ctx as never, { text: 'A fox' })).toEqual({ flagged: false, categories: [] })
+    expect(await fallback.moderation.moderate(ctx as never, { text: 'A fox' })).toEqual({ flagged: false, categories: [], blocked: false, escalate: false })
     expect(fallback.called()).toEqual([VERCEL_MODERATION_MODEL])
   })
 
@@ -1164,7 +1164,7 @@ describe('the default safety classifier, by the gateway that answers', () => {
     vi.stubEnv('AI_GATEWAY_API_KEY', 'k')
     vercelSays('safe')
     const { moderation, called } = check('vercel', DEFAULT_MODERATION_MODEL)
-    expect(await moderation.moderate(ctx as never, { text: 'A fox' })).toEqual({ flagged: false, categories: [] })
+    expect(await moderation.moderate(ctx as never, { text: 'A fox' })).toEqual({ flagged: false, categories: [], blocked: false, escalate: false })
     expect(called()).toEqual([DEFAULT_MODERATION_MODEL])
   })
 })

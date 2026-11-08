@@ -43,13 +43,13 @@ export function setupAi(components: AiComponents, config: SetupAiConfig): Ai {
   // A check of the app's own is a model call like any other: refused on a
   // sandbox without a spendLimit and while pause_ai is on. A metered call's
   // or a job's check already passed both.
-  const moderate: Ai['moderate'] = async (ctx, input) => {
+  const moderate: Ai['moderate'] = async (ctx, input, about) => {
     await context.refuseAi(ctx)
-    return context.moderation.moderate(ctx, input)
+    return context.moderation.moderate(ctx, input, about)
   }
-  const requireSafe: Ai['requireSafe'] = async (ctx, input) => {
+  const requireSafe: Ai['requireSafe'] = async (ctx, input, about) => {
     await context.refuseAi(ctx)
-    await context.moderation.requireSafe(ctx, input)
+    await context.moderation.requireSafe(ctx, input, about)
   }
 
   const ai: Ai = { meteredAction, stream, httpHandler, corsOrigin, modelStatus, chat, knowledge, provenanceOf, moderate, requireSafe, api: costsApi(components) }

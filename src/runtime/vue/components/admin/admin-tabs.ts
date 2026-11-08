@@ -64,6 +64,8 @@ export const ADMIN_TABS: readonly AdminTab[] = [
   { key: 'costs', order: 130, panel: () => import('./AdminCosts.vue'), needs: 'ai', has: 'getCosts' },
   // Revenue and usage from the billing provider, and the growth funnel: each view once the app re-exports what it reads.
   { key: 'analytics', order: 140, panel: () => import('./AdminAnalytics.vue'), anyOf: ANALYTICS_VIEWS },
+  // What the safety classifier flagged, once backend/ai.ts re-exports `listModerationFlags` from `ai.api`.
+  { key: 'moderation', order: 145, panel: () => import('./AdminModeration.vue'), needs: 'ai', has: 'listModerationFlags' },
   // The webhook delivery log of both providers, with a replay per delivery, once the app has backend/webhooks.ts.
   { key: 'webhooks', order: 150, panel: () => import('./AdminWebhooks.vue'), needs: 'webhooks' },
   // The addresses the email provider stopped delivering to, lifted one by one, once backend/email.ts re-exports `getSuppressions`.

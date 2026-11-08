@@ -544,6 +544,7 @@
         "billing": "Billing",
         "queue": "Queue",
         "costs": "Costs",
+        "moderation": "Moderation",
         "webhooks": "Webhooks",
         "suppressions": "Suppressions",
         "analytics": "Analytics",
@@ -567,6 +568,27 @@
         "tokens": "Tokens in / out",
         "tokenCounts": "{input} / {output}",
         "guest": "Visitors, before signing up"
+      },
+      "moderation": {
+        "refused": "Only administrators see what the safety check flagged.",
+        "intro": "What the safety classifier flagged, newest first: its categories, never the content. Blocked content was refused; the rest was let through and recorded. An escalated flag is in a category the moderation policy sends to an administrator.",
+        "filter": "Show",
+        "all": "All flags",
+        "escalated": "Escalated",
+        "empty": "Nothing has been flagged.",
+        "emptyEscalated": "Nothing has been escalated.",
+        "caption": "Flagged content",
+        "when": "When",
+        "who": "Account",
+        "what": "What was checked",
+        "categories": "Categories",
+        "outcome": "Outcome",
+        "blocked": "Blocked",
+        "passed": "Let through",
+        "escalatedMark": "Escalated",
+        "nobody": "Nobody signed in",
+        "newer": "Newer",
+        "older": "Older"
       },
       "webhooks": {
         "refused": "Only administrators read the webhook log.",
@@ -1860,6 +1882,10 @@
         "aiDocuments": {
           "holds": "The knowledge documents an account added: their title, workspace and status. The passages and embeddings live in the app's RAG component.",
           "kept": "Until a member removes it, or its workspace goes."
+        },
+        "aiFlags": {
+          "holds": "What the safety classifier flagged in content an account sent: the categories, whether it was refused or escalated, the classifier and the policy, and the app's id and stage of what was checked, never the content.",
+          "kept": "The days the app keeps flags (moderation.log.days, 183 by default), or none with log: false."
         },
         "aiProvenance": {
           "holds": "What made each generated image a workspace's jobs stored: the models, when, and the ids of the rows and files it was made from, never their content.",

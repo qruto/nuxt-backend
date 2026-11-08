@@ -1,14 +1,15 @@
 /// <reference types="vite/client" />
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { actionGeneric, componentsGeneric, defineSchema, defineTable, type FunctionReference, makeFunctionReference, mutationGeneric } from 'convex/server'
+import { actionGeneric, componentsGeneric, defineSchema, defineTable, type FunctionReference, internalMutationGeneric, makeFunctionReference, mutationGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import { APICallError } from 'ai'
 import { MockLanguageModelV4 } from 'ai/test'
-import { asUser, defineBackendTestApp } from '../../src/convex/test'
+import backendTest, { asUser, defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { backendError, getBackendError } from '../../src/convex/errors'
 import { defineJobQueue, setupAi } from '../../src/convex/integrations/ai'
 import { MODERATION_TIMEOUT_MS, readVerdict } from '../../src/convex/integrations/ai/moderation'
+import { MAINTENANCE_TASKS } from '../../src/convex/components/backend/maintenance'
 import type { Billing } from '../../src/convex/integrations/billing'
 import { setupRateLimiter } from '../../src/convex/integrations/rate-limit'
 import { setupStorage } from '../../src/convex/integrations/storage'
@@ -21,7 +22,9 @@ import { setupStorage } from '../../src/convex/integrations/storage'
 // model object here, answering as Llama Guard does: `unsafe` and its codes
 // for text that says BAD or for a GIF, `safe` for anything else. Like Llama
 // Guard behind the Convex AI Gateway, it refuses a message with no text: a
-// 200 whose body is the upstream error, which the SDK cannot read.
+// 200 whose body is the upstream error, which the SDK cannot read. A policy
+// (`block`, `escalate`, `log`) decides what a flag refuses, which flags an
+// administrator looks at, and how long the flags are kept for the Flags tab.
 
 const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'>, rateLimiter: never, workflow: never, persistentTextStreaming: never }
 const backend = components.backend
@@ -61,7 +64,7 @@ const classifier = new MockLanguageModelV4({
       return new Promise((_resolve, reject) => abortSignal?.addEventListener('abort', () => reject(abortSignal.reason)))
     }
     if (failure === 'provider' || !text) throw upstreamError()
-    const verdict = answer ?? (/BAD/.test(text) ? 'unsafe\nS10' : media.includes('image/gif') ? 'unsafe\nS12,S4' : 'safe')
+    const verdict = answer ?? (/BAD/.test(text) ? 'unsafe\nS10' : /HOUSE/.test(text) ? 'unsafe\nS7' : media.includes('image/gif') ? 'unsafe\nS12,S4' : 'safe')
     return { content: [{ type: 'text', text: verdict }], finishReason: { unified: 'stop', raw: 'stop' }, usage, warnings: [] }
   },
 })
@@ -94,6 +97,10 @@ const billing = {
 const rateLimiter = setupRateLimiter(components as never)
 const ai = setupAi(components as never, { billing, rateLimiter, moderation: { model: classifier } })
 const textOnly = setupAi(components as never, { billing, rateLimiter, moderation: { model: new MockLanguageModelV4({ provider: 'test', modelId: 'openai/gpt-oss-safeguard-20b', doGenerate: classifier.doGenerate as never }) } })
+/** A policy: hate (S10) and child safety (S4) refused, S4 escalated, the rest recorded and let through, flags kept 30 days. */
+const policed = setupAi(components as never, { billing, rateLimiter, moderation: { model: classifier, block: ['S10', 'S4'], escalate: ['S4'], log: { days: 30 } } })
+/** The default policy, with no flags kept. */
+const unlogged = setupAi(components as never, { billing, rateLimiter, moderation: { model: classifier, log: false } })
 /** The default classifier, by its id: what an app's own tests get from nuxt-backend/test. */
 const byId = setupAi(components as never, { billing, rateLimiter })
 const storage = setupStorage(components as never, { accept: ['image/png', 'image/gif'] })
@@ -127,6 +134,17 @@ const checkById = byId.meteredAction({
     return null
   },
 })
+/** A title checked under the policy, named in the app's words; `require` throws what the policy blocks. */
+const checkPoliced = actionGeneric({
+  args: { text: v.optional(v.string()), images: v.optional(v.array(v.string())), require: v.optional(v.boolean()) },
+  handler: async (ctx, { text, images, require }) => {
+    const about = { subject: 'comic-1', stage: 'title' }
+    if (!require) return policed.moderate(ctx, { text, images }, about)
+    await policed.requireSafe(ctx, { text, images }, about)
+    return null
+  },
+})
+const checkUnlogged = actionGeneric({ args: { text: v.string() }, handler: async (ctx, { text }) => unlogged.moderate(ctx, { text }) })
 /** An upload's check in a plain action of the app's, outside any metered call. */
 const checkAlone = actionGeneric({
   args: { text: v.string() },
@@ -192,7 +210,8 @@ const savePanel = mutationGeneric({
 const testApp = defineBackendTestApp(appSchema, {
   './_generated/api.js': () => Promise.resolve({}),
   './jobs.js': () => Promise.resolve(jobs.api),
-  './safety.js': () => Promise.resolve({ check, checkTextOnly, checkById, checkAlone, caption, upload, readBytes }),
+  './safety.js': () => Promise.resolve({ check, checkTextOnly, checkById, checkAlone, caption, upload, readBytes, checkPoliced, checkUnlogged }),
+  './ai.js': () => Promise.resolve(policed.api),
   './strips.js': () => Promise.resolve({ render, drawPanel, create, savePanel }),
 })
 type App = ReturnType<typeof testApp>
@@ -207,7 +226,30 @@ const ref = {
   readBytes: makeFunctionReference<'action', { storageId: string }, number | null>('safety:readBytes'),
   create: makeFunctionReference<'mutation', { idea: string, photoId?: string }, { stripId: string, jobId: string }>('strips:create'),
   getJob: makeFunctionReference<'query', { jobId: string }, Record<string, unknown> | null>('jobs:getJob'),
+  checkPoliced: makeFunctionReference<'action', { text?: string, images?: string[], require?: boolean }, Record<string, unknown> | null>('safety:checkPoliced'),
+  checkUnlogged: makeFunctionReference<'action', { text: string }, Record<string, unknown>>('safety:checkUnlogged'),
+  listModerationFlags: makeFunctionReference<'query', { paginationOpts: { numItems: number, cursor: string | null }, escalated?: boolean }, { page: Array<Record<string, unknown>>, isDone: boolean } | null>('ai:listModerationFlags'),
 }
+
+const firstPage = { numItems: 10, cursor: null }
+
+// Reads of the component's own, for the test: its flags as stored, and the maintenance pass's prune of them.
+const testing = {
+  flags: queryGeneric({ args: {}, handler: async ctx => ctx.db.query('aiFlags').collect() }),
+  prune: internalMutationGeneric({ args: { at: v.number() }, handler: async (ctx, { at }) => { await MAINTENANCE_TASKS.aiFlags(ctx as never, at) } }),
+}
+
+/** The app under test, with the component's test-only module beside its own. */
+function appUnderTest(): App {
+  const t = testApp()
+  t.registerComponent('backend', backendTest.schema, { ...backendTest.modules, './components/backend/testing.ts': () => Promise.resolve(testing) })
+  return t
+}
+
+const inComponent = (name: 'flags' | 'prune') => (backend as unknown as { testing: Record<string, FunctionReference<'query', 'internal'>> }).testing[name]!
+
+/** Every flag the component keeps, as stored. */
+const flagRows = (t: App) => t.query(inComponent('flags'), {}) as Promise<Array<Record<string, unknown>>>
 
 async function refusal(call: Promise<unknown>) {
   return getBackendError(await call.then(() => null, (error: unknown) => error))
@@ -250,14 +292,21 @@ describe('readVerdict', () => {
     expect(readVerdict('Unsafe.\ns12')).toEqual({ flagged: true, categories: ['S12'] })
     expect(readVerdict('I cannot help with that.')).toBeNull()
   })
+
+  test('keeps a code beyond S14 for the policy to refuse, and reads no answer with other words beside the codes', () => {
+    expect(readVerdict('unsafe\nS15')).toEqual({ flagged: true, categories: ['S15'] })
+    expect(readVerdict('unsafe\nS7, child abuse')).toBeNull()
+    expect(readVerdict('unsafe\nS1: violent crimes')).toBeNull()
+    expect(readVerdict('safe\nS4')).toBeNull()
+  })
 })
 
 describe('ai.moderate and ai.requireSafe', () => {
   test('answer the classifier\'s verdict on text, and refuse flagged text on prompt', async () => {
     const t = testApp()
     const ada = await asUser(t)
-    expect(await ada.action(ref.check, { text: 'A fox who wants to fly' })).toEqual({ flagged: false, categories: [] })
-    expect(await ada.action(ref.check, { text: 'Something BAD' })).toEqual({ flagged: true, categories: ['S10'] })
+    expect(await ada.action(ref.check, { text: 'A fox who wants to fly' })).toEqual({ flagged: false, categories: [], blocked: false, escalate: false })
+    expect(await ada.action(ref.check, { text: 'Something BAD' })).toEqual({ flagged: true, categories: ['S10'], blocked: true, escalate: false })
     expect(await refusal(ada.action(ref.check, { text: 'Something BAD', require: true }))).toMatchObject({ code: 'invalid_input', data: { field: 'prompt', reason: 'content_blocked' } })
     // Llama Guard brings its own policy: the text goes as it is, and its verdict needs a few tokens.
     expect(shown[0]).toEqual({ text: 'A fox who wants to fly', media: [] })
@@ -276,7 +325,7 @@ describe('ai.moderate and ai.requireSafe', () => {
     // Images checked alone go with a few neutral words, which the gateway's Llama Guard needs.
     expect(shown.map(call => call.text)).toEqual(['An image to check.', 'An image to check.'])
     const own = await t.run(ctx => ctx.storage.store(new Blob([GIF])))
-    expect(await ada.action(ref.check, { images: [own] })).toEqual({ flagged: true, categories: ['S12', 'S4'] })
+    expect(await ada.action(ref.check, { images: [own] })).toEqual({ flagged: true, categories: ['S12', 'S4'], blocked: true, escalate: false })
   })
 
   test('refuse an image that is gone or is no image', async () => {
@@ -327,7 +376,7 @@ describe('ai.moderate and ai.requireSafe', () => {
     expect(await refusal(ada.action(ref.checkTextOnly, { images: [flagged], text: 'A fox' }))).toMatchObject({ code: 'unavailable', data: { reason: 'not_configured' } })
     expect(shown).toEqual([])
     expect(silence[1]!.mock.calls.flat().join(' ')).toContain('ai.moderation_images_unchecked')
-    expect(await ada.action(ref.checkTextOnly, { images: [], text: 'BAD' })).toEqual({ flagged: true, categories: ['S10'] })
+    expect(await ada.action(ref.checkTextOnly, { images: [], text: 'BAD' })).toEqual({ flagged: true, categories: ['S10'], blocked: true, escalate: false })
     // The content is quoted apart from the policy, which goes as the system prompt.
     expect(shown[0]).toEqual({ text: '<content>\nBAD\n</content>', media: [] })
     // A reasoning classifier's thinking counts against its output: it gets room, and is asked to keep it short.
@@ -388,5 +437,105 @@ describe('moderate on a job', () => {
     await t.finishAllScheduledFunctions(vi.runAllTimers, 500)
     expect(await ada.query(ref.getJob, { jobId })).toMatchObject({ status: 'done' })
     expect(await balanceOf(t, ada.workspaceId!)).toBe(40)
+  })
+})
+
+describe('the moderation policy', () => {
+  test('blocks only the categories it names, escalates its own, and passes the rest, recorded', async () => {
+    const t = appUnderTest()
+    const ada = await asUser(t)
+    const gif = await ada.mutation(ref.upload, { gif: true })
+    expect(await ada.action(ref.checkPoliced, { text: 'Something BAD' })).toEqual({ flagged: true, categories: ['S10'], blocked: true, escalate: false })
+    // Privacy (S7) is let through under this policy, recorded.
+    expect(await ada.action(ref.checkPoliced, { text: 'My HOUSE number' })).toEqual({ flagged: true, categories: ['S7'], blocked: false, escalate: false })
+    expect(await ada.action(ref.checkPoliced, { text: 'My HOUSE number', require: true })).toBeNull()
+    // Child safety (S4) goes to an administrator, and is held back meanwhile.
+    expect(await ada.action(ref.checkPoliced, { images: [gif] })).toEqual({ flagged: true, categories: ['S12', 'S4'], blocked: true, escalate: true })
+    expect(await refusal(ada.action(ref.checkPoliced, { images: [gif], require: true }))).toMatchObject({ code: 'invalid_input', data: { reason: 'content_blocked' } })
+    expect(await refusal(ada.action(ref.checkPoliced, { text: 'Something BAD', require: true }))).toMatchObject({ code: 'invalid_input', data: { reason: 'content_blocked' } })
+    // A clean check records nothing.
+    expect(await ada.action(ref.checkPoliced, { text: 'A fox' })).toMatchObject({ flagged: false, blocked: false })
+    const rows = await flagRows(t)
+    expect(rows).toHaveLength(6)
+    expect(rows[0]).toMatchObject({ userId: ada.userId, subject: 'comic-1', stage: 'title', categories: ['S10'], blocked: true, escalate: false, model: 'meta-llama/llama-guard-4-12b', policy: 'block S10,S4; escalate S4' })
+    expect(rows[0]).not.toHaveProperty('legalHold')
+    expect(rows[3]).toMatchObject({ categories: ['S12', 'S4'], blocked: true, escalate: true, legalHold: true })
+    // The escalation's log line names what, where, and the flag that holds it.
+    expect(vi.mocked(console.error).mock.calls.flat().map(String).join('\n')).toContain(`ai.content_escalated`)
+    expect(vi.mocked(console.error).mock.calls.flat().map(String).join('\n')).toContain(`subject comic-1, at title, flag ${rows[3]!._id as string}`)
+    // Kept the policy's 30 days.
+    expect(Math.round(((rows[0]!.expiresAt as number) - (rows[0]!._creationTime as number)) / 1000)).toBe(30 * 24 * 60 * 60)
+  })
+
+  test('refuses a code beyond S14 under any policy: it was never weighed', async () => {
+    const t = appUnderTest()
+    const ada = await asUser(t)
+    answer = 'unsafe\nS15'
+    expect(await ada.action(ref.checkPoliced, { text: 'A fox' })).toEqual({ flagged: true, categories: ['S15'], blocked: true, escalate: false })
+  })
+
+  test('lists the flags to administrators only, newest first, the escalated ones alone on asking', async () => {
+    const t = appUnderTest()
+    const ada = await asUser(t)
+    const admin = await asUser(t, { role: 'admin' })
+    const gif = await ada.mutation(ref.upload, { gif: true })
+    await ada.action(ref.checkPoliced, { text: 'Something BAD' })
+    vi.advanceTimersByTime(1000)
+    await ada.action(ref.checkPoliced, { images: [gif] })
+
+    expect(await ada.query(ref.listModerationFlags, { paginationOpts: firstPage })).toBeNull()
+    const all = (await admin.query(ref.listModerationFlags, { paginationOpts: firstPage }))!
+    expect(all.page.map(flag => flag.categories)).toEqual([['S12', 'S4'], ['S10']])
+    expect(all.page[0]).toEqual({ id: expect.any(String), at: expect.any(Number), userId: ada.userId, subject: 'comic-1', stage: 'title', categories: ['S12', 'S4'], blocked: true, escalate: true, model: 'meta-llama/llama-guard-4-12b', policy: 'block S10,S4; escalate S4', legalHold: true })
+    const escalated = (await admin.query(ref.listModerationFlags, { paginationOpts: firstPage, escalated: true }))!
+    expect(escalated.page.map(flag => flag.categories)).toEqual([['S12', 'S4']])
+  })
+
+  test('the default blocks every flag and keeps flags 183 days; `log: false` keeps none', async () => {
+    const t = appUnderTest()
+    const ada = await asUser(t)
+    expect(await refusal(ada.action(ref.check, { text: 'Something BAD', require: true }))).toMatchObject({ code: 'invalid_input' })
+    expect(await ada.action(ref.checkUnlogged, { text: 'Something BAD' })).toMatchObject({ blocked: true })
+    const rows = await flagRows(t)
+    expect(rows).toHaveLength(1)
+    expect(Math.round(((rows[0]!.expiresAt as number) - (rows[0]!._creationTime as number)) / 1000)).toBe(183 * 24 * 60 * 60)
+  })
+
+  test('the maintenance pass prunes a flag once its days are over', async () => {
+    const t = appUnderTest()
+    const ada = await asUser(t)
+    await ada.action(ref.checkPoliced, { text: 'Something BAD' })
+    await t.mutation(inComponent('prune') as unknown as FunctionReference<'mutation'>, { at: Date.now() + 29 * 24 * 60 * 60 * 1000 })
+    expect(await flagRows(t)).toHaveLength(1)
+    await t.mutation(inComponent('prune') as unknown as FunctionReference<'mutation'>, { at: Date.now() + 31 * 24 * 60 * 60 * 1000 })
+    expect(await flagRows(t)).toEqual([])
+  })
+
+  test('a flagged job\'s record names the job, its starter and its workspace', async () => {
+    const t = appUnderTest()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 50)
+    const { jobId } = await ada.mutation(ref.create, { idea: 'A BAD strip' })
+    await t.finishAllScheduledFunctions(vi.runAllTimers, 500)
+    expect(await flagRows(t)).toEqual([expect.objectContaining({ userId: ada.userId, owner: ada.workspaceId, subject: jobId, stage: 'job', blocked: true })])
+  })
+
+  test('refuses a policy it cannot keep, where setupAi is called', () => {
+    const setup = (moderation: Record<string, unknown>) => () => setupAi(components as never, { billing, rateLimiter, moderation: { model: classifier, ...moderation } })
+    expect(setup({ block: 'some' })).toThrow(/`block` is 'all' or a list/)
+    expect(setup({ block: ['S1', ''] })).toThrow(/`block`/)
+    expect(setup({ escalate: 'S4' })).toThrow(/`escalate` is a list/)
+    // A mistyped or unknown code would match nothing, and let its content through.
+    for (const code of ['s04', 'csam', 'S15', 'S0', 'S4.']) {
+      expect(setup({ block: ['S1', code] })).toThrow(/`block` is 'all' or a list of Llama Guard's codes/)
+      expect(setup({ block: 'all', escalate: [code] })).toThrow(/`escalate` is a list of Llama Guard's codes/)
+    }
+    expect(setup({ block: [' s4 ', 'S10'], escalate: ['S4 '] })).not.toThrow()
+    // Escalated content is held back: each escalated code is blocked too, and leaves a record.
+    expect(setup({ block: ['S10'], escalate: ['S4'] })).toThrow(/`escalate` names S4, which `block` does not/)
+    expect(setup({ escalate: ['S4'] })).not.toThrow()
+    expect(setup({ escalate: ['S4'], log: false })).toThrow(/`escalate` needs the flags `log` keeps/)
+    expect(setup({ log: { days: 0 } })).toThrow(/log.days/)
+    expect(setup({ log: { days: 1.5 } })).toThrow(/log.days/)
   })
 })

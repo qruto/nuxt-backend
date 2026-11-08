@@ -6,7 +6,7 @@ import { requireCreditAmount } from '../billing/credits.js'
 import type { Ai, AiModel, CreditsBalanceEvent, MeteredModel, MeteredUsage, RunCtx } from './config.js'
 import type { AiContext } from './context.js'
 import { failedRun, meteredModel, modelIdOf, modelRefusal, requireModelId, routeModel, type ModelCall } from './models.js'
-import type { ModerationInput } from './moderation.js'
+import type { ModerationInput, ModerationSubject } from './moderation.js'
 import { imageStore, type ProvenanceRefs } from './provenance.js'
 import { estimateCost, finalizeCost, isReportedCost, requireReportedCost } from './pricing.js'
 import { backendError } from '../../errors.js'
@@ -167,7 +167,7 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
    */
   const prepare = async (
     ctx: RunCtx & { auth?: Auth },
-    options: { meter: string | false, limit?: string | false, cost: number, allowOverage?: boolean, model?: AiModel, /** `false` in a mutation: a cold credit cache cannot be refreshed there. */ allowRefresh?: false, /** What the safety classifier checks before the budget and the reservation count anything; in an action. */ moderate?: ModerationInput },
+    options: { meter: string | false, limit?: string | false, cost: number, allowOverage?: boolean, model?: AiModel, /** `false` in a mutation: a cold credit cache cannot be refreshed there. */ allowRefresh?: false, /** What the safety classifier checks before the budget and the reservation count anything, and what its flag names; in an action. */ moderate?: ModerationInput & Pick<ModerationSubject, 'subject' | 'stage'> },
   ): Promise<{ usage: MeteredUsage, reservation: SpendReservation }> => {
     requireMeteredCost(options)
     const identity = await (ctx.auth?.getUserIdentity() ?? Promise.resolve(null))
@@ -198,7 +198,10 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
 
     // The safety check, once the rate limit let the call through: a flagged
     // prompt is refused before the budget or the balance counts anything.
-    if (options.moderate) await moderation.requireSafe(ctx as never, options.moderate)
+    if (options.moderate) {
+      const { subject, stage, ...checked } = options.moderate
+      await moderation.requireSafe(ctx as never, checked, { userId: identity.subject, owner: entity.userId, ...(subject ? { subject } : {}), stage: stage ?? 'prompt' })
+    }
 
     // The budget is the same limiter, counting credits instead of calls: one
     // fixed window per billing entity, consuming `cost` tokens a spend.
@@ -389,7 +392,7 @@ export function createMetering({ config, billing, rateLimiter, cache, refuseAi, 
    */
   const prepareCall = async (
     ctx: GenericActionCtx<GenericDataModel>,
-    definition: { meter: string | false, limit?: string | false, cost?: unknown, allowOverage?: boolean, model?: AiModel, moderate?: (args: never) => ModerationInput },
+    definition: { meter: string | false, limit?: string | false, cost?: unknown, allowOverage?: boolean, model?: AiModel, moderate?: (args: never) => ModerationInput & Pick<ModerationSubject, 'subject' | 'stage'> },
     args: Record<string, unknown>,
   ): Promise<{ cost: number, usage: MeteredUsage, reservation: SpendReservation }> => {
     const cost = estimateCost(definition.cost, args)

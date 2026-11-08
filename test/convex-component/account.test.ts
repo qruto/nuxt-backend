@@ -91,6 +91,14 @@ describe('the erasure sweep', () => {
       await ctx.db.insert('suppressions', { email: 'stays@example.com', origin: 'complaint', suppressedAt: now, changedAt: now })
       // What its AI calls cost: billed to itself (`billTo: 'user'`), to a workspace that goes and to one that stays, a job its workspace ran with no member, and a chat the app pays for.
       const costs = { day: 0, usd: 0.01, input: 10, output: 10, cached: 0, runs: 1 }
+      // What the safety classifier flagged: in its content, in a workspace that goes with it, and another person's.
+      const flag = { categories: ['S10'], blocked: true, escalate: false, model: 'meta-llama/llama-guard-4-12b', expiresAt: now + 86_400_000 }
+      await ctx.db.insert('aiFlags', { ...flag, userId: gone, owner: shared, subject: 'strip-1', stage: 'title' })
+      await ctx.db.insert('aiFlags', { ...flag, owner: personal, stage: 'job' })
+      await ctx.db.insert('aiFlags', { ...flag, userId: stays, owner: shared, stage: 'title' })
+      // On legal hold: child sexual exploitation refused, in its content, and an escalation in its own workspace.
+      await ctx.db.insert('aiFlags', { ...flag, categories: ['S4'], userId: gone, owner: shared, subject: 'strip-2', stage: 'upload', legalHold: true })
+      await ctx.db.insert('aiFlags', { ...flag, escalate: true, owner: personal, stage: 'job', legalHold: true })
       await ctx.db.insert('aiCosts', { ...costs, who: gone, owner: gone })
       await ctx.db.insert('aiCosts', { ...costs, day: 86_400_000, who: gone, owner: personal })
       await ctx.db.insert('aiCosts', { ...costs, day: 172_800_000, who: gone, owner: shared })
@@ -188,6 +196,12 @@ describe('the erasure sweep', () => {
     expect(tables.consents).toEqual([expect.objectContaining({ userId: seeded.stays, kind: 'terms' })])
     expect(tables.guestTries).toEqual([expect.objectContaining({ visitor: 'visitor-of-stays', userId: seeded.stays })])
     expect(tables.referralTallies).toEqual([])
+    // The flags on legal hold stay until they expire, the account and its own workspace under the pseudonym.
+    expect(tables.aiFlags).toEqual([
+      expect.objectContaining({ userId: seeded.stays, owner: seeded.shared }),
+      expect.objectContaining({ userId: expect.stringMatching(/^erased:/), owner: seeded.shared, subject: 'strip-2', categories: ['S4'], legalHold: true }),
+      expect.objectContaining({ owner: expect.stringMatching(/^erased:/), escalate: true, legalHold: true }),
+    ])
     expect(tables.contactMessages).toEqual([expect.objectContaining({ ref: 'cccccccccccc', userId: seeded.stays })])
     expect(tables.inboundMessages).toEqual([expect.objectContaining({ emailId: 'em_3', userId: seeded.stays })])
     expect(tables.replyAddresses).toEqual([expect.objectContaining({ token: 'bbbbbbbbbbbbbbbb', userId: seeded.stays })])

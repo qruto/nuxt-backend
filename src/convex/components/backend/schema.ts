@@ -616,6 +616,25 @@ export const vAiDocument = v.object({
   removeNamespace: v.optional(v.string()),
 })
 
+/** A flag of the safety classifier, as `aiFlags` keeps it beside when it expires. */
+export const vAiFlag = {
+  userId: v.optional(v.string()),
+  owner: v.optional(v.string()),
+  subject: v.optional(v.string()),
+  stage: v.optional(v.string()),
+  categories: v.array(v.string()),
+  /** Refused under the app's `moderation.block`, or only recorded. */
+  blocked: v.boolean(),
+  /** One of the app's `moderation.escalate` categories: for an administrator to look at. */
+  escalate: v.boolean(),
+  /** The classifier that flagged it. */
+  model: v.string(),
+  /** The policy it was judged under, as `setupAi({ moderation })` set it then. */
+  policy: v.optional(v.string()),
+  /** Kept through an erasure until it expires, under the pseudonym: escalated, or child sexual exploitation refused. */
+  legalHold: v.optional(v.boolean()),
+}
+
 /**
  * Metered-stream request plumbing for `setupAi().stream` — the HTTP stream
  * endpoint can't carry Convex args, so `start` records the request (args,
@@ -694,6 +713,18 @@ export const aiTables = {
     .index('jobId', ['jobId'])
     // A workspace's erasure.
     .index('owner', ['owner']),
+  /**
+   * What the safety classifier flagged (`setupAi({ moderation })`):
+   * categories only, never the content, until `expiresAt` (the app's
+   * `moderation.log.days`). `userId` is who the content came from, `owner`
+   * the billing entity, `subject` and `stage` the app's id of what was
+   * checked and where. The admin console's Moderation tab lists them.
+   */
+  aiFlags: defineTable({ ...vAiFlag, expiresAt: v.number() })
+    .index('by_expiresAt', ['expiresAt'])
+    .index('by_userId', ['userId'])
+    .index('by_owner', ['owner'])
+    .index('by_escalate', ['escalate']),
   /**
    * What AI cost, per person per UTC day: the job queue's steps, metered
    * actions, streams, chat replies and knowledge embeddings, each added as
