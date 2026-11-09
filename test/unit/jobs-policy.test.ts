@@ -168,6 +168,24 @@ describe('a step\'s error', () => {
     expect(upstreamErrorOf(new Error('no body'))).toBeUndefined()
   })
 
+  it('reads an image model\'s refusal of the content as blocked, in each provider\'s words', () => {
+    // OpenAI's image models: `moderation_blocked`, and a request "rejected by the safety system".
+    expect(classifyStepError(Object.assign(new Error('Your request was rejected by the safety system.'), { statusCode: 400, isRetryable: false }))).toEqual({ kind: 'blocked' })
+    expect(classifyStepError(Object.assign(new Error('Bad request'), { statusCode: 400, responseBody: JSON.stringify({ error: { code: 'moderation_blocked', message: 'Rejected.' } }) }))).toEqual({ kind: 'blocked' })
+    expect(classifyStepError(new Error('wrapped', { cause: { code: 'moderation_blocked' } }))).toEqual({ kind: 'blocked' })
+    // DALL·E's content policy, as before.
+    expect(classifyStepError(Object.assign(new Error('x'), { type: 'content_policy_violation' }))).toEqual({ kind: 'blocked' })
+    // A refused image call the run recorded with a content-filter reason.
+    expect(classifyStepError(new Error('x'), [{ model: 'm', kind: 'image', state: 'refused', usage: { model: 'm', input: 0, output: 0 }, finishReason: 'content-filter' }])).toEqual({ kind: 'blocked' })
+  })
+
+  it('tries again an image call that got no image back (NoImageGeneratedError), unless the call says its content was filtered', () => {
+    const noImage = Object.assign(new Error('No image generated.'), { name: 'AI_NoImageGeneratedError' })
+    expect(classifyStepError(noImage)).toEqual({ kind: 'retryable' })
+    expect(classifyStepError(noImage, [{ model: 'm', kind: 'image', state: 'finished', usage: { model: 'm', input: 1, output: 0 }, finishReason: 'no-image' }])).toEqual({ kind: 'retryable' })
+    expect(classifyStepError(noImage, [{ model: 'm', kind: 'image', state: 'finished', usage: { model: 'm', input: 1, output: 0 }, finishReason: 'content-filter' }])).toEqual({ kind: 'blocked' })
+  })
+
   it('reads Retry-After as an HTTP date too', () => {
     expect(retryAfterOf({ responseHeaders: { 'Retry-After': new Date(10_000).toUTCString() } }, 0)).toBe(10_000)
   })

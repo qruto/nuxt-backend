@@ -29,6 +29,7 @@ interface ErrorLike {
   responseHeaders?: unknown
   responseBody?: unknown
   type?: unknown
+  code?: unknown
   cause?: unknown
   data?: unknown
 }
@@ -92,9 +93,20 @@ export function upstreamErrorOf(error: unknown): string | undefined {
   return undefined
 }
 
-/** Whether any text of the chain (name, message, type, body) says `pattern`. */
+/** Whether any text of the chain (name, message, type, code, body) says `pattern`. */
 const says = (chain: readonly ErrorLike[], pattern: RegExp): boolean =>
-  chain.some(error => [error.name, error.message, error.type, error.responseBody].some(text => typeof text === 'string' && pattern.test(text)))
+  chain.some(error => [error.name, error.message, error.type, error.code, error.responseBody].some(text => typeof text === 'string' && pattern.test(text)))
+
+/**
+ * A provider's refusal of the content, in any of its words: a content
+ * filter, a content policy (DALL·E's `content_policy_violation`),
+ * OpenAI's image models' `moderation_blocked`, or a request "rejected by
+ * the safety system".
+ */
+export const CONTENT_REFUSAL = /content[-_ ]filter|content_policy|moderation_blocked|safety[_ ]system/i
+
+/** The AI SDK's `NoImageGeneratedError`: `generateImage` got no image back, which another attempt may get. */
+const NO_IMAGE = /NoImageGeneratedError/
 
 /** A catalog error's payload: its code and fields, as `backendError` threw it. */
 export function catalogPayload(error: unknown): Record<string, unknown> | undefined {
@@ -111,7 +123,10 @@ export function catalogPayload(error: unknown): Record<string, unknown> | undefi
  * `quota_for_entity_exceeded`, whatever error class wraps it, is a refusal;
  * a `429` or the gateway's rate-limit error a throttle; a timeout, a `408`,
  * `5xx` or an error the provider marks retryable a passing failure; a call
- * that finished with a `content-filter` reason a refused prompt.
+ * that finished with a `content-filter` reason, or a provider that says it
+ * refused the content ({@link CONTENT_REFUSAL}), a refused prompt; an image
+ * call that got no image back (the AI SDK's `NoImageGeneratedError`) a
+ * passing failure.
  */
 export function classifyStepError(error: unknown, calls: readonly ModelCall[] = []): StepFailure {
   const payload = catalogPayload(error)
@@ -124,10 +139,11 @@ export function classifyStepError(error: unknown, calls: readonly ModelCall[] = 
   if (status === 429 || says(chain, /RateLimit|rate[_ ]limit/i)) return { kind: 'throttled', ...wait }
   // An error marked retryable (`retryable()`, or a provider's) is tried again, whatever a call's answer was.
   const marked = chain.some(link => link.isRetryable === true)
-  if (!marked && (calls.some(call => call.finishReason === 'content-filter') || says(chain, /content[-_ ]filter|content_policy/i))) return { kind: 'blocked' }
+  if (!marked && (calls.some(call => call.finishReason === 'content-filter') || says(chain, CONTENT_REFUSAL))) return { kind: 'blocked' }
   const retryable = marked
     || (status !== undefined && (status === 408 || status >= 500))
     || says(chain, /Timeout|timed out|AbortError|ECONNRESET/i)
+    || says(chain, NO_IMAGE)
   if (retryable) return { kind: 'retryable', ...wait }
   return { kind: 'fatal' }
 }

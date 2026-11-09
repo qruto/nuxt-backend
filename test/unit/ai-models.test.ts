@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { generateText, simulateReadableStream, streamText } from 'ai'
+import { generateImage, generateText, simulateReadableStream, streamText } from 'ai'
 import { MockLanguageModelV4 } from 'ai/test'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setupAi, type AiComponents } from '../../src/convex/integrations/ai'
@@ -12,6 +12,7 @@ import { createModeration, DEFAULT_MODERATION_MODEL, VERCEL_MODERATION_MODEL } f
 import { meteredImageModel, routeImage } from '../../src/convex/integrations/ai/images'
 import { priceModelCalls } from '../../src/convex/integrations/ai/pricing'
 import { TEST_IMAGE_PNG, TEST_MODEL_USD, TEST_UNSAFE_MARKER, testModel } from '../../src/convex/test-models'
+import { classifyStepError } from '../../src/convex/integrations/ai/job-errors'
 import { getBackendError } from '../../src/convex/errors'
 
 // Models by id, through the AI Gateway: where an id goes on each kind of
@@ -1236,6 +1237,39 @@ describe('a gateway order for some models (setupAi({ routes }))', () => {
   it('refuses a pinned region when a route leaves out the Vercel AI Gateway, and narrows every route to it otherwise', () => {
     expect(() => setupAi(components, { billing: makeBilling(), inferenceRegion: 'eu', routes: { 'google/*': 'convex' } })).toThrow(/the route for 'google\/\*' does not name 'vercel'/)
     expect(routingOf({ inferenceRegion: 'eu', routes: { 'google/*': ['convex', 'vercel'] } })).toEqual({ gateways: ['vercel'], region: 'eu' })
+  })
+})
+
+describe('an image call the provider refuses', () => {
+  /** An image model of the app's own that answers as a provider: with an error, or with no image. */
+  const imageModel = (doGenerate: () => Promise<unknown>) => ({ specificationVersion: 'v4', provider: 'openai', modelId: 'openai/gpt-image-1', maxImagesPerCall: 1, doGenerate }) as never
+  const call = { prompt: 'A fox', n: 1, size: undefined, aspectRatio: undefined, seed: undefined, providerOptions: {} } as never
+
+  it('records a refusal of the content with a content-filter reason, so the job fails as content_blocked', async () => {
+    const refusal = Object.assign(new Error('Your request was rejected by the safety system. safety_violations=[sexual]'), { name: 'AI_APICallError', statusCode: 400, isRetryable: false, code: 'moderation_blocked' })
+    const calls: ModelCall[] = []
+    await expect(meteredImageModel(imageModel(async () => {
+      throw refusal
+    }), calls, { routing: routingOf({}) }).doGenerate(call)).rejects.toBe(refusal)
+    expect(calls).toEqual([expect.objectContaining({ state: 'refused', finishReason: 'content-filter' })])
+    expect(classifyStepError(refusal, calls)).toEqual({ kind: 'blocked' })
+  })
+
+  it('reads an answer with no image as one another attempt may fill', async () => {
+    const calls: ModelCall[] = []
+    const model = meteredImageModel(imageModel(async () => ({ images: [], warnings: [], response: { timestamp: new Date(0), modelId: 'openai/gpt-image-1', headers: undefined } })), calls, { routing: routingOf({}) })
+    const error = await generateImage({ model, prompt: 'A fox', maxRetries: 0 }).then(() => null, (thrown: unknown) => thrown)
+    expect((error as Error).name).toBe('AI_NoImageGeneratedError')
+    expect(calls).toEqual([expect.objectContaining({ state: 'finished', finishReason: 'no-image' })])
+    expect(classifyStepError(error, calls)).toEqual({ kind: 'retryable' })
+    // A provider whose own model throws it: recorded refused, with no image, and tried again.
+    const thrown = Object.assign(new Error('No image generated.'), { name: 'AI_NoImageGeneratedError' })
+    const refused: ModelCall[] = []
+    await expect(meteredImageModel(imageModel(async () => {
+      throw thrown
+    }), refused, { routing: routingOf({}) }).doGenerate(call)).rejects.toBe(thrown)
+    expect(refused).toEqual([expect.objectContaining({ state: 'refused', finishReason: 'no-image' })])
+    expect(classifyStepError(thrown, refused)).toEqual({ kind: 'retryable' })
   })
 })
 

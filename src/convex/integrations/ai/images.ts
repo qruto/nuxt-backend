@@ -1,5 +1,6 @@
 import type { ImageModel } from 'ai'
 import { backendError } from '../../errors.js'
+import { CONTENT_REFUSAL } from './job-errors.js'
 import {
   checkRegion,
   type GatewayLoaders,
@@ -54,8 +55,19 @@ const IMAGE_LOADERS: GatewayLoaders<ImageModelObject> = {
   vercel: (gateway, id) => gateway.image(id) as ImageModelObject,
 }
 
-/** A call that never answered, as the run records it. */
-const refusedCall = (id: string, error: unknown): ModelCall => ({ model: id, kind: 'image', state: 'refused', usage: { model: id, input: 0, output: 0 }, error })
+/**
+ * A call that never answered, as the run records it: one the provider
+ * refused for its content (`moderation_blocked`, its safety system) with a
+ * `content-filter` reason, so the job fails as `content_blocked` at once;
+ * one that answered no image (`NoImageGeneratedError`) with `no-image`,
+ * an empty answer another attempt may fill.
+ */
+const refusedCall = (id: string, error: unknown): ModelCall => {
+  const code = (error as { code?: unknown } | null)?.code
+  const text = error instanceof Error ? `${error.name} ${error.message} ${typeof code === 'string' ? code : ''}` : String(error)
+  const finishReason = CONTENT_REFUSAL.test(text) ? 'content-filter' : /NoImageGeneratedError/.test(text) ? 'no-image' : undefined
+  return { model: id, kind: 'image', state: 'refused', usage: { model: id, input: 0, output: 0 }, error, ...(finishReason ? { finishReason } : {}) }
+}
 
 /**
  * Where an image edit goes: a call with input images (`files`) or a
