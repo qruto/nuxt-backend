@@ -22,9 +22,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // was rendered for no one.
   const { serverRendered, prerenderedAt, path: rendered } = nuxtApp.payload
   if (import.meta.client && nuxtApp.isHydrating && serverRendered && !prerenderedAt && samePagePath(to.path, rendered)) return
-  const backend = useRuntimeConfig().public.backend as { pages?: { login?: string }, authRoute?: string } | undefined
+  const backend = useRuntimeConfig().public.backend as { pages?: { login?: string | false }, authRoute?: string } | undefined
   const context = {
-    loginPath: backend?.pages?.login ?? '/login',
+    // A packaged sign-in page turned off (`pages.login: false`) leaves the app's own at /login.
+    loginPath: backend?.pages?.login || '/login',
     authRoute: backend?.authRoute ?? '/api/auth',
     event: import.meta.server ? useRequestEvent() : undefined,
     fetch: useRequestFetch() as (url: string) => Promise<unknown>,
