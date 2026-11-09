@@ -1264,6 +1264,7 @@
     "convex-config": "data",
     "function-contract": "data",
     "agent-files": "data",
+    "env-example": "data",
     "name-collisions": "data",
     "bundle-duplicates": "data",
     "billing-access": "billing",
