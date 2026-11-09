@@ -4,6 +4,63 @@
 
 [compare changes](https://github.com/qruto/nuxt-backend/compare/v0.2.1...v0.3.0)
 
+The work comics.my, the first app built on 0.2, had to do itself moves into the package: hearing when a job ends and charging for what it made, image models and pluggable moderation, welcome credits and a billing that waits to launch, member tickets, labels in emails, the report form and the legal pages, and test helpers. Under it: Better Auth 1.7 on nuxt-convex-module 0.14, which closes the Better Auth security advisories.
+
+### Upgrading from 0.2
+
+Each change, with the edit to make, is on the [Upgrade page](https://nuxt-backend.dev/docs/ship/releases/upgrade). In short:
+
+- **Better Auth 1.7.** The package runs `better-auth` 1.7 (`>=1.7.16`), `@convex-dev/better-auth` 0.13 and `nuxt-convex-module` 0.14. A Better Auth plugin you add through `authOptions` must support 1.7, and `getIp` from `better-auth/api` is now `getIP`.
+- **Deploy the backend, then upgrade.** The `backend` component gains tables and fields. Start `npx nuxt-backend dev` once, then run `npx nuxt-backend upgrade`; in production, run `npx nuxt-backend upgrade --prod --yes` after the deploy. It also runs the workpool's backfill in every pool.
+- **Passkeys check the person.** Every passkey ceremony requires a fingerprint, face or PIN, so a passkey a security key with no PIN saved under 0.2 is refused. `resolveSignInMethod` is deprecated.
+- **Labels reach the backend.** `upgrade` writes `backend/labels.generated.ts`. Pass its `labels` to `setupEmail` and drop the copy your `messages` repeated from app config.
+- **Billing waits to launch.** A production deployment with no billing token or no production catalog reads "Plans open soon" and refuses a sale as `unavailable` (reason `not_launched`). Drop a sales switch of your own for `usePricing().launched`. `billing sync` wants a price in the organization's default currency.
+- **Moderation verdicts** name shared categories. The classifier's own codes move to `codes`.
+- **A job step** stops its model calls at its `timeout`, 3 minutes by default.
+- **`@sentry/nuxt` `^11.10.0`**, for the browser's reports through the tunnel on the app's own origin.
+- **`@polar-sh/checkout` 0.6** comes with the package. Pin it yourself only if you import it too, and then at `^0.6.0`.
+- **`nuxt dev`** turns off `nuxt-security`'s rate limiter, `upgrade-insecure-requests` and HSTS. A `$development.security` block that did the same can go.
+
+### New
+
+- **AI jobs.**
+  - `onJobEnd` runs once for every job that ends, however it ends, and app code can read and cancel jobs with `jobs.get` and `jobs.cancel`.
+  - `job.charge(n)` bills what a job made, capped at the hold taken at enqueue, and refunds the rest. A job can run free.
+  - `ctx.image()` draws with image models inside a step.
+  - `setupAi({ gateway })` chooses the AI gateway, and `setupAi({ routes })` routes some models through it.
+  - `retryable()` marks a failure worth another try.
+- **Moderation.**
+  - `setupAi({ moderation })` sets a policy: `block`, `escalate`, and how long flags are kept. The admin console lists the flags.
+  - Providers plug in: Azure Content Safety, OpenAI moderation, Arachnid Shield for known abuse imagery, and Llama Guard. Each decision is recorded as the statement of reasons.
+- **Billing.** Welcome credits on the free plan (`credits: { meter, units, once: true }`). `usePricing().launched`. `PricedPlan.gift` lists a plan's gift lengths at live prices. `npx nuxt-backend billing resync` refreshes every entity's entitlements, paced under the provider's rate limit.
+- **Growth.** `access.memberTickets` with `useMemberTicket()`, so members bring friends. The waitlist records the campaign source. `npx nuxt-backend access admit <email>`.
+- **Email.** A `notification` template that an app can switch by kind.
+- **UI.**
+  - Font, border and shadow tokens, and one `[data-backend]` root attribute.
+  - `useReportForm`, which sends a DSA notice, and `useSignInAlerts`.
+  - `LegalProcessors`, `LegalStorage` and the other legal components, for Content pages.
+  - PWA manifest colours and icons.
+  - `useReferralInvite` and `useEmailLink` are auto-imported.
+- **Data and tests.**
+  - `nuxt-backend/test` adds `upload`, `seedCredits`, `seedBilling`, `drain` and `stubStorageFetch`.
+  - `storage.expire`, `shareable({ onEnable })`, and `defineRetention({ schedule })`.
+- **CLI.**
+  - `doctor --prod` reads billing's launch state, an uptime monitor and the AI gateway budget.
+  - `deploy --build` uses the project's package manager.
+  - `upgrade` runs the workpool backfill.
+- **Security.**
+  - Other sites can load the og images and the logo.
+  - `@nuxt/content`'s WASM is allowed.
+  - Browser error reports go through Sentry's managed tunnel.
+
+### From nuxt-convex-module 0.13 and 0.14
+
+- The Better Auth client loads on first use: a page a signed-out visitor only reads downloads none of it, which makes the starter's entry about 11 kB (gzip) smaller.
+- A failed server `fetchQuery`, `fetchMutation` or `fetchAction` names its function.
+- The upload field runs on `useUploadQueue`. It tells a refusal from a failure, retries a failure from where it stopped, and takes a `prepare` step.
+- A live connection stays signed in across auth changes, and a failed token refresh keeps the session's token.
+- `useAsyncQuery` stops reporting a failed server read once the live query has a value.
+
 ### 🚀 Enhancements
 
 #### AI
