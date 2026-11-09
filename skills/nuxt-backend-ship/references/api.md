@@ -115,7 +115,7 @@ Types: `RenderEmailOptions`, `BackendMock`, `BackendMockCall`, `BackendMockInit`
 | Export | What it is |
 |---|---|
 | `BACKEND_ESLINT_RULES` | The rules the preset turns on, at the levels of the plugin's own recommended config. |
-| `backendEslint()` | Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to the functions directory (tests excluded), and `nuxt-backend:generated` ignores every `_generated` folder in it. |
+| `backendEslint()` | Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to the functions directory (tests excluded), and `nuxt-backend:generated` ignores every `_generated` folder in it and the files the module generates there (brand, paths, labels and the billing id map). |
 
 Types: `BackendEslintOptions`.
 
