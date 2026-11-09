@@ -32,6 +32,8 @@ import { backendPathsOf, pathOption, pathsSourceOf } from './paths-file'
 import { pathsFileFinding } from './paths-sync'
 import { appBrandOf } from './brand-file'
 import { brandFileFinding } from './brand-sync'
+import { appLabelsOf } from './labels-file'
+import { labelsFileFinding } from './labels-sync'
 import { installableFinding, type InstallableOptions } from './installable'
 import type { BillingCatalog } from './convex/catalog'
 import { collectBillingFindings, loadCatalog, readBillingOrganizationState } from './cli/billing'
@@ -107,9 +109,10 @@ async function loadedBackendOptions(appConfig: () => Promise<AppConfig | null>):
   return config ? pathsSourceOf(config) : null
 }
 
-/** The files the module generates, against what nuxt.config and app.config declare: the paths file and the brand file, with codegen. */
+/** The files the module generates, against what nuxt.config and app.config declare: the paths, brand and labels files, with codegen. */
 async function generatedFileFindings(rootDir: string, appConfig: () => Promise<AppConfig | null>): Promise<PreflightFinding[]> {
-  return [codegenFinding(rootDir), ...pathsFileFinding(rootDir, await loadedBackendOptions(appConfig)), ...brandFileFinding(rootDir, await appBrandOf(await appConfig() as never))]
+  const config = await appConfig() as never
+  return [codegenFinding(rootDir), ...pathsFileFinding(rootDir, await loadedBackendOptions(appConfig)), ...brandFileFinding(rootDir, await appBrandOf(config)), ...labelsFileFinding(rootDir, await appLabelsOf(config))]
 }
 
 /** The installable app's check, from nuxt.config's public directory, modules and `installable` option and app.config's brand; nothing when nuxt.config does not load. */

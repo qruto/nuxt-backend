@@ -123,7 +123,7 @@ describe('the notification channels', () => {
     const profile = await mountSuspended(ProfileSettings)
     await flushPromises()
     const kinds = profile.findAll('[data-preferences="kind"]')
-    expect(kinds.map(kind => kind.get('[data-preferences="kind-name"]').text())).toEqual(['A passkey was added', 'Credits are running low'])
+    expect(kinds.map(kind => kind.get('[data-preferences="kind-name"]').text())).toEqual(['A passkey was added', 'Running low on credits'])
     expect(kinds[0]!.findAll('[data-preferences="channel"]').map(label => label.text())).toEqual(['In the app', 'By email'])
     // A billing kind stays in the app: no email or push box.
     expect(kinds[1]!.findAll('[data-preferences="channel"]').map(label => label.attributes('data-channel'))).toEqual(['app'])

@@ -33,6 +33,7 @@ import { backendEnvironment, isSandboxAddress, readEnv } from '../delivery.js'
 import { publishesDevInbox } from '../environment.js'
 import { forceColorScheme } from '../email-scheme.js'
 import { backendError } from '../errors.js'
+import type { AppLabels } from '../labels.js'
 import { normalizeLocale } from '../locale.js'
 import { logBackend } from '../log.js'
 import { normalizeEmail } from '../tokens.js'
@@ -91,7 +92,7 @@ export type {
   ContentRestrictedEmailData,
   AppealDecidedEmailData,
 } from '../email-templates.js'
-export type { LabelParams, Translate } from '../labels.js'
+export type { AppLabels, AppNotificationLabels, LabelParams, Translate } from '../labels.js'
 export type { ClockTime, EmailCaps, EmailTopic, EmailTopics, TopicSource, TopicState } from '../email-preferences.js'
 export type { EmailLinkView, EmailPreferencesApi, EmailTopicPreference } from './email-preferences.js'
 export type { EmailContactProperty, EmailSyncAction, EmailSyncLogEntry, EmailSyncReport } from './email-sync.js'
@@ -475,6 +476,16 @@ export interface SetupEmailOptions {
    * language leaves out reads `defaultLocale`'s, then English.
    */
   messages?: EmailMessages
+  /**
+   * The labels app config sets (`appConfig.backend.labels`): pass the
+   * `labels` of `labels.generated.ts`, which the module rewrites from app
+   * config, as the scaffold does. Every email, notification email and push
+   * reads them before `messages`, as the app's pages read them before its
+   * i18n messages, so copy written once in app config reaches both: the
+   * `email` group's words, a package notification kind's, and your own
+   * kinds' (`notifications.<kind>.title`).
+   */
+  labels?: AppLabels
   /**
    * The languages the app serves, as its `@nuxtjs/i18n` `locales` codes
    * (`['en', 'de', 'es']`). An email is written, and its links prefixed,

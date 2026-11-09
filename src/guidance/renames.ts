@@ -57,6 +57,7 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const LABELS = 'Emails and notifications read the labels app config sets'
 const LAUNCH = 'A production checkout waits for billing to launch, and welcome credits come from the catalog'
 const STEP_TIMEOUT = 'A job step stops its model calls at its timeout'
 const MEMBER_TICKETS = 'Members bring friends with a ticket of their own, and the waitlist records the campaign'
@@ -70,6 +71,9 @@ const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from token
  * `const` per section heading above the list, and its entries in it.
  */
 export const RENAMES: readonly Rename[] = [
+  // 0.3: app config's labels reach the backend as labels.generated.ts.
+  { from: 'setupEmail({ paths, brand })', to: 'setupEmail({ paths, brand, labels })', change: 'reshaped', section: LABELS, note: 'import `labels` from `./labels.generated`, which `upgrade` writes; drop the copy `messages` repeated from app config' },
+
   // 0.3: billing before it launches, and welcome credits.
   { from: '`unavailable` (reason `not_configured`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'only a sale on a production deployment with no token or no production catalog; every other refusal keeps `not_configured`' },
   { from: '`not_ready` (reason `no_catalog`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog`' },

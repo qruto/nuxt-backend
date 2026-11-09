@@ -11,7 +11,8 @@ import { paths } from './paths.generated'
 // they allowed (PUSH_PUBLIC_KEY and PUSH_PRIVATE_KEY, which env push
 // generates). An event of your own joins through notify: record it under
 // `app.` with audit.recordBackendEvent, say what it becomes here, and give
-// its words as labels (your i18n files, passed to setupEmail as messages):
+// its words as labels (app.config's `backend.labels.notifications`, which reach
+// the email and the push through labels.generated.ts):
 //   notify: { 'app.project_archived': { channels: ['app', 'email', 'push'], link: event => `/projects/${event.targetId}` } }
 export const notifications = setupNotifications(components, { email, paths })
 

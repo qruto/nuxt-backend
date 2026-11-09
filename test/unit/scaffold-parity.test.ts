@@ -23,6 +23,7 @@ const PANELS_CUSTOMIZED: Record<string, string> = {
   'admin.ts': 'part 3: the Reports tab for strips',
   'account.ts': 'part 6: the strips join an account\'s export and erasure',
   'email.ts': 'part 5: Panels\' brand, theme and topic',
+  'labels.generated.ts': 'part 5: the labels app.config sets, strip_ready\'s words and the demo\'s refusals, which the module writes',
   'notifications.ts': 'part 5: the strip_ready notification',
   'flags.ts': 'the ideaExamples experiment on the strips page',
   'auth.ts': 'the public demo: a sandbox deployment admits generated sandbox identities only',

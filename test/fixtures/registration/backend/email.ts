@@ -7,6 +7,7 @@ import { v } from 'convex/values'
 import { components } from './_generated/api'
 import { internalAction } from './_generated/server'
 import { brand } from './brand.generated'
+import { labels } from './labels.generated'
 import { paths } from './paths.generated'
 
 // Transactional + marketing email over the backend component's email module.
@@ -18,7 +19,7 @@ import { paths } from './paths.generated'
 // React to delivery events with
 // `setupEmail(components, { events: { 'email.bounced': async (ctx, event) => { ... } } })`.
 // `paths` (paths.generated.ts) is where an email's unsubscribe link opens.
-export const email = setupEmail(components, { paths, brand })
+export const email = setupEmail(components, { paths, brand, labels })
 
 // The read behind useEmailStatus, and the DevTools Email tab's previews
 // (internal: only the Convex CLI reaches them, on a dev deployment).

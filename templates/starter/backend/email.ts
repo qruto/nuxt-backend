@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 import { components } from './_generated/api'
 import { internalAction } from './_generated/server'
 import { brand } from './brand.generated'
+import { labels } from './labels.generated'
 import { paths } from './paths.generated'
 
 // Transactional + marketing email over the backend component's email module.
@@ -16,7 +17,9 @@ import { paths } from './paths.generated'
 // `paths` (paths.generated.ts) is where an email's unsubscribe link opens, and
 // `brand` (brand.generated.ts) the name, logo and postal address app.config
 // declares (`backend.brand`): the emails name the app as its pages do.
-export const email = setupEmail(components, { paths, brand })
+// `labels` (labels.generated.ts) are the labels app.config sets
+// (`backend.labels`): emails, notification emails and push say what the pages say.
+export const email = setupEmail(components, { paths, brand, labels })
 
 // The read behind useEmailStatus, and the DevTools Email tab's previews
 // (internal: only the Convex CLI reaches them, on a dev deployment).

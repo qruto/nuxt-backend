@@ -4,27 +4,18 @@
  * else, `init` scaffolds it empty, and `doctor` names a file that is
  * missing or out of date (`brand-file`).
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { readTextIfPresent } from './source-text'
-import { join } from 'node:path'
 import { type BackendBrand, BRAND_FILE, renderBrandFile } from './brand-file'
-import { finding, type PreflightFinding } from './findings'
-import { resolveFunctionsDir } from './scaffold'
+import type { PreflightFinding } from './findings'
+import { generatedFileFinding, generatedFileLocation, syncGeneratedFile } from './generated-file'
 
 /** The file's location, relative to the project and absolute. */
 export function brandFileLocation(rootDir: string): { name: string, path: string } {
-  const functionsDir = resolveFunctionsDir(rootDir)
-  return { name: `${functionsDir}/${BRAND_FILE}`, path: join(rootDir, functionsDir, BRAND_FILE) }
+  return generatedFileLocation(rootDir, BRAND_FILE)
 }
 
 /** Write the file when it says something other than this brand. An app without a functions directory yet gets none. */
 export function syncBrandFile(rootDir: string, brand: BackendBrand): 'written' | 'unchanged' | 'no-functions-dir' {
-  const { path } = brandFileLocation(rootDir)
-  if (!existsSync(join(path, '..'))) return 'no-functions-dir'
-  const text = renderBrandFile(brand)
-  if (readTextIfPresent(path) === text) return 'unchanged'
-  writeFileSync(path, text)
-  return 'written'
+  return syncGeneratedFile(rootDir, BRAND_FILE, renderBrandFile(brand))
 }
 
 /**
@@ -34,9 +25,5 @@ export function syncBrandFile(rootDir: string, brand: BackendBrand): 'written' |
  */
 export function brandFileFinding(rootDir: string, brand: BackendBrand | null): PreflightFinding[] {
   if (!brand) return []
-  const { name, path } = brandFileLocation(rootDir)
-  if (!existsSync(join(path, '..'))) return []
-  if (existsSync(path) && readFileSync(path, 'utf-8') === renderBrandFile(brand)) return [finding('brand-file', 'pass', `${name} carries the brand app.config declares.`)]
-  const problem = existsSync(path) ? `${name} is out of date with app.config's \`backend.brand\`` : `${name} is missing`
-  return [finding('brand-file', 'warn', `${problem}: the emails name the app otherwise than its pages.`, 'Run: npx nuxt-backend doctor --fix (or any `nuxt prepare`, `dev` or `build`), and deploy the functions.')]
+  return generatedFileFinding(rootDir, { id: 'brand-file', file: BRAND_FILE, text: renderBrandFile(brand), holds: 'the brand app.config declares', source: `app.config's \`backend.brand\``, consequence: 'the emails name the app otherwise than its pages' })
 }

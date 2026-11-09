@@ -2,6 +2,8 @@ import { fixConvexConfig } from '../convex-config'
 import { scaffoldBackendFiles } from '../scaffold'
 import { appBrandOf } from '../brand-file'
 import { brandFileLocation, syncBrandFile } from '../brand-sync'
+import { appLabelsOf } from '../labels-file'
+import { labelsFileLocation, syncLabelsFile } from '../labels-sync'
 import { backendPathsOf, pathsSourceOf, type PathsSource } from '../paths-file'
 import { pathsFileLocation, syncPathsFile } from '../paths-sync'
 import { adoptBackendDevScript } from './dev'
@@ -12,7 +14,7 @@ import { adoptBackendDevScript } from './dev'
  * overwritten), add the mounts and route groups the scaffold has and the
  * project lacks, and replace a `dev` script that stalls on a new
  * deployment, and write the paths file from nuxt.config when it says
- * something else (what the module does on its next start). `nuxt-backend upgrade` runs exactly this,
+ * something else (what the module does on its next start), and the brand and labels files from app.config. `nuxt-backend upgrade` runs exactly this,
  * and the upgrade fixture runs it on an older starter. Resolves with the
  * files it wrote and the changes it made, one line each.
  */
@@ -30,6 +32,12 @@ export async function repairProjectFiles(rootDir: string, print: (line: string) 
   const brand = await appBrandOf(config as Parameters<typeof appBrandOf>[0])
   if (brand && syncBrandFile(rootDir, brand) === 'written') {
     const line = `${brandFileLocation(rootDir).name} → the brand app.config declares`
+    changes.push(line)
+    print(`[nuxt-backend] doctor --fix: ${line}`)
+  }
+  const labels = await appLabelsOf(config as Parameters<typeof appLabelsOf>[0])
+  if (labels && syncLabelsFile(rootDir, labels) === 'written') {
+    const line = `${labelsFileLocation(rootDir).name} → the labels app.config sets`
     changes.push(line)
     print(`[nuxt-backend] doctor --fix: ${line}`)
   }

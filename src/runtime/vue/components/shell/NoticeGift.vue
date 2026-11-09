@@ -6,6 +6,7 @@ import type { ReceivedGift } from '../../composables/use-billing'
 import { useGifts } from '../../composables/use-gifts'
 import { refusalText, useLabels } from '../../composables/use-labels'
 import { focusDropped, holdsFocus, returnFocus } from '../../utils/focus-return'
+import { useMeterUnit } from '../../utils/meter-unit'
 import { VNodes } from '../../utils/vnodes'
 import { type GiftNoticeContext, turnedOff } from './notices'
 
@@ -30,6 +31,7 @@ const emit = defineEmits({
 
 const gifts = useGifts()
 const labels = useLabels('gift')
+const unit = useMeterUnit()
 const { t, rich, locale } = labels
 const uid = useId()
 const partId = (key: string, part: string) => `${uid}-${key}-${part}`
@@ -158,7 +160,7 @@ const named = (gift: ReceivedGift) => `${partId(gift.id, 'message')} ${partId(gi
         data-gift="claimed"
         tabindex="-1"
       >
-        {{ t('claimed') }}
+        {{ t('claimed', { unit: unit.word(null) }) }}
       </p>
     </div>
     <p

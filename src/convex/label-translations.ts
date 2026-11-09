@@ -34,10 +34,10 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
           action: 'Посмотреть',
         },
         creditsLow: {
-          subject: 'Ваши кредиты заканчиваются',
-          heading: 'Кредиты заканчиваются',
-          body: 'Баланс дошёл до нижнего порога. Пополните кредиты, чтобы работать без перерыва.',
-          action: 'Пополнить кредиты',
+          subject: 'Запас {unit} заканчивается',
+          heading: 'Запас {unit} на исходе',
+          body: 'Баланс дошёл до нижнего порога. Пополните запас {unit}, чтобы работать без перерыва.',
+          action: 'Добавить {unit}',
         },
         trialEnding: {
           subject: 'Пробный период закончится через 7 дней',
@@ -338,12 +338,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
           body: 'Возвращено: {amount}.',
         },
         credits_low: {
-          title: 'Кредиты заканчиваются',
-          body: 'Осталось кредитов в пространстве {workspace}: {balance}.',
-          bodyYours: 'Осталось кредитов: {balance}.',
+          title: 'Запас {unit} подходит к концу',
+          body: 'Осталось в пространстве {workspace}: {balance} {unit}.',
+          bodyYours: 'Остаток: {balance} {unit}.',
         },
         credits_exhausted: {
-          title: 'Кредиты закончились',
+          title: 'Не осталось {unit}',
           body: 'Пополните баланс пространства {workspace}, чтобы продолжить.',
           bodyYours: 'Пополните баланс, чтобы продолжить.',
         },
@@ -461,6 +461,21 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         later: 'Решить позже',
       },
     },
+    credits: {
+      low: 'Остаток: {balance} {unit}.',
+      unit: {
+        one: 'кредит',
+        few: 'кредита',
+        many: 'кредитов',
+        other: 'кредита',
+      },
+      unitTitle: 'Кредиты',
+      topUp: 'Пополнить',
+      topUpPack: 'Купить {pack}',
+      toppingUp: 'Открываем оплату…',
+      topUpFailed: 'Не удалось начать пополнение',
+      dismiss: 'Скрыть',
+    },
   },
   de: {
     email: {
@@ -491,10 +506,10 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
           action: 'Ansehen',
         },
         creditsLow: {
-          subject: 'Ihre Credits werden knapp',
-          heading: 'Credits werden knapp',
-          body: 'Ihr Guthaben hat die Warnschwelle erreicht. Laden Sie Credits auf, um ohne Unterbrechung weiterzumachen.',
-          action: 'Credits aufladen',
+          subject: 'Ihre {unit} werden knapp',
+          heading: '{unit} werden knapp',
+          body: 'Ihr Guthaben hat die Warnschwelle erreicht. Laden Sie {unit} auf, um ohne Unterbrechung weiterzumachen.',
+          action: '{unit} aufladen',
         },
         trialEnding: {
           subject: 'Ihre Testphase endet in 7 Tagen',
@@ -795,14 +810,14 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
           body: '{amount} wurden erstattet.',
         },
         credits_low: {
-          title: 'Die Credits werden knapp',
-          body: 'Verbleibende Credits in {workspace}: {balance}.',
-          bodyYours: 'Verbleibende Credits: {balance}.',
+          title: 'Die {unit} werden knapp',
+          body: 'Noch {balance} {unit} in {workspace}.',
+          bodyYours: 'Noch {balance} {unit} übrig.',
         },
         credits_exhausted: {
-          title: 'Die Credits sind aufgebraucht',
-          body: 'Laden Sie in {workspace} Credits auf, um weiterzumachen.',
-          bodyYours: 'Laden Sie Credits auf, um weiterzumachen.',
+          title: 'Die {unit} sind aufgebraucht',
+          body: 'Laden Sie das Guthaben von {workspace} auf, um weiterzumachen.',
+          bodyYours: 'Laden Sie Ihr Guthaben auf, um weiterzumachen.',
         },
         save_offer_accepted: {
           title: 'Der Tarif von {workspace} bleibt bestehen',
@@ -918,6 +933,21 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         later: 'Später entscheiden',
       },
     },
+    credits: {
+      low: 'Noch {balance} {unit} übrig.',
+      unit: {
+        one: 'Credit',
+        few: 'Credits',
+        many: 'Credits',
+        other: 'Credits',
+      },
+      unitTitle: 'Credits',
+      topUp: 'Aufladen',
+      topUpPack: '{pack} kaufen',
+      toppingUp: 'Kasse wird geöffnet…',
+      topUpFailed: 'Das Aufladen konnte nicht gestartet werden',
+      dismiss: 'Ausblenden',
+    },
   },
   es: {
     email: {
@@ -948,10 +978,10 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
           action: 'Verlo',
         },
         creditsLow: {
-          subject: 'Te quedan pocos créditos',
-          heading: 'Quedan pocos créditos',
-          body: 'Tu saldo llegó a su nivel bajo. Añade créditos para seguir sin interrupciones.',
-          action: 'Añadir créditos',
+          subject: 'Tu saldo de {unit} está bajo',
+          heading: 'Saldo bajo de {unit}',
+          body: 'Tu saldo llegó a su nivel bajo. Añade {unit} para seguir sin interrupciones.',
+          action: 'Añadir {unit}',
         },
         trialEnding: {
           subject: 'Tu prueba termina en 7 días',
@@ -1252,12 +1282,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
           body: 'Se reembolsaron {amount}.',
         },
         credits_low: {
-          title: 'Quedan pocos créditos',
-          body: 'Créditos restantes en {workspace}: {balance}.',
-          bodyYours: 'Créditos restantes: {balance}.',
+          title: 'Saldo bajo de {unit}',
+          body: 'Saldo restante en {workspace}: {balance} {unit}.',
+          bodyYours: 'Saldo restante: {balance} {unit}.',
         },
         credits_exhausted: {
-          title: 'Se agotaron los créditos',
+          title: 'Sin {unit}',
           body: 'Recarga {workspace} para seguir.',
           bodyYours: 'Recarga para seguir.',
         },
@@ -1375,6 +1405,21 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         later: 'Decidir más tarde',
       },
     },
+    credits: {
+      low: 'Saldo restante: {balance} {unit}.',
+      unit: {
+        one: 'crédito',
+        few: 'créditos',
+        many: 'créditos',
+        other: 'créditos',
+      },
+      unitTitle: 'Créditos',
+      topUp: 'Recargar',
+      topUpPack: 'Comprar {pack}',
+      toppingUp: 'Abriendo el pago…',
+      topUpFailed: 'No se pudo iniciar la recarga',
+      dismiss: 'Descartar',
+    },
   },
   fr: {
     email: {
@@ -1405,10 +1450,10 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
           action: 'Voir',
         },
         creditsLow: {
-          subject: 'Vos crédits s’épuisent',
-          heading: 'Crédits bientôt épuisés',
-          body: 'Votre solde a atteint son seuil bas. Ajoutez des crédits pour continuer sans interruption.',
-          action: 'Ajouter des crédits',
+          subject: 'Vos {unit} s’épuisent',
+          heading: 'Solde de {unit} bientôt épuisé',
+          body: 'Votre solde a atteint son seuil bas. Ajoutez des {unit} pour continuer sans interruption.',
+          action: 'Ajouter des {unit}',
         },
         trialEnding: {
           subject: 'Votre essai se termine dans 7 jours',
@@ -1709,12 +1754,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
           body: '{amount} ont été remboursés.',
         },
         credits_low: {
-          title: 'Vos crédits s’épuisent',
-          body: 'Crédits restants dans {workspace} : {balance}.',
-          bodyYours: 'Crédits restants : {balance}.',
+          title: 'Vos {unit} s’épuisent',
+          body: 'Solde restant dans {workspace} : {balance} {unit}.',
+          bodyYours: 'Il vous reste {balance} {unit}.',
         },
         credits_exhausted: {
-          title: 'Crédits épuisés',
+          title: 'Plus de {unit}',
           body: 'Rechargez {workspace} pour continuer.',
           bodyYours: 'Rechargez pour continuer.',
         },
@@ -1831,6 +1876,21 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         intro: 'Choisissez un forfait maintenant, ou restez sur le forfait gratuit et décidez plus tard.',
         later: 'Décider plus tard',
       },
+    },
+    credits: {
+      low: 'Il vous reste {balance} {unit}.',
+      unit: {
+        one: 'crédit',
+        few: 'crédits',
+        many: 'crédits',
+        other: 'crédits',
+      },
+      unitTitle: 'Crédits',
+      topUp: 'Recharger',
+      topUpPack: 'Acheter {pack}',
+      toppingUp: 'Ouverture du paiement…',
+      topUpFailed: 'Impossible de lancer la recharge',
+      dismiss: 'Fermer',
     },
   },
 }

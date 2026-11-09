@@ -7,7 +7,9 @@ import type { LabelTree } from '../label-format.js'
  * has its words under its type without `app.` (`strip_shared.title`).
  * Placeholders: `{actor}` is who did it, `{workspace}` the workspace it
  * happened in, `{amount}` an amount in its currency, and the rest are the
- * kind's own fields (`{role}`, `{balance}`). A billing, gift or pass
+ * kind's own fields (`{role}`, `{balance}`). `{unit}` is what the credits
+ * count, as the `credits` group's `unit` names it, in the form `{balance}`
+ * takes (so `credits.unit` in app config says coins here too). A billing, gift or pass
  * kind whose words name `{workspace}` has a second set for an app that
  * bills the person (`billTo: 'user'`), where the plan is their own:
  * `titleYours` and `bodyYours`, read in place of `title` and `body`.
@@ -65,8 +67,8 @@ const NOTIFICATIONS_LABELS = {
     subscription_past_due: { title: 'A payment failed', body: 'Update the payment method of {workspace} to keep its plan.', bodyYours: 'Update your payment method to keep your plan.' },
     order_paid: { title: 'Payment received', body: 'An order of {amount} was paid.' },
     order_refunded: { title: 'An order was refunded', body: '{amount} was refunded.' },
-    credits_low: { title: 'Credits are running low', body: '{balance} credits are left in {workspace}.', bodyYours: '{balance} credits are left.' },
-    credits_exhausted: { title: 'Credits ran out', body: 'Top up {workspace} to keep going.', bodyYours: 'Top up to keep going.' },
+    credits_low: { title: 'Running low on {unit}', body: '{workspace} has {balance} {unit} left.', bodyYours: 'You have {balance} {unit} left.' },
+    credits_exhausted: { title: 'Out of {unit}', body: 'Top up {workspace} to keep going.', bodyYours: 'Top up to keep going.' },
     save_offer_accepted: { title: 'The plan of {workspace} was kept', body: '{actor} took an offer instead of canceling.', titleYours: 'Your plan was kept' },
     contract_withdrawn: { title: 'A purchase was withdrawn', body: '{actor} withdrew from the plan of {workspace}.', bodyYours: '{actor} withdrew from your plan.' },
     trial_pass_started: { title: 'Your trial started', body: '{workspace} has the full plan for the trial, with no card.', bodyYours: 'You have the full plan for the trial, with no card.' },

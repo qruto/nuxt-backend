@@ -22,7 +22,7 @@ import { waitlistConfirmation } from './emails/waitlist-confirmation.js'
 import { welcome } from './emails/welcome.js'
 import { withdrawalReceipt } from './emails/withdrawal-receipt.js'
 import { TRANSLATED_LOCALES } from './label-format.js'
-import { findLabel, formatLabel, LABELS, type LabelParams, type LabelTree, type Translate } from './labels.js'
+import { type AppLabels, findLabel, formatLabel, LABELS, type LabelParams, type LabelTree, type Translate } from './labels.js'
 import { LABEL_TRANSLATIONS } from './label-translations.js'
 import { baseLanguage, matchLocale, normalizeLocale, textDirection } from './locale.js'
 
@@ -498,6 +498,13 @@ export interface EmailRenderOptions {
   brand?: { name?: string, logo?: string }
   /** The layout's colors in each scheme and its fonts; see {@link EmailTheme}. Every key is optional. */
   theme?: EmailTheme
+  /**
+   * The labels app config sets (`appConfig.backend.labels`), as the module
+   * writes them to `labels.generated.ts`: read before `messages`, as the
+   * app's pages read them before its i18n messages, so an email or a
+   * notification says what the pages say. See {@link AppLabels}.
+   */
+  labels?: AppLabels
 }
 
 /** Where a rendering reads the deployment's settings from: `SITE_URL` and `EMAIL_FROM`. */
@@ -785,17 +792,45 @@ export function resolveBrand(brand: EmailRenderOptions['brand'], env: EmailEnvir
   return { name, url, ...(logo ? { logo } : {}) }
 }
 
+/** The count a label's `{unit}` agrees with: its `count`, else the `balance` it names, else several. */
+function unitCount(params: LabelParams | undefined): number {
+  for (const name of ['count', 'balance']) {
+    const value = Number(params?.[name])
+    if (params?.[name] !== undefined && Number.isFinite(value)) return value
+  }
+  return UNIT_SEVERAL
+}
+
+/** An amount that reads as several in every language the package speaks: the form "Add {unit}" takes. */
+const UNIT_SEVERAL = 5
+
+/** The plural category of `count` in `locale` (`one`, `few`, `many`, `other`…); `other` where the runtime has no rules for it. */
+function pluralCategory(locale: string, count: number): string {
+  try {
+    return new Intl.PluralRules(locale).select(count)
+  }
+  catch {
+    return 'other'
+  }
+}
+
 /**
- * A {@link Translate} for one language: a package key reads `backend.<key>`
- * from that language's messages, then the package's own translation into
- * that language (ru, de, es, fr), then the `en` messages, then the
- * package's English; any other key (the app's own) reads from the root of
- * the same messages, then of `defaultLocale`'s, then of `en`'s.
- * An unknown key comes back as itself.
+ * A {@link Translate} for one language: a package key reads the app's own
+ * label first (`labels`: app config's `backend.labels`, as
+ * labels.generated.ts carries it, which wins as it does on the app's
+ * pages), then `backend.<key>` from that language's messages, then the
+ * package's own translation into that language (ru, de, es, fr), then the
+ * `en` messages, then the package's English; any other key (the app's
+ * own) reads `labels` too when it is under `backend.` (an app kind's
+ * words, `backend.notifications.<kind>.title`, at `notifications.<kind>.title`),
+ * then the root of the same messages, then `defaultLocale`'s, then `en`'s.
+ * A label that says `{unit}` when the caller passes none reads the
+ * `credits.unit` word, through the same sources, in the plural form its
+ * `count` (else `balance`) takes. An unknown key comes back as itself.
  *
  * @internal
  */
-export function emailTranslate(messages: EmailMessages | undefined, locale: string, defaultLocale?: string): Translate {
+export function emailTranslate(messages: EmailMessages | undefined, locale: string, defaultLocale?: string, labels?: AppLabels): Translate {
   const tree = (code: string) => {
     const found = messages?.[code] as LabelTree | undefined
     return typeof found === 'object' && found !== null ? found : undefined
@@ -805,19 +840,32 @@ export function emailTranslate(messages: EmailMessages | undefined, locale: stri
   const english = locale === 'en' ? undefined : tree('en')
   const language = normalizeLocale(locale)
   const translation = language === null ? undefined : LABEL_TRANSLATIONS[baseLanguage(language)]
+  const appLabels = labels as LabelTree | undefined
   // A package key: the app's messages in the reader's language, the package's translation into it, the app's `en`.
   const packagedSources = [backend(own), translation, backend(english)].filter(source => source !== undefined)
   // An app key: the reader's language, then the app's default language, then its `en`.
   const fallback = defaultLocale && defaultLocale !== locale && defaultLocale !== 'en' ? tree(defaultLocale) : undefined
   const ownSources = [own, fallback, english].filter(source => source !== undefined)
-  return (key: string, params?: LabelParams) => {
+  const message = (key: string): string | undefined => {
     const packaged = findLabel(LABELS, key)
+    // App config's labels first, as on the app's pages.
+    const labelKey = packaged !== undefined ? key : key.startsWith('backend.') ? key.slice('backend.'.length) : undefined
+    const set = appLabels && labelKey !== undefined ? findLabel(appLabels, labelKey) : undefined
+    if (set !== undefined) return set
     for (const source of packaged === undefined ? ownSources : packagedSources) {
       const found = findLabel(source, key)
-      if (found !== undefined) return formatLabel(found, params)
+      if (found !== undefined) return found
     }
-    return packaged === undefined ? key : formatLabel(packaged, params)
+    return packaged
   }
+  const translate: Translate = (key, params) => {
+    const found = message(key)
+    if (found === undefined) return key
+    if (!found.includes('{unit}') || (params !== undefined && Object.hasOwn(params, 'unit'))) return formatLabel(found, params)
+    const unit = message(`credits.unit.${pluralCategory(locale, unitCount(params))}`) ?? message('credits.unit.other') ?? ''
+    return formatLabel(found, { ...params, unit })
+  }
+  return translate
 }
 
 /** An app URL as a reader of `locale` opens it, under `localePaths`. */
@@ -977,7 +1025,7 @@ export function createEmailRenderer(options: EmailRenderOptions, env: () => Emai
     const settings = env()
     const siteUrl = settings.siteUrl ?? ''
     return {
-      t: emailTranslate(options.messages, locale, defaultLocale),
+      t: emailTranslate(options.messages, locale, defaultLocale, options.labels),
       locale,
       brand: resolveBrand(options.brand, settings),
       theme,

@@ -1284,6 +1284,7 @@ Defined in: [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-bac
 | <a id="lifecycle"></a> `lifecycle?` | [`EmailLifecycle`](#emaillifecycle) | The ready-made lifecycle flows to turn on, by name: `welcome`, `activationNudge`, `firstResult`, `creditsLow`, `trialEnding`, `checkoutAbandoned`, `winBack`, `stalled`, `annualSwitch`, `reviewAsk`. Each is a template and an automation at the email provider, which `npx nuxt-backend email sync` makes; the package starts and stops each person's run from its own events, and checks a lifecycle or marketing flow's email against the person's topic, the sunset rule, the weekly cap and the quiet hours when it is due. Lifecycle and marketing flows name the `topic` they go under. **Example** `lifecycle: { welcome: true, activationNudge: { topic: 'tips' }, firstResult: { event: 'app.strip_ready' }, winBack: { topic: 'offers', days: [7, 30] } }` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="theme-1"></a> `theme?` | [`EmailTheme`](#emailtheme) | The look of every email's layout: `colors` for the light scheme (the page `background`, the message `card`, its `text`, the `accent` of buttons and the code block and the `accentText` on it), `dark` for readers in dark mode (derived from `colors` where left out), and `fonts` (`heading`, `body`) as CSS font stacks. Every key is optional: what you leave out keeps the package's default. Colors are hex; setup refuses anything else. **Example** `theme: { colors: { background: '#fff7e6', accent: '#d500f9' }, fonts: { heading: "'Archivo Black', Arial, sans-serif" }, }` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="messages"></a> `messages?` | [`EmailMessages`](#emailmessages) | The emails' words in other languages, keyed by locale: pass the app's i18n message files as they are (`messages: { de, fr }`). The package's keys are read under `backend.email` (`backend.email.welcome.subject`), an app's own (for its overrides and `compose`) from the root. A key a language leaves out reads English. Each email is written in its recipient's language (`user.locale`) when the app serves it (`locales`, else the languages here), else in `defaultLocale`. An app key a language leaves out reads `defaultLocale`'s, then English. | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
+| <a id="labels"></a> `labels?` | [`AppLabels`](#applabels) | The labels app config sets (`appConfig.backend.labels`): pass the `labels` of `labels.generated.ts`, which the module rewrites from app config, as the scaffold does. Every email, notification email and push reads them before `messages`, as the app's pages read them before its i18n messages, so copy written once in app config reaches both: the `email` group's words, a package notification kind's, and your own kinds' (`notifications.<kind>.title`). | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="locales"></a> `locales?` | readonly `string`[] | The languages the app serves, as its `@nuxtjs/i18n` `locales` codes (`['en', 'de', 'es']`). An email is written, and its links prefixed, only in one of these or `defaultLocale`, so a link never carries a language the app's pages don't answer in. Default: the languages `messages` carries; with no `messages`, the package's own translations (ru, de, es, fr) and English, unless `localePaths` prefixes the links, which then stay in `defaultLocale`. Name them to use a translation of the package's that your `messages` don't carry. | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="defaultlocale"></a> `defaultLocale?` | `string` | The language for a recipient whose own has no messages, and for one whose language is unknown (an invitee without an account, whose inviter's is unknown too). Default `'en'`. | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="localepaths"></a> `localePaths?` | [`EmailLocalePaths`](#emaillocalepaths) | Whether the links the emails carry to the app's pages (an invitation, a gift) carry the recipient's language in their path, as your `@nuxtjs/i18n` `strategy` does: `prefix_except_default` turns `/accept-invitation` into `/fr/accept-invitation` for a French reader. Default `no_prefix`: links stay as they are. | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
@@ -1468,6 +1469,23 @@ The rate limits the contact form, inbound mail and the Inbox tab's replies spend
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
 | <a id="limit"></a> `limit` | (`ctx`, `name`, `options?`) => `Promise`\<\{ `ok`: `boolean`; `retryAfter?`: `number`; \}\> | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
+
+***
+
+### AppNotificationLabels
+
+Defined in: [src/convex/labels.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/labels.ts)
+
+The words of a notification kind of the app's own, under its type without `app.` (`strip_ready`).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="title-2"></a> `title?` | `string` | - | [src/convex/labels.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/labels.ts) |
+| <a id="body-1"></a> `body?` | `string` | - | [src/convex/labels.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/labels.ts) |
+| <a id="titleyours"></a> `titleYours?` | `string` | For a notification about the reader's own account (`billTo: 'user'`), read before `title`. | [src/convex/labels.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/labels.ts) |
+| <a id="bodyyours"></a> `bodyYours?` | `string` | For a notification about the reader's own account, read before `body`. | [src/convex/labels.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/labels.ts) |
 
 ## Type Aliases
 
@@ -1886,6 +1904,48 @@ Resolve a label by its dotted key and fill it in.
 #### Returns
 
 `string`
+
+***
+
+### AppLabels
+
+```ts
+type AppLabels = LabelOverrides<Omit<BackendLabels, "notifications" | "errors" | "activation">> & {
+  notifications?: LabelOverrides<BackendLabels["notifications"]> & {
+   [kind: string]: 
+     | string
+     | AppNotificationLabels
+     | {
+   [kind: string]: AppNotificationLabels | undefined;
+   }
+     | undefined;
+  };
+  errors?: LabelOverrides<BackendLabels["errors"]> & {
+   [reason: string]: string | undefined;
+  };
+  activation?: LabelOverrides<BackendLabels["activation"]> & {
+   [task: string]: string | undefined;
+  };
+};
+```
+
+Defined in: [src/convex/labels.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/labels.ts)
+
+The labels an app sets, as `appConfig.backend.labels` holds them: every
+group and key of [BackendLabels](/docs/reference/api/use-labels#backendlabels), each optional, and the app's own
+keys where a group reads them: a kind of its own in `notifications`
+(`strip_ready: { title, body }`), a refusal's sentence `<code>_<reason>`
+in `errors`, a checklist task's label in `activation`. The module carries
+them to the backend as `labels.generated.ts`, which `setupEmail({ labels })`
+reads, so the emails and notifications say what the pages say.
+
+#### Type Declaration
+
+| Name | Type | Defined in |
+| ------ | ------ | ------ |
+| `notifications?` | [`LabelOverrides`](/docs/reference/api/use-labels#labeloverrides)\<[`BackendLabels`](/docs/reference/api/use-labels#backendlabels)\[`"notifications"`\]\> & \{ \[`kind`: `string`\]: \| `string` \| [`AppNotificationLabels`](#appnotificationlabels) \| \{ \[`kind`: `string`\]: [`AppNotificationLabels`](#appnotificationlabels) \| `undefined`; \} \| `undefined`; \} | [src/convex/labels.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/labels.ts) |
+| `errors?` | [`LabelOverrides`](/docs/reference/api/use-labels#labeloverrides)\<[`BackendLabels`](/docs/reference/api/use-labels#backendlabels)\[`"errors"`\]\> & \{ \[`reason`: `string`\]: `string` \| `undefined`; \} | [src/convex/labels.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/labels.ts) |
+| `activation?` | [`LabelOverrides`](/docs/reference/api/use-labels#labeloverrides)\<[`BackendLabels`](/docs/reference/api/use-labels#backendlabels)\[`"activation"`\]\> & \{ \[`task`: `string`\]: `string` \| `undefined`; \} | [src/convex/labels.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/labels.ts) |
 
 ***
 
