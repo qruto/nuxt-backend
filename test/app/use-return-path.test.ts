@@ -29,6 +29,13 @@ describe('useReturnPath', () => {
     }
   })
 
+  it('never goes back to the sign-in page, which would ask for a sign-in again', async () => {
+    const landing = await returnPathAt('/welcome')
+    for (const loop of ['/login', '/login?redirect=/admin', '/login/']) {
+      expect(await returnPathAt(`/welcome?redirect=${encodeURIComponent(loop)}`), loop).toBe(landing)
+    }
+  })
+
   it('lands where sign-in lands without one', async () => {
     expect(await returnPathAt('/welcome')).toMatch(/^\//)
   })

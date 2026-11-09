@@ -1306,7 +1306,7 @@
     "useReturnPath": {
       "tab": "Auth",
       "tier": "stable",
-      "summary": "Where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere), else where sign-in lands (`redirects.afterSignIn`, `/` without it).",
+      "summary": "Where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere, and never to the sign-in page, which would ask them to sign in again), else where sign-in lands (`redirects.afterSignIn`, `/` without it).",
       "url": "/docs/reference/nuxt/composables"
     },
     "useEmailStatus": {
