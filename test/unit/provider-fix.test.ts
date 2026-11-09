@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { applyProviderChanges, billingEndpointFindings, planEndpointChanges, planSettingChanges, providerClient, type ProviderOrganization } from '../../src/cli/billing/settings'
-import { changeConfirmation, fixProviderSettings } from '../../src/cli/provider-fix'
+import { changeConfirmation, fixProviderSettings, syncEmailOnFix } from '../../src/cli/provider-fix'
 import { BILLING_WEBHOOK_PROVISION_EVENTS, type BillingCatalog } from '../../src/convex/catalog'
 import type { EmailSyncReport } from '../../src/convex/integrations/email-sync'
 
@@ -10,6 +10,7 @@ import type { EmailSyncReport } from '../../src/convex/integrations/email-sync'
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 const TRIAL_CATALOG = { plans: { pro: { name: 'Pro', price: { month: 900 }, trial: { days: 14 } } } } as unknown as BillingCatalog
@@ -122,5 +123,72 @@ describe('changeConfirmation', () => {
     expect(await changeConfirmation({ yes: false, interactive: false, ask, print: line => lines.push(line) })(change)).toBe(false)
     expect(ask).toHaveBeenCalledTimes(1)
     expect(lines[0]).toContain('--yes')
+  })
+})
+
+describe('syncEmailOnFix', () => {
+  const hook = { url: 'https://happy-otter-123.convex.site/email/events', action: 'exists', missingEvents: [], enabled: true }
+  const synced = { dryRun: true, key: 'full', log: [{ action: 'exists', kind: 'topic', key: 'product' }], webhook: hook, senders: [], region: { expected: null, actual: null }, topics: 1, postalAddress: true, flows: { declared: [], unsynced: [] } } as unknown as EmailSyncReport
+  const pending = { ...synced, log: [{ action: 'would-create', kind: 'topic', key: 'product' }], webhook: { ...hook, action: 'would-update', missingEvents: ['email.clicked'] } } as unknown as EmailSyncReport
+
+  function run({ plan, applied = 0, confirm = async () => true, prod = false }: { plan: EmailSyncReport | null | Error, applied?: number, confirm?: (change: { description: string }) => Promise<boolean>, prod?: boolean }) {
+    for (const name of ['CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT']) vi.stubEnv(name, undefined)
+    const deps = {
+      plan: vi.fn(async () => {
+        if (plan instanceof Error) throw plan
+        return plan
+      }),
+      apply: vi.fn(async () => ({ exitCode: applied, output: null })),
+    }
+    const lines: string[] = []
+    const asked: string[] = []
+    const outcome = syncEmailOnFix('/nowhere', { prod, confirm: async (change) => {
+      asked.push(change.description)
+      return confirm(change)
+    }, print: line => lines.push(line) }, deps)
+    return { deps, lines, asked, outcome }
+  }
+
+  it('plans as a dry run, and syncs only once the change is confirmed', async () => {
+    const yes = run({ plan: pending })
+    expect(await yes.outcome).toBe('applied')
+    expect(yes.deps.plan).toHaveBeenCalledWith('/nowhere', { prod: false, dryRun: true })
+    expect(yes.deps.apply).toHaveBeenCalledWith('/nowhere', { prod: false }, expect.any(Function))
+    expect(yes.asked).toEqual(['Sync the dev email provider account: create the topic product, give the webhook email.clicked.'])
+    const no = run({ plan: pending, confirm: async () => false })
+    expect(await no.outcome).toBe('declined')
+    expect(no.deps.apply).not.toHaveBeenCalled()
+  })
+
+  it('names production\'s account under --prod, and never syncs it unconfirmed', async () => {
+    // What changeConfirmation answers without a terminal or --yes.
+    const unattended = changeConfirmation({ yes: false, interactive: false, ask: async () => 'y', print: () => {} })
+    const prod = run({ plan: pending, prod: true, confirm: unattended })
+    expect(await prod.outcome).toBe('declined')
+    expect(prod.asked[0]).toMatch(/^Sync production's email provider account: /)
+    expect(prod.deps.apply).not.toHaveBeenCalled()
+  })
+
+  it('asks nothing when the provider already has what the code declares', async () => {
+    const unchanged = run({ plan: synced })
+    expect(await unchanged.outcome).toBe('unchanged')
+    expect(unchanged.asked).toEqual([])
+    expect(unchanged.deps.apply).not.toHaveBeenCalled()
+  })
+
+  it('fails on a sync that exits nonzero, or a dry run that fails, and skips a deployment that cannot sync', async () => {
+    expect(await run({ plan: pending, applied: 1 }).outcome).toBe('failed')
+    expect(await run({ plan: new Error('provider down') }).outcome).toBe('failed')
+    const skipped = run({ plan: null })
+    expect(await skipped.outcome).toBe('skipped')
+    expect(await run({ plan: { ...pending, key: 'missing' } as EmailSyncReport }).outcome).toBe('skipped')
+    expect(skipped.deps.apply).not.toHaveBeenCalled()
+  })
+
+  it('is refused, as email sync is, with a deploy key for the other kind of deployment', async () => {
+    vi.stubEnv('CONVEX_DEPLOY_KEY', 'dev:happy-otter-123|key')
+    const plan = vi.fn(async () => pending)
+    expect(await syncEmailOnFix('/nowhere', { prod: true, confirm: async () => true, print: () => {} }, { plan })).toBe('failed')
+    expect(plan).not.toHaveBeenCalled()
   })
 })

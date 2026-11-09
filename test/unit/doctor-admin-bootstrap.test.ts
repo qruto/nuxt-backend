@@ -27,7 +27,7 @@ vi.mock('../../src/convex-cli', () => ({
   }),
 }))
 
-const { adminBootstrapFindings, bootstrapAdmin, deploymentHasAdmin } = await import('../../src/cli/admin')
+const { adminBootstrapFindings, bootstrapAdmin, deploymentHasAdmin, firstAdministratorOnFix } = await import('../../src/cli/admin')
 const { runDoctorChecks } = await import('../../src/doctor')
 
 let rootDir: string
@@ -146,5 +146,26 @@ describe('doctor --fix\'s first administrator', () => {
     expect(JSON.parse(setRole!.at(-1)!)).toEqual({ email: 'admin@example.com', role: 'admin' })
     expect(JSON.parse(admit!.at(-1)!)).toMatchObject({ emails: ['admin@example.com'] })
     expect(print).toHaveBeenCalledWith('[nuxt-backend] doctor --fix: admin@example.com has no account yet, and may now sign up while the app is closed. Sign in with it once, then run doctor --fix again to make it the first administrator.')
+  })
+
+  it('asks nothing without a terminal, and says it made no administrator while the deployment has none', async () => {
+    const ask = vi.fn(async () => 'ada@example.com')
+    const lines: string[] = []
+    expect(await firstAdministratorOnFix(rootDir, { prod: true, interactive: false, ask, print: line => lines.push(line) })).toBeNull()
+    expect(ask).not.toHaveBeenCalled()
+    expect(deployment.calls.some(args => args.includes('functions:setUserRole'))).toBe(false)
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toMatch(/^\[nuxt-backend\] doctor --fix: no first administrator made: there is no terminal to ask at\./)
+    expect(lines[0]).toContain('npx nuxt-backend doctor --fix --prod')
+    deployment.hasAdmin = 'true'
+    lines.length = 0
+    await firstAdministratorOnFix(rootDir, { prod: false, interactive: false, ask, print: line => lines.push(line) })
+    expect(lines).toEqual([])
+  })
+
+  it('asks at a terminal', async () => {
+    const ask = vi.fn(async () => 'ada@example.com')
+    expect(await firstAdministratorOnFix(rootDir, { prod: false, interactive: true, ask, print: vi.fn() })).toBe('ada@example.com')
+    expect(ask).toHaveBeenCalledTimes(1)
   })
 })

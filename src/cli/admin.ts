@@ -210,3 +210,15 @@ export async function bootstrapAdmin(rootDir: string, { prod, ask, print }: { pr
   print(`[nuxt-backend] doctor --fix: ${email} is the first administrator.`)
   return email
 }
+
+/**
+ * `doctor --fix`'s first-administrator step: {@link bootstrapAdmin} for a
+ * person at a terminal; without one (a script, CI, `--json`) nothing is
+ * asked, and when the deployment has no administrator it says so, so a run
+ * that skipped the step does not read as one that made it.
+ */
+export async function firstAdministratorOnFix(rootDir: string, { prod, interactive, ask, print }: { prod: boolean, interactive: boolean, ask: Ask, print: (line: string) => void }): Promise<string | null> {
+  if (interactive) return bootstrapAdmin(rootDir, { prod, ask, print })
+  if (await deploymentHasAdmin(rootDir, { prod }) === false) print(`[nuxt-backend] doctor --fix: no first administrator made: there is no terminal to ask at. Run \`npx nuxt-backend doctor --fix${prod ? ' --prod' : ''}\` at one, or \`${setRoleCommand('you@example.com', prod)}\`.`)
+  return null
+}

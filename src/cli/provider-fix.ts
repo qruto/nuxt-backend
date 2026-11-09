@@ -12,7 +12,7 @@ import {
   readProviderOrganization,
   type ProviderChange,
 } from './billing/settings'
-import { runEmailSync } from './email'
+import { emailSyncLines, emailSyncRefusal, runEmailSync, runEmailSyncCommand, type EmailSyncReport } from './email'
 
 /**
  * `doctor --fix`'s provider half: the billing settings the warn-only
@@ -134,6 +134,68 @@ export async function fixProviderSettings(rootDir: string, { prod, confirm, prin
   }
   if (report.skipped.length > 0) print(`[nuxt-backend] doctor --fix: left as they are (not confirmed): ${report.skipped.join(', ')}.`)
   return report
+}
+
+/** What `doctor --fix`'s `email sync` step came to. */
+export type EmailSyncFixOutcome = 'applied' | 'unchanged' | 'declined' | 'skipped' | 'failed'
+
+/** What a dry-run sync would change: an entry to create or update, the webhook, or a flow the deployment does not run as declared. */
+function emailSyncPlans(report: EmailSyncReport): string[] {
+  const entries = report.log.filter(entry => entry.action === 'would-create' || entry.action === 'would-update').map(entry => `${entry.action === 'would-create' ? 'create' : 'update'} the ${entry.kind} ${entry.key}`)
+  const webhook = report.webhook.action === 'would-create' ? [`create the webhook ${report.webhook.url}`] : report.webhook.action === 'would-update' ? [`give the webhook ${report.webhook.missingEvents.join(', ')}`] : []
+  const flows = (report.flows?.unsynced ?? []).map(flow => `configure the flow ${flow}`)
+  return [...entries, ...webhook, ...flows]
+}
+
+/**
+ * `doctor --fix`'s `email sync`, confirmed like the provider settings: a
+ * dry run first, its lines printed, then the sync itself only once
+ * `confirm` agrees (`--yes`, or a yes at a terminal; nobody at one
+ * declines), on dev and `--prod` alike, since it writes the email
+ * provider's account. A deployment that cannot sync (no `EMAIL_API_KEY`,
+ * a send-only key, no `email:syncEmail`) is skipped, as doctor's findings
+ * name it; a refusal, a provider error or a sync that ends with a nonzero
+ * exit code fails.
+ */
+export async function syncEmailOnFix(rootDir: string, { prod, confirm, print }: { prod: boolean, confirm: ConfirmChange, print: (line: string) => void }, deps: { plan?: typeof runEmailSync, apply?: typeof runEmailSyncCommand } = {}): Promise<EmailSyncFixOutcome> {
+  const planned = await planEmailSync(rootDir, prod, print, deps.plan ?? runEmailSync)
+  if (typeof planned === 'string') return planned
+  for (const line of emailSyncLines(planned.report)) print(line)
+  const account = prod ? 'production\'s email provider account' : 'the dev email provider account'
+  if (!await confirm({ description: `Sync ${account}: ${planned.plans.join(', ')}.` })) return 'declined'
+  const { exitCode } = await (deps.apply ?? runEmailSyncCommand)(rootDir, { prod }, print)
+  if (exitCode === 0) return 'applied'
+  print(`[nuxt-backend] doctor --fix: email sync failed: run \`npx nuxt-backend email sync${prod ? ' --prod' : ''}\` for its full output.`)
+  return 'failed'
+}
+
+/** The dry run {@link syncEmailOnFix} asks about: its report and what it would change, or why there is nothing to ask. */
+async function planEmailSync(rootDir: string, prod: boolean, print: (line: string) => void, plan: typeof runEmailSync): Promise<EmailSyncFixOutcome | { report: EmailSyncReport, plans: string[] }> {
+  const refusal = emailSyncRefusal(rootDir, prod)
+  if (refusal) {
+    print(`[nuxt-backend] doctor --fix: email sync refused: ${refusal}`)
+    return 'failed'
+  }
+  let report: EmailSyncReport | null
+  try {
+    report = await plan(rootDir, { prod, dryRun: true })
+  }
+  catch (error) {
+    print(`[nuxt-backend] doctor --fix: email sync failed: ${error instanceof Error ? error.message : String(error)}`)
+    return 'failed'
+  }
+  if (!report) {
+    print('[nuxt-backend] doctor --fix: email sync skipped: the deployment has no email:syncEmail.')
+    return 'skipped'
+  }
+  if (report.key !== 'full') {
+    for (const line of emailSyncLines(report)) print(line)
+    return 'skipped'
+  }
+  const plans = emailSyncPlans(report)
+  if (plans.length > 0) return { report, plans }
+  print('[nuxt-backend] doctor --fix: email sync: the email provider has what backend/email.ts declares.')
+  return 'unchanged'
 }
 
 /**
