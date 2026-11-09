@@ -10,7 +10,7 @@ import { migrateData } from '../../src/cli/upgrade/data'
 import { backfillPools, POOL_BACKFILL } from '../../src/cli/upgrade/pools'
 import { ConvexCliError, runConvex } from '../../src/convex-cli'
 import { PACKAGE_MIGRATIONS, type PackageMigrationStatus } from '../../src/convex/package-migrations'
-import { checkoutBaseStarter, checkoutDriftedStarter, DRIFT, removeFixture } from '../helpers/upgrade-fixture'
+import { checkoutBaseStarter, checkoutDriftedStarter, CUSTOM, customizeStarter, DRIFT, removeFixture } from '../helpers/upgrade-fixture'
 
 // `nuxt-backend upgrade` on the upgrade fixture (test/fixtures/upgrade/): the
 // starter as the last release shipped it, with a file, a mount and a
@@ -161,6 +161,20 @@ describe('a starter that lacks what the scaffold has', () => {
       `+    ${DRIFT.forward}: app.env.${DRIFT.forward},`,
       `+app.use(${DRIFT.mount})`,
     ])
+  })
+
+  it('reads the app\'s own nuxt.config and app.config in a dry run, so it plans what the run writes', async () => {
+    customizeStarter(dir)
+    const planned = await upgradeJson('--dry-run')
+    const carried = { 'backend/brand.generated.ts': CUSTOM.brand, 'backend/labels.generated.ts': CUSTOM.label, 'backend/paths.generated.ts': CUSTOM.login }
+    for (const [path, value] of Object.entries(carried)) {
+      const diff = planned.scaffold.diffs?.find(text => text.startsWith(`--- a/${path}\n`)) ?? ''
+      expect(diff.split('\n').some(line => line.startsWith('+') && line.includes(value)), `${path}: ${diff}`).toBe(true)
+    }
+    const report = await upgradeJson()
+    expect(report.scaffold.changes).toEqual(planned.scaffold.changes)
+    // Before the fix the scratch copy had no config to read, and a dry run of the upgraded app emptied all three.
+    expect((await upgradeJson('--dry-run')).scaffold).toEqual({ written: [], changes: [], diffs: [] })
   })
 })
 

@@ -85,6 +85,24 @@ export function checkoutDriftedStarter(parent: string): string {
   return dir
 }
 
+/**
+ * What {@link customizeStarter} gives a starter: a brand and a label in
+ * app.config, and a packaged page moved in nuxt.config, so the brand, labels
+ * and paths files have something of the app's own to carry.
+ */
+export const CUSTOM = { brand: 'Panels', label: 'Your strip is ready', login: '/sign-in' } as const
+
+/** Give the starter in `dir` the app config of {@link CUSTOM}: an app.config and a nuxt.config of its own. */
+export function customizeStarter(dir: string): void {
+  mkdirSync(join(dir, 'app'), { recursive: true })
+  writeFileSync(join(dir, 'app/app.config.ts'), `export default defineAppConfig({ backend: { brand: { name: '${CUSTOM.brand}' }, labels: { notifications: { strip_ready: { title: '${CUSTOM.label}' } } } } })\n`)
+  const config = join(dir, 'nuxt.config.ts')
+  const source = readFileSync(config, 'utf-8')
+  const modules = '  modules: [\'nuxt-backend\'],\n'
+  if (!source.includes(modules)) throw new Error(`The ${UPGRADE_BASE} starter's nuxt.config.ts has no ${JSON.stringify(modules)}: update customizeStarter in test/helpers/upgrade-fixture.ts.`)
+  writeFileSync(config, source.replace(modules, `${modules}  backend: { pages: { login: '${CUSTOM.login}' } },\n`))
+}
+
 /** Remove a fixture directory. */
 export function removeFixture(dir: string): void {
   rmSync(dir, { recursive: true, force: true })
