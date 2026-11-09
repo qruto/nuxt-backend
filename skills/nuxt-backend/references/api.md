@@ -467,7 +467,7 @@ Check the project + deployment configuration.
 
 - `--cwd`: Project directory
 - `--json`: Machine-readable output
-- `--fix`: Repair what doctor can: restore missing scaffold files, add missing mounts and routes, push env (`env push`), at a terminal make the first administrator, and run `email sync`, apply the provider settings the billing findings recommend and turn a webhook endpoint back on, each after you confirm it
+- `--fix`: Repair what doctor can: restore missing scaffold files, add missing mounts and routes, push env (`env push`), at a terminal make the first administrator, then, each after you confirm it, run `email sync`, apply the provider settings the billing findings recommend and turn a webhook endpoint back on
 - `--yes`: With --fix: run `email sync` and apply the provider changes without asking (for a script or CI; without it and without a terminal, they are listed and skipped)
 - `--prod`: Check the production deployment: missing email/billing config becomes a failure, its switches and email are read, and its live site is probed
 - `--only`: Check only these capabilities, comma-separated: auth, data, jobs, billing, email, notifications, ai, protection, monitoring, flags, analytics, hosting

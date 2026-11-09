@@ -408,7 +408,7 @@ const doctor = withContract('doctor', {
   args: {
     ...cwdArg,
     json: { type: 'boolean', description: 'Machine-readable output', default: false },
-    fix: { type: 'boolean', description: 'Repair what doctor can: restore missing scaffold files, add missing mounts and routes, push env (`env push`), at a terminal make the first administrator, and run `email sync`, apply the provider settings the billing findings recommend and turn a webhook endpoint back on, each after you confirm it', default: false },
+    fix: { type: 'boolean', description: 'Repair what doctor can: restore missing scaffold files, add missing mounts and routes, push env (`env push`), at a terminal make the first administrator, then, each after you confirm it, run `email sync`, apply the provider settings the billing findings recommend and turn a webhook endpoint back on', default: false },
     yes: { type: 'boolean', description: 'With --fix: run `email sync` and apply the provider changes without asking (for a script or CI; without it and without a terminal, they are listed and skipped)', default: false },
     prod: { type: 'boolean', description: 'Check the production deployment: missing email/billing config becomes a failure, its switches and email are read, and its live site is probed', default: false },
     only: { type: 'string', description: `Check only these capabilities, comma-separated: ${CAPABILITY_NAMES.join(', ')}` },
