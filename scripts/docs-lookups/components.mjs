@@ -303,10 +303,19 @@ const TOKEN_ROLES = {
   '--bk-font': 'The face of every component\'s text',
   '--bk-font-heading': 'The face of headings, falling back to `--bk-font`',
   '--bk-font-control': 'The face of buttons, falling back to `--bk-font`',
+  '--bk-tracking-heading': 'The letter-spacing of headings, the page\'s own while unset',
+  '--bk-tracking-control': 'The letter-spacing of buttons, `normal` while unset',
   '--bk-border-width': 'The width of every outline: controls, fields, cards and dialogs',
+  '--bk-border-width-surface': 'The outline of cards, banners, panels and dialogs, falling back to `--bk-border-width`',
+  '--bk-border-width-control': 'The outline of buttons, fields and chips, falling back to `--bk-border-width`',
   '--bk-shadow': 'Cards, banners and panels',
   '--bk-shadow-control': 'Buttons drawn as buttons',
   '--bk-shadow-overlay': 'Dialogs, menus and popovers',
+  '--bk-shadow-control-hover': 'A drawn button under the pointer, keeping `--bk-shadow-control` while unset',
+  '--bk-shadow-control-active': 'A drawn button while pressed, falling back to the hover shadow',
+  '--bk-offset-control-hover': 'How far a drawn button moves under the pointer (a `translate` value), none while unset',
+  '--bk-offset-control-active': 'How far a drawn button moves while pressed, falling back to the hover offset',
+  '--bk-transition-control': 'The `transition` of buttons and links between those states, none while unset',
 }
 
 /** The shared tokens tokens.css declares in its first block, with their values. */

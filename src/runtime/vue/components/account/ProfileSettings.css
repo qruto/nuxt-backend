@@ -47,13 +47,15 @@
   [data-profile='submit'] {
     align-self: flex-start;
     padding: 0.55rem 0.9rem;
-    border: var(--bk-border-width) solid var(--bk-accent);
-    box-shadow: var(--bk-shadow-control);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-accent);
+    box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control));
+    translate: var(--_bk-press-offset);
     border-radius: var(--bk-radius-control);
     background: var(--bk-accent);
     color: var(--bk-on-accent);
     font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
+    letter-spacing: var(--bk-tracking-control, normal);
     font-weight: 600;
     cursor: pointer;
   }

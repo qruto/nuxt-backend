@@ -24,7 +24,7 @@
   :where([data-admin='billing-filter']) input {
     min-width: min(20rem, 100%);
     padding: 0.35rem 0.6rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;

@@ -28,6 +28,7 @@
     border: 0;
     background: none;
     box-shadow: none;
+    translate: none;
     font-weight: 500;
     font-size: 0.85rem;
     color: var(--auth-muted);

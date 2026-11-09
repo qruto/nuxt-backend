@@ -132,7 +132,7 @@
     max-width: min(22rem, calc(100vw - 1rem));
     margin: 0.35rem 0 0;
     padding: 0.5rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
     border-radius: var(--bk-radius);
     background: Canvas;
     color: CanvasText;
@@ -161,13 +161,15 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.3rem 0.7rem 0.3rem 0.3rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
-    box-shadow: var(--bk-shadow-control);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
+    box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control));
+    translate: var(--_bk-press-offset);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
     font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
+    letter-spacing: var(--bk-tracking-control, normal);
     font-weight: 600;
     cursor: pointer;
   }

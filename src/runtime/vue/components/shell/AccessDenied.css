@@ -16,7 +16,7 @@
   [data-access='title'] {
     margin: 0;
     font-size: 1.6rem;
-    letter-spacing: -0.02em;
+    letter-spacing: var(--bk-tracking-heading, -0.02em);
   }
 
   /* Focus lands on the heading after the link that led here went away: a place, not a control. */
@@ -53,10 +53,12 @@
     display: inline-flex;
     align-items: center;
     padding: 0.55rem 0.9rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
-    box-shadow: var(--bk-shadow-control);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
+    box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control));
+    translate: var(--_bk-press-offset);
     font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
+    letter-spacing: var(--bk-tracking-control, normal);
     border-radius: var(--bk-radius-control);
     color: inherit;
     font-weight: 600;

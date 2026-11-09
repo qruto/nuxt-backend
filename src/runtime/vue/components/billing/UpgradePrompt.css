@@ -10,7 +10,7 @@
     align-items: center;
     gap: 0.7rem;
     padding: 0.75rem 0.9rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
     box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
     background: var(--bk-surface);
@@ -28,9 +28,11 @@
     align-items: center;
     justify-content: center;
     padding: 0.4rem 0.8rem;
-    border: var(--bk-border-width) solid var(--bk-accent);
-    box-shadow: var(--bk-shadow-control);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-accent);
+    box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control));
+    translate: var(--_bk-press-offset);
     font-family: var(--bk-font-control, var(--bk-font));
+    letter-spacing: var(--bk-tracking-control, normal);
     border-radius: var(--bk-radius-control);
     background: var(--bk-accent);
     color: var(--bk-on-accent);
@@ -49,7 +51,7 @@
 @layer nuxt-backend {
   [data-upgrade='dismiss'] {
     padding: 0.3rem 0.6rem;
-    border: var(--bk-border-width) solid transparent;
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid transparent;
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: var(--bk-muted);
