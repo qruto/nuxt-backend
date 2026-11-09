@@ -693,8 +693,11 @@ export function createGifts(
 
   /**
    * Settle the caller's gift purchase on their return from its checkout:
-   * read the checkout's orders from the provider, and run each paid one that
-   * buys a gift of theirs through `purchasePaid`, as its `order.paid` would.
+   * read the checkout's orders from the provider, and run each one that is
+   * paid (`status: 'paid'`, what `order.paid` says) and buys a gift of
+   * theirs through `purchasePaid`, as that webhook would. An order whose
+   * payment is still processing, or one refunded since, is left to its
+   * webhooks.
    * A deployment the provider sends no webhooks to (a local one) settles its
    * gifts this way; one that gets them settles each gift once, whichever
    * comes first. Nothing for a signed-out caller, nor for one with no gift
@@ -708,7 +711,7 @@ export function createGifts(
     if (opened.count <= settled.count) return
     const orders = unwrapProvider(await ordersList(provider.polar, { checkoutId, limit: 10 }), 'gift settlement')
     for (const order of orders.result.items as GiftOrder[]) {
-      if (order.metadata?.phase === 'claim') continue
+      if (order.status !== 'paid' || order.metadata?.phase === 'claim') continue
       const gift = await giftOf(ctx, order)
       if (gift?.status === 'pending' && gift.purchaserUserId === identity.subject) await purchasePaid(ctx, gift, order)
     }

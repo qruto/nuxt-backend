@@ -511,6 +511,22 @@ describe('a gift bought on a deployment the provider sends no webhooks to', () =
     expect(await received(recipient)).toHaveLength(1)
   })
 
+  test('leaves an order whose payment is still processing to its webhook, and settles it once it is paid', async () => {
+    const ada = await purchaser()
+    webhooks(false)
+    const checkoutId = await buy(ada, { pack: 'credits500', recipientEmail: 'delivered+processing@resend.dev' })
+    orderOf(checkoutId).status = 'pending'
+    const warned = vi.mocked(console.warn).mock.calls.length
+    await comeBack(ada, checkoutId)
+    expect(await sent(ada)).toEqual([])
+    // Not read as a paid order that named the wrong gift either: nothing is said of it.
+    expect(vi.mocked(console.warn).mock.calls.slice(warned).map(call => String(call[0]))).not.toContainEqual(expect.stringContaining('gift_unverified'))
+
+    orderOf(checkoutId).status = 'paid'
+    await comeBack(ada, checkoutId)
+    expect((await sent(ada))![0]).toMatchObject({ status: 'delivered' })
+  })
+
   test('settles only the caller\'s own gift', async () => {
     const ada = await purchaser()
     webhooks(false)

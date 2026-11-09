@@ -339,7 +339,7 @@ export function createModels(state: FakeState, baseUrl: string) {
       createdAt: date(record.createdAt),
       modifiedAt: optionalDate(record.modifiedAt),
       status: record.status,
-      paid: true,
+      paid: record.status !== 'pending',
       ...amounts,
       appliedBalanceAmount: 0,
       dueAmount: 0,
