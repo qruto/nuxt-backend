@@ -313,7 +313,7 @@
     "@types/semver": "^7.8.0",
     "@vitest/coverage-v8": "^5.0.4",
     "@vue/test-utils": "^2.5.0",
-    "ai": "7.0.163",
+    "ai": "7.0.164",
     "axe-core": "^4.14.0",
     "botid": "^1.5.12",
     "changelogen": "^0.6.2",
