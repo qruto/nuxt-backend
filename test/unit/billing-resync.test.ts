@@ -131,6 +131,39 @@ describe('the sweep', () => {
   })
 })
 
+describe('waits that would outlast a run', () => {
+  // The provider asks for two minutes each time: three tries fit a run's
+  // four minutes, and the wait after the third would end past them.
+  it('hands the entity on to the next run, after the wait, with the tries it spent, instead of waiting past the run', async () => {
+    answers.a = [120]
+    const started = Date.now()
+    const page = ctx()
+    await expect(run(page, { pending: ['a', 'b'], cursor: 'c3', last: true, tally: ZERO })).resolves.toEqual({ queued: 2, more: true })
+    expect(asked.map(entry => entry.id)).toEqual(['a', 'a', 'a'])
+    expect(Date.now() - started).toBeLessThanOrEqual(4 * 60_000)
+    expect(page.scheduler.runAfter).toHaveBeenCalledWith(120_000, expect.anything(), { pending: ['a', 'b'], cursor: 'c3', last: true, tally: ZERO, tried: 3 })
+    expect(logged('warn', 'billing.resync_failed')).toEqual([])
+    expect(logged('info', 'billing.resync_done')).toEqual([])
+  })
+
+  it('counts the tries a run before spent, so an entity the rate limit keeps refusing still gives up at eight', async () => {
+    answers.a = [120]
+    await run(ctx(), { pending: ['a'], last: true, tally: ZERO, tried: 6 })
+    expect(asked).toHaveLength(2)
+    expect(logged('warn', 'billing.resync_failed')[0]).toContain('after 8 tries (the provider\'s rate limit)')
+    expect(logged('info', 'billing.resync_done')[0]).toContain('0 read again, 0 left to an erasure, 1 given up on.')
+  })
+
+  it('gives up on one entity by id before its waits would outlast the action', async () => {
+    answers.a = [120]
+    const started = Date.now()
+    await expect(run(ctx(), { entityId: 'a' })).resolves.toBe('failed')
+    expect(Date.now() - started).toBeLessThanOrEqual(5 * 60_000)
+    expect(asked).toHaveLength(3)
+    expect(logged('warn', 'billing.resync_failed')[0]).toContain('after 3 tries (the provider\'s rate limit, and its next wait would outlast the run)')
+  })
+})
+
 describe('one entity by id', () => {
   it('answers failed once its tries are spent, and synced after a wait', async () => {
     answers.a = [2]

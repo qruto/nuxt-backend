@@ -44,8 +44,12 @@ export interface BillingResyncReport {
 /** How long the sweep's start takes: one page read and handed on. */
 const RESYNC_TIMEOUT_MS = 120_000
 
-/** How long one entity's read may take: its tries wait as long as the provider's rate limit asks. */
-const ENTITY_TIMEOUT_MS = 600_000
+/**
+ * How long one entity's read may take: its tries wait as long as the
+ * provider's rate limit asks, within the deployment's five minutes for one
+ * entity, which gives up rather than wait past them.
+ */
+const ENTITY_TIMEOUT_MS = 360_000
 
 /** The most entities `--entity` names in one run: each is a `convex run` of its own. */
 export const RESYNC_ENTITY_MAX = 100
@@ -128,7 +132,7 @@ export function resyncLines(report: BillingResyncReport): string[] {
     const logs = `npx convex logs${report.deployment === 'production' ? ' --prod' : ''} --history 100`
     return [
       `[nuxt-backend] billing resync: started on the ${report.deployment} deployment, ${entitiesOf(report.queued)} on its first page${rest}. It reads them in turn, at most one a second, waiting as long as the provider's rate limit asks.`,
-      `[nuxt-backend] billing resync: the deployment logs each entity it gives up on (billing.resync_failed) and, at the end, how many were read (billing.resync_done): ${logs}.`,
+      `[nuxt-backend] billing resync: the deployment logs each entity it gives up on (billing.resync_failed) and, at the end, how many were read (billing.resync_done): ${logs}. Wait for that last line before running it again: a second sweep runs beside the first, and doubles the requests.`,
     ]
   }
   if (report.status !== 'synced') return [...readLines(report), `[nuxt-backend] billing resync${report.status === 'refused' ? ' refused' : ''}: ${report.note}`]
