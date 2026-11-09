@@ -377,7 +377,8 @@ describe('templates/panels/backend', () => {
   })
 
   test('writes each account\'s email in its own language, of the five the package translates', async () => {
-    const { email } = await import('../../templates/panels/backend/email')
+    // Through the glob the app runs on, as a module of the template: its imports resolve as an app's do.
+    const { email } = await modules[`${PANELS}email.ts`]!() as { email: { locales: readonly string[], render: (name: 'gift', data: Record<string, unknown>, options: { locale: string }) => Promise<{ subject: string, html?: string }> } }
     expect(email.locales).toEqual(['en', 'de', 'es', 'fr', 'ru'])
     // The try kit's gift recipient reads German.
     const gift = await email.render('gift', { recipientEmail: 'delivered+trygiftrecipient@resend.dev', purchaserName: 'Gus Giver', item: '100 credits', claimUrl: `${SITE}/` }, { locale: 'de' })
