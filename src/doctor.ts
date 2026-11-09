@@ -211,12 +211,13 @@ async function pagePathFindings(appConfig: () => Promise<AppConfig | null>, depl
 /**
  * Doctor's billing half: load the declared catalog, read the provider's
  * organization settings with whatever token is visible here, and cross-check
- * the two. Local env only — the deployment may hold a token this machine does not, in
- * which case the provider checks simply do not run.
+ * the two. Local env only: when the deployment holds a token this machine
+ * does not (`deployed`, its env names, read only then), the provider checks
+ * do not run, and `billing-organization` says so.
  *
  * @internal
  */
-export async function billingCatalogFindings(rootDir: string, env: Record<string, string | undefined>): Promise<PreflightFinding[]> {
+export async function billingCatalogFindings(rootDir: string, env: Record<string, string | undefined>, { deployed, prod = false }: { deployed?: Promise<readonly string[] | null>, prod?: boolean } = {}): Promise<PreflightFinding[]> {
   let catalog: BillingCatalog | null
   try {
     catalog = (await loadCatalog(rootDir))?.catalog ?? null
@@ -231,7 +232,8 @@ export async function billingCatalogFindings(rootDir: string, env: Record<string
   // The sandbox, unless the env this run reads says it is production's.
   const environment = billingEnvironment(parseBackendEnvironment(env.BACKEND_ENVIRONMENT))
   const state = accessToken ? await readBillingOrganizationState({ accessToken, environment }) : null
-  return collectBillingFindings(catalog, state, { tokenPresent: Boolean(accessToken) })
+  const deployedToken = !accessToken && (await deployed)?.includes('BILLING_ACCESS_TOKEN') ? { prod } : null
+  return collectBillingFindings(catalog, state, { tokenPresent: Boolean(accessToken), deployedToken })
 }
 
 /**
@@ -1088,12 +1090,16 @@ export async function runDoctorChecks(rootDir: string, { prod, only, deployedNam
   const appConfig = appConfigLoader(rootDir)
 
   const siteUrl = resolveSiteUrl({ env, derived: deriveDeploymentUrls(rootDir, env) })
+  // The deployment's env names (never values), read once: what the
+  // deployment's checks start from, and the billing half's when no token is
+  // visible here.
+  const namesRead = deployedNames !== undefined ? Promise.resolve(deployedNames) : deploymentEnvNames(rootDir, { prod })
   const [{ deployed, surface, posture, launch }, catalog, metrics] = await Promise.all([
     (async () => {
-      // The deployment's env names (never values) first, so a variable set
-      // there but not visible here counts as set instead of warning next to
-      // the deployment-side finding that says it is.
-      const names = deployedNames !== undefined ? deployedNames : await deploymentEnvNames(rootDir, { prod })
+      // The names first, so a variable set there but not visible here
+      // counts as set instead of warning next to the deployment-side
+      // finding that says it is.
+      const names = await namesRead
       // Under --prod, the values production's names alone cannot say: read
       // beside the surface reads, which probe the site it names.
       const posture = given ?? (prod && names ? readProductionPosture(rootDir, names, wants) : Promise.resolve(null))
@@ -1115,7 +1121,7 @@ export async function runDoctorChecks(rootDir: string, { prod, only, deployedNam
     // provider, only the catalog-only checks (see collectBillingFindings).
     // Local files and the provider only, so they run beside the deployment
     // reads.
-    wants('billing') ? billingCatalogFindings(rootDir, env) : [],
+    wants('billing') ? billingCatalogFindings(rootDir, env, { deployed: namesRead, prod }) : [],
     // The funnel's activation kind, recorded by a backend file; then the
     // Revenue view's metrics read, with the token visible here (analytics).
     wants('analytics') ? Promise.resolve(activationFindings(rootDir)) : [],

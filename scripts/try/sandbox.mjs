@@ -28,21 +28,48 @@ export async function rootSandboxKeys() {
   return Object.fromEntries(Object.keys(SANDBOX_KEYS).filter(name => local[name]).map(name => [name, local[name]]))
 }
 
+/** The deployment's value of an env name (`convex env get`), or `null` when it cannot be read. */
+async function deploymentValue(name) {
+  const { runConvex } = await import(pathToFileURL(join(root, 'src/convex-cli.ts')).href)
+  try {
+    return (await runConvex(websiteDir, ['env', 'get', name])).stdout.trim()
+  }
+  catch {
+    return null
+  }
+}
+
 /**
  * Put the keys on the deployment: the ones it does not hold yet (`held`, its
- * env names), so a key set there by hand is never replaced. Resolves with the
- * names it set.
+ * env names), so a key set there by hand is never replaced. A key it holds
+ * with another value than the root's (a renewed token, say) is named, never
+ * replaced. Resolves with the names it set (`forwarded`) and the ones that
+ * differ (`differing`); no value is ever returned or printed.
  */
-export async function forwardSandboxKeys(held) {
-  const { setDeploymentEnv } = await loadEnvPush()
-  const keys = await rootSandboxKeys()
+export async function forwardSandboxKeys(held, { keys, set, get = deploymentValue } = {}) {
+  const rootKeys = keys ?? await rootSandboxKeys()
+  const write = set ?? (await loadEnvPush()).setDeploymentEnv
   const forwarded = []
-  for (const [name, value] of Object.entries(keys)) {
-    if (held.includes(name)) continue
-    await setDeploymentEnv(websiteDir, name, value)
-    forwarded.push(name)
+  const differing = []
+  for (const [name, value] of Object.entries(rootKeys)) {
+    if (!held.includes(name)) {
+      await write(websiteDir, name, value)
+      forwarded.push(name)
+      continue
+    }
+    const kept = await get(name)
+    if (kept !== null && kept !== value.trim()) differing.push(name)
   }
-  return forwarded
+  return { forwarded, differing }
+}
+
+/**
+ * What the kit says of a key the deployment keeps with another value than
+ * the root `.env.local`'s, and the command that sets the root's there: the
+ * value goes from the file to `convex env set`'s stdin, never on a screen.
+ */
+export function differingKeyLine(name) {
+  return `The deployment keeps its own ${name}, which differs from the root .env.local's; the kit never replaces a key the deployment holds. To use the root's, from the repository root: grep '^${name}=' .env.local | cut -d= -f2- | (cd website && npx convex env set ${name})`
 }
 
 /**

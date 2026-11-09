@@ -4,15 +4,17 @@ import { deploymentFlags } from '../../env-push'
 
 // `billing resync`: every billing entity's entitlements read again from the
 // provider into the deployment's cache, through the scaffold's
-// `billing:resyncEntitlements`. It queues the work and returns: the
-// deployment pages its entities and reads each one on the free plan's
-// queue, so a large app finishes after the command does. With `--entity`
-// it reads the entities it names instead, one at a time, and waits for
-// each: the way for an app whose own `resolveEntity` bills entities of its
-// own, which the deployment cannot page.
+// `billing:resyncEntitlements`. It starts the sweep and returns: the
+// deployment pages its entities and reads them in turn, paced under the
+// provider's rate limit, so a large app finishes after the command does;
+// each entity it gives up on is logged (`billing.resync_failed`), and the
+// last run logs the tally (`billing.resync_done`). With `--entity` it
+// reads the entities it names instead, one at a time, and waits for each:
+// the way for an app whose own `resolveEntity` bills entities of its own,
+// which the deployment cannot page, and for the ones a sweep gave up on.
 
-/** One entity `--entity` named: read again, or left alone while an erasure deletes it. */
-export interface ResyncedEntity { id: string, outcome: 'synced' | 'gone' }
+/** One entity `--entity` named: read again, left alone while an erasure deletes it, or given up on after the provider kept refusing it. */
+export interface ResyncedEntity { id: string, outcome: 'synced' | 'gone' | 'failed' }
 
 /** What `billing resync --json` prints. */
 export interface BillingResyncReport {
@@ -25,7 +27,8 @@ export interface BillingResyncReport {
    * `--entity` reaches; `refused`: the command ran nothing (`note` says
    * why); `missing`: the deployment's `billing.ts` does not export
    * `resyncEntitlements` (an app scaffolded before it); `failed`: the
-   * deployment refused or did not answer.
+   * deployment refused or did not answer, or gave up on an entity
+   * `--entity` named (`entities` says which).
    */
   status: 'queued' | 'synced' | 'custom_entities' | 'refused' | 'missing' | 'failed'
   /** Billing entities queued from the first page. */
@@ -38,8 +41,11 @@ export interface BillingResyncReport {
   note?: string
 }
 
-/** How long the first page takes to queue: a hundred workpool writes. */
+/** How long the sweep's start takes: one page read and handed on. */
 const RESYNC_TIMEOUT_MS = 120_000
+
+/** How long one entity's read may take: its tries wait as long as the provider's rate limit asks. */
+const ENTITY_TIMEOUT_MS = 600_000
 
 /** The most entities `--entity` names in one run: each is a `convex run` of its own. */
 export const RESYNC_ENTITY_MAX = 100
@@ -93,11 +99,16 @@ function failureFields(error: unknown, prod: boolean): Pick<BillingResyncReport,
 export async function runBillingResync(rootDir: string, { prod, entities = [] }: { prod: boolean, entities?: readonly string[] }, run: typeof runConvex = runConvex): Promise<BillingResyncReport> {
   const base = { deployment: prod ? 'production' : 'dev', queued: 0, more: false } as const
   const call = async (args: Record<string, string>): Promise<unknown> =>
-    JSON.parse((await run(rootDir, ['run', ...deploymentFlags({ prod }), RESYNC_ENTITLEMENTS_FUNCTION, JSON.stringify(args)], { timeout: RESYNC_TIMEOUT_MS })).stdout)
+    JSON.parse((await run(rootDir, ['run', ...deploymentFlags({ prod }), RESYNC_ENTITLEMENTS_FUNCTION, JSON.stringify(args)], { timeout: args.entityId ? ENTITY_TIMEOUT_MS : RESYNC_TIMEOUT_MS })).stdout)
   const read: ResyncedEntity[] = []
   try {
     if (entities.length === 0) return { ...base, entities: read, ...sweepFields(await call({})) }
-    for (const id of entities) read.push({ id, outcome: await call({ entityId: id }) === 'gone' ? 'gone' : 'synced' })
+    for (const id of entities) {
+      const answer = await call({ entityId: id })
+      read.push({ id, outcome: answer === 'gone' || answer === 'failed' ? answer : 'synced' })
+    }
+    const failed = read.filter(entity => entity.outcome === 'failed').map(entity => entity.id)
+    if (failed.length > 0) return { ...base, status: 'failed', entities: read, note: `the provider kept refusing ${failed.join(', ')}, so ${failed.length === 1 ? 'its' : 'their'} entitlements were not read again (billing.resync_failed in the deployment's logs). Run billing resync --entity ${failed.join(',')} again in a minute.` }
     return { ...base, status: 'synced', entities: read }
   }
   catch (error) {
@@ -113,13 +124,24 @@ function entitiesOf(count: number): string {
 /** The report as the lines a person reads. */
 export function resyncLines(report: BillingResyncReport): string[] {
   if (report.status === 'queued') {
-    const rest = report.more ? ', and the pages after it follow on its scheduler' : ''
-    return [`[nuxt-backend] billing resync: queued ${entitiesOf(report.queued)} on the ${report.deployment} deployment${rest}. Each one's entitlements are read again from the provider on the free plan's queue, which retries a request the provider's rate limit refused.`]
+    const rest = report.more ? ', and more pages after it' : ''
+    const logs = `npx convex logs${report.deployment === 'production' ? ' --prod' : ''} --history 100`
+    return [
+      `[nuxt-backend] billing resync: started on the ${report.deployment} deployment, ${entitiesOf(report.queued)} on its first page${rest}. It reads them in turn, at most one a second, waiting as long as the provider's rate limit asks.`,
+      `[nuxt-backend] billing resync: the deployment logs each entity it gives up on (billing.resync_failed) and, at the end, how many were read (billing.resync_done): ${logs}.`,
+    ]
   }
-  if (report.status !== 'synced') return [`[nuxt-backend] billing resync${report.status === 'refused' ? ' refused' : ''}: ${report.note}`]
+  if (report.status !== 'synced') return [...readLines(report), `[nuxt-backend] billing resync${report.status === 'refused' ? ' refused' : ''}: ${report.note}`]
+  return readLines(report)
+}
+
+/** What `--entity` read: the entities read again, and the ones an erasure is deleting; nothing for a sweep. */
+function readLines(report: BillingResyncReport): string[] {
+  if (report.entities.length === 0) return []
+  const synced = report.entities.filter(entity => entity.outcome === 'synced').length
   const gone = report.entities.filter(entity => entity.outcome === 'gone').map(entity => entity.id)
   return [
-    `[nuxt-backend] billing resync: read the entitlements of ${entitiesOf(report.entities.length - gone.length)} again on the ${report.deployment} deployment.`,
+    `[nuxt-backend] billing resync: read the entitlements of ${entitiesOf(synced)} again on the ${report.deployment} deployment.`,
     ...gone.length ? [`[nuxt-backend] billing resync: left ${gone.join(', ')} alone: an erasure is deleting ${gone.length === 1 ? 'it' : 'them'}.`] : [],
   ]
 }

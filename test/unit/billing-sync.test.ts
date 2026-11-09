@@ -825,6 +825,16 @@ describe('collectBillingFindings', () => {
     expect(findings.map(finding => finding.id)).toEqual(['billing-meter-usage'])
   })
 
+  it('says the provider checks were skipped when the deployment holds a token this machine does not', () => {
+    const dev = collectBillingFindings(catalog, null, { tokenPresent: false, deployedToken: { prod: false } })
+    const skipped = dev.find(finding => finding.id === 'billing-organization')
+    expect(skipped).toMatchObject({ status: 'warn', message: expect.stringContaining('The dev deployment holds BILLING_ACCESS_TOKEN, and the env doctor reads here does not') })
+    expect(skipped!.fixHint).toContain('BILLING_ACCESS_TOKEN=<the deployment\'s token> npx nuxt-backend doctor --only billing')
+    expect(dev.some(finding => finding.id === 'billing-proration')).toBe(false)
+    const prod = collectBillingFindings(catalog, null, { tokenPresent: false, deployedToken: { prod: true } })
+    expect(prod.find(finding => finding.id === 'billing-organization')!.fixHint).toContain('BACKEND_ENVIRONMENT=production npx nuxt-backend doctor --prod --only billing')
+  })
+
   it('reports the refused token once and skips the checks behind it', () => {
     const findings = collectBillingFindings(catalog, null, { tokenPresent: true })
 

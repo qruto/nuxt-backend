@@ -430,13 +430,13 @@ export const billingReset = withContract('billing reset', {
 export const billingResync = withContract('billing resync', {
   sideEffects: ['writes the dev deployment'],
   byFlag: { '--prod': ['writes production'] },
-  json: '`{ deployment: "dev" | "production", status: "queued" | "synced" | "custom_entities" | "refused" | "missing" | "failed", queued, more, entities: [{ id, outcome: "synced" | "gone" }], note? }`: `queued` counts the billing entities of the first page, and `more` says further pages follow on the deployment\'s scheduler; `entities` lists each one `--entity` named that was read',
+  json: '`{ deployment: "dev" | "production", status: "queued" | "synced" | "custom_entities" | "refused" | "missing" | "failed", queued, more, entities: [{ id, outcome: "synced" | "gone" | "failed" }], note? }`: `queued` counts the billing entities of the first page, and `more` says further pages follow; the deployment logs each entity it gives up on (`billing.resync_failed`) and the tally at the end (`billing.resync_done`); `entities` lists each one `--entity` named that was read',
   exitCodes: {
-    0: 'queued: every billing entity\'s entitlements are read again on the deployment, the first page now and the rest as its scheduler reaches them; or synced: each entity `--entity` named was read again',
-    1: 'refused or not run: a deploy key for another deployment than the flags name, an `--entity` list that is empty or names more than 100, an app that bills entities of its own (`billTo: "user"` with its own `resolveEntity`) resynced without `--entity`, a deployment whose billing.ts does not export resyncEntitlements (scaffolded before it), or one that refused the resync',
+    0: 'queued: every billing entity\'s entitlements are read again on the deployment, in turn, paced under the provider\'s rate limit; or synced: each entity `--entity` named was read again',
+    1: 'refused or not run: a deploy key for another deployment than the flags name, an `--entity` list that is empty or names more than 100, an app that bills entities of its own (`billTo: "user"` with its own `resolveEntity`) resynced without `--entity`, a deployment whose billing.ts does not export resyncEntitlements (scaffolded before it), one that refused the resync, or an entity `--entity` named that the provider kept refusing',
   },
 }, defineCommand({
-  meta: { name: 'resync', description: 'Read every billing entity\'s entitlements again from the billing provider into the deployment\'s cache (billing:resyncEntitlements), a page at a time on the deployment: after missed webhooks, or a restored deployment. An app that bills entities of its own (billTo: "user" with its own resolveEntity) names them with --entity' },
+  meta: { name: 'resync', description: 'Read every billing entity\'s entitlements again from the billing provider into the deployment\'s cache (billing:resyncEntitlements), in turn on the deployment, paced under the provider\'s rate limit: after missed webhooks, or a restored deployment. An app that bills entities of its own (billTo: "user" with its own resolveEntity) names them with --entity' },
   args: {
     cwd: { type: 'string', description: 'Project directory', default: '.' },
     prod: { type: 'boolean', description: 'Resync the production deployment', default: false },

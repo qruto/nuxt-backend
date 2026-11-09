@@ -38,7 +38,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { bin, childEnv, convex, convexRun, createSession, deploymentAnswers, deploymentRefusal, foreignPortsMessage, localPorts, parseTryArgs, portHolder, portless, proxyDeployment, root, scrubDeploymentEnv, sandboxCatalog, waitFor, websiteDir, websiteEnv } from './kit.mjs'
 import { PERSONAS } from './personas.mjs'
-import { forwardSandboxKeys, syncSandboxCatalog } from './sandbox.mjs'
+import { differingKeyLine, forwardSandboxKeys, syncSandboxCatalog } from './sandbox.mjs'
 import { seedPersonas } from './seeds.mjs'
 
 /** The HTTPS ports `tailscale serve` shares the deployment's two URLs on: outside portless's own (443, 8443…). */
@@ -130,9 +130,10 @@ async function provisionEnv(deployment, siteUrl) {
   // The marker the website's persona functions require: only the kit sets it, on the local deployment it seeds.
   if (!run.deployedNames.includes('TRY_KIT_LOCAL')) await setDeploymentEnv(websiteDir, 'TRY_KIT_LOCAL', '1')
   // The deployment is a local one, so `env push` named it `development`: mail stays in test mode (every persona is a sandbox address) and the local origins are trusted.
-  // The sandbox keys, unless the deployment holds them already.
-  const forwarded = await forwardSandboxKeys(run.deployedNames)
+  // The sandbox keys, unless the deployment holds them already; one it holds with another value is named.
+  const { forwarded, differing } = await forwardSandboxKeys(run.deployedNames)
   if (forwarded.length > 0) log(`Forwarded to the deployment: ${forwarded.join(', ')}.`)
+  for (const name of differing) log(differingKeyLine(name))
   // What the dev server's own env check reads: the required names are on the deployment.
   markEnvProvisioned(websiteDir, deployment)
   const held = new Set([...run.deployedNames, ...forwarded])
