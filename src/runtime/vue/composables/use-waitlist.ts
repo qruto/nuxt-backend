@@ -14,6 +14,7 @@ import { useBackendNamespace } from '../utils/namespace'
 import { useCampaign } from './use-campaign'
 import { useHumanCheck } from './use-human-check'
 import { useLabels } from './use-labels'
+import { usePageOrigin } from '../utils/page-origin'
 
 export type { WaitlistCaps, WaitlistConsole, WaitlistEntryRow, WaitlistPlace, WaitlistStatusView } from '../../../convex/integrations/waitlist'
 export type { WaitlistStatus } from '../../../convex/waitlist-rules'
@@ -93,10 +94,10 @@ export interface UseWaitlistReturn {
   /** The person's standing once their code checked (or a status link was opened), live: `undefined` before that. */
   place: ComputedRef<WaitlistPlace | WaitlistStatusView | undefined>
   /**
-   * The link a waiting person shares: `shareTo` on the page's own origin in
-   * the browser (the path alone while rendered on the server), with their
-   * code as `?ref=<shareCode>`, which a join there carries. `null` until
-   * the place is a waiting one with a code.
+   * The link a waiting person shares: `shareTo` on the page's own origin,
+   * the same on the server and in the browser, with their code as
+   * `?ref=<shareCode>`, which a join there carries. `null` until the place
+   * is a waiting one with a code.
    */
   shareLink: ComputedRef<string | null>
   /** `true` while a status token's place is first read. */
@@ -215,12 +216,11 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
   const token = ref<string | null>(null)
   const live = api.waitlistStatus ? useLiveQuery(api.waitlistStatus, () => (token.value ? { token: token.value } : 'skip')) : absentQuery<WaitlistStatusView | null>()
   const place = computed(() => live.data.value ?? joined.value ?? undefined)
+  const origin = usePageOrigin()
   const shareLink = computed(() => {
     const standing = place.value
     const code = standing?.status === 'waiting' ? standing.shareCode : ''
     if (!code) return null
-    // The page's own origin, as the browser sees it: a server behind a proxy may know another.
-    const origin = typeof window === 'undefined' ? '' : window.location.origin
     const to = toValue(options.shareTo) || route.path || '/'
     return `${origin}${to}${to.includes('?') ? '&' : '?'}ref=${encodeURIComponent(code)}`
   })

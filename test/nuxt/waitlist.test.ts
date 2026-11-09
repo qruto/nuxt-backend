@@ -58,6 +58,10 @@ vi.mock('nuxt-convex-module/client', async original => ({
 const route = reactive({ path: '/waitlist', query: {} as Record<string, string> })
 mockNuxtImport('useRoute', () => () => route)
 
+// The page's address, read on the server or in the browser (see the helper).
+const { requestURL, serverRequest } = await vi.hoisted(() => import('../helpers/request-url'))
+mockNuxtImport('useRequestURL', original => opts => requestURL(original, opts))
+
 // The launch phase the page reads (useAccessPhase's own tests hold the read).
 const launch = ref<string | undefined>('early-access')
 vi.mock('../../src/runtime/vue/composables/use-access', () => ({
@@ -103,6 +107,7 @@ beforeEach(() => {
   answers.clear()
   answers.set(key('waitlist:getWaitlistQuestions', {}), QUESTIONS)
   route.query = {}
+  serverRequest.current = null
   launch.value = 'early-access'
   window.history.replaceState(null, '', '/waitlist')
 })
@@ -269,6 +274,27 @@ describe('useWaitlist', () => {
     answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), { ...VIEW, status: 'admitted' })
     await nextTick()
     expect(here.shareLink.value).toBeNull()
+  })
+
+  it('builds the same share link on the server as in the browser, so it hydrates unchanged', async () => {
+    answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), VIEW)
+    const shared = (request: typeof serverRequest.current) => {
+      serverRequest.current = request
+      const waitlist = inSetup(() => useWaitlist())
+      waitlist.status('entry.signature')
+      serverRequest.current = null
+      return waitlist
+    }
+    // The server behind a proxy, which forwards the host the browser asked for.
+    const rendered = shared({ path: '/waitlist', headers: { 'host': '127.0.0.1:3000', 'x-forwarded-host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })
+    const hydrated = shared(null)
+    await nextTick()
+    expect(rendered.shareLink.value).toBe(`${window.location.origin}/waitlist?ref=ABCD2345`)
+    expect(rendered.shareLink.value).toBe(hydrated.shareLink.value)
+    // An https site whose edge forwards to the server over http.
+    const edge = shared({ path: '/waitlist', headers: { 'host': 'internal:3000', 'x-forwarded-host': 'panels.app', 'x-forwarded-proto': 'https' } })
+    await nextTick()
+    expect(edge.shareLink.value).toBe('https://panels.app/waitlist?ref=ABCD2345')
   })
 
   it('hands markup of its own the attributes it needs', async () => {

@@ -11,6 +11,7 @@ import { type BackendError, failureOf } from '../utils/backend-error'
 import { forgetInvite, keepInvite, keptInvite, takeInviteFromAddress } from '../utils/kept-invite'
 import { absentQuery, diagnostics, useLiveQuery } from '../utils/live-query'
 import { useApiNamespace, useBackendNamespace } from '../utils/namespace'
+import { usePageOrigin } from '../utils/page-origin'
 import { useBackendPagePath } from './use-backend-page-path'
 
 export type { AccessConsole, AccessPhaseState, AdmitResult, MemberTicket } from '../../../convex/integrations/launch'
@@ -287,8 +288,8 @@ export interface UseMemberTicketReturn {
   ticket: ComputedRef<MemberTicket | null | undefined>
   /**
    * The link to share once issued, `<origin>/invite#<token>` on the page's
-   * own origin in the browser (the `invite` page's path; the path alone
-   * while rendered on the server), with `?ref=<code>` when the ticket
+   * own origin, the same on the server and in the browser (the `invite`
+   * page's path), with `?ref=<code>` when the ticket
    * carries the member's referral code (`memberTickets({ referral: true })`),
    * else `null`.
    */
@@ -336,6 +337,7 @@ export function useMemberTicket(options: UseMemberTicketOptions = {}): UseMember
   // What `issue` answered, until the live read catches up with it.
   const issued = ref<MemberTicket | null>(null)
   const invitePath = useBackendPagePath('invite')
+  const origin = usePageOrigin()
   const ticket = computed<MemberTicket | null | undefined>(() => {
     if (authLoading.value) return undefined
     if (signedOut.value) return null
@@ -346,8 +348,6 @@ export function useMemberTicket(options: UseMemberTicketOptions = {}): UseMember
     link: computed(() => {
       const current = ticket.value
       if (current?.state !== 'issued' || !invitePath.value) return null
-      // The page's own origin, as the browser sees it: a server behind a proxy may know another.
-      const origin = typeof window === 'undefined' ? '' : window.location.origin
       const ref = current.referral ? `?ref=${encodeURIComponent(current.referral)}` : ''
       return `${origin}${invitePath.value}${ref}#${current.token}`
     }),
