@@ -134,4 +134,63 @@ describe('the deploy build', () => {
     expect(deepen).toBeGreaterThan(-1)
     expect(deepen).toBeLessThan(script.indexOf('nuxt build'))
   })
+
+  // vercel.json's ignoreCommand: exit 0 skips the deployment, anything else
+  // builds it. A push that changes only what the site is not built from
+  // skips; everything else, and anything the script cannot decide, builds.
+  describe('the ignored build step', () => {
+    const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_') && !name.startsWith('VERCEL_')))
+    let repo: string
+    const git = (...args: string[]) => execFileSync('git', ['-c', 'commit.gpgsign=false', '-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args], { cwd: repo, env, encoding: 'utf8' }).trim()
+    const commit = (file: string) => {
+      mkdirSync(join(repo, file, '..'), { recursive: true })
+      writeFileSync(join(repo, file), `${file} ${Math.random()}\n`)
+      git('add', '.')
+      git('commit', '-qm', file)
+      return git('rev-parse', 'HEAD')
+    }
+    // The script's exit status, run from website/ as Vercel runs it.
+    const ignore = (previous: string | undefined) => {
+      try {
+        execFileSync('sh', ['vercel-ignore.sh'], { cwd: join(repo, 'website'), env: { ...env, ...(previous ? { VERCEL_GIT_PREVIOUS_SHA: previous } : {}) }, stdio: 'ignore' })
+        return 0
+      }
+      catch (error) {
+        return (error as { status: number }).status
+      }
+    }
+
+    beforeAll(() => {
+      repo = mkdtempSync(join(tmpdir(), 'vercel-ignore-'))
+      git('init', '-q')
+      mkdirSync(join(repo, 'website'))
+      writeFileSync(join(repo, 'website', 'vercel-ignore.sh'), read('website/vercel-ignore.sh'))
+      writeFileSync(join(repo, 'package.json'), JSON.stringify({ repository: { url: 'git+https://example.invalid/repo.git' } }))
+      commit('website/app.vue')
+    })
+    afterAll(() => rmSync(repo, { recursive: true, force: true }))
+
+    it('skips a push that changes only CI, tests, templates and the panel', () => {
+      const previous = git('rev-parse', 'HEAD')
+      commit('.github/workflows/ci.yml')
+      commit('test/unit/a.test.ts')
+      commit('templates/panels/app.vue')
+      commit('devtools-client-app/app.vue')
+      expect(ignore(previous)).toBe(0)
+    })
+
+    it('builds once the site, the package or an unlisted path changed since the last deployment', () => {
+      for (const file of ['website/pages/index.vue', 'src/module.ts', 'skills/SKILL.md', 'pnpm-lock.yaml', 'README.md']) {
+        const previous = git('rev-parse', 'HEAD')
+        commit(file)
+        commit('.github/dependabot.yml')
+        expect(ignore(previous), file).toBe(1)
+      }
+    })
+
+    it('builds without a previous deployment, or with one it cannot find', () => {
+      expect(ignore(undefined)).toBe(1)
+      expect(ignore('0'.repeat(40))).toBe(1)
+    })
+  })
 })
