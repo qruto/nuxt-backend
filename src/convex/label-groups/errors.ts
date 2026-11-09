@@ -119,6 +119,16 @@ const ERROR_LABELS = {
   unavailable_job_failed: 'This job failed. Your credits were refunded.',
   // Never thrown: a composable's reading of a failure without a code (a crash, an app's own error).
   unavailable_unexpected: 'Something went wrong.',
+  // A service down for a reason with no sentence of its own: `unavailable_<service>`, read after
+  // `unavailable_<reason>` and before `unavailable`.
+  unavailable_ai: 'AI features aren\'t available right now. Try again shortly.',
+  unavailable_billing: 'Billing isn\'t available right now. Try again shortly.',
+  unavailable_checkout: 'Purchases aren\'t available right now. Try again shortly.',
+  unavailable_email: 'Email isn\'t available right now. Try again shortly.',
+  unavailable_protection: 'The security check isn\'t available right now. Try again shortly.',
+  unavailable_push: 'Notifications on this device aren\'t available right now. Try again shortly.',
+  unavailable_referrals: 'Referrals aren\'t available right now. Try again shortly.',
+  unavailable_signups: 'Sign-ups aren\'t available right now. Try again shortly.',
 } satisfies LabelTree
 
 export default ERROR_LABELS

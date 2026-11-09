@@ -155,7 +155,8 @@ function defined<T extends Record<string, unknown>>(fields: T): T {
  * wait, the balance) is used only when every number is there, so a
  * placeholder never reaches a person; a reason with a sentence of its own
  * (`errors.<code>_<reason>`) gets that one, and so does a refused field
- * (`errors.invalid_input_<field>`).
+ * (`errors.invalid_input_<field>`); a service that is down, with a reason
+ * of no sentence of its own, gets its service's (`errors.unavailable_<service>`).
  */
 function labelFor(code: BackendErrorCode, data: Record<string, unknown>, t: Translate = translate, own?: Translate): string {
   return (own && sentenceFor(code, data, own)) ?? sentenceFor(code, data, t) ?? code
@@ -173,7 +174,8 @@ function sentenceFor(code: BackendErrorCode, data: Record<string, unknown>, t: T
   }
   const byReason = typeof data.reason === 'string' ? label(`${code}_${data.reason}`) : undefined
   const byField = code === 'invalid_input' && typeof data.field === 'string' ? label(`${code}_${data.field}`) : undefined
-  return sentenceWithNumbers(code, data, label) ?? byReason ?? byField ?? label(code)
+  const byService = code === 'unavailable' && typeof data.service === 'string' ? label(`${code}_${data.service}`) : undefined
+  return sentenceWithNumbers(code, data, label) ?? byReason ?? byField ?? byService ?? label(code)
 }
 
 /** The sentence of a refusal that names a number (a wait, an amount, a date), when every number it needs is there. */
