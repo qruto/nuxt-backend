@@ -17,6 +17,12 @@ has the reasons and every step. The core skill's `references/renames.json`, in
 After it, run `npx nuxt-backend doctor`, and `npx nuxt-backend init --agents` to refresh the app's
 agent files and skills.
 
+## [Emails and notifications read the labels app config sets](https://nuxt-backend.dev/docs/ship/releases/upgrade#emails-and-notifications-read-the-labels-app-config-sets)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `setupEmail({ paths, brand })` | `setupEmail({ paths, brand, labels })` | reshaped | import `labels` from `./labels.generated`, which `upgrade` writes; drop the copy `messages` repeated from app config |
+
 ## [Moderation verdicts name shared categories](https://nuxt-backend.dev/docs/ship/releases/upgrade#moderation-verdicts-name-shared-categories)
 
 | Was | Now | Change | Note |

@@ -69,5 +69,5 @@ export function translator(labels: LabelTree): Translate {
 /** The languages the package translates its labels into, beside English: `src/runtime/locales/<code>.json`. */
 export const TRANSLATED_LOCALES = ['ru', 'de', 'es', 'fr'] as const
 
-/** The label groups the backend renders: the emails' words, and the notifications' and onboarding's they send. */
-export const BACKEND_LABEL_GROUPS = ['email', 'notifications', 'onboarding'] as const
+/** The label groups the backend renders: the emails' words, the notifications' and onboarding's they send, and the credits' unit their `{unit}` reads. */
+export const BACKEND_LABEL_GROUPS = ['email', 'notifications', 'onboarding', 'credits'] as const

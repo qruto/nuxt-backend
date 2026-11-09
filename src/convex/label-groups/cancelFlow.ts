@@ -43,7 +43,7 @@ const CANCEL_FLOW_LABELS = {
   // The end.
   endsOn: 'Your plan ends on {date}.',
   endsPeriod: 'Your plan ends when the current period does.',
-  endNote: 'Until then everything keeps working, and your credits stay yours to use.',
+  endNote: 'Until then everything keeps working, and your {unit} stay yours to use.',
   keep: 'Keep my plan',
   keeping: 'Keeping…',
   kept: 'Your plan stays as it is.',

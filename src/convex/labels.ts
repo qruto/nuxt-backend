@@ -125,6 +125,31 @@ export type LabelGroup = keyof BackendLabels
 /** A label tree with every key optional, as an app writes its overrides. */
 export type LabelOverrides<T> = { [K in keyof T]?: T[K] extends string ? string : LabelOverrides<T[K]> }
 
+/** The words of a notification kind of the app's own, under its type without `app.` (`strip_ready`). */
+export interface AppNotificationLabels {
+  title?: string
+  body?: string
+  /** For a notification about the reader's own account (`billTo: 'user'`), read before `title`. */
+  titleYours?: string
+  /** For a notification about the reader's own account, read before `body`. */
+  bodyYours?: string
+}
+
+/**
+ * The labels an app sets, as `appConfig.backend.labels` holds them: every
+ * group and key of {@link BackendLabels}, each optional, and the app's own
+ * keys where a group reads them: a kind of its own in `notifications`
+ * (`strip_ready: { title, body }`), a refusal's sentence `<code>_<reason>`
+ * in `errors`, a checklist task's label in `activation`. The module carries
+ * them to the backend as `labels.generated.ts`, which `setupEmail({ labels })`
+ * reads, so the emails and notifications say what the pages say.
+ */
+export type AppLabels = LabelOverrides<Omit<BackendLabels, 'notifications' | 'errors' | 'activation'>> & {
+  notifications?: LabelOverrides<BackendLabels['notifications']> & { [kind: string]: string | AppNotificationLabels | { [kind: string]: AppNotificationLabels | undefined } | undefined }
+  errors?: LabelOverrides<BackendLabels['errors']> & { [reason: string]: string | undefined }
+  activation?: LabelOverrides<BackendLabels['activation']> & { [task: string]: string | undefined }
+}
+
 /** One group's overrides, as a component's `labels` prop or `appConfig.backend.labels.<group>` takes them. */
 export type LabelGroupOverrides<G extends LabelGroup> = LabelOverrides<BackendLabels[G]>
 

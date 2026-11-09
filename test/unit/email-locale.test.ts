@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildAuthOptions, sessionClaims } from '../../src/convex/client/better-auth-options'
 import { LOCALE_SCHEMA, matchLocale, normalizeLocale, preferredLocale, textDirection } from '../../src/convex/locale'
-import { setupEmail } from '../../src/convex/integrations/email'
+import { emailTranslate } from '../../src/convex/email-templates'
+import { type AppLabels, setupEmail } from '../../src/convex/integrations/email'
 import { renderEmail } from '../../src/runtime/test-utils/email'
 import { authFlow, ORIGIN } from '../helpers/auth-flow'
 
@@ -282,5 +283,47 @@ describe('the notice decision email', () => {
     expect(handled.text).not.toContain('removed')
     const unlinked = await renderEmail('noticeDecided', { email: 'grace@example.com', outcome: 'handled', reason: 'Taken down.' })
     expect(unlinked.text).toContain('We reviewed your report and acted on it.')
+  })
+})
+
+describe('the labels app config sets (labels.generated.ts)', () => {
+  const t = (locale: string, options: { labels?: AppLabels, messages?: Record<string, Record<string, unknown>> } = {}) => emailTranslate(options.messages, locale, 'en', options.labels)
+
+  it('word a package key before the messages and the package\'s translation, as the pages read them', async () => {
+    const labels = { email: { welcome: { subject: 'Hi from Panels' } } }
+    expect((await renderEmail('welcome', { email: 'a@b.com', name: '' }, { labels })).subject).toBe('Hi from Panels')
+    // App config holds one language, and wins over every locale's messages, as on the app's pages.
+    expect((await renderEmail('welcome', { email: 'a@b.com', name: '' }, { labels, locale: 'de', messages: { de } })).subject).toBe('Hi from Panels')
+    // A key they leave out reads as before.
+    expect((await renderEmail('invite', invite, { labels, locale: 'de', messages: { de } })).subject).toBe('Tritt Acme bei')
+  })
+
+  it('word an app\'s own notification kind, which the backend reads under backend.notifications', () => {
+    const labels = { notifications: { strip_ready: { title: 'Your strip is ready' } } }
+    expect(t('fr', { labels })('backend.notifications.strip_ready.title')).toBe('Your strip is ready')
+    expect(t('fr', { labels, messages: { fr: { backend: { notifications: { strip_ready: { title: 'Votre planche est prête' } } } } } })('backend.notifications.strip_ready.title')).toBe('Your strip is ready')
+    // An app key outside `backend.` is the messages' alone.
+    expect(t('en', { labels: { digest: { subject: 'x' } } as AppLabels })('digest.subject')).toBe('digest.subject')
+  })
+
+  it('fill {unit} with the credits\' unit in the form the count or the balance takes, in the reader\'s language', () => {
+    expect(t('en')('notifications.billing.credits_low.bodyYours', { balance: 1 })).toBe('You have 1 credit left.')
+    expect(t('en')('notifications.billing.credits_low.bodyYours', { balance: 3 })).toBe('You have 3 credits left.')
+    expect(t('en')('email.lifecycle.creditsLow.action')).toBe('Add credits')
+    expect(t('ru')('notifications.billing.credits_low.bodyYours', { balance: 3 })).toBe('Остаток: 3 кредита.')
+    expect(t('ru')('notifications.billing.credits_low.bodyYours', { balance: 5 })).toBe('Остаток: 5 кредитов.')
+    // App config's unit says coins everywhere, and a caller's own unit wins.
+    const coins = { credits: { unit: { one: 'coin', other: 'coins' } } }
+    expect(t('en', { labels: coins })('notifications.billing.credits_low.title')).toBe('Running low on coins')
+    expect(t('en', { labels: coins })('notifications.billing.credits_low.body', { balance: 1, workspace: 'Studio' })).toBe('Studio has 1 coin left.')
+    expect(t('en', { labels: coins })('email.lifecycle.creditsLow.subject', { unit: 'pages' })).toBe('You are running low on pages')
+    // A balance that is no number agrees as several; a language tag the runtime refuses reads the `other` form.
+    expect(t('en')('notifications.billing.credits_low.bodyYours', { balance: 'a few' })).toBe('You have a few credits left.')
+    expect(t('en-')('notifications.billing.credits_low.bodyYours', { balance: 1 })).toBe('You have 1 credits left.')
+  })
+
+  it('reach the words inside a packaged email, its placeholders filled', async () => {
+    const message = await renderEmail('welcome', { email: 'a@b.com', name: 'Ada' }, { labels: { email: { welcome: { greetingNamed: 'Hey {name}' } } } })
+    expect(message.html).toContain('Hey Ada')
   })
 })

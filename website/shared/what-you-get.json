@@ -78,6 +78,10 @@
           "to": "/docs/reference/cli/diagnostics#brand-file"
         },
         {
+          "name": "labels-file",
+          "to": "/docs/reference/cli/diagnostics#labels-file"
+        },
+        {
           "name": "dev-script",
           "to": "/docs/reference/cli/diagnostics#dev-script"
         },
@@ -1589,9 +1593,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "105 in all",
+          "name": "106 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "105 findings in all"
+          "label": "106 findings in all"
         }
       ]
     }
@@ -1674,6 +1678,10 @@
         },
         {
           "name": "backend/brand.generated.ts",
+          "to": "/docs/reference/configuration/project-files#every-file"
+        },
+        {
+          "name": "backend/labels.generated.ts",
           "to": "/docs/reference/configuration/project-files#every-file"
         }
       ]

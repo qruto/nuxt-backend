@@ -7,6 +7,7 @@ import { NOTIFICATION_KINDS, NOTIFICATION_PAGE_MAX, notificationLabelKey, notifi
 import { useActionState } from '../utils/action-state'
 import { type BackendError, failureOf } from '../utils/backend-error'
 import { absentQuery, useLiveQuery } from '../utils/live-query'
+import { useMeterUnit } from '../utils/meter-unit'
 import { useBackendNamespace } from '../utils/namespace'
 import { formatBillingAmount } from './billing-format'
 import { useBackendPagePath } from './use-backend-page-path'
@@ -135,6 +136,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
   const runMark = api.markNotificationsRead ? useMutation(api.markNotificationsRead) : null
   const { isPending, failure, run } = useActionState(() => noInbox.value)
   const labels = useLabels('notifications', options.labels)
+  const unit = useMeterUnit()
   const pages = { profile: useBackendPagePath('profile'), security: useBackendPagePath('security'), settings: useBackendPagePath('settings') }
 
   const entries = computed<NotificationEntry[]>(() => (noInbox.value ? [] : page?.value.data ?? []))
@@ -154,6 +156,8 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     if (typeof data.amount === 'number' && typeof data.currency === 'string') filled.amount = formatBillingAmount(data.amount, data.currency, labels.locale.value)
     filled.actor = actor.name ?? labels.t(({ you: 'actorSomeone', user: 'actorSomeone', administrator: 'actorAdministrator', app: 'actorApp', erased: 'actorErased' } as const)[actor.kind])
     filled.workspace = workspace?.name ?? labels.t('workspaceUnnamed')
+    // What the credits count, in the form the balance takes: the `credits.unit` labels, as app config names them.
+    filled.unit ??= unit.word(null, typeof data.balance === 'number' ? data.balance : undefined)
     return filled
   }
 

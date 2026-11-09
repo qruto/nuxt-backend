@@ -1456,7 +1456,7 @@
       "accepting": "Applying…",
       "endsOn": "Your plan ends on {date}.",
       "endsPeriod": "Your plan ends when the current period does.",
-      "endNote": "Until then everything keeps working, and your credits stay yours to use.",
+      "endNote": "Until then everything keeps working, and your {unit} stay yours to use.",
       "keep": "Keep my plan",
       "keeping": "Keeping…",
       "kept": "Your plan stays as it is.",
@@ -1580,7 +1580,7 @@
       "someone": "Someone",
       "claim": "Receive gift",
       "claiming": "Receiving…",
-      "claimed": "Gift received. The credits arrive in a moment.",
+      "claimed": "Gift received. The {unit} arrive in a moment.",
       "claimFailed": "Could not receive the gift"
     },
     "access": {
@@ -2222,12 +2222,12 @@
           "body": "{amount} was refunded."
         },
         "credits_low": {
-          "title": "Credits are running low",
-          "body": "{balance} credits are left in {workspace}.",
-          "bodyYours": "{balance} credits are left."
+          "title": "Running low on {unit}",
+          "body": "{workspace} has {balance} {unit} left.",
+          "bodyYours": "You have {balance} {unit} left."
         },
         "credits_exhausted": {
-          "title": "Credits ran out",
+          "title": "Out of {unit}",
           "body": "Top up {workspace} to keep going.",
           "bodyYours": "Top up to keep going."
         },
@@ -2611,10 +2611,10 @@
           "action": "See it"
         },
         "creditsLow": {
-          "subject": "Your credits are running low",
-          "heading": "Credits running low",
-          "body": "Your balance has reached its low mark. Add credits to keep going without a pause.",
-          "action": "Add credits"
+          "subject": "You are running low on {unit}",
+          "heading": "Running low on {unit}",
+          "body": "Your balance has reached its low mark. Add {unit} to keep going without a pause.",
+          "action": "Add {unit}"
         },
         "trialEnding": {
           "subject": "Your trial ends in 7 days",

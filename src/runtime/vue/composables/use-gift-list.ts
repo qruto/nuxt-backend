@@ -6,6 +6,7 @@ import { type LabelGroupOverrides, refusalText, useLabels } from './use-labels'
 import { usePricing } from './use-pricing'
 import { useReauthentication } from './use-reauthentication'
 import { useWorkspace } from './use-workspace'
+import { useMeterUnit } from '../utils/meter-unit'
 
 /** One gift the person received, as the page shows it. */
 export interface ReceivedGiftView {
@@ -78,6 +79,7 @@ export function useGiftList(overrides?: MaybeRefOrGetter<LabelGroupOverrides<'gi
   const workspace = useWorkspace()
   const pricing = usePricing()
   const labels = useLabels('gift', () => toValue(overrides))
+  const unit = useMeterUnit()
   const { t, locale } = labels
   const { withReauthentication } = useReauthentication()
 
@@ -143,7 +145,8 @@ export function useGiftList(overrides?: MaybeRefOrGetter<LabelGroupOverrides<'gi
     announcement.value = ''
     try {
       const result = await call()
-      announcement.value = t(done as never)
+      // A claim's words name what the credits count (`{unit}`).
+      announcement.value = t(done as never, { unit: unit.word(null) })
       return result
     }
     catch (error) {

@@ -2,6 +2,7 @@ import { setupEmail } from 'nuxt-backend/email'
 import { v } from 'convex/values'
 import { components } from './_generated/api'
 import { internalAction } from './_generated/server'
+import { labels } from './labels.generated'
 import { paths } from './paths.generated'
 
 // Transactional + marketing email over the backend component's email module.
@@ -32,11 +33,10 @@ export const email = setupEmail(components, {
       subscribedByDefault: false,
     },
   },
-  // The words of Panels' own notification (notifications.ts), as its email
-  // and its push read them: the same labels app.config.ts gives the inbox.
-  messages: {
-    en: { backend: { notifications: { strip_ready: { title: 'Your strip is ready', body: 'Open it to read and share it.' } } } },
-  },
+  // The labels app.config.ts sets (labels.generated.ts, which the module
+  // rewrites from it): the words of Panels' own notification (notifications.ts)
+  // and its refusals, so its email and its push say what the inbox says.
+  labels,
 })
 
 // The read behind useEmailStatus, and the DevTools Email tab's previews

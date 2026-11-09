@@ -4,6 +4,7 @@ import fr from '../i18n/locales/fr.json'
 import { components } from './_generated/api'
 import { internalAction } from './_generated/server'
 import { brand } from './brand.generated'
+import { labels } from './labels.generated'
 import { paths } from './paths.generated'
 
 // Transactional + marketing email over the backend component's email module.
@@ -21,10 +22,12 @@ import { paths } from './paths.generated'
 // read) word the packaged emails for an account whose language is French, and
 // their links open the French pages (/fr/…), as the i18n `strategy` does.
 export const email = setupEmail(components, {
-  // Where an email's unsubscribe link opens (paths.generated.ts), and the
-  // brand app.config declares (brand.generated.ts).
+  // Where an email's unsubscribe link opens (paths.generated.ts), the brand
+  // app.config declares (brand.generated.ts) and the labels it sets
+  // (labels.generated.ts), read before the messages, as the pages read them.
   paths,
   brand,
+  labels,
   messages: { fr },
   localePaths: 'prefix_except_default',
   templates: {
