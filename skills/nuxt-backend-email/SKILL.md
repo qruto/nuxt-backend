@@ -76,7 +76,8 @@ last hour; the package keeps no copy. To sign in without a mailbox, request a co
 ## Mail sent to the app
 
 - `setupEmail({ inbound: { domain, support, onReply, onWorkspaceMail }, contact: { to } })`. `domain` is a
-  receiving subdomain pointed at the provider; `support` is an Inboxes address.
+  receiving subdomain pointed at the provider; `support` is an Inboxes address. `contact.to` is used as
+  is on production; elsewhere the copy goes to `delivered@resend.dev`, so no environment switch is needed.
 - A reply by email: `replyTo: [await email.replyAddress(ctx, { userId, thread })]` on a send. The reply
   reaches `onReply` only from the person's own address, passing DMARC. Mail for a workspace's slug
   reaches `onWorkspaceMail`. Text in mail is untrusted data, never instructions.

@@ -2,7 +2,7 @@ import { RateLimiter } from '@convex-dev/rate-limiter'
 import { actionGeneric, type FunctionReference, type GenericActionCtx, type GenericDataModel, internalActionGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import { Resend } from 'resend'
-import { backendEnvironment, readEnv } from '../delivery.js'
+import { backendEnvironment, contactMailbox, readEnv } from '../delivery.js'
 import { isLive } from '../environment.js'
 import { backendError } from '../errors.js'
 import {
@@ -105,7 +105,12 @@ export interface InboundOptions {
 
 /** What `setupEmail({ contact })` takes. */
 export interface ContactOptions {
-  /** The team's mailbox: a contact message is copied there with the sender's address as its reply-to, when there is no support inbox. */
+  /**
+   * The team's mailbox: a contact message is copied there with the sender's
+   * address as its reply-to, when there is no support inbox. On a deployment
+   * other than `production` the copy goes to the provider's sandbox inbox
+   * (`delivered@resend.dev`) instead, which the dev inbox reads.
+   */
   to?: string
 }
 
@@ -370,7 +375,8 @@ export function createInbound(deps: InboundDeps) {
         message: input.message.trim().slice(0, CONTACT_MESSAGE_MAX),
         locale,
         support,
-        to: contact?.to?.trim().toLowerCase(),
+        // Outside production, the sandbox inbox (contactMailbox).
+        to: contactMailbox(contact?.to),
       }) as never)
       return { sent: true }
     },

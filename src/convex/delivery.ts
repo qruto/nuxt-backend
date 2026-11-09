@@ -28,6 +28,24 @@ export function isSandboxAddress(email: string): boolean {
   return SANDBOX_ADDRESS.test(email.trim().toLowerCase())
 }
 
+/** The provider's sandbox inbox: the test address the dev inbox reads (`npx nuxt-backend inbox`). */
+export const SANDBOX_INBOX = 'delivered@resend.dev'
+
+/**
+ * Where the contact form's copy for the team goes, from
+ * `setupEmail({ contact: { to } })`: `to` itself on a `production`
+ * deployment, and the sandbox inbox on any other, where test mode would hold
+ * a real address back. So one setting serves every deployment, and a copy
+ * sent from a dev or preview deployment shows in the dev inbox instead of
+ * reaching the team. A test address of the provider's (`bounced@resend.dev`)
+ * stays as it is; no `to`, no copy.
+ */
+export function contactMailbox(to: string | undefined): string | undefined {
+  const address = to?.trim().toLowerCase()
+  if (!address) return undefined
+  return isLive(backendEnvironment()) || isSandboxAddress(address) ? address : SANDBOX_INBOX
+}
+
 // The kind of deployment, as its `BACKEND_ENVIRONMENT` says: the app reads
 // the same function from `nuxt-backend/app`.
 export { backendEnvironment }

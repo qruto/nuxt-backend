@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { backendEnvironment as appEnvironment } from '../../src/convex/app'
-import { backendEnvironment, logsOtp, undeliverableReason } from '../../src/convex/delivery'
+import { backendEnvironment, contactMailbox, logsOtp, undeliverableReason } from '../../src/convex/delivery'
 import { BACKEND_ENVIRONMENTS, billingEnvironment, isLive, logsSignInCodes, parseBackendEnvironment, publishesDevInbox, trustsLocalOrigins } from '../../src/convex/environment'
 import { devInboxFinding, type ProductionPosture } from '../../src/cli/posture'
 
@@ -81,6 +81,20 @@ describe('the deployment reading it', () => {
     }
     vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
     expect(undeliverableReason('ada@example.com')).toBeNull()
+  })
+
+  // `setupEmail({ contact: { to } })`: one setting for every deployment.
+  it('copies a contact message to the team\'s mailbox on production, and to the sandbox inbox anywhere else', () => {
+    for (const value of ['development', 'preview', 'sandbox', '']) {
+      vi.stubEnv('BACKEND_ENVIRONMENT', value)
+      expect(contactMailbox(' Support@Acme.dev '), value).toBe('delivered@resend.dev')
+      // A test address of the provider's is kept, and no mailbox means no copy.
+      expect(contactMailbox('bounced@resend.dev'), value).toBe('bounced@resend.dev')
+      expect(contactMailbox(undefined), value).toBeUndefined()
+      expect(contactMailbox('  '), value).toBeUndefined()
+    }
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
+    expect(contactMailbox(' Support@Acme.dev ')).toBe('support@acme.dev')
   })
 })
 
