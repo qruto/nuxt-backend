@@ -9,7 +9,10 @@ inputs:
   runtime:
     description: >-
       The runtime pnpm downloads and runs everything under. `node@lts` tracks the
-      current LTS line without a manual bump; the test matrix overrides it.
+      current LTS line without a manual bump. `engines` is the floor
+      package.json's `engines.node` promises, read from it, so raising the
+      floor needs no edit in a workflow: the Linux leg of the test matrix and
+      the e2e job pass it.
     default: node@lts
   cache:
     description: >-
@@ -44,10 +47,28 @@ inputs:
 runs:
   using: composite
   steps:
+    # `engines` becomes `node@<floor>`; any other runtime passes through.
+    - name: Resolve the runtime
+      id: runtime
+      shell: bash
+      env:
+        RUNTIME: ${{ inputs.runtime }}
+      run: |
+        if [ "$RUNTIME" != engines ]; then
+          echo "runtime=$RUNTIME" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        floor=$(jq -r '.engines.node | ltrimstr(">=")' package.json)
+        if ! [[ $floor =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::engines.node is not a plain '>=x.y.z' floor; teach the setup action to read it."
+          exit 1
+        fi
+        echo "runtime=node@$floor" >> "$GITHUB_OUTPUT"
+
     - name: Install pnpm, node & dependencies
       uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
       with:
-        runtime: ${{ inputs.runtime }}
+        runtime: ${{ steps.runtime.outputs.runtime }}
         cache: ${{ inputs.cache }}
         save-cache: ${{ inputs.save-cache }}
         require-lockfile: ${{ inputs.require-lockfile }}
