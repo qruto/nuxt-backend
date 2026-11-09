@@ -1,6 +1,6 @@
 import type { StoragePurpose } from '../convex/consent-rules.js'
 import type { SubprocessorKey } from '../convex/legal.js'
-import type { BackendLabels, LabelOverrides } from '../convex/labels.js'
+import type { AppLabels } from '../convex/labels.js'
 
 /**
  * The `appConfig.backend` content layer — everything a designer edits without
@@ -226,14 +226,15 @@ export interface BackendAppConfig {
    * Copy overrides, by label group and key: `labels.auth.title`. A
    * component's `labels` prop wins over them, and they win over an
    * `@nuxtjs/i18n` message and the English default. Every group and key is in
-   * {@link BackendLabels}; the `email` group is not here, because emails
-   * render on the backend, which never reads app config. The `notifications`
-   * group also takes the words of an app's own kinds, by their type without
-   * `app.`: `notifications.<kind>.title` and `.body`.
+   * `BackendLabels`, and the app's own keys where a group reads them
+   * ({@link AppLabels}): the words of an app's own notification kinds, by
+   * their type without `app.` (`notifications.<kind>.title` and `.body`),
+   * its refusals (`errors.<code>_<reason>`) and its checklist tasks. The
+   * module carries them to the backend as `labels.generated.ts`, so the
+   * emails, notification emails and push say the same, the `email` group's
+   * included.
    */
-  labels: LabelOverrides<Omit<BackendLabels, 'email' | 'notifications'>> & {
-    notifications?: LabelOverrides<BackendLabels['notifications']> & { [kind: string]: unknown }
-  }
+  labels: AppLabels
 }
 
 /**
@@ -337,4 +338,5 @@ export const BACKEND_APP_CONFIG_KEYS = [
   'labels.feedback',
   'labels.ai',
   'labels.errors',
+  'labels.email',
 ] as const satisfies readonly BackendAppConfigPath[]

@@ -14,11 +14,12 @@ const EMAIL_LABELS = {
   },
   // The ready-made lifecycle flows (`setupEmail({ lifecycle })`): each one's email, which `email sync`
   // makes its template at the provider in the default language. Edit them there, or here before the sync.
+  // `{unit}` is what the credits count, as the `credits` group's `unit` names it.
   lifecycle: {
     welcome: { subject: 'Welcome to {brand}', heading: 'Welcome to {brand}', body: 'Your account is ready. Here is where to start.', action: 'Get started' },
     activationNudge: { subject: 'Your first one is a minute away', heading: 'Ready when you are', body: 'You signed up yesterday and haven\'t made anything yet. It takes a minute to start.', action: 'Start now' },
     firstResult: { subject: 'Your first result is ready', heading: 'It\'s ready', body: 'What you made in {brand} is ready to see.', action: 'See it' },
-    creditsLow: { subject: 'Your credits are running low', heading: 'Credits running low', body: 'Your balance has reached its low mark. Add credits to keep going without a pause.', action: 'Add credits' },
+    creditsLow: { subject: 'You are running low on {unit}', heading: 'Running low on {unit}', body: 'Your balance has reached its low mark. Add {unit} to keep going without a pause.', action: 'Add {unit}' },
     trialEnding: { subject: 'Your trial ends in 7 days', heading: 'Your trial ends in a week', body: 'Your plan continues when the trial ends. Change or cancel it any time before then.', action: 'Review your plan' },
     checkoutAbandoned: { subject: 'Still thinking it over?', heading: 'Your checkout is waiting', body: 'You started a checkout yesterday and didn\'t finish. Pick it up whenever you\'re ready.', action: 'See the plans' },
     winBack: { subject: 'We\'d like to have you back', heading: 'Come back to {brand}', body: 'Your plan has ended, and your account is still here. Pick a plan again any time.', action: 'See the plans' },

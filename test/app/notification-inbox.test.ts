@@ -68,8 +68,8 @@ describe('<NotificationInbox>, on the backend mock', () => {
     expect(bell.text()).toContain('Notifications, 3 unread')
     expect(bell.get('[data-notifications="count"]').attributes('aria-hidden')).toBe('true')
     expect(bell.attributes('popovertarget')).toBe(inbox.get('[data-notifications="panel"]').attributes('id'))
-    expect(inbox.findAll('[data-notifications="title"]').map(title => title.text())).toEqual(['New activity', 'Credits are running low', 'New activity', 'A passkey was added'])
-    expect(inbox.findAll('[data-notifications="body"]').map(body => body.text())).toEqual(['10 credits are left in Acme.', 'If this was not you, remove it in your security settings.'])
+    expect(inbox.findAll('[data-notifications="title"]').map(title => title.text())).toEqual(['New activity', 'Running low on credits', 'New activity', 'A passkey was added'])
+    expect(inbox.findAll('[data-notifications="body"]').map(body => body.text())).toEqual(['Acme has 10 credits left.', 'If this was not you, remove it in your security settings.'])
     expect(inbox.findAll('[data-notifications="item"]').map(item => item.attributes('data-state'))).toEqual(['unread', 'unread', 'unread', 'read'])
   })
 
@@ -90,9 +90,9 @@ describe('<NotificationInbox>, on the backend mock', () => {
     ]
     const inbox = await mountSuspended(NotificationInbox)
     await flushPromises()
-    expect(inbox.findAll('[data-notifications="title"]').map(title => title.text())).toEqual(['Your plan changed', 'A subscription started', 'Credits are running low'])
+    expect(inbox.findAll('[data-notifications="title"]').map(title => title.text())).toEqual(['Your plan changed', 'A subscription started', 'Running low on credits'])
     // A part with no workspace in it keeps its one set of words.
-    expect(inbox.findAll('[data-notifications="body"]').map(body => body.text())).toEqual(['An administrator changed the subscription.', 'Your plan is active.', '10 credits are left.'])
+    expect(inbox.findAll('[data-notifications="body"]').map(body => body.text())).toEqual(['An administrator changed the subscription.', 'Your plan is active.', 'You have 10 credits left.'])
   })
 
   describe('an override of a kind the package words for the reader\'s own account', () => {

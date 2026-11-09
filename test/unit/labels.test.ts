@@ -72,10 +72,10 @@ describe('the label registry', () => {
     expect(english).toEqual({ backend: LABELS })
   })
 
-  it('lets app config override every group but the emails', () => {
-    // Emails render on the backend, which never reads app config.
+  it('lets app config override every group, the emails included', () => {
+    // The emails render on the backend, which reads app config's labels from labels.generated.ts.
     const groups = BACKEND_APP_CONFIG_KEYS.filter(key => key.startsWith('labels.')).map(key => key.slice('labels.'.length))
-    expect(groups.sort()).toEqual(Object.keys(LABELS).filter(group => group !== 'email').sort())
+    expect(groups.sort()).toEqual(Object.keys(LABELS).sort())
   })
 })
 

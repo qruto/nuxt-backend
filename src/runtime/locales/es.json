@@ -1456,7 +1456,7 @@
       "accepting": "Aplicando…",
       "endsOn": "Tu plan termina el {date}.",
       "endsPeriod": "Tu plan termina cuando acabe el periodo actual.",
-      "endNote": "Hasta entonces todo sigue funcionando y puedes seguir usando tus créditos.",
+      "endNote": "Hasta entonces todo sigue funcionando y puedes seguir usando tus {unit}.",
       "keep": "Mantener mi plan",
       "keeping": "Manteniendo…",
       "kept": "Tu plan sigue como está.",
@@ -1580,7 +1580,7 @@
       "someone": "Alguien",
       "claim": "Recibir regalo",
       "claiming": "Recibiendo…",
-      "claimed": "Regalo recibido. Los créditos llegarán en un momento.",
+      "claimed": "Regalo recibido. Tus {unit} llegarán en un momento.",
       "claimFailed": "No se pudo recibir el regalo"
     },
     "access": {
@@ -2223,12 +2223,12 @@
           "body": "Se reembolsaron {amount}."
         },
         "credits_low": {
-          "title": "Quedan pocos créditos",
-          "body": "Créditos restantes en {workspace}: {balance}.",
-          "bodyYours": "Créditos restantes: {balance}."
+          "title": "Saldo bajo de {unit}",
+          "body": "Saldo restante en {workspace}: {balance} {unit}.",
+          "bodyYours": "Saldo restante: {balance} {unit}."
         },
         "credits_exhausted": {
-          "title": "Se agotaron los créditos",
+          "title": "Sin {unit}",
           "body": "Recarga {workspace} para seguir.",
           "bodyYours": "Recarga para seguir."
         },
@@ -2612,10 +2612,10 @@
           "action": "Verlo"
         },
         "creditsLow": {
-          "subject": "Te quedan pocos créditos",
-          "heading": "Quedan pocos créditos",
-          "body": "Tu saldo llegó a su nivel bajo. Añade créditos para seguir sin interrupciones.",
-          "action": "Añadir créditos"
+          "subject": "Tu saldo de {unit} está bajo",
+          "heading": "Saldo bajo de {unit}",
+          "body": "Tu saldo llegó a su nivel bajo. Añade {unit} para seguir sin interrupciones.",
+          "action": "Añadir {unit}"
         },
         "trialEnding": {
           "subject": "Tu prueba termina en 7 días",

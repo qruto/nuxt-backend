@@ -1456,7 +1456,7 @@
       "accepting": "Application…",
       "endsOn": "Votre forfait prend fin le {date}.",
       "endsPeriod": "Votre forfait prend fin avec la période en cours.",
-      "endNote": "D’ici là, tout continue de fonctionner, et vos crédits restent utilisables.",
+      "endNote": "D’ici là, tout continue de fonctionner, et vos {unit} restent utilisables.",
       "keep": "Conserver mon forfait",
       "keeping": "Conservation…",
       "kept": "Votre forfait reste inchangé.",
@@ -1580,7 +1580,7 @@
       "someone": "Quelqu’un",
       "claim": "Recevoir le cadeau",
       "claiming": "Réception…",
-      "claimed": "Cadeau reçu. Les crédits arrivent dans un instant.",
+      "claimed": "Cadeau reçu. Vos {unit} arrivent dans un instant.",
       "claimFailed": "Impossible de recevoir le cadeau"
     },
     "access": {
@@ -2223,12 +2223,12 @@
           "body": "{amount} ont été remboursés."
         },
         "credits_low": {
-          "title": "Vos crédits s’épuisent",
-          "body": "Crédits restants dans {workspace} : {balance}.",
-          "bodyYours": "Crédits restants : {balance}."
+          "title": "Vos {unit} s’épuisent",
+          "body": "Solde restant dans {workspace} : {balance} {unit}.",
+          "bodyYours": "Il vous reste {balance} {unit}."
         },
         "credits_exhausted": {
-          "title": "Crédits épuisés",
+          "title": "Plus de {unit}",
           "body": "Rechargez {workspace} pour continuer.",
           "bodyYours": "Rechargez pour continuer."
         },
@@ -2612,10 +2612,10 @@
           "action": "Voir"
         },
         "creditsLow": {
-          "subject": "Vos crédits s’épuisent",
-          "heading": "Crédits bientôt épuisés",
-          "body": "Votre solde a atteint son seuil bas. Ajoutez des crédits pour continuer sans interruption.",
-          "action": "Ajouter des crédits"
+          "subject": "Vos {unit} s’épuisent",
+          "heading": "Solde de {unit} bientôt épuisé",
+          "body": "Votre solde a atteint son seuil bas. Ajoutez des {unit} pour continuer sans interruption.",
+          "action": "Ajouter des {unit}"
         },
         "trialEnding": {
           "subject": "Votre essai se termine dans 7 jours",

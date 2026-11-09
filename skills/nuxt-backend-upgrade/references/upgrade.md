@@ -31,6 +31,12 @@ agent files and skills.
 |---|---|---|---|
 | `useUploadField` | `useUploadField({ claim, prepare })` | reshaped | returns retry and bind.retry; a failure ends in error with Try again, a refusal in refused, and the error slot adds refused and retry |
 
+## [Emails and notifications read the labels app config sets](https://nuxt-backend.dev/docs/ship/releases/upgrade#emails-and-notifications-read-the-labels-app-config-sets)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `setupEmail({ paths, brand })` | `setupEmail({ paths, brand, labels })` | reshaped | import `labels` from `./labels.generated`, which `upgrade` writes; drop the copy `messages` repeated from app config |
+
 ## [Moderation verdicts name shared categories](https://nuxt-backend.dev/docs/ship/releases/upgrade#moderation-verdicts-name-shared-categories)
 
 | Was | Now | Change | Note |

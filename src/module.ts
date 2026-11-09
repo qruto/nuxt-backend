@@ -15,7 +15,7 @@ import { VISITOR_IP_ROUTE } from './convex/constants'
 import { monitoringDependency, monitoringWiring, registerMonitoring, type MonitoringPublicConfig } from './nuxt/monitoring'
 import { assertModuleOptions } from './nuxt/options'
 import { registerModulePages } from './nuxt/pages'
-import { registerBrandFile } from './nuxt/brand'
+import { registerAppConfigFiles } from './nuxt/brand'
 import { registerInstallable } from './nuxt/installable'
 import type { InstallableOptions } from './installable'
 import { registerPathsFile } from './nuxt/paths'
@@ -300,8 +300,8 @@ export default defineNuxtModule<ModuleOptions>({
     const pagesInfo = registerModulePages(options, resolver, nuxt)
     // The paths the backend links to, carried from this config into the functions directory.
     registerPathsFile(options, nuxt)
-    // The brand the backend's emails read, carried from app.config beside it.
-    registerBrandFile(nuxt)
+    // The brand and the labels the backend's emails and notifications read, carried from app.config beside it.
+    registerAppConfigFiles(nuxt)
     // The web push worker, and the web app manifest from the brand and two icons.
     registerInstallable(resolver, nuxt, options.installable)
 

@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { repairProjectFiles } from '../../src/cli/repair'
 import { convexConfigFinding, readConvexConfigDrift } from '../../src/convex-config'
+import { renderLabelsFile } from '../../src/labels-file'
 import { BACKEND_FILE_TEMPLATES } from '../../src/templates'
 import { ADDED_SINCE_BASE, checkoutBaseStarter, removeFixture, UPGRADE_BASE } from '../helpers/upgrade-fixture'
 
@@ -72,6 +73,22 @@ describe(`the ${UPGRADE_BASE} starter, after doctor --fix`, () => {
       writeFileSync(join(dir, 'backend/convex.config.ts'), BACKEND_FILE_TEMPLATES['convex.config.ts']!)
       rmSync(join(dir, 'backend/digest.ts'))
     }
+  })
+
+  it('writes the labels app.config sets into labels.generated.ts, and goes back with them', async () => {
+    // The starter has no app.config of its own: this one comes and goes with the test.
+    const config = join(dir, 'app/app.config.ts')
+    mkdirSync(join(dir, 'app'), { recursive: true })
+    writeFileSync(config, `export default defineAppConfig({ backend: { labels: { notifications: { strip_ready: { title: 'Your strip is ready' } } } } })\n`)
+    try {
+      expect((await repairProjectFiles(dir)).changes).toEqual(['backend/labels.generated.ts → the labels app.config sets'])
+      expect(readFileSync(join(dir, 'backend/labels.generated.ts'), 'utf-8')).toBe(renderLabelsFile({ notifications: { strip_ready: { title: 'Your strip is ready' } } }))
+    }
+    finally {
+      rmSync(config, { force: true })
+    }
+    expect((await repairProjectFiles(dir)).changes).toEqual(['backend/labels.generated.ts → the labels app.config sets'])
+    expect(readFileSync(join(dir, 'backend/labels.generated.ts'), 'utf-8')).toBe(BACKEND_FILE_TEMPLATES['labels.generated.ts'])
   })
 
   it('changes nothing on a second run', async () => {

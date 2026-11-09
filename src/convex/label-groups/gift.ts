@@ -57,7 +57,7 @@ const GIFT_LABELS = {
   claim: 'Receive gift',
   claiming: 'Receiving…',
   // Announced once a claim went through.
-  claimed: 'Gift received. The credits arrive in a moment.',
+  claimed: 'Gift received. The {unit} arrive in a moment.',
   claimFailed: 'Could not receive the gift',
 } satisfies LabelTree
 
