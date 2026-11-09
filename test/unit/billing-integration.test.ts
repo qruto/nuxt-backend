@@ -453,6 +453,7 @@ describe('spendCredits', () => {
       },
     } as never)
     vi.spyOn(Polar.prototype, 'getCustomerByUserId').mockResolvedValue({ id: 'cus_1' } as never)
+    mockCustomersGetState.mockResolvedValue({ ok: true, value: { id: 'cus_1', activeSubscriptions: [], grantedBenefits: [], activeMeters: [] } } as never)
     mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)
     const ctx = makeCtx()
 
@@ -463,6 +464,11 @@ describe('spendCredits', () => {
       { events: [expect.objectContaining({ metadata: { amount: -3 } })] },
     )
     expect(ctx.runMutation).toHaveBeenCalledWith('ref:credit', { userId: 'u1', meterId: 'm_sum', amount: 3, externalId: expect.any(String) })
+    // The entity had no cached row: the provider is read first, so the credit has a row to land on.
+    const writes = ctx.runMutation.mock.calls.map(([ref]) => ref)
+    expect(writes.indexOf('ref:upsert')).toBeGreaterThanOrEqual(0)
+    expect(writes.indexOf('ref:upsert')).toBeLessThan(writes.indexOf('ref:credit'))
+    expect(mockCustomersGetState.mock.invocationCallOrder[0]).toBeLessThan(mockEventsIngest.mock.invocationCallOrder[0]!)
 
     await expect(
       named.refundCredits(makeCtx() as never, { userId: 'u1', meter: 'actions', value: 1 }),

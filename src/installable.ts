@@ -191,7 +191,16 @@ export function installableProblems(value: unknown): string[] {
   ]
 }
 
-/** Whether `public/` holds both icons of a pair. */
-export function iconsPresent(publicDir: string, icons: InstallIcons): boolean {
-  return present(publicDir, icons)
+/**
+ * What the build says of a pair the option names that `public/` does not
+ * hold both of: `icons`, which leaves the app with no manifest, and
+ * `maskable`, which leaves the manifest without maskable icons. A typo in a
+ * path would otherwise pass in silence. Empty when nothing is missing.
+ */
+export function namedIconWarnings(publicDir: string, options: InstallableOptions = {}): string[] {
+  const missing = (key: 'icons' | 'maskable', pair: InstallIcons, outcome: string) => `\`installable.${key}\` names ${pair[192]} and ${pair[512]}, and public/ does not hold both: ${outcome}`
+  return [
+    ...(options.icons && !present(publicDir, options.icons) ? [missing('icons', options.icons, 'the module serves no manifest.')] : []),
+    ...(typeof options.maskable === 'object' && !present(publicDir, options.maskable) ? [missing('maskable', options.maskable, 'the manifest lists no maskable icon.')] : []),
+  ]
 }

@@ -150,7 +150,7 @@ describe('useReportForm: a notice (DSA Art. 16)', () => {
     expect(form.state.value).toBe('refused')
     expect(form.errorField.value).toBe('reason')
     expect(form.bind.reasons.value['aria-invalid']).toBe('true')
-    expect(form.labels.errorMessage(form.error.value)).toBe('Pick a reason.')
+    expect(form.labels.errorMessage(form.error.value)).toBe('Give a reason.')
   })
 
   it('offers the reasons an app picks, in its order, and takes the address an app gives', () => {
