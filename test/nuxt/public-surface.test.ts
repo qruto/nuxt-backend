@@ -398,7 +398,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
 
   './convex.config': ['default'],
   './auth.config': ['default', 'defineBackendAuthConfig'],
-  './test': ['TEST_FAINT', 'TEST_KNOWN_ABUSE', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'asUser', 'default', 'defineBackendTestApp', 'drain', 'register', 'seedBilling', 'seedCredits', 'seedWorkspace', 'stubStorageFetch', 'upload'],
+  './test': ['TEST_FAINT', 'TEST_KNOWN_ABUSE', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_UNSAFE_CODE', 'asUser', 'default', 'defineBackendTestApp', 'drain', 'fileExists', 'register', 'seedBilling', 'seedCredits', 'seedWorkspace', 'stubBillingProvider', 'stubStorageFetch', 'upload'],
   './test-utils': ['backendMockProvides', 'backendTestAliases', 'createBackendMock', 'renderEmail', 'resetBackendMock'],
   './eslint': ['BACKEND_ESLINT_RULES', 'backendEslint'],
 }
@@ -637,7 +637,7 @@ const REGISTRY = {
 }
 
 /** The experimental tier, by the names STABILITY.md lists. */
-const EXPERIMENTAL = ['./ai', './monitoring', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_FAINT', 'TEST_KNOWN_ABUSE', 'ComponentTestKit', 'BackendTestAppOptions', 'BackendTestApp', 'TestFile', 'TestUploadOptions', 'StubStorageFetchOptions', 'TestTimers', 'TestBilling', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage', 'PricedPlanGift', 'PricedGiftLength']
+const EXPERIMENTAL = ['./ai', './monitoring', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_UNSAFE_CODE', 'TEST_FAINT', 'TEST_KNOWN_ABUSE', 'fileExists', 'stubBillingProvider', 'StubBillingProviderOptions', 'TestBillingProvider', 'TestUsageEvent', 'DrainOptions', 'ComponentTestKit', 'BackendTestAppOptions', 'BackendTestApp', 'TestFile', 'TestUploadOptions', 'StubStorageFetchOptions', 'TestTimers', 'TestBilling', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage', 'PricedPlanGift', 'PricedGiftLength']
 
 /**
  * The experimental members of a stable type, by where the source tags them

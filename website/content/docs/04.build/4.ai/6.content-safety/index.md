@@ -113,7 +113,7 @@ export const attach = authed.action({
 
 A classifier that answers anything but a verdict refuses the content as unchecked: `unavailable` with reason `provider_refused`, and the log line `ai.moderation_unreadable`. So does a classifier call that fails, with the log line `ai.moderation_failed` naming the provider's error when the gateway passed one on, and one that gives no answer within 30 seconds: the check stops waiting, so a hung gateway never holds your action until it times out. Both may pass when tried again. Images checked alone go to the classifier with a few neutral words beside them, which Llama Guard on the Convex AI Gateway needs to read them.
 
-In your own tests, `nuxt-backend/test` answers the classifier for you: `unsafe` for text that contains `[[unsafe]]`, `safe` for anything else, with no key and no network ([Test AI calls](/docs/develop/testing/functions#test-ai-calls)). Size and type checks are cheaper than a model call, so a file over [`maxSize`](/docs/build/data/files/checked-uploads) is better refused by the claim.
+In your own tests, `nuxt-backend/test` answers the classifier for you: `unsafe` and `S1` for text or an image whose bytes contain `[[unsafe]]`, the codes you choose for `[[unsafe:S7]]` (`TEST_UNSAFE_CODE('S7')`), `safe` for anything else, with no key and no network ([Test AI calls](/docs/develop/testing/functions#test-ai-calls)). Size and type checks are cheaper than a model call, so a file over [`maxSize`](/docs/build/data/files/checked-uploads) is better refused by the claim.
 
 ## Guard against prompt injection
 

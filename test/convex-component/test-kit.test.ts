@@ -3,7 +3,8 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { actionGeneric, componentsGeneric, defineSchema, type FunctionReference, makeFunctionReference, mutationGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import workflow from '@convex-dev/workflow/test'
-import { asUser, defineBackendTestApp, drain, seedBilling, seedCredits, seedWorkspace, stubStorageFetch, TEST_PNG, TEST_STORAGE_URL, upload } from '../../src/convex/test'
+import { asUser, defineBackendTestApp, drain, fileExists, seedBilling, seedCredits, seedWorkspace, stubBillingProvider, stubStorageFetch, TEST_PNG, TEST_STORAGE_URL, TEST_UNSAFE_CODE, upload } from '../../src/convex/test'
+import { setupAi } from '../../src/convex/integrations/ai'
 import { setupStorage } from '../../src/convex/integrations/storage'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { setupEmail } from '../../src/convex/integrations/email'
@@ -43,11 +44,26 @@ const download = actionGeneric({
     return { status: response.status, type: response.headers.get('content-type'), size: (await response.arrayBuffer()).byteLength }
   },
 })
+// A refund through the package's billing, to the billing provider's fake: a sum meter as `billing sync` writes it.
+const metered = setupBilling(components as never, { email, accessToken: 'test-billing-token', catalog: { sandbox: { meters: { credits: { meterId: 'meter_credits', eventName: 'credits', property: 'amount' } } } } as never })
+const refund = actionGeneric({
+  args: { userId: v.string(), value: v.number(), externalId: v.string() },
+  handler: async (ctx, { userId, value, externalId }) => metered.refundCredits(ctx as never, { userId, meter: 'credits', value, externalId }),
+})
+// The safety classifier an app's tests get by its id, reading text and an upload's bytes.
+const ai = setupAi(components as never, { billing })
+const classify = actionGeneric({
+  args: { text: v.optional(v.string()), images: v.optional(v.array(v.string())) },
+  handler: async (ctx, input) => (await ai.moderate(ctx, input)).codes,
+})
 const testApp = defineBackendTestApp(defineSchema({}), {
   './_generated/api.js': () => Promise.resolve({}),
   './whoami.js': () => Promise.resolve({ whoami, membership, billingEntity, env, feature }),
   './files.js': () => Promise.resolve({ claim, fileUrl, download }),
+  './kit.js': () => Promise.resolve({ refund, classify }),
 }, { mounts: { generation: workflow } })
+const refundRef = makeFunctionReference<'action', { userId: string, value: number, externalId: string }, null>('kit:refund')
+const classifyRef = makeFunctionReference<'action', { text?: string, images?: string[] }, string[]>('kit:classify')
 const whoamiRef = makeFunctionReference<'query'>('whoami:whoami')
 const membershipRef = makeFunctionReference<'query'>('whoami:membership')
 const billingEntityRef = makeFunctionReference<'query'>('whoami:billingEntity')
@@ -185,6 +201,104 @@ describe('upload, drain and stubStorageFetch', () => {
 
   test('drain refuses to run without fake timers', async () => {
     await expect(drain(testApp(), vi)).rejects.toThrow(/vi\.useFakeTimers/)
+  })
+
+  test('drain with until stops as soon as the condition holds, and throws when it never does', async () => {
+    vi.useFakeTimers()
+    const t = testApp()
+    const ada = await asUser(t)
+    const fileId = await t.upload()
+    await ada.mutation(claimRef, { fileId })
+    let checks = 0
+    // Holds at the first look: the background check has not run yet.
+    await drain(t, vi, { until: () => ++checks > 0 })
+    expect(checks).toBe(1)
+    await drain(t, vi, { until: async () => await t.query(fileUrlRef, { fileId }) !== null })
+    expect(await t.query(fileUrlRef, { fileId })).not.toBeNull()
+    await expect(drain(t, vi, { until: () => false })).rejects.toThrow(/`until` never held/)
+  })
+
+  test('fileExists reads whether a file is still in the component\'s storage', async () => {
+    const t = testApp()
+    const fileId = await t.upload()
+    expect(await t.fileExists(fileId)).toBe(true)
+    expect(await fileExists(t, fileId)).toBe(true)
+    await t.mutation(components.backend.storage.discard as unknown as FunctionReference<'mutation'>, { storageId: fileId })
+    expect(await t.fileExists(fileId)).toBe(false)
+    expect(await t.fileExists('no-such-file')).toBe(false)
+  })
+})
+
+describe('stubBillingProvider', () => {
+  const ingest = (events: Array<Record<string, unknown>>) => fetch('https://sandbox-api.polar.sh/v1/events/ingest', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ events }) })
+
+  test('takes each usage event once by its key, and tells charges from refunds and reports', async () => {
+    const provider = stubBillingProvider()
+    try {
+      const charge = { name: 'credits', external_customer_id: 'ws-1', external_id: 'job-1', metadata: { job: 'comics:print', amount: 3 } }
+      expect(await (await ingest([charge])).json()).toEqual({ inserted: 1, duplicates: 0 })
+      expect(await (await ingest([charge])).json()).toEqual({ inserted: 0, duplicates: 1 })
+      await ingest([{ name: 'job.cost', external_customer_id: 'ws-1', external_id: 'job-1-cost', metadata: { _cost: { amount: 1, currency: 'usd' } } }])
+      expect(provider.charges).toEqual([{ name: 'credits', customer: 'ws-1', externalId: 'job-1', value: 3, metadata: { job: 'comics:print', amount: 3 } }])
+      expect(provider.events).toHaveLength(2)
+      expect(provider.refunds).toEqual([])
+    }
+    finally {
+      provider.restore()
+    }
+  })
+
+  test('refuses the next charges with a 503 when asked, keeping none of them, then takes them again', async () => {
+    const provider = stubBillingProvider()
+    try {
+      const charge = { name: 'credits', external_customer_id: 'ws-1', external_id: 'job-2', metadata: { amount: 2 } }
+      provider.refuse('charges', 1)
+      expect((await ingest([charge])).status).toBe(503)
+      expect((await ingest([charge])).status).toBe(200)
+      provider.refuse()
+      expect((await ingest([{ ...charge, external_id: 'job-3' }])).status).toBe(503)
+      expect((await ingest([{ ...charge, external_id: 'job-3' }])).status).toBe(503)
+      provider.accept()
+      expect((await ingest([{ ...charge, external_id: 'job-3' }])).status).toBe(200)
+      expect(provider.refused).toBe(3)
+      expect(provider.charges.map(event => event.externalId)).toEqual(['job-2', 'job-3'])
+    }
+    finally {
+      provider.restore()
+    }
+  })
+
+  test('takes a refund the package\'s billing sends, passes every other request on, and puts fetch back', async () => {
+    const original = globalThis.fetch
+    const restoreStorage = stubStorageFetch({ network: () => new Response('elsewhere') })
+    const provider = stubBillingProvider()
+    try {
+      const t = testApp()
+      await seedBilling(t, 'ws-refund', { customer: true, credits: { meter_credits: 5 } })
+      provider.refuse('refunds', 1)
+      await expect(t.action(refundRef, { userId: 'ws-refund', value: 2, externalId: 'job-4-refund' })).rejects.toThrow()
+      await t.action(refundRef, { userId: 'ws-refund', value: 2, externalId: 'job-4-refund' })
+      expect(provider.refunds).toEqual([expect.objectContaining({ customer: 'ws-refund', externalId: 'job-4-refund', value: -2 })])
+      expect(await (await fetch('https://example.com/')).text()).toBe('elsewhere')
+      expect((await fetch('https://sandbox-api.polar.sh/v1/customers/')).status).toBe(404)
+    }
+    finally {
+      provider.restore()
+      restoreStorage()
+    }
+    expect(globalThis.fetch).toBe(original)
+  })
+})
+
+describe('the safety classifier under test', () => {
+  test('answers the codes a marker chooses, in text and in an upload\'s bytes, and S1 for the bare marker', async () => {
+    const t = testApp()
+    expect(await t.action(classifyRef, { text: 'A fox who wants to fly' })).toEqual([])
+    expect(await t.action(classifyRef, { text: `My address: ${TEST_UNSAFE_CODE('S7')}` })).toEqual(['S7'])
+    expect(await t.action(classifyRef, { text: '[[unsafe]]' })).toEqual(['S1'])
+    const marked = await t.upload(new Uint8Array([...TEST_PNG, ...new TextEncoder().encode(TEST_UNSAFE_CODE('S12'))]))
+    expect(await t.action(classifyRef, { images: [marked] })).toEqual(['S12'])
+    expect(await t.action(classifyRef, { images: [await t.upload()] })).toEqual([])
   })
 })
 

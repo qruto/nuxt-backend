@@ -84,6 +84,7 @@ Types: `FlagValues`, `ExperimentVariantResult`, `ExperimentResult`, `AdminFlag`,
 | `defineBackendTestApp()` | Your app under test: a fresh convex-test instance per call, with the `backend` component and every component the scaffolded `convex.config.ts` mounts (the action cache, aggregate, migrations, persistent text streaming, the billing provider, the rate limiter, the sharded counter, workflows and the workpool) registered under the names it mounts them by, and the Agent and RAG components (`agent`, `rag`) when the app installs them. |
 | `TEST_PNG` | A valid 2 × 2 PNG: what the storage check sniffs, strips and serves. |
 | `upload()` | Send a file into the `backend` component's storage, claimed by nobody, as the browser leaves it after posting to an upload URL, and return its storage id. |
+| `fileExists()` | Whether a file is in the `backend` component's storage, by its storage id: what a test of a deletion, a sweep or an erasure checks. |
 | `TEST_STORAGE_URL` | Where convex-test's `ctx.storage.getUrl` points: a deployment that does not exist. |
 | `stubStorageFetch()` | Answer `fetch` for the files your functions stored, with their bytes and type, as the deployment's storage would: a model handed a photo by URL, or a signed URL's route reading the file, gets the real file under test. |
 | `drain()` | Run every scheduled function to the end, one at a time: storage checks, the job queue and its steps, workflows, deliveries and retries. |
@@ -94,9 +95,11 @@ Types: `FlagValues`, `ExperimentVariantResult`, `ExperimentResult`, `AdminFlag`,
 | `TEST_FAINT()` | The marker that finds a category faintly, just under its threshold. |
 | `TEST_KNOWN_ABUSE` | The marker the known-abuse fake matches. |
 | `TEST_UNSAFE()` | The marker that finds a category at full strength. |
+| `TEST_UNSAFE_CODE()` | The marker that has the mock safety classifier answer chosen Llama Guard codes: `TEST_UNSAFE_CODE('S7')` is `[[unsafe:S7]]`, answered `unsafe\nS7`; several codes join with a comma (`'S1,S10'`). |
+| `stubBillingProvider()` | Answer the billing provider's usage-event ingest in `fetch`, as its API would: every charge, refund and cost report the package's billing sends is taken and kept once by its idempotency key, and reported back in `events`, `charges` and `refunds`. |
 | `default` | The default export. |
 
-Types: `ComponentTestKit`, `BackendTestAppOptions`, `TestFile`, `TestUploadOptions`, `BackendTestApp`, `StubStorageFetchOptions`, `TestTimers`, `TestBilling`, `TestUserOptions`, `TestUser`.
+Types: `ComponentTestKit`, `BackendTestAppOptions`, `TestFile`, `TestUploadOptions`, `BackendTestApp`, `StubStorageFetchOptions`, `TestTimers`, `DrainOptions`, `TestBilling`, `TestUserOptions`, `TestUser`, `StubBillingProviderOptions`, `TestBillingProvider`, `TestUsageEvent`.
 
 ### `nuxt-backend/test-utils`
 

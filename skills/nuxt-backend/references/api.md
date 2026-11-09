@@ -404,6 +404,7 @@ Types: `BackendPaths`, `DefineBackendAuthConfigOptions`.
 | `TEST_PNG` | A valid 2 × 2 PNG: what the storage check sniffs, strips and serves. |
 | `upload()` | Send a file into the `backend` component's storage, claimed by nobody, as the browser leaves it after posting to an upload URL, and return its storage id. |
 | `TEST_STORAGE_URL` | Where convex-test's `ctx.storage.getUrl` points: a deployment that does not exist. |
+| `fileExists()` | Whether a file is in the `backend` component's storage, by its storage id: what a test of a deletion, a sweep or an erasure checks. |
 | `stubStorageFetch()` | Answer `fetch` for the files your functions stored, with their bytes and type, as the deployment's storage would: a model handed a photo by URL, or a signed URL's route reading the file, gets the real file under test. |
 | `drain()` | Run every scheduled function to the end, one at a time: storage checks, the job queue and its steps, workflows, deliveries and retries. |
 | `seedBilling()` | Give a billing entity the plans, features and credits a sync from the provider would leave it: the entitlement cache every gate, `hasFeature`, quota and credit spend reads. |
@@ -414,8 +415,10 @@ Types: `BackendPaths`, `DefineBackendAuthConfigOptions`.
 | `TEST_KNOWN_ABUSE` | The marker the known-abuse fake matches. |
 | `TEST_UNSAFE()` | The marker that finds a category at full strength. |
 | `default` | The default export. |
+| `TEST_UNSAFE_CODE()` | The marker that has the mock safety classifier answer chosen Llama Guard codes: `TEST_UNSAFE_CODE('S7')` is `[[unsafe:S7]]`, answered `unsafe\nS7`; several codes join with a comma (`'S1,S10'`). |
+| `stubBillingProvider()` | Answer the billing provider's usage-event ingest in `fetch`, as its API would: every charge, refund and cost report the package's billing sends is taken and kept once by its idempotency key, and reported back in `events`, `charges` and `refunds`. |
 
-Types: `ComponentTestKit`, `BackendTestAppOptions`, `TestFile`, `TestUploadOptions`, `BackendTestApp`, `StubStorageFetchOptions`, `TestTimers`, `TestBilling`, `TestUserOptions`, `TestUser`.
+Types: `ComponentTestKit`, `BackendTestAppOptions`, `TestFile`, `TestUploadOptions`, `BackendTestApp`, `StubStorageFetchOptions`, `TestTimers`, `DrainOptions`, `TestBilling`, `TestUserOptions`, `TestUser`, `StubBillingProviderOptions`, `TestBillingProvider`, `TestUsageEvent`.
 
 ### `nuxt-backend/test-utils`
 

@@ -11,7 +11,7 @@ import { embeddingReachable } from '../../src/convex/integrations/ai/embeddings'
 import { createModeration, DEFAULT_MODERATION_MODEL, VERCEL_MODERATION_MODEL } from '../../src/convex/integrations/ai/moderation'
 import { meteredImageModel, routeImage } from '../../src/convex/integrations/ai/images'
 import { priceModelCalls } from '../../src/convex/integrations/ai/pricing'
-import { TEST_IMAGE_PNG, TEST_MODEL_USD, TEST_UNSAFE_MARKER, testModel } from '../../src/convex/test-models'
+import { TEST_IMAGE_PNG, TEST_MODEL_USD, TEST_UNSAFE_CODE, TEST_UNSAFE_MARKER, testModel } from '../../src/convex/test-models'
 import { classifyStepError } from '../../src/convex/integrations/ai/job-errors'
 import { getBackendError } from '../../src/convex/errors'
 
@@ -783,6 +783,22 @@ describe('the model nuxt-backend/test gives every id', () => {
     expect(await ask('meta-llama/llama-guard-4-12b', `A fox ${TEST_UNSAFE_MARKER}`)).toBe('unsafe\nS1')
     expect(await ask('openai/gpt-oss-safeguard-20b', `<content>\n${TEST_UNSAFE_MARKER}\n</content>`)).toBe('unsafe\nS1')
     expect(await ask('openai/gpt-5-mini', TEST_UNSAFE_MARKER)).toBe(`Test reply to: ${TEST_UNSAFE_MARKER}`)
+  })
+
+  it('answers the codes a marker chooses, in text or in an image\'s bytes', async () => {
+    const guard = testModel('meta-llama/llama-guard-4-12b')
+    const ask = async (content: unknown) => (await guard.doGenerate({ prompt: [{ role: 'user', content }] } as never)).content.find(part => part.type === 'text')
+    expect(TEST_UNSAFE_CODE('S7')).toBe('[[unsafe:S7]]')
+    expect(await ask([{ type: 'text', text: `My address is ${TEST_UNSAFE_CODE('S7')}` }])).toMatchObject({ text: 'unsafe\nS7' })
+    expect(await ask([{ type: 'text', text: TEST_UNSAFE_CODE('S1,S10') }])).toMatchObject({ text: 'unsafe\nS1,S10' })
+    // A marker after a valid PNG's bytes, as raw bytes and as base64.
+    const marked = new Uint8Array([...TEST_IMAGE_PNG, ...new TextEncoder().encode(TEST_UNSAFE_CODE('S12'))])
+    expect(await ask([{ type: 'text', text: 'Is this safe?' }, { type: 'file', mediaType: 'image/png', data: { type: 'data', data: marked } }])).toMatchObject({ text: 'unsafe\nS12' })
+    expect(await ask([{ type: 'file', mediaType: 'image/png', data: { type: 'data', data: Buffer.from(marked).toString('base64') } }])).toMatchObject({ text: 'unsafe\nS12' })
+    expect(await ask([{ type: 'file', mediaType: 'image/png', data: { type: 'data', data: TEST_IMAGE_PNG } }])).toMatchObject({ text: 'safe' })
+    // The bare marker still answers S1, and a provider's category marker is no classifier's.
+    expect(await ask([{ type: 'file', mediaType: 'image/png', data: { type: 'data', data: new TextEncoder().encode(TEST_UNSAFE_MARKER) } }])).toMatchObject({ text: 'unsafe\nS1' })
+    expect(await ask('[[unsafe:sexual]]')).toMatchObject({ text: 'safe' })
   })
 
   it('draws for an image model\'s id: a PNG file beside the text, and none for a text model', async () => {

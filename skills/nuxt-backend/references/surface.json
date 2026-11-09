@@ -811,14 +811,17 @@
         "drain",
         "register",
         "seedBilling",
+        "TEST_UNSAFE_CODE",
         "seedCredits",
         "seedWorkspace",
         "stubStorageFetch",
         "upload"
+        "fileExists",
       ],
       "types": [
         "BackendTestApp",
         "BackendTestAppOptions",
+        "stubBillingProvider",
         "ComponentTestKit",
         "StubStorageFetchOptions",
         "TestBilling",
@@ -826,11 +829,15 @@
         "TestTimers",
         "TestUploadOptions",
         "TestUser",
+        "DrainOptions",
+        "StubBillingProviderOptions",
         "TestUserOptions"
       ]
+        "TestBillingProvider",
     },
     "nuxt-backend/test-utils": {
       "values": [
+        "TestUsageEvent",
         "backendMockProvides",
         "backendTestAliases",
         "createBackendMock",
