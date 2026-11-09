@@ -44,7 +44,12 @@ async function deploymentValue(name) {
  * env names), so a key set there by hand is never replaced. A key it holds
  * with another value than the root's (a renewed token, say) is named, never
  * replaced. Resolves with the names it set (`forwarded`) and the ones that
- * differ (`differing`); no value is ever returned or printed.
+ * differ (`differing`); no value is ever returned or printed. `options`
+ * stands in for the root's keys and the deployment's reads and writes (tests).
+ *
+ * @param {readonly string[]} held
+ * @param {{ keys?: Record<string, string>, set?: (dir: string, name: string, value: string) => Promise<void>, get?: (name: string) => Promise<string | null> }} [options]
+ * @returns {Promise<{ forwarded: string[], differing: string[] }>}
  */
 export async function forwardSandboxKeys(held, { keys, set, get = deploymentValue } = {}) {
   const rootKeys = keys ?? await rootSandboxKeys()

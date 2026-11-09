@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -43,7 +42,7 @@ export function devDeployment() {
     process.exit(1)
   }
   // The Convex CLI follows a deploy key over CONVEX_DEPLOYMENT. These scripts
-  // wipe and seed data, so a key exported to run one production command must
+  // wipe data, so a key exported to run one production command must
   // not come along: drop it from the environment, and refuse one kept in
   // .env.local, which the Convex CLI would load by itself.
   if (env.CONVEX_DEPLOY_KEY || env.CONVEX_DEPLOYMENT_TOKEN) {
@@ -56,15 +55,4 @@ export function devDeployment() {
     env: { ...shell, CONVEX_DEPLOYMENT: deployment },
     urlArgs: url ? ['--url', url] : [],
   }
-}
-
-/**
- * `convex run <args>` against the dev deployment, as argv — no shell, so a
- * JSON argument needs no quoting. Returns the trimmed stdout.
- */
-export function convexRun(args) {
-  const { env, urlArgs } = devDeployment()
-  return execFileSync('pnpm', ['exec', 'convex', 'run', ...args, ...urlArgs], { env, cwd: root, stdio: 'pipe' })
-    .toString()
-    .trim()
 }

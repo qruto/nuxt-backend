@@ -529,14 +529,14 @@ Start the dev deployment's billing over in the organization BILLING_ACCESS_TOKEN
 
 ### `npx nuxt-backend billing resync`
 
-Read every billing entity's entitlements again from the billing provider into the deployment's cache (billing:resyncEntitlements), a page at a time on the deployment: after missed webhooks, or a restored deployment. An app that bills entities of its own (billTo: "user" with its own resolveEntity) names them with --entity.
+Read every billing entity's entitlements again from the billing provider into the deployment's cache (billing:resyncEntitlements), in turn on the deployment, paced under the provider's rate limit: after missed webhooks, or a restored deployment. An app that bills entities of its own (billTo: "user" with its own resolveEntity) names them with --entity.
 
 - `--cwd`: Project directory
 - `--prod`: Resync the production deployment
 - `--entity`: Read only these billing entities again, by id, comma-separated (at most 100), and wait for each: the way for an app whose own resolveEntity bills entities of its own
 - `--json`: Print the outcome as one JSON document; progress goes to stderr
 
-`--json`: `{ deployment: "dev" | "production", status: "queued" | "synced" | "custom_entities" | "refused" | "missing" | "failed", queued, more, entities: [{ id, outcome: "synced" | "gone" }], note? }`: `queued` counts the billing entities of the first page, and `more` says further pages follow on the deployment's scheduler; `entities` lists each one `--entity` named that was read.
+`--json`: `{ deployment: "dev" | "production", status: "queued" | "synced" | "custom_entities" | "refused" | "missing" | "failed", queued, more, entities: [{ id, outcome: "synced" | "gone" | "failed" }], note? }`: `queued` counts the billing entities of the first page, and `more` says further pages follow; the deployment logs each entity it gives up on (`billing.resync_failed`) and the tally at the end (`billing.resync_done`); `entities` lists each one `--entity` named that was read.
 
 ### `npx nuxt-backend access admit`
 

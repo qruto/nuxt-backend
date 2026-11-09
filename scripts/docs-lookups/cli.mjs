@@ -189,9 +189,9 @@ export const FINDING_DOCS = {
     fix: 'Grant the meter\'s credits from a plan or a pack, bill it with a usage price, or drop it.',
   },
   'billing-organization': {
-    checks: '`BILLING_ACCESS_TOKEN` is visible locally and the provider answers with it for the billing environment `BACKEND_ENVIRONMENT` names (the provider\'s sandbox unless it is `production`).',
+    checks: '`BILLING_ACCESS_TOKEN` is visible locally and the provider answers with it for the billing environment `BACKEND_ENVIRONMENT` names (the provider\'s sandbox unless it is `production`). It also warns when the deployment holds `BILLING_ACCESS_TOKEN` and the env doctor reads here does not: the provider checks were skipped then, and it says how to run them.',
     why: 'The cross-checks of the provider\'s settings below need it; they are skipped without it.',
-    fix: 'Create a token for the environment you sync (an expired one, or one from the other environment, is refused).',
+    fix: 'Create a token for the environment you sync (an expired one, or one from the other environment, is refused). For a token kept on the deployment only, run doctor with it in the env: `BILLING_ACCESS_TOKEN=<the deployment\'s token> npx nuxt-backend doctor --only billing`.',
   },
   'billing-customer-mapping': {
     checks: 'The billing provider knows the customers the deployment maps billing entities onto: the first ten mapped, read off the provider\'s component and asked for one by one with the `BILLING_ACCESS_TOKEN` doctor reaches the provider with (the process env alone under `--prod`). No finding without a token, or when the deployment or the provider cannot be read.',
