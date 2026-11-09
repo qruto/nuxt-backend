@@ -204,6 +204,7 @@ Options for [Access.memberTickets](#membertickets-2).
 | <a id="lifetime"></a> `lifetime?` | `number` | How long a ticket works from when the member asks for it, in milliseconds. Default 60 days, at most a year. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="enabled"></a> `enabled?` | (`ctx`) => `boolean` \| `Promise`\<`boolean`\> | Whether the program runs now, for a switch of the app's own (a flag, say): `false` answers `off`, issues nothing, and the links already shared admit nobody (`revoked`) until it is on again. Default: while the app is closed. **Guarantee** - Runs: in the query or mutation that reads or mints a member's ticket, and in each code check and sign-up that brings a code or link (nobody signed in), in its transaction - Delivery: once per read, per mint and per code checked; a live read runs it again whenever what it read changes - Order: a read or a mint asks it after the phase (a public app answers `open` without asking), before the member's ticket; a code check or a sign-up, before the code's row is read - When it throws: the read, the mint, the check or the sign-up fails with its error, and nothing is minted or taken - Idempotency: a read: it may run many times for one member or code, and writes nothing | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="chain"></a> `chain?` | `boolean` | Let an account a member ticket admitted hold one of its own (default `false`). Without it, such an account reads `off`, and a ticket it held from before admits nobody: one member brings their friends, as a workspace invitation does, not a chain of strangers past the waitlist. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="referral"></a> `referral?` | `boolean` | Carry the member's referral code on their ticket (default `false`), for an app that runs the referral program (`setupReferrals`): an issued ticket answers `referral`, the member's code, made when they ask for the ticket, and `useMemberTicket().link` puts it in the link as `?ref=<code>`. The `/invite` page then sends the friend it admits through the referral page's sign-in, which claims the referral for them once they are signed up: the friend counts for the member who let them in. Off by default, as access cannot tell whether the app runs the program; the code is carried whatever the member chose for their share pages (`setReferralSharing`), as a ticket is one they hand out themselves. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 
 ***
 
@@ -415,6 +416,7 @@ type MemberTicket =
   uses: number;
   left: number;
   expiresAt: number;
+  referral?: string;
 };
 ```
 
@@ -431,7 +433,9 @@ A member's ticket as `getMemberTicket` answers it:
   asking gives it a new link);
 - `issued`: the member's access link token, for `/invite#<token>`, how many
   new addresses it admits in all, how many it still admits, and when it
-  stops. Asking again answers the same ticket until it expires, used up or not.
+  stops; with `memberTickets({ referral: true })`, the member's referral
+  code too, for `/invite?ref=<code>#<token>` (once the member has one).
+  Asking again answers the same ticket until it expires, used up or not.
 
 ***
 

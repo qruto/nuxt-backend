@@ -51,7 +51,14 @@
         "usedUp": "Cette invitation a déjà été utilisée.",
         "revoked": "Cette invitation n’est plus valide.",
         "unknown": "Ce lien d’invitation ne fonctionne pas. Vérifiez que vous avez ouvert le lien en entier.",
-        "continue": "Continuer vers la connexion"
+        "continue": "Continuer vers la connexion",
+        "blank": "Ouvrez le lien d’invitation que vous avez reçu, ou saisissez son code.",
+        "member": "Vous êtes déjà connecté, cette invitation reste donc inutilisée. Transmettez-la à un ami.",
+        "home": "Continuer",
+        "typeCode": "Code d’invitation",
+        "check": "Vérifier le code",
+        "noInvite": "Pas encore d’invitation ?",
+        "joinWaitlist": "Rejoindre la liste d’attente"
       },
       "challenge": "Confirmez que vous êtes une personne pour continuer."
     },

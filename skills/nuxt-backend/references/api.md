@@ -139,7 +139,7 @@ The base module's, under neutral names: `<Authenticated>`, `<Unauthenticated>`, 
 | `accessibility` | `/legal/accessibility` | The accessibility statement (public): the standard the app follows, how it is checked, and where to report a barrier, filled from `appConfig.backend.legal` and marked "not legal advice". |
 | `admin` | `/admin` | The admin console: accounts, workspaces, the activity trail and the app's health (private and hidden: it answers 404 to anyone without the `admin` role). |
 | `gifts` | `/gifts` | The gifts a person sent and received, with resend, change, cancel and claim (private). |
-| `invite` | `/invite` | Where an access link lands (public, kept out of search indexes): it checks the link's token and sends the person on to sign in. |
+| `invite` | `/invite` | Where an access link lands (public, kept out of search indexes): it checks the link's token, or a code typed by hand, and sends the person on to sign in. |
 | `keepAccount` | `/account/keep` | Where the "keep my account" link of a scheduled deletion lands (public, kept out of search indexes). |
 | `login` | `/login` | The sign-in page (public, kept out of search indexes), and where the page guard sends a signed-out visitor. |
 | `pricing` | `/pricing` | The pricing page (public). |

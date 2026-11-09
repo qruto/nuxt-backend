@@ -51,7 +51,14 @@
         "usedUp": "Diese Einladung wurde bereits vollständig eingelöst.",
         "revoked": "Diese Einladung ist nicht mehr gültig.",
         "unknown": "Dieser Einladungslink funktioniert nicht. Prüfen Sie, ob Sie den vollständigen Link geöffnet haben.",
-        "continue": "Weiter zur Anmeldung"
+        "continue": "Weiter zur Anmeldung",
+        "blank": "Öffnen Sie den Einladungslink, den Sie erhalten haben, oder geben Sie seinen Code ein.",
+        "member": "Sie sind bereits angemeldet, daher bleibt diese Einladung unbenutzt. Geben Sie sie an einen Freund weiter.",
+        "home": "Weiter",
+        "typeCode": "Einladungscode",
+        "check": "Code prüfen",
+        "noInvite": "Noch keine Einladung?",
+        "joinWaitlist": "Auf die Warteliste"
       },
       "challenge": "Bestätigen Sie, dass Sie ein Mensch sind, um fortzufahren."
     },

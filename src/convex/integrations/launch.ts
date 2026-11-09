@@ -164,13 +164,15 @@ export interface AccessApi {
  *   asking gives it a new link);
  * - `issued`: the member's access link token, for `/invite#<token>`, how many
  *   new addresses it admits in all, how many it still admits, and when it
- *   stops. Asking again answers the same ticket until it expires, used up or not.
+ *   stops; with `memberTickets({ referral: true })`, the member's referral
+ *   code too, for `/invite?ref=<code>#<token>` (once the member has one).
+ *   Asking again answers the same ticket until it expires, used up or not.
  */
 export type MemberTicket
   = | { state: 'open' }
     | { state: 'off' }
     | { state: 'none', uses: number }
-    | { state: 'issued', token: string, uses: number, left: number, expiresAt: number }
+    | { state: 'issued', token: string, uses: number, left: number, expiresAt: number, referral?: string }
 
 /** Options for {@link Access.memberTickets}. */
 export interface MemberTicketsOptions {
@@ -199,6 +201,19 @@ export interface MemberTicketsOptions {
    * workspace invitation does, not a chain of strangers past the waitlist.
    */
   chain?: boolean
+  /**
+   * Carry the member's referral code on their ticket (default `false`),
+   * for an app that runs the referral program (`setupReferrals`): an
+   * issued ticket answers `referral`, the member's code, made when they
+   * ask for the ticket, and `useMemberTicket().link` puts it in the link as
+   * `?ref=<code>`. The `/invite` page then sends the friend it admits
+   * through the referral page's sign-in, which claims the referral for them
+   * once they are signed up: the friend counts for the member who let them
+   * in. Off by default, as access cannot tell whether the app runs the
+   * program; the code is carried whatever the member chose for their share
+   * pages (`setReferralSharing`), as a ticket is one they hand out themselves.
+   */
+  referral?: boolean
 }
 
 /** The functions `backend/access.ts` re-exports for member tickets. */
@@ -374,6 +389,10 @@ interface AccessRefs {
   waitlist: {
     verify: FunctionReference<'mutation', 'internal', { email: string, join?: string, locale?: string, boost: { cap: number, days: number } }, { id: string, created: boolean, source: string, referred: boolean, news: boolean }>
     place: FunctionReference<'query', 'internal', { id: string }, { position: number | null, total: number, shareCode: string } | null>
+  }
+  referrals: {
+    codeFor: FunctionReference<'mutation', 'internal', { userId: string }, { code: string, sharePages: boolean }>
+    peekCode: FunctionReference<'query', 'internal', { userId: string }, { code: string, sharePages: boolean } | null>
   }
   adapter: { findOne: AdapterFindOne }
   email: { send: FunctionReference<'mutation', 'internal', Record<string, unknown>, string | null> }
@@ -727,7 +746,15 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
     // One program per access: a sign-up checks a member's link against it.
     if (program) throw new TypeError('[nuxt-backend] access.memberTickets: the program is declared once, in backend/access.ts.')
     const chain = ticketOptions.chain === true
+    const withReferral = ticketOptions.referral === true
     program = { enabled: ticketOptions.enabled, chain }
+
+    /** The member's referral code on an issued ticket, with `referral`: read in a query, made in a mutation. */
+    const referralOf = async (ctx: AccessCtx & Partial<Pick<AccessWriteCtx, 'runMutation'>>, holder: string, ticket: MemberTicket): Promise<MemberTicket> => {
+      if (!withReferral || ticket.state !== 'issued') return ticket
+      const found = ctx.runMutation ? await ctx.runMutation(refs.referrals.codeFor, { userId: holder }) : await ctx.runQuery(refs.referrals.peekCode, { userId: holder })
+      return found ? { ...ticket, referral: found.code } : ticket
+    }
 
     /** The ticket's token, found again: derived under a live secret, checked against the hash its row keeps under any live one. */
     const tokenOf = async (holder: string, row: { tokenHash: string, expiresAt: number }): Promise<string | null> => {
@@ -771,7 +798,7 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
         // A banned account holds none: its link admits nobody, and asking is refused.
         const account = await reads.account(ctx, identity.subject)
         if (!account || account.banned) return null
-        return (await standing(ctx, identity.subject)).ticket
+        return referralOf(ctx, identity.subject, (await standing(ctx, identity.subject)).ticket)
       },
     })
 
@@ -783,12 +810,12 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
         if (!account) throw backendError('unauthenticated', {}, '[nuxt-backend] issueMemberTicket: this account no longer exists.')
         if (account.banned) throw backendError('forbidden', { reason: 'banned' }, '[nuxt-backend] issueMemberTicket: this account is banned.')
         const { ticket, stale } = await standing(ctx, holder)
-        if (ticket.state !== 'none') return ticket
+        if (ticket.state !== 'none') return referralOf(ctx, holder, ticket)
         if (stale) {
           // A retired secret: the same ticket under the current one. The old link stops; its uses left and its end stay.
           const token = await memberTicketToken(secret(), holder, stale.expiresAt)
           if (await ctx.runMutation(refs.access.rekeyInvite, { from: stale.tokenHash, to: (await hashOf(token))!, keyVersion: keyVersion() })) {
-            return { state: 'issued', token, uses: stale.maxUses, left: Math.max(0, stale.maxUses - stale.uses), expiresAt: stale.expiresAt }
+            return referralOf(ctx, holder, { state: 'issued', token, uses: stale.maxUses, left: Math.max(0, stale.maxUses - stale.uses), expiresAt: stale.expiresAt })
           }
         }
         const expiresAt = Date.now() + lifetime
@@ -796,7 +823,7 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
         const id = await ctx.runMutation(refs.access.createInvite, { kind: 'link', tokenHash: (await hashOf(token))!, keyVersion: keyVersion(), label: `member:${holder}`, maxUses: uses, expiresAt, holder })
         // The member is the actor; the label names none, so their erasure leaves the row nobody's.
         await audit.recordBackendEvent(ctx, { type: 'access.invite_created', targetId: id, data: { kind: 'link', label: MEMBER_COHORT, maxUses: uses } })
-        return { state: 'issued', token, uses, left: uses, expiresAt }
+        return referralOf(ctx, holder, { state: 'issued', token, uses, left: uses, expiresAt })
       },
     })
 

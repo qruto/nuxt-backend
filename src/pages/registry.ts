@@ -58,7 +58,7 @@ export interface ModulePagesOptions {
   admin?: string | false
   /** The gifts a person sent and received, with resend, change, cancel and claim (private). Default `/gifts`. */
   gifts?: string | false
-  /** Where an access link lands (public, kept out of search indexes): it checks the link's token and sends the person on to sign in. Default `/invite`. */
+  /** Where an access link lands (public, kept out of search indexes): it checks the link's token, or a code typed by hand, and sends the person on to sign in. Default `/invite`. */
   invite?: string | false
   /** Where the "keep my account" link of a scheduled deletion lands (public, kept out of search indexes). Default `/account/keep`; the module writes it into the functions directory's `paths.generated.ts`, which the deletion email links from. */
   keepAccount?: string | false

@@ -152,6 +152,13 @@ describe('useMemberTicket', () => {
     expect([ticket.isLoading.value, ticket.error.value]).toEqual([false, null])
   })
 
+  it('carries the member\'s referral code in the link\'s query, the token still in its fragment', async () => {
+    createBackendMock({ user: { name: 'Ada' }, queries: { 'access:getMemberTicket': { ...issued, referral: 'ADA23456' } } })
+    const ticket = await inPage(() => useMemberTicket())
+    await flushPromises()
+    expect(ticket.link.value).toBe(`${window.location.origin}/invite?ref=ADA23456#0123456789ABCDEFGHJKMNPQRS`)
+  })
+
   it('mints one on issue, and shows it until the live read catches up', async () => {
     const backend = createBackendMock({ user: { name: 'Ada' }, queries: { 'access:getMemberTicket': { state: 'none', uses: 3 } } })
     backend.stub('access:issueMemberTicket', () => issued)
