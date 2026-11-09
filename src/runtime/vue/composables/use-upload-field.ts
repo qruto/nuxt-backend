@@ -52,12 +52,11 @@ export interface UseUploadFieldReturn {
   /** Upload a file and claim it. Resolves with the kept storage id, or `null` when it was refused, failed or canceled; never rejects. */
   pick: (file: File) => Promise<string | null>
   /**
-   * Try the last file again after it failed or was refused, from where it
-   * stopped: the claim alone when the file was stored and the claim failed on
-   * the way, the transfer again otherwise (a refused file is sent again).
-   * Resolves as `pick` does; `null` at once when there is nothing to retry.
-   * `<UploadField>` offers it for a failure only: a refused file would be
-   * turned away again.
+   * Try the last file again after it failed on the way, from where it
+   * stopped: the claim alone when the file was stored, the transfer again
+   * otherwise. Resolves as `pick` does; `null` at once, sending nothing,
+   * for a refused file (the deployment would turn the same file away again:
+   * `pick` another) or when nothing failed.
    */
   retry: () => Promise<string | null>
   /** Abort the upload in flight. */
@@ -208,9 +207,12 @@ export function useUploadField(options: UseUploadFieldOptions): UseUploadFieldRe
     return settled(current.value!.id)
   }
 
+  /** The field's file, when it failed on the way: the one `retry` sends again. A refused file is not. */
+  const retryable = computed(() => (current.value?.status === 'error' && !current.value.refused ? current.value : null))
+
   function retry(): Promise<string | null> {
-    const item = current.value
-    if (!queue || !item || item.status !== 'error') return Promise.resolve(null)
+    const item = retryable.value
+    if (!queue || !item) return Promise.resolve(null)
     error.value = null
     const kept = settled(item.id)
     queue.retry(item.id)
@@ -292,8 +294,8 @@ export function useUploadField(options: UseUploadFieldOptions): UseUploadFieldRe
     retry: computed(() => ({
       'type': 'button',
       'data-upload': 'retry',
-      // Nothing to send again: a field with no upload URL mutation.
-      'hidden': current.value?.status !== 'error' || undefined,
+      // Nothing to send again: a refused file, or a field with no upload URL mutation.
+      'hidden': !retryable.value || undefined,
       'aria-describedby': ids.error,
       'onClick': () => {
         void retry()

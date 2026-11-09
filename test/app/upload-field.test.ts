@@ -105,15 +105,30 @@ describe('<UploadField>, on the backend mock', () => {
     expect(errors.mock.calls[0]![0]).toMatchObject({ code: 'invalid_input', data: { reason: 'unsupported_type' } })
   })
 
-  it('offers no Try again for a refusal: the same file would be turned away again', async () => {
+  it('offers no Try again for a refusal, and retry() sends nothing: the same file would be turned away again', async () => {
     const claim = vi.fn(async () => {
       throw backendError('quota_exceeded', { quota: 'storage', limit: 100, used: 100, amount: 1, plans: ['pro'] })
     })
-    const field = await mountSuspended(UploadField, { props: { claim } })
+    let scope: { refused: boolean, retry: () => Promise<string | null> } | undefined
+    const field = await mountSuspended(UploadField, {
+      props: { claim },
+      slots: {
+        error: (props: NonNullable<typeof scope>) => {
+          scope = props
+          return 'Refused.'
+        },
+      },
+    })
     await choose(field, photo())
     expect(field.find('[data-upload="field"]').attributes('data-state')).toBe('refused')
     expect(field.find('button[data-upload="retry"]').exists()).toBe(false)
     expect(field.find('button[data-upload="choose"]').text()).toBe('Choose another file')
+    expect(scope?.refused).toBe(true)
+    expect(await scope!.retry()).toBeNull()
+    await flushPromises()
+    expect(claim).toHaveBeenCalledTimes(1)
+    expect(FakeUpload.sent).toHaveLength(1)
+    expect(field.find('[data-upload="field"]').attributes('data-state')).toBe('refused')
   })
 
   it('says a claim that failed on the way failed, and Try again claims the stored file again without a second upload', async () => {
