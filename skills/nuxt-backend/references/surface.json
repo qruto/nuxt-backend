@@ -912,6 +912,7 @@
       "useReferralAdmin",
       "useReferralInvite",
       "useReferrals",
+      "useReportAppeal",
       "useReportForm",
       "useReturnPath",
       "useSandboxInbox",

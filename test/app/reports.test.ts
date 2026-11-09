@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { computed, ref } from 'vue'
+import { computed, defineComponent, h, ref } from 'vue'
 import { enableAutoUnmount, flushPromises } from '@vue/test-utils'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { backendError } from '../../src/convex/errors'
 import { createBackendMock, resetBackendMock } from '../../src/runtime/test-utils'
 import { registerComponents } from '../helpers/register-components'
 
@@ -155,5 +156,66 @@ describe('the report page', () => {
     const page = await mountSuspended(ReportAppeal, { props: { token: 'nope' } })
     await flushPromises()
     expect(page.text()).toContain('This appeal link doesn\'t work.')
+  })
+})
+
+describe('useReportAppeal', () => {
+  const decision = { title: 'A fox', action: 'hidden', reason: 'Harassment.', ground: 'terms', at: Date.UTC(2026, 9, 1), until: Date.now() + 100 * 24 * HOUR, appeal: null }
+
+  async function mounted(token?: string | null, hash = '') {
+    const { useReportAppeal } = await import('../../src/runtime/vue/composables/use-report-appeal')
+    let state: ReturnType<typeof useReportAppeal> | undefined
+    await mountSuspended(defineComponent({
+      setup() {
+        // The address the page opened at: the test app's mount sets its own first.
+        if (hash) history.replaceState(null, '', `${location.pathname}${hash}`)
+        state = token === undefined ? useReportAppeal() : useReportAppeal(() => token)
+        return () => h('div')
+      },
+    }))
+    await flushPromises()
+    return state!
+  }
+
+  afterEach(() => {
+    history.replaceState(null, '', location.pathname)
+  })
+
+  it('reads the token from the page\'s #appeal= fragment, shows the decision and sends the appeal', async () => {
+    const backend = createBackendMock()
+    backend.stub('admin:getAppeal', ({ token }: { token: string }) => (token === 'b'.repeat(43) ? decision : null))
+    backend.stub('admin:appealDecision', () => null)
+    const appeal = await mounted(undefined, `#appeal=${'b'.repeat(43)}`)
+    expect(appeal.token.value).toBe('b'.repeat(43))
+    expect(appeal.state.value).toBe('form')
+    expect(appeal.decision.value?.reason).toBe('Harassment.')
+    expect(appeal.formatDate(decision.at)).toContain('2026')
+    // Nothing to say: nothing is sent.
+    expect(await appeal.send()).toBe(false)
+    appeal.text.value = 'The fox is mine.'
+    expect(await appeal.send()).toBe(true)
+    expect(backend.callsTo('admin:appealDecision')).toEqual([{ token: 'b'.repeat(43), text: 'The fox is mine.' }])
+  })
+
+  it('reads none without a token, unknown for a link that names no decision, expired past six months, and an appeal\'s outcome', async () => {
+    const backend = createBackendMock()
+    backend.stub('admin:getAppeal', ({ token }: { token: string }) => ({ old: { ...decision, until: Date.now() - HOUR }, sent: { ...decision, appeal: { status: 'reversed', createdAt: Date.now(), reason: 'Fair.' } } } as Record<string, unknown>)[token] ?? null)
+    expect((await mounted(null)).state.value).toBe('none')
+    expect((await mounted('nope')).state.value).toBe('unknown')
+    expect((await mounted('old')).state.value).toBe('expired')
+    const decided = await mounted('sent')
+    expect(decided.state.value).toBe('reversed')
+    expect(await decided.send()).toBe(false)
+  })
+
+  it('hands a refusal over as a backend error, and never rejects', async () => {
+    const backend = createBackendMock()
+    backend.stub('admin:getAppeal', () => decision)
+    backend.fail('admin:appealDecision', backendError('forbidden', { reason: 'already_appealed' }))
+    const appeal = await mounted('c'.repeat(43))
+    appeal.text.value = 'Again.'
+    expect(await appeal.send()).toBe(false)
+    expect(appeal.error.value?.code).toBe('forbidden')
+    expect(appeal.isPending.value).toBe(false)
   })
 })

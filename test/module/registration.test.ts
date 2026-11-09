@@ -122,6 +122,7 @@ const COMPOSABLE_NAMES = [
   'useAnnouncementsAdmin',
   'useContactForm',
   'useReportForm',
+  'useReportAppeal',
   'useInboxAdmin',
   'useOnboarding',
   'useActivation',

@@ -78,6 +78,7 @@ export function registerSaasComposables(resolver: Resolver): void {
     { name: 'useAnnouncementsAdmin', from: resolver.resolve('./runtime/vue/composables/use-announcements') },
     { name: 'useContactForm', from: resolver.resolve('./runtime/vue/composables/use-contact-form') },
     { name: 'useReportForm', from: resolver.resolve('./runtime/vue/composables/use-report-form') },
+    { name: 'useReportAppeal', from: resolver.resolve('./runtime/vue/composables/use-report-appeal') },
     { name: 'useOnboarding', from: resolver.resolve('./runtime/vue/composables/use-onboarding') },
     { name: 'useActivation', from: resolver.resolve('./runtime/vue/composables/use-activation') },
     { name: 'useExperiment', from: resolver.resolve('./runtime/vue/composables/use-experiment') },

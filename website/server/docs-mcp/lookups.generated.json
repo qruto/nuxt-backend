@@ -1252,6 +1252,12 @@
       "summary": "A report about content of the app's, without its markup.",
       "url": "/docs/reference/nuxt/composables"
     },
+    "useReportAppeal": {
+      "tab": "Ship",
+      "tier": "stable",
+      "summary": "The appeal of a content decision, without its markup: the decision a `#appeal=<token>` link names, the appeal's state, and sending it once.",
+      "url": "/docs/reference/nuxt/composables"
+    },
     "useOnboarding": {
       "tab": "Auth",
       "tier": "stable",

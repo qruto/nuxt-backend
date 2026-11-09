@@ -58,6 +58,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useAnnouncementsAdmin()` | The admin console's Announcements tab, as data: every announcement with its notice and its broadcast, and the changes an administrator makes, through `backend/email.ts`. |
 | `useContactForm()` | The contact form without its markup: a name and an address for a visitor, the message alone for a signed-in account (so the same form on a page behind sign-in is a feedback form), the bot check, a honeypot, and the deployment's refusals. |
 | `useReportForm()` | A report about content of the app's, without its markup. |
+| `useReportAppeal()` | The appeal of a content decision, without its markup: the decision a `#appeal=<token>` link names, the appeal's state, and sending it once. |
 | `useOnboarding()` | The first run at `/welcome` without its markup: the steps in order, where the person is, moving between them, and the stamp that ends it. |
 | `useActivation()` | The activation checklist without its markup: the first tasks `defineActivation` declares, which of them are done, the progress, and dismissing it. |
 | `useExperiment()` | The variant of an experiment, a `defineFlags` flag with `variants`, for whoever is looking. |

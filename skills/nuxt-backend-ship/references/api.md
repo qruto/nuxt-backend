@@ -14,6 +14,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `useFlag()` | Whether a feature flag is on for whoever is looking: their account, their active workspace and their plan, as `backend/flags.ts` declares the flag and the admin console overrides it. |
 | `useFlagAdmin()` | The admin console's Flags tab, as data: every flag with its default and its override, and the change an administrator makes, through `listFlags` and `setFlag` of `backend/flags.ts`. |
 | `useReportForm()` | A report about content of the app's, without its markup. |
+| `useReportAppeal()` | The appeal of a content decision, without its markup: the decision a `#appeal=<token>` link names, the appeal's state, and sending it once. |
 
 ## Components
 

@@ -508,6 +508,7 @@ const REGISTRY = {
     'useConsents',
     'useContactForm',
     'useReportForm',
+    'useReportAppeal',
     'useOnboarding',
     'useActivation',
     'useAppShell',

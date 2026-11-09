@@ -64,6 +64,7 @@ export const COMPOSABLE_AREAS = {
   useEmailStatus: 'email',
   useContactForm: 'email',
   useReportForm: 'ship',
+  useReportAppeal: 'ship',
   useSignInAlerts: 'auth',
   useInboxAdmin: 'email',
   useOnboarding: 'auth',
