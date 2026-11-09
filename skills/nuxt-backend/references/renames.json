@@ -144,6 +144,46 @@
       "section": "The packaged UI reads its faces, lines and shadows from tokens",
       "note": "the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root",
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#the-packaged-ui-reads-its-faces-lines-and-shadows-from-tokens"
+    },
+    {
+      "from": "passkey(...)",
+      "to": "authenticatorSelection: { userVerification: 'required' }",
+      "change": "reshaped",
+      "section": "Passkeys check the person, and a ban says when it ends",
+      "note": "keep it in a passkey plugin of your own; the package's requires it, and refuses a passkey a security key with no PIN saved under 0.2",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#passkeys-check-the-person-and-a-ban-says-when-it-ends"
+    },
+    {
+      "from": "customResolveMethod: resolveSignInMethod",
+      "to": null,
+      "change": "removed",
+      "section": "Passkeys check the person, and a ban says when it ends",
+      "note": "deprecated, still exported until a later minor release: Better Auth 1.7 names a code sign-in `email-otp` itself",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#passkeys-check-the-person-and-a-ban-says-when-it-ends"
+    },
+    {
+      "from": "admin.bannedUserMessage",
+      "to": "errors.forbidden_banned_until",
+      "change": "reshaped",
+      "section": "Passkeys check the person, and a ban says when it ends",
+      "note": "the refusal carries `until`; word it with the `errors.forbidden_banned` and `errors.forbidden_banned_until` labels, since a message of your own drops `until`",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#passkeys-check-the-person-and-a-ban-says-when-it-ends"
+    },
+    {
+      "from": "getIp",
+      "to": "getIP",
+      "change": "reshaped",
+      "section": "Better Auth 1.7, and a deploy for the backend's schema",
+      "note": "Better Auth's own rename in `better-auth/api`, not a name of this package",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#better-auth-17-and-a-deploy-for-the-backends-schema"
+    },
+    {
+      "from": "authOptions",
+      "to": "better-auth@>=1.7.16 <1.8.0",
+      "change": "reshaped",
+      "section": "Better Auth 1.7, and a deploy for the backend's schema",
+      "note": "a Better Auth plugin added through it must support 1.7; deploy the backend for the new schema, then `nuxt-backend upgrade`",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#better-auth-17-and-a-deploy-for-the-backends-schema"
     }
   ]
 }
