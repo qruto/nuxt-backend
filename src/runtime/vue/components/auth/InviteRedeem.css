@@ -44,7 +44,7 @@
 
   [data-auth='input-invite-code'] {
     padding: 0.5rem 0.65rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     background: var(--bk-surface);
     color: var(--bk-ink);
@@ -56,12 +56,13 @@
   [data-auth='invite-check'] {
     align-self: flex-start;
     padding: 0.5rem 0.9rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     background: var(--bk-surface);
     color: var(--bk-ink);
     font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
+    letter-spacing: var(--bk-tracking-control, normal);
     cursor: pointer;
   }
 
