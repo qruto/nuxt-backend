@@ -112,7 +112,7 @@
     flex-direction: column;
     gap: 0.5rem;
     padding: 0.7rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
     border-radius: var(--bk-radius);
     font-size: 0.82rem;
   }

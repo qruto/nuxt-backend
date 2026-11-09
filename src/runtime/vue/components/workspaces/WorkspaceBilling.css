@@ -97,7 +97,7 @@
     flex-direction: column;
     gap: 0.6rem;
     padding: 0.8rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
     box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
   }
