@@ -835,7 +835,10 @@
           "cancel": "Annuler",
           "cancelRefund": "Annuler et rembourser",
           "retry": "Réessayer",
-          "discard": "Écarter"
+          "discard": "Écarter",
+          "retryCharge": "Relancer le débit",
+          "owed": "{status}, {credits} crédits dus",
+          "owedGivenUp": "{status}, {credits} crédits jamais débités"
         },
         "status": {
           "queued": "En attente",

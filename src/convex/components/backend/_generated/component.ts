@@ -4854,6 +4854,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
+      chargeTried: FunctionReference<
+        "mutation",
+        "internal",
+        { at?: number; jobId: string; outcome: "retry" | "given_up" },
+        boolean,
+        Name
+      >;
       claimCharge: FunctionReference<
         "mutation",
         "internal",
@@ -5022,6 +5029,19 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           };
         },
         any,
+        Name
+      >;
+      oweCharge: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          again?: boolean;
+          at: number;
+          jobId: string;
+          metadata?: Record<string, string>;
+          price: number;
+        },
+        boolean,
         Name
       >;
       oweRefund: FunctionReference<
@@ -5222,7 +5242,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             usd?: number;
           };
         },
-        null,
+        null | { owner: string; userId?: string },
         Name
       >;
       visitorJobs: FunctionReference<

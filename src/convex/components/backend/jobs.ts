@@ -503,6 +503,8 @@ export const attachWorkflow = mutation({
  * A sign of life from a running job: its lease, and what its last attempt
  * did. `attempt` counts one attempt of a step; `usage` adds what its model
  * calls used; `lastError` keeps the provider's own text for administrators.
+ * Answers who the job is for, its owner and who started it, while it is a
+ * job at all: what a step's `ctx.job` names.
  */
 export const touch = mutation({
   args: {
@@ -515,10 +517,12 @@ export const touch = mutation({
     /** The app's daily AI spend limit, in US dollars (`setupAi({ spendLimit })`), checked once the usage is added. */
     spendLimitUsd: v.optional(v.number()),
   },
-  returns: v.null(),
+  returns: v.union(v.null(), v.object({ owner: v.string(), userId: v.optional(v.string()) })),
   handler: async (ctx, { jobId, until, attempt, lastError, usage, progress, spendLimitUsd }) => {
     const job = await jobOf(ctx, jobId)
-    if (job?.status !== 'running') return null
+    if (!job) return null
+    const whose = job.userId === undefined ? { owner: job.owner } : { owner: job.owner, userId: job.userId }
+    if (job.status !== 'running') return whose
     await ctx.db.patch('jobs', job._id, defined({
       leaseUntil: Math.max(job.leaseUntil ?? 0, until),
       attempts: attempt ? job.attempts + 1 : undefined,
@@ -527,7 +531,7 @@ export const touch = mutation({
       progress,
     }))
     if (usage) await addAiCost(ctx, job, Date.now(), { usage, ...(spendLimitUsd === undefined ? {} : { spendLimitUsd }) })
-    return null
+    return whose
   },
 })
 
@@ -584,11 +588,24 @@ export const finish = mutation({
     const refunded = failed || (status === 'canceled' && job.cancel?.refund === true)
     if (refunded) await giveBack(ctx, job)
     if (owesRefund(job, status, refunded)) await ctx.db.patch('jobs', job._id, { refundOwed: 'pending', refundAt: now })
+    const owedDropped = await dropOwedCharge(ctx, job, refunded)
     if (status === 'done') await countDone(ctx, job, now)
     if (job.startedAt !== undefined) await addAiCost(ctx, job, now, { ended: true })
-    return { ...(await ctx.db.get('jobs', job._id))!, refund: refunded }
+    return { ...(await ctx.db.get('jobs', job._id))!, refund: refunded, owedDropped }
   },
 })
+
+/**
+ * Drop a charge a job still owes as it ends refunded, failed or canceled
+ * with a refund: it made nothing it is charged for. A done job, or one
+ * canceled without a refund, keeps it. Answers whether one was dropped:
+ * the app lets its hold go.
+ */
+async function dropOwedCharge(ctx: MutationCtx, job: Doc<'jobs'>, refunded: boolean): Promise<boolean> {
+  if (!refunded || job.chargeOwed !== 'pending') return false
+  await ctx.db.patch('jobs', job._id, { chargeOwed: undefined, chargeAt: undefined })
+  return true
+}
 
 /**
  * Cancel a job. A waiting job leaves the line at once and gives its budget
@@ -652,8 +669,54 @@ export const mark = mutation({
     const now = Date.now()
     const owed = job.status !== 'running' && owesRefund({ ...job, charged: true, price }, job.status, job.status === 'failed' || job.cancel?.refund === true)
     // A running job's charge landed: the error an earlier try of it recorded is no longer why anything fails.
-    await ctx.db.patch('jobs', job._id, { charged: true, ...(price === undefined ? {} : { price }), ...(job.status === 'running' ? { error: undefined } : {}), ...(owed ? { refundOwed: 'pending' as const, refundAt: now } : {}) })
+    // An owed charge that lands owes nothing more.
+    await ctx.db.patch('jobs', job._id, {
+      charged: true,
+      ...(price === undefined ? {} : { price }),
+      ...(job.status === 'running' ? { error: undefined } : {}),
+      ...(owed ? { refundOwed: 'pending' as const, refundAt: now } : {}),
+      chargeOwed: undefined,
+      chargeAt: undefined,
+    })
     return { refund: owed }
+  },
+})
+
+/**
+ * Owe a running job's charge, for a kind charged by output: the provider
+ * refused `job.charge` for now, so the job runs on and its charge is tried
+ * again in the background, the first try due at `at`. `again` owes once
+ * more a charge whose tries gave up: an administrator's retry. Answers
+ * whether it is owed now; `false` for a job charged already, or one that
+ * ended before its charge was owed.
+ */
+export const oweCharge = mutation({
+  args: { jobId: v.string(), price: v.number(), at: v.number(), metadata: v.optional(v.record(v.string(), v.string())), again: v.optional(v.boolean()) },
+  returns: v.boolean(),
+  handler: async (ctx, { jobId, price, at, metadata, again }) => {
+    const job = await jobOf(ctx, jobId)
+    if (!job || job.charged) return false
+    if (again ? job.chargeOwed !== 'given_up' : (job.chargeOwed !== undefined || job.status !== 'running')) return false
+    await ctx.db.patch('jobs', job._id, { chargeOwed: 'pending', chargeAt: at, ...(again ? {} : { price, ...(metadata ? { chargeMetadata: metadata } : {}) }) })
+    return true
+  },
+})
+
+/**
+ * How an owed charge's try went, when it did not land: `retry` keeps it
+ * owed, the next try due at `at`; `given_up` keeps the job uncharged with
+ * no try left. Answers whether it was still owed, so a try that lost a race
+ * with the job's end does nothing.
+ */
+export const chargeTried = mutation({
+  args: { jobId: v.string(), outcome: v.union(v.literal('retry'), v.literal('given_up')), at: v.optional(v.number()) },
+  returns: v.boolean(),
+  handler: async (ctx, { jobId, outcome, at }) => {
+    const job = await jobOf(ctx, jobId)
+    const owed = job?.chargeOwed === 'pending' && !job.charged
+    const next = outcome === 'retry' ? { chargeAt: at ?? Date.now() } : { chargeOwed: 'given_up' as const, chargeAt: undefined }
+    if (owed) await ctx.db.patch('jobs', job._id, next)
+    return owed
   },
 })
 
@@ -929,6 +992,9 @@ export const requeue = mutation({
       price: carried ? job.price : undefined,
       refundOwed: undefined,
       refundAt: undefined,
+      chargeOwed: undefined,
+      chargeAt: undefined,
+      chargeMetadata: undefined,
       error: undefined,
       deadLetter: undefined,
       cancel: undefined,

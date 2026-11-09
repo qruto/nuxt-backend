@@ -835,7 +835,10 @@
           "cancel": "Cancelar",
           "cancelRefund": "Cancelar y reembolsar",
           "retry": "Reintentar",
-          "discard": "Descartar"
+          "discard": "Descartar",
+          "retryCharge": "Reintentar el cobro",
+          "owed": "{status}, {credits} créditos pendientes",
+          "owedGivenUp": "{status}, {credits} créditos sin cobrar"
         },
         "status": {
           "queued": "En espera",

@@ -835,7 +835,10 @@
           "cancel": "Abbrechen",
           "cancelRefund": "Abbrechen und erstatten",
           "retry": "Wiederholen",
-          "discard": "Verwerfen"
+          "discard": "Verwerfen",
+          "retryCharge": "Abbuchung wiederholen",
+          "owed": "{status}, {credits} Credits ausstehend",
+          "owedGivenUp": "{status}, {credits} Credits nie abgebucht"
         },
         "status": {
           "queued": "Wartet",

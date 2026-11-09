@@ -835,7 +835,10 @@
           "cancel": "Отменить",
           "cancelRefund": "Отменить и вернуть кредиты",
           "retry": "Повторить",
-          "discard": "Удалить"
+          "discard": "Удалить",
+          "retryCharge": "Повторить списание",
+          "owed": "{status}, ожидает списания: {credits}",
+          "owedGivenUp": "{status}, не списано: {credits}"
         },
         "status": {
           "queued": "Ждёт",

@@ -91,6 +91,18 @@ if (blocked) throw backendError('invalid_input', { field: 'title', reason: 'cont
 
 A metered call's record says `stage: 'prompt'`, a chat's `'chat'` with the thread, and a job's `'job'` with its id, unless its `moderate` returns `subject` and `stage` beside `text` and `images`.
 
+In a job's step (`jobs.step`) nobody is signed in: `ai.moderate` and `ai.requireSafe` called there name the job's starter as `userId` and the job's owner as `owner`, from `ctx.job`, unless the call names its own. A drawn page checked before it joins the comic is then recorded against the person who asked for it:
+
+```ts [backend/comics.ts]
+export const checkPage = jobs.step({
+  args: { comicId: v.id('comics'), imageId: v.string(), page: v.number() },
+  handler: async (ctx, { comicId, imageId, page }) => {
+    // The flag names ctx.job.userId and ctx.job.owner.
+    await ai.requireSafe(ctx, { images: [imageId] }, { subject: comicId, stage: `output:${page}` })
+  },
+})
+```
+
 ## Check uploads
 
 An upload is checked where your code accepts it, before you keep it. `ai.requireSafe` throws the same refusal as a flagged prompt, and `ai.moderate` returns the verdict for you to decide:
