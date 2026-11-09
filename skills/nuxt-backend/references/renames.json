@@ -18,6 +18,14 @@
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#billing-sync-prices-every-product-in-the-organizations-currency-and-attaches-the-benefits-a-product-lacks"
     },
     {
+      "from": "setupEmail({ paths, brand })",
+      "to": "setupEmail({ paths, brand, labels })",
+      "change": "reshaped",
+      "section": "Emails and notifications read the labels app config sets",
+      "note": "import `labels` from `./labels.generated`, which `upgrade` writes; drop the copy `messages` repeated from app config",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#emails-and-notifications-read-the-labels-app-config-sets"
+    },
+    {
       "from": "ai.moderate",
       "to": "ai.moderate",
       "change": "reshaped",

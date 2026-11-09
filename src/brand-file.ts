@@ -29,7 +29,7 @@ export interface BackendBrand {
 export const BRAND_KEYS = ['name', 'logo', 'address'] as const satisfies ReadonlyArray<keyof BackendBrand>
 
 /** A value as a single-quoted TypeScript string, which the app's linter accepts. */
-function quoted(value: string): string {
+export function quoted(value: string): string {
   return `'${JSON.stringify(value).slice(1, -1).replace(/\\"/g, '"').replace(/'/g, '\\\'')}'`
 }
 
@@ -47,7 +47,7 @@ export function renderBrandFile(brand: BackendBrand): string {
 }
 
 /** A string literal's value, or a template literal's without placeholders; `undefined` for anything else. */
-function literal(node: Node | undefined): string | undefined {
+export function literal(node: Node | undefined): string | undefined {
   if (!node) return undefined
   if (node.type === 'StringLiteral' && typeof node.value === 'string') return node.value
   if (node.type === 'TemplateLiteral' && Array.isArray(node.expressions) && node.expressions.length === 0) {
@@ -58,7 +58,7 @@ function literal(node: Node | undefined): string | undefined {
 }
 
 /** The value a property of an object literal holds, by its key. */
-function property(object: Node | undefined, key: string): Node | undefined {
+export function property(object: Node | undefined, key: string): Node | undefined {
   if (object?.type !== 'ObjectExpression') return undefined
   const found = (object.properties as Node[]).find((entry) => {
     if (entry.type !== 'ObjectProperty') return false
@@ -69,7 +69,7 @@ function property(object: Node | undefined, key: string): Node | undefined {
 }
 
 /** The object an `app.config` file exports: `defineAppConfig({ … })`, or a plain object. */
-function exportedObject(program: Node): Node | undefined {
+export function exportedObject(program: Node): Node | undefined {
   const declaration = (program.body as Node[]).find(statement => statement.type === 'ExportDefaultDeclaration')?.declaration as Node | undefined
   if (!declaration) return undefined
   if (declaration.type === 'ObjectExpression') return declaration
@@ -96,7 +96,7 @@ export function brandOfAppConfig(magicast: Magicast, text: string): BackendBrand
 }
 
 /** The extensions Nuxt reads an `app.config` file with. */
-const APP_CONFIG_FILES = ['app.config.ts', 'app.config.mts', 'app.config.js', 'app.config.mjs']
+export const APP_CONFIG_FILES = ['app.config.ts', 'app.config.mts', 'app.config.js', 'app.config.mjs']
 
 /**
  * The brand of an app and the layers it extends, from their `app.config`

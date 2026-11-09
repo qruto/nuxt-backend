@@ -133,6 +133,7 @@ Every name on this surface is brand-neutral: no export, value or type, and no re
   - `labels.contact`
   - `labels.credits`
   - `labels.deletion`
+  - `labels.email`
   - `labels.errors`
   - `labels.feedback`
   - `labels.gift`
@@ -557,6 +558,7 @@ The backend component's maintenance is part of this surface by its windows: what
   - `dev-script`
   - `env-defaults`
   - `function-contract`
+  - `labels-file`
   - `name-collisions`
   - `paths-file`
 - `email`:

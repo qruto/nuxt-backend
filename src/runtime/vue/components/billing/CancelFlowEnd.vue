@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import type { CancelFlowEndProps } from '../../parts'
+import { useMeterUnit } from '../../utils/meter-unit'
 
 /** `<CancelFlow>`'s end: when the plan ends, what keeps working until then, and "Keep my plan"; or that the plan stays. */
 defineOptions({ name: 'CancelFlowEnd' })
 const props = defineProps<CancelFlowEndProps>()
 const { t } = props.flow.labels
+const unit = useMeterUnit()
 </script>
 
 <template>
@@ -28,7 +30,7 @@ const { t } = props.flow.labels
         {{ flow.endText.value }}
       </p>
       <p data-cancel-flow="end-note">
-        {{ t('endNote') }}
+        {{ t('endNote', { unit: unit.word(null) }) }}
       </p>
       <button
         data-cancel-flow="keep"

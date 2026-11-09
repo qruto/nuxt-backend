@@ -4,6 +4,7 @@ import type { ProfilePreferencesSectionProps } from '../../parts'
 import { useLabels } from '../../composables/use-labels'
 import type { NotificationChannel } from '../../../../convex/notifications'
 import { notificationLabelKey } from '../../../../convex/notifications'
+import { useMeterUnit } from '../../utils/meter-unit'
 import { useProfileView } from './profile-settings'
 
 /**
@@ -19,6 +20,7 @@ const props = defineProps<ProfilePreferencesSectionProps>()
 const view = useProfileView('ProfilePreferencesSection')
 const { t, errorMessage } = useLabels('preferences')
 const notificationWords = useLabels('notifications')
+const unit = useMeterUnit()
 const channelNames: Record<NotificationChannel, 'channels.app' | 'channels.email' | 'channels.push'> = { app: 'channels.app', email: 'channels.email', push: 'channels.push' }
 const headingId = `${view.id}-preferences`
 const outcome = ref<string | null>(null)
@@ -36,10 +38,10 @@ async function save(event: Event, target: string | { kind: string, channel: Noti
   })
 }
 
-/** A kind's name: the words its notifications open with, with no one and no workspace named. */
+/** A kind's name: the words its notifications open with, with no one and no workspace named, and the credits' unit. */
 function kindName(type: string): string {
   const key = `${notificationLabelKey(type)}.title`
-  const text = notificationWords.t(key as never, { actor: notificationWords.t('actorSomeone'), workspace: notificationWords.t('workspaceUnnamed'), amount: '' })
+  const text = notificationWords.t(key as never, { actor: notificationWords.t('actorSomeone'), workspace: notificationWords.t('workspaceUnnamed'), amount: '', unit: unit.word(null) })
   return text === `notifications.${key}` ? notificationWords.t('fallbackTitle') : text
 }
 

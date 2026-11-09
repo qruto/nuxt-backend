@@ -34,8 +34,8 @@ export const UPGRADE_BASE = 'c9b'
  * Every later PR that changes the scaffold adds its own here.
  */
 export const ADDED_SINCE_BASE = {
-  /** F4a: audit.ts, the activity trail's setupAudit and its reads. F7: admin.ts, the admin console's setupAdmin and its reads. FLAGS: flags.ts, setupFlags with the app's flags and its reads. NOTIFY: notifications.ts, setupNotifications and the reads and writes of the in-app inbox (audit.ts passes it to setupAudit). F8: account.ts, setupAccount with the export and the providers' part of an erasure. OPS1: webhooks.ts, setupWebhooks with the delivery log and its replay. SETUP: paths.generated.ts, the paths nuxt.config declares, which the module writes. PREFS: brand.generated.ts, the brand app.config declares. */
-  files: ['audit.ts', 'notifications.ts', 'account.ts', 'admin.ts', 'webhooks.ts', 'flags.ts', 'paths.generated.ts', 'brand.generated.ts'],
+  /** F4a: audit.ts, the activity trail's setupAudit and its reads. F7: admin.ts, the admin console's setupAdmin and its reads. FLAGS: flags.ts, setupFlags with the app's flags and its reads. NOTIFY: notifications.ts, setupNotifications and the reads and writes of the in-app inbox (audit.ts passes it to setupAudit). F8: account.ts, setupAccount with the export and the providers' part of an erasure. OPS1: webhooks.ts, setupWebhooks with the delivery log and its replay. SETUP: paths.generated.ts, the paths nuxt.config declares, which the module writes. PREFS: brand.generated.ts, the brand app.config declares. LABELS: labels.generated.ts, the labels app.config sets. */
+  files: ['audit.ts', 'notifications.ts', 'account.ts', 'admin.ts', 'webhooks.ts', 'flags.ts', 'paths.generated.ts', 'brand.generated.ts', 'labels.generated.ts'],
   /** F14: the sharded counter and workpool components. */
   mounts: ['shardedCounter', 'workpool'],
   routes: [] as string[],

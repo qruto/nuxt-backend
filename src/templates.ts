@@ -1,6 +1,7 @@
 import dedent from 'dedent'
 import { DEFAULT_BACKEND_PATHS } from './convex/paths'
 import { BRAND_FILE, renderBrandFile } from './brand-file'
+import { LABELS_FILE, renderLabelsFile } from './labels-file'
 import { PATHS_FILE, renderPathsFile } from './paths-file'
 
 const AUTH_CONFIG_TEMPLATE = dedent`
@@ -246,6 +247,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     import { components } from './_generated/api'
     import { internalAction } from './_generated/server'
     import { brand } from './brand.generated'
+    import { labels } from './labels.generated'
     import { paths } from './paths.generated'
 
     // Transactional + marketing email over the backend component's email module.
@@ -259,7 +261,9 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // \`paths\` (paths.generated.ts) is where an email's unsubscribe link opens, and
     // \`brand\` (brand.generated.ts) the name, logo and postal address app.config
     // declares (\`backend.brand\`): the emails name the app as its pages do.
-    export const email = setupEmail(components, { paths, brand })
+    // \`labels\` (labels.generated.ts) are the labels app.config sets
+    // (\`backend.labels\`): emails, notification emails and push say what the pages say.
+    export const email = setupEmail(components, { paths, brand, labels })
 
     // The read behind useEmailStatus, and the DevTools Email tab's previews
     // (internal: only the Convex CLI reaches them, on a dev deployment).
@@ -369,7 +373,8 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
     // they allowed (PUSH_PUBLIC_KEY and PUSH_PRIVATE_KEY, which env push
     // generates). An event of your own joins through notify: record it under
     // \`app.\` with audit.recordBackendEvent, say what it becomes here, and give
-    // its words as labels (your i18n files, passed to setupEmail as messages):
+    // its words as labels (app.config's \`backend.labels.notifications\`, which reach
+    // the email and the push through labels.generated.ts):
     //   notify: { 'app.project_archived': { channels: ['app', 'email', 'push'], link: event => \`/projects/\${event.targetId}\` } }
     export const notifications = setupNotifications(components, { email, paths })
 
@@ -618,6 +623,8 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
   [PATHS_FILE]: renderPathsFile(DEFAULT_BACKEND_PATHS),
   // The brand app.config declares, empty until the module writes the app's own.
   [BRAND_FILE]: renderBrandFile({}),
+  // The labels app.config sets, empty until the module writes the app's own.
+  [LABELS_FILE]: renderLabelsFile({}),
 }
 
 /**

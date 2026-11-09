@@ -559,6 +559,11 @@ export const FINDING_DOCS = {
     why: 'The backend never reads app config: its emails and passkey prompts read the brand from that file. Without it, or with an old one, the emails name the app otherwise than its pages, and marketing email lacks the postal address.',
     fix: 'Run `npx nuxt-backend doctor --fix` (any `nuxt prepare`, `dev` or `build` writes it too), commit the file and push the functions.',
   },
+  'labels-file': {
+    checks: '`<functions dir>/labels.generated.ts` exists and holds the labels `app.config` sets (`backend.labels`), the app\'s own over a layer\'s, key by key. A label is read as written: a string, an object of them, a `const` of the same file, or a named or default import of a relative file; one written as any other expression is left out. Missing or out of date warns. No finding before there is a functions directory, or when `nuxt.config` cannot be loaded.',
+    why: 'The backend never reads app config: its emails, notification emails and push read the labels from that file, through `setupEmail({ labels })`. Without it, or with an old one, they say otherwise than the pages.',
+    fix: 'Run `npx nuxt-backend doctor --fix` (any `nuxt prepare`, `dev` or `build` writes it too), commit the file and push the functions. A `backend/email.ts` from before 0.3 imports `labels` from `./labels.generated` and passes it to `setupEmail`, as the scaffold does.',
+  },
   'dev-script': {
     checks: 'Reported only when `scripts.dev` is `convex dev --start "nuxt dev"`, which never starts Nuxt on a new deployment.',
     why: 'Convex starts the command only after a successful push, and a new deployment lacks the env that push needs.',

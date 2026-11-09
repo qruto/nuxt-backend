@@ -161,6 +161,8 @@ describe('API names', () => {
         // `backend.` also starts module options (`backend.pages`): only a label group makes it a
         // message. After a dot it is a path into something else (`components.backend.email`).
         if (scope === 'backend' && !Object.hasOwn(LABELS, path!.split('.')[0]!)) continue
+        // `labels.generated.ts` is the file the module writes, not a key.
+        if (scope === 'labels' && path!.split('.')[0] === 'generated') continue
         if (!exists(path!)) unknown.add(`${scope}.${path}`)
       }
     }

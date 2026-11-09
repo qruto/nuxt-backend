@@ -1456,7 +1456,7 @@
       "accepting": "Wird angewendet…",
       "endsOn": "Ihr Tarif endet am {date}.",
       "endsPeriod": "Ihr Tarif endet mit dem aktuellen Zeitraum.",
-      "endNote": "Bis dahin funktioniert alles weiter, und Sie können Ihre Credits weiterhin nutzen.",
+      "endNote": "Bis dahin funktioniert alles weiter, und Sie können Ihre {unit} weiterhin nutzen.",
       "keep": "Meinen Tarif behalten",
       "keeping": "Wird behalten…",
       "kept": "Ihr Tarif bleibt, wie er ist.",
@@ -1580,7 +1580,7 @@
       "someone": "Jemand",
       "claim": "Geschenk empfangen",
       "claiming": "Wird empfangen…",
-      "claimed": "Geschenk empfangen. Die Credits kommen gleich an.",
+      "claimed": "Geschenk empfangen. Die {unit} kommen gleich an.",
       "claimedPass": "Geschenk empfangen. Ihr Tarif beginnt jetzt.",
       "claimFailed": "Das Geschenk konnte nicht empfangen werden"
     },
@@ -2223,14 +2223,14 @@
           "body": "{amount} wurden erstattet."
         },
         "credits_low": {
-          "title": "Die Credits werden knapp",
-          "body": "Verbleibende Credits in {workspace}: {balance}.",
-          "bodyYours": "Verbleibende Credits: {balance}."
+          "title": "Die {unit} werden knapp",
+          "body": "Noch {balance} {unit} in {workspace}.",
+          "bodyYours": "Noch {balance} {unit} übrig."
         },
         "credits_exhausted": {
-          "title": "Die Credits sind aufgebraucht",
-          "body": "Laden Sie in {workspace} Credits auf, um weiterzumachen.",
-          "bodyYours": "Laden Sie Credits auf, um weiterzumachen."
+          "title": "Die {unit} sind aufgebraucht",
+          "body": "Laden Sie das Guthaben von {workspace} auf, um weiterzumachen.",
+          "bodyYours": "Laden Sie Ihr Guthaben auf, um weiterzumachen."
         },
         "save_offer_accepted": {
           "title": "Der Tarif von {workspace} bleibt bestehen",
@@ -2612,10 +2612,10 @@
           "action": "Ansehen"
         },
         "creditsLow": {
-          "subject": "Ihre Credits werden knapp",
-          "heading": "Credits werden knapp",
-          "body": "Ihr Guthaben hat die Warnschwelle erreicht. Laden Sie Credits auf, um ohne Unterbrechung weiterzumachen.",
-          "action": "Credits aufladen"
+          "subject": "Ihre {unit} werden knapp",
+          "heading": "{unit} werden knapp",
+          "body": "Ihr Guthaben hat die Warnschwelle erreicht. Laden Sie {unit} auf, um ohne Unterbrechung weiterzumachen.",
+          "action": "{unit} aufladen"
         },
         "trialEnding": {
           "subject": "Ihre Testphase endet in 7 Tagen",
