@@ -3,7 +3,7 @@ import { until } from '@vueuse/core'
 import type { RouteLocationNormalized } from 'vue-router'
 import type { NuxtApp, NuxtError } from '#app'
 import { navigateTo } from '#imports'
-import { authClient, useBetterAuth } from 'nuxt-convex-module/better-auth/client'
+import { loadAuthClient } from 'nuxt-convex-module/better-auth/client'
 import { ConvexAuthStateKey, useConvex } from 'nuxt-convex-module/client'
 import { makeFunctionReference } from 'convex/server'
 import { grantsFeature } from '../../../convex/catalog.js'
@@ -100,10 +100,16 @@ export async function serverSubject(context: PageGuardContext): Promise<AccessSu
  * deployment knows the session (a read before that would answer for no one).
  */
 async function clientSubject(nuxtApp: NuxtApp): Promise<AccessSubject | null> {
-  // The session store, read once: its subscription goes with the scope, so
-  // a navigation leaves no listener behind on the session.
+  // The auth client's own answer, as the base module's guard waits for: the
+  // client loads on first use, and a visit that began signed out settles its
+  // session without asking, so a sign-in made in another tab since would
+  // read as signed out. Once the client has answered, the store reads at
+  // once. Read once: its subscription goes with the scope, so a navigation
+  // leaves no listener behind on the session. A chunk the network dropped
+  // is asked for once more, as the base module's guard does.
+  const client = await loadAuthClient().catch(() => loadAuthClient())
   const scope = effectScope(true)
-  const { session } = scope.run(() => useBetterAuth())!
+  const session = scope.run(() => client.useSession())!
   let user: { role?: unknown, banned?: unknown } | undefined
   try {
     await until(() => session.value.isPending).toBe(false)
@@ -118,7 +124,7 @@ async function clientSubject(nuxtApp: NuxtApp): Promise<AccessSubject | null> {
     role,
     banned: user.banned === true,
     workspaceRole: async () => {
-      const answer = await authClient.organization.getActiveMember().catch(() => null)
+      const answer = await client.organization.getActiveMember().catch(() => null)
       return memberRole(answer?.data)
     },
     hasFeature: async (feature) => {

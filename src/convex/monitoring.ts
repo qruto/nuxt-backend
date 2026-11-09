@@ -92,10 +92,12 @@ const CALL_PREFIX = /\[CONVEX ([QMA?])\(([^()\s]{1,256})\)\]/
 const CALL_KIND: Record<string, BackendCallKind | undefined> = { Q: 'query', M: 'mutation', A: 'action' }
 
 /**
- * The function a browser client call failed in, read from the prefix the
- * client writes on every failure (`[CONVEX M(billing:checkout)] …`); `null`
- * for an error that is not a failed call. A server-side call (Nitro) carries
- * no such prefix, so its call site names the function instead.
+ * The function a failed call ran, read from the prefix the base module's
+ * clients write on every failure (`[CONVEX M(billing:checkout)] …`): the
+ * browser's, and on the Nuxt server `fetchQuery`, `fetchMutation` and
+ * `fetchAction` (nuxt-convex-module 0.14 and later); `null` for an error
+ * that is not a failed call. A call site that knows the function may still
+ * name it, and wins.
  */
 export function backendCallOf(error: unknown): BackendCall | null {
   const message = error instanceof Error ? error.message : typeof error === 'string' ? error : ''

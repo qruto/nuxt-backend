@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref, useId, watch } from 'vue'
 import { useLabels, type BackendLabels, type LabelOverrides } from '../../composables/use-labels'
 import { type ReauthenticationStep, useDialogTurn, useReauthentication } from '../../composables/use-reauthentication'
-import { preloadPasskeyCeremony } from '../../passkey-client'
+import { preparePasskeyPrompt } from '../../utils/passkey-prompt'
 import { useModalFocus } from '../../utils/focus-return'
 import { provideReauthenticateView, type ReauthenticateDialogSlots } from './reauthenticate'
 
@@ -69,7 +69,7 @@ onMounted(() => {
 // the page as it closes, and focus goes back where it was (nothing outside
 // a modal dialog takes focus while it is open).
 const modal = useModalFocus(dialog)
-const show = () => modal.show('[data-reauthenticate^="step-"] button, [data-reauthenticate^="step-"] input', preloadPasskeyCeremony)
+const show = () => modal.show('[data-reauthenticate^="step-"] button, [data-reauthenticate^="step-"] input', preparePasskeyPrompt)
 
 async function hide(): Promise<void> {
   if (turn.outcome() === 'confirmed') emit('reauthenticated')

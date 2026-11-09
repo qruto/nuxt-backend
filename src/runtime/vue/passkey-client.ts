@@ -1,87 +1,13 @@
 import { useAuthQuery } from 'better-auth/client'
 import type { getPasskeyActions, passkeyClient as eagerPasskeyClient } from '@better-auth/passkey/client'
 import { atom } from 'nanostores'
+import { loadedPasskeyCeremony, loadPasskeyCeremony } from './passkey-ceremony'
 
 type Ceremony = typeof import('@better-auth/passkey/client')
 type PasskeyActions = ReturnType<typeof getPasskeyActions>
 
 /** Better Auth's passkey client plugin, as `passkeyClient()` from `@better-auth/passkey/client` returns it. */
 export type PasskeyClientPlugin = ReturnType<typeof eagerPasskeyClient>
-
-/** The ceremony module once it has loaded: an action that finds it calls straight through. */
-let ceremony: Ceremony | undefined
-/** The load in flight, shared by every caller; cleared when it fails, so the next call tries again. */
-let loading: Promise<Ceremony> | undefined
-
-/**
- * Load the passkey ceremony — `@better-auth/passkey/client` and the
- * `@simplewebauthn/browser` it imports — once per page. A failed load (a
- * chunk the network dropped) is not kept: the next call loads again.
- */
-export function loadPasskeyCeremony(): Promise<Ceremony> {
-  if (ceremony) return Promise.resolve(ceremony)
-  loading ??= import('@better-auth/passkey/client').then(
-    (module) => {
-      ceremony = module
-      return module
-    },
-    (cause: unknown) => {
-      loading = undefined
-      throw cause
-    },
-  )
-  return loading
-}
-
-/**
- * Start loading the ceremony where this browser can run one, so a tap on a
- * passkey button finds it loaded. The idle plugin calls it after hydration,
- * and `<AuthForm>` and `usePasskeys` on mount. A failure is left for the
- * tap, which loads again and reports it.
- */
-export function preloadPasskeyCeremony(): void {
-  if (typeof window === 'undefined' || typeof window.PublicKeyCredential !== 'function') return
-  loadPasskeyCeremony().catch(() => {})
-}
-
-/**
- * Whether this browser can offer saved passkeys in a field's autofill
- * (WebAuthn conditional mediation). `false` on the server, in a browser
- * without WebAuthn, and wherever the browser says no.
- */
-export async function canAutofillPasskeys(): Promise<boolean> {
-  if (typeof window === 'undefined') return false
-  const credential = window.PublicKeyCredential as { isConditionalMediationAvailable?: () => Promise<boolean> } | undefined
-  if (typeof credential?.isConditionalMediationAvailable !== 'function') return false
-  try {
-    return await credential.isConditionalMediationAvailable()
-  }
-  catch {
-    return false
-  }
-}
-
-/**
- * The fields a browser offers passkeys on: an `<input>` whose
- * `autocomplete` ends in `webauthn`, the selector Better Auth's ceremony
- * checks for too.
- */
-export const AUTOFILL_FIELD = 'input[autocomplete$="webauthn"]'
-
-/**
- * The `autocomplete` of a sign-in field that offers passkeys: the account's
- * name for a password manager, then the `webauthn` token autofill looks for.
- */
-export const AUTOFILL_AUTOCOMPLETE = 'username webauthn'
-
-/**
- * How long one autofill offer serves before a fresh one replaces it, in
- * milliseconds: under the five minutes Better Auth's passkey plugin keeps a
- * challenge (its cookie and its verification row), so a passkey picked
- * from a page left open is answered against a challenge the server still
- * holds.
- */
-export const AUTOFILL_RENEW_MS = 270_000
 
 /**
  * How many passkey prompts (sign-ins without `autoFill`) are open on this
@@ -117,20 +43,22 @@ function unloadable(cause: unknown) {
 
 /**
  * Better Auth's passkey client plugin, with the WebAuthn ceremony loaded
- * apart from the page. `createAuthClient` takes its plugins at construction
- * and the base module imports the client on every page, so the plugin
- * itself stays eager: its id, the `listPasskeys` query, the paths it posts
- * to and the signals that refresh the session and the list. What moves out
- * is the ceremony, which `@better-auth/passkey/client` imports statically:
- * {@link preloadPasskeyCeremony} loads it once the page is idle, or when a
- * passkey form mounts.
+ * apart from the client. `createAuthClient` takes its plugins at
+ * construction, so the plugin loads with the client (which the base module
+ * loads on first use, not with every page): its id, the `listPasskeys`
+ * query, the paths it posts to and the signals that refresh the session and
+ * the list. What moves out is the ceremony, which
+ * `@better-auth/passkey/client` imports statically: `preloadPasskeyCeremony`
+ * (./passkey-ceremony.ts) loads it once the page is idle, and
+ * `preparePasskeyPrompt` (./utils/passkey-prompt.ts) when a passkey form
+ * mounts, the client with it.
  *
  * Once it has loaded, a passkey sign-in (conditional UI included) or
  * registration calls Better Auth's own actions (`getPasskeyActions`) with
  * nothing awaited before them, so the options request starts in the tap's
  * own task, exactly as with the eager plugin: WebKit lets the WebAuthn
- * prompt open only while that tap's activation lasts. A tap before the load
- * has landed waits for it first. Requests, WebAuthn options and errors are
+ * prompt open only while that tap's activation lasts. A tap before either
+ * load has landed waits for it first. Requests, WebAuthn options and errors are
  * Better Auth's; a ceremony that cannot load answers `UNKNOWN_ERROR`. One
  * page runs one ceremony at a time, and a prompt outranks an autofill: an
  * autofill whose challenge arrives while a prompt is open answers
@@ -160,6 +88,7 @@ export function passkeyClient(): PasskeyClientPlugin {
       /** One of the ceremony's actions: called straight through once loaded, after the load otherwise. */
       const action = <A extends unknown[], R>(pick: (from: PasskeyActions) => (...args: A) => Promise<R>) =>
         (...args: A): Promise<R | ReturnType<typeof unloadable>> => {
+          const ceremony = loadedPasskeyCeremony()
           if (ceremony) return pick(actionsOf(ceremony))(...args)
           return loadPasskeyCeremony().then(module => pick(actionsOf(module))(...args), unloadable)
         }

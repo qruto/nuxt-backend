@@ -1,6 +1,6 @@
 import type { ComputedRef, Ref, VNode } from 'vue'
 import { busyAttributes } from '../a11y'
-import { AUTOFILL_AUTOCOMPLETE } from '../passkey-client'
+import { AUTOFILL_AUTOCOMPLETE } from '../passkey-ceremony'
 import type { BackendError } from './backend-error'
 import type { SignInMethod } from './auth-session'
 import type { LoginStep } from '../composables/use-login-flow'

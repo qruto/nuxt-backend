@@ -7,18 +7,13 @@ import { fileURLToPath } from 'node:url'
 const slashed = (path: string) => path.split('\\').join('/')
 
 /**
- * The base module's real files: its client entry (from its `exports` map)
- * and the session composable behind its Better Auth entry. Real paths, so
- * the files load once, as the base module's own plugins load them.
+ * The base module's real client entry, from its `exports` map. The real
+ * path, so the file loads once, as the base module's own plugins load it.
  */
-function baseModuleFiles(): { client: string, useBetterAuth: string } {
+function baseClientEntry(): string {
   const manifest = realpathSync(createRequire(import.meta.url).resolve('nuxt-convex-module/package.json'))
-  const root = dirname(manifest)
   const { exports } = JSON.parse(readFileSync(manifest, 'utf8')) as { exports: Record<string, { import: string }> }
-  return {
-    client: slashed(join(root, exports['./client']!.import)),
-    useBetterAuth: slashed(join(root, dirname(exports['./better-auth/client']!.import), 'use-better-auth.js')),
-  }
+  return slashed(join(dirname(manifest), exports['./client']!.import))
 }
 
 /**
@@ -27,14 +22,16 @@ function baseModuleFiles(): { client: string, useBetterAuth: string } {
  * swapped:
  *
  * - `#convex/auth-client`, the Better Auth client the session layer is built
- *   on (`useAuth`, `useBetterAuth`, the page guard), for one that
- *   answers from the mock;
+ *   on (`useAuth`, `useBetterAuth`, the page guard), which the base module
+ *   loads on first use, for one that answers from the mock;
  * - `nuxt-convex-module/client` and `nuxt-convex-module/vue`, for the base
  *   module's own entry with every export kept, whose composables also
  *   provide the mock where a plain `mount()` needs it.
  *
- * Two private names reach the base module's real files for those stand-ins.
- * With the aliases in a Vitest project, a test needs no `vi.mock`.
+ * One private name reaches the base module's real entry for that stand-in;
+ * the session state the base module keeps between tests is reset through its
+ * public `nuxt-convex-module/testing`. With the aliases in a Vitest project,
+ * a test needs no `vi.mock`.
  *
  * Use them in a project with `@nuxt/test-utils`' `nuxt` environment
  * (`defineVitestProject`, or `defineVitestConfig` for a single project): it
@@ -63,12 +60,10 @@ export function backendTestAliases(): Record<string, string> {
   const here = fileURLToPath(import.meta.url)
   // The built `.js` next to the built `.js`, the source `.ts` next to the source.
   const sibling = (name: string) => slashed(join(dirname(here), `${name}${extname(here)}`))
-  const base = baseModuleFiles()
   return {
     '#convex/auth-client': sibling('auth-client'),
     'nuxt-convex-module/client': sibling('client'),
     'nuxt-convex-module/vue': sibling('client'),
-    '#backend-test-utils/base-client': base.client,
-    '#backend-test-utils/base-use-better-auth': base.useBetterAuth,
+    '#backend-test-utils/base-client': baseClientEntry(),
   }
 }

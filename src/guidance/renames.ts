@@ -57,6 +57,8 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const LAZY_AUTH = 'The Better Auth client loads on first use, and a failed server call names its function'
+const UPLOAD_RETRY = 'The upload field retries a failure, and prepares a file before it uploads'
 const LAUNCH = 'A production checkout waits for billing to launch, and welcome credits come from the catalog'
 const STEP_TIMEOUT = 'A job step stops its model calls at its timeout'
 const MEMBER_TICKETS = 'Members bring friends with a ticket of their own, and the waitlist records the campaign'
@@ -70,6 +72,13 @@ const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from token
  * `const` per section heading above the list, and its entries in it.
  */
 export const RENAMES: readonly Rename[] = [
+  // 0.3: nuxt-convex-module 0.14 loads the Better Auth client on first use, and names a failed server call.
+  { from: 'nuxt-convex-module', to: 'nuxt-convex-module@^0.14.0', change: 'reshaped', section: LAZY_AUTH, note: 'the dependency\'s range; an app that lists the base module itself moves with it' },
+  { from: 'useBetterAuth().client.$store', to: '(await loadAuthClient()).$store', change: 'reshaped', section: LAZY_AUTH, note: 'a forwarding client until the auth client loads: calls ($fetch included) and use* hooks work as before; read $store.atoms or a plugin atom on the loaded client' },
+  { from: 'fetchQuery', to: 'fetchQuery', change: 'reshaped', section: LAZY_AUTH, note: 'a failure\'s message starts with [CONVEX Q(module:fn)], as fetchMutation\'s and fetchAction\'s do; read getBackendError(error) rather than compare the message' },
+  // 0.3: the upload field runs on the upload queue, retries a failure and prepares a file.
+  { from: 'useUploadField', to: 'useUploadField({ claim, prepare })', change: 'reshaped', section: UPLOAD_RETRY, note: 'returns retry and bind.retry; a failure ends in error with Try again, a refusal in refused, and the error slot adds refused and retry' },
+
   // 0.3: billing before it launches, and welcome credits.
   { from: '`unavailable` (reason `not_configured`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'only a sale on a production deployment with no token or no production catalog; every other refusal keeps `not_configured`' },
   { from: '`not_ready` (reason `no_catalog`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog`' },

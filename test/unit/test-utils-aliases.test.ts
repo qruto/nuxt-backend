@@ -112,10 +112,9 @@ describe('the import scan', () => {
 })
 
 describe('backendTestAliases', () => {
-  it('names the stand-ins and the base module\'s real files, every one existing, forward-slashed', () => {
+  it('names the stand-ins and the base module\'s real entry, every one existing, forward-slashed', () => {
     expect(Object.keys(aliases).sort()).toEqual([
       '#backend-test-utils/base-client',
-      '#backend-test-utils/base-use-better-auth',
       '#convex/auth-client',
       'nuxt-convex-module/client',
       'nuxt-convex-module/vue',
@@ -175,22 +174,13 @@ describe('the private names the stand-ins import', () => {
   })
 })
 
-describe('the base module internals the mock reaches', () => {
-  // Neither is a public API of nuxt-convex-module (~0.11.0): an upstream ask
-  // in .github/upstream.json requests a supported seam. Until then these fail,
-  // with what moved, on the release that moves them.
-  const sessionLayer = aliases['#backend-test-utils/base-use-better-auth']!
-
-  it('still builds its session layer on the #convex/auth-client import the aliases swap', () => {
-    expect(existsSync(sessionLayer), 'nuxt-convex-module moved use-better-auth.js: update baseModuleFiles() in src/runtime/test-utils/aliases.ts').toBe(true)
-    expect(readFileSync(sessionLayer, 'utf8'), 'the session layer of nuxt-convex-module no longer imports #convex/auth-client: the auth client of the mock would go unused')
-      .toMatch(/from ["']#convex\/auth-client["']/)
-  })
-
-  it('still exports the reset of the session token it caches', () => {
-    // Read, not imported: the file resolves #convex/auth-client only inside a Nuxt app.
-    const exported = parseSync(sessionLayer, readFileSync(sessionLayer, 'utf8')).module.staticExports.flatMap(statement => statement.entries.map(entry => entry.exportName.name))
-    expect(exported, 'nuxt-convex-module dropped __resetUseBetterAuthForTests: resetBackendMock() could not clear the cached token').toContain('__resetUseBetterAuthForTests')
+// The session state the base module keeps between tests (its cached token
+// and session subscription) is reset through its public testing export, not
+// a file reached by path: resetBackendMock() calls it.
+describe('the reset of the base module\'s session state', () => {
+  it('comes from nuxt-convex-module/testing, which the base module exports', () => {
+    const manifest = JSON.parse(readFileSync(realpathSync(join(root, 'node_modules/nuxt-convex-module/package.json')), 'utf8')) as { exports: Record<string, unknown> }
+    expect(Object.keys(manifest.exports)).toContain('./testing')
   })
 })
 
