@@ -86,7 +86,7 @@ The console's writes are Better Auth's admin routes, which the package holds to 
 
 ## Review reports
 
-The Reports tab is the queue for content people report, from a report button in your app or from the public notice form at `/report`. It lists open reports grouped by subject, the most reported first. Arrives with SAFETY. You tell it how to show and hide a subject in `setupAdmin({ reports })`, and people report through `reportContent` ([Keep content safe](/docs/build/ai/content-safety#review-reports)).
+The Reports tab is the queue for content people report, from a report button in your app or from the public notice form at `/report`. It lists open reports grouped by subject, the most reported first. You tell it how to show and hide a subject in `setupAdmin({ reports })`, and people report through `reportContent` ([Keep content safe](/docs/build/ai/content-safety#review-reports)).
 
 For each subject an administrator hides it, dismisses the reports, or opens the author's account in the Users tab. A notice the app could not place on a thing hides nothing of the app's: its first action reads **Mark handled**, and its sender hears that you acted on it, never that the content was removed. Each decision asks for a recent sign-in, and the trail records it with the reason, never the reporter. On top of that queue, the package covers the duties the EU Digital Services Act and the US TAKE IT DOWN Act put on an app that hosts what people upload:
 
