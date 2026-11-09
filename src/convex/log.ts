@@ -83,6 +83,8 @@ export const LOG_CODES = {
   'billing.product_resync_failed': 'A benefit changed at the provider but the products table could not be re-synced; pricing shows the old figures until the next product event. The delivery itself was handled.',
   'billing.free_plan_unqueued': 'A new workspace (or account, with billTo: \'user\') could not be queued for the free plan; it was created all the same.',
   'billing.free_plan_customer_taken': 'An account (billTo: \'user\') was not put on the free plan: its email belongs to another account\'s customer at the provider, which keeps individual customers\' emails unique.',
+  'billing.resync_failed': 'billing resync gave up on one billing entity after its tries (the provider\'s rate limit, or another refusal): its entitlements were not read again. The line names its id.',
+  'billing.resync_done': 'A billing resync finished: how many billing entities were read again, left to an erasure, and given up on, with the ids given up on.',
   'billing.customer_mapping_stale': 'A billing entity is mapped onto a customer the billing provider does not know: BILLING_ACCESS_TOKEN names another organization than the one the mapping was made in. Its billing calls are refused (`unavailable`, reason `customer_unknown`) until the deployment\'s billing data is reset.',
   'billing.customer_mapping_shared': 'A billing entity is mapped onto a customer keyed to another entity, from before 0.2; it is refused until the deployment\'s billing data is reset.',
   'protection.refused': 'A request or call behind the bot check carried no proof or challenge answer that passed, and was refused as forbidden (bot_check).',

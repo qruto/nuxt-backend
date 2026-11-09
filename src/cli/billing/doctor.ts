@@ -494,10 +494,42 @@ export function providerSdkFindings(rootDir: string): PreflightFinding[] {
  *
  * @internal
  */
+/**
+ * Why the provider's checks did not run, when that is worth a finding. No
+ * token here is the designed degradation `billing-access` already reports —
+ * a second warning would be noise. A token that was refused is worth its
+ * own finding: the checks silently did not run. So is a deployment that
+ * holds a token this machine does not (one kept on the deployment only, or
+ * forwarded there from elsewhere): without a word, every check would pass
+ * by not running.
+ */
+function unreadOrganizationFindings(tokenPresent: boolean, deployedToken: { prod: boolean } | null): PreflightFinding[] {
+  if (tokenPresent) {
+    return [finding(
+      'billing-organization',
+      'warn',
+      'BILLING_ACCESS_TOKEN is set here but the provider would not answer with it (expired, revoked, or issued for the other environment) — the catalog cross-checks were skipped.',
+      'Issue a fresh organization access token for the billing environment BACKEND_ENVIRONMENT names (the provider sandbox unless it is production), put it in .env.local, and run `npx nuxt-backend env push`.',
+    )]
+  }
+  return deployedToken ? [skippedOrganizationFinding(deployedToken.prod)] : []
+}
+
+/** The provider's checks skipped: the deployment holds BILLING_ACCESS_TOKEN, and the env doctor reads here does not. */
+function skippedOrganizationFinding(prod: boolean): PreflightFinding {
+  const flag = prod ? ' --prod' : ''
+  return finding(
+    'billing-organization',
+    'warn',
+    `The ${prod ? 'production' : 'dev'} deployment holds BILLING_ACCESS_TOKEN, and the env doctor reads here does not, so the checks that read the provider were skipped: its organization's settings against the catalog (subscriptions, proration, trials, portal, emails, team customers, checkout links, gift and pass products, feature benefits), the webhook endpoint and the customer mappings.`,
+    `Run them with the deployment's token in the env: \`BILLING_ACCESS_TOKEN=<the deployment's token>${prod ? ' BACKEND_ENVIRONMENT=production' : ''} npx nuxt-backend doctor${flag} --only billing\`, or keep it in .env.local.`,
+  )
+}
+
 export function collectBillingFindings(
   catalog: BillingCatalog | null,
   state: BillingOrganizationState | null,
-  { tokenPresent }: { tokenPresent: boolean },
+  { tokenPresent, deployedToken = null }: { tokenPresent: boolean, deployedToken?: { prod: boolean } | null },
 ): PreflightFinding[] {
   // No catalog declared: nothing to cross-check, and every finding would be
   // about a file the app never wrote.
@@ -534,20 +566,7 @@ export function collectBillingFindings(
 
   findings.push(...promotionLimitsFinding(catalog))
 
-  if (!state) {
-    // No token here is the designed degradation `billing-access` already
-    // reports — a second warning would be noise. A token that was refused is
-    // worth its own finding: the checks below silently did not run.
-    if (tokenPresent) {
-      findings.push(finding(
-        'billing-organization',
-        'warn',
-        'BILLING_ACCESS_TOKEN is set here but the provider would not answer with it (expired, revoked, or issued for the other environment) — the catalog cross-checks were skipped.',
-        'Issue a fresh organization access token for the billing environment BACKEND_ENVIRONMENT names (the provider sandbox unless it is production), put it in .env.local, and run `npx nuxt-backend env push`.',
-      ))
-    }
-    return findings
-  }
+  if (!state) return [...findings, ...unreadOrganizationFindings(tokenPresent, deployedToken)]
 
   findings.push(state.allowMultipleSubscriptions && offered > 1
     ? finding(

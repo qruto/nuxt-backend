@@ -193,3 +193,16 @@ describe('deployment-email-dev-inbox under --prod', () => {
     expect(on('production').fixHint).toContain('env remove --prod EMAIL_DEV_INBOX')
   })
 })
+
+describe('the provider checks with the token on the deployment only', () => {
+  it('says they were skipped, and how to run them, when the deployment holds the token and this machine does not', async () => {
+    vi.stubEnv('BILLING_ACCESS_TOKEN', undefined)
+    app({ 'billing.catalog.ts': 'export default { plans: { pro: { name: \'Pro\', prices: { month: 900 } } } }\n' })
+    deployed.names = 'AUTH_SECRET\nSITE_URL\nBILLING_ACCESS_TOKEN\n'
+    const found = await findingOf('billing-organization', ['billing'])
+    expect(found).toMatchObject({ status: 'warn', message: expect.stringContaining('the checks that read the provider were skipped') })
+    // A deployment without one: billing-access says so, and nothing more.
+    deployed.names = 'AUTH_SECRET\nSITE_URL\n'
+    expect(await findingOf('billing-organization', ['billing'])).toBeUndefined()
+  })
+})
