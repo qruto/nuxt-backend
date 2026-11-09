@@ -38,10 +38,13 @@ export interface UseReferralInviteReturn {
    * needs a ticket first, an invite or an admitted place on the waitlist,
    * so signing up here without one only joins the waitlist. An account
    * claims within a day of its sign-up, so it comes back to the link then.
-   * `false` while the phase is read, and for an app without
-   * `backend/access.ts`.
+   * `false` once the app is public, for an app without `backend/access.ts`,
+   * and when the phase could not be read (the sign-up's own check still
+   * holds a visitor without a ticket to the waitlist). `undefined` while
+   * the phase loads, so a page offers neither the sign-up nor the ways to a
+   * ticket before it knows which one applies.
    */
-  closed: ComputedRef<boolean>
+  closed: ComputedRef<boolean | undefined>
   /** Claim the referral for the signed-in account: the explicit step. Never rejects: a code that cannot be used is `ignored`. */
   claim: () => Promise<void>
   /** Why the claim failed, or else why the link could not be read. */
@@ -63,7 +66,8 @@ export interface UseReferralInviteReturn {
  * `state` starts at `ready` there, and the claim only ever runs in the
  * browser. A link that cannot be read reads as `invalid`, with the reason in
  * `error`. While the app is not public, `closed` says a visitor needs a
- * ticket before the sign-up can make them an account.
+ * ticket before the sign-up can make them an account; it is `undefined`
+ * until the phase is read.
  *
  * @example
  * ```vue
@@ -72,7 +76,7 @@ export interface UseReferralInviteReturn {
  * </script>
  * <template>
  *   <p v-if="preview">{{ preview.inviter ?? 'A friend' }} invited you.</p>
- *   <NuxtLink v-if="state === 'ready' && signInTo" :to="signInTo">Sign up to claim</NuxtLink>
+ *   <NuxtLink v-if="state === 'ready' && closed === false && signInTo" :to="signInTo">Sign up to claim</NuxtLink>
  *   <button v-else-if="state === 'claimable'" @click="claim()">Claim</button>
  * </template>
  * ```
@@ -84,7 +88,7 @@ export function useReferralInvite(options: UseReferralInviteOptions = {}): UseRe
   const signedIn = computed(() => auth != null && auth.isAuthenticated.value)
   const loginPath = useBackendPagePath('login')
   const landing = useBackendPagePath('referral')
-  const { phase } = useAccessPhase()
+  const { phase, isLoading: phaseLoading } = useAccessPhase()
 
   const code = computed(() => {
     const value = route.params.code
@@ -148,7 +152,7 @@ export function useReferralInvite(options: UseReferralInviteOptions = {}): UseRe
     isLoading: computed(() => Boolean(api.previewReferral) && preview.value === undefined),
     isPending: computed(() => outcome.value === 'claiming'),
     signInTo,
-    closed: computed(() => phase.value !== undefined && phase.value !== 'public'),
+    closed: computed(() => (phaseLoading.value ? undefined : phase.value !== undefined && phase.value !== 'public')),
     claim,
     error: computed(() => claimFailure.value ?? readFailure.value),
   }

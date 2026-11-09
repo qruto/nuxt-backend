@@ -31,8 +31,9 @@ afterEach(() => resetBackendMock())
 
 const PREVIEW: ReferralPreview = { inviter: 'Ada', program: { referred: { kind: 'discount', name: '20% off' }, referrer: { kind: 'months', months: 1 }, holdDays: 30, caps: { perReferrer: null, perMonth: null } } }
 
+/** The backend of a public app (the phase read) with this link's preview. */
 function backendWith(preview: ReferralPreview | null = PREVIEW, user?: Record<string, unknown>): BackendMock {
-  const backend = createBackendMock({ ...(user ? { user } : {}), queries: { 'referrals:previewReferral': (args: { code: string }) => (args.code === 'ADA123' ? preview : null) } })
+  const backend = createBackendMock({ ...(user ? { user } : {}), queries: { 'access:getAccessPhase': { phase: 'public' }, 'referrals:previewReferral': (args: { code: string }) => (args.code === 'ADA123' ? preview : null) } })
   backend.stub('referrals:claimReferral', () => ({ claimed: true }))
   return backend
 }
@@ -61,7 +62,7 @@ const state = (wrapper: VueWrapper) => part(wrapper, 'landing').attributes('data
 
 describe('the referral link\'s page', () => {
   it('checks the link first, as a busy status', async () => {
-    const backend = createBackendMock()
+    const backend = createBackendMock({ queries: { 'access:getAccessPhase': { phase: 'public' } } })
     const wrapper = await landing()
     expect(state(wrapper)).toBe('checking')
     expect(part(wrapper, 'landing').attributes('aria-busy')).toBe('true')
@@ -112,15 +113,45 @@ describe('the referral link\'s page', () => {
     expect(part(wrapper, 'landing-closed').exists()).toBe(false)
   })
 
+  it('offers a visitor no way in while the phase loads, neither the sign-up nor a ticket', async () => {
+    const backend = backendWith()
+    delete backend.state.queries['access:getAccessPhase']
+    const wrapper = await landing()
+    expect(state(wrapper)).toBe('ready')
+    expect(part(wrapper, 'landing-from').text()).toBe('Ada invited you.')
+    expect(part(wrapper, 'landing').attributes('aria-busy')).toBe('true')
+    expect(part(wrapper, 'landing').attributes('data-closed')).toBeUndefined()
+    for (const name of ['landing-sign-up', 'landing-closed', 'landing-invite', 'landing-waitlist', 'landing-sign-in']) expect(part(wrapper, name).exists()).toBe(false)
+
+    backend.state.queries['access:getAccessPhase'] = { phase: 'invite-only' }
+    await flushPromises()
+    expect(part(wrapper, 'landing').attributes('aria-busy')).toBeUndefined()
+    expect(part(wrapper, 'landing-closed').exists()).toBe(true)
+    expect(part(wrapper, 'landing-sign-up').exists()).toBe(false)
+  })
+
   it('says whether the app is closed, for a page of the app\'s own, and lets a signed-in person claim whatever the phase', async () => {
     const backend = backendWith(PREVIEW, {})
+    delete backend.state.queries['access:getAccessPhase']
     const invite = await withInvite()
-    // Not read yet: nothing says the app is closed.
-    expect(invite.closed.value).toBe(false)
+    // Not read yet: neither open nor closed.
+    expect(invite.closed.value).toBeUndefined()
     backend.state.queries['access:getAccessPhase'] = { phase: 'invite-only' }
     await flushPromises()
     expect(invite.closed.value).toBe(true)
     expect(invite.state.value).toBe('claimable')
+    backend.state.queries['access:getAccessPhase'] = { phase: 'public' }
+    await flushPromises()
+    expect(invite.closed.value).toBe(false)
+  })
+
+  it('reads a phase that could not be read as open, so the sign-up stays on offer', async () => {
+    const backend = backendWith()
+    delete backend.state.queries['access:getAccessPhase']
+    backend.fail('access:getAccessPhase', backendError('unavailable', { service: 'backend', reason: 'unexpected' }))
+    const wrapper = await landing()
+    expect(part(wrapper, 'landing-sign-up').exists()).toBe(true)
+    expect(part(wrapper, 'landing-closed').exists()).toBe(false)
   })
 
   it('words a trial, an offer of nothing, and an inviter without a name', async () => {

@@ -29,7 +29,9 @@ const { phase } = useAccessPhase()
 /** The invite page, carrying this link's code: the sign-in it leads to comes back here to claim. */
 const inviteTo = computed(() => (invitePath.value ? `${invitePath.value}?ref=${encodeURIComponent(invite.code.value)}` : null))
 /** The visitor needs a ticket first: the app is not public, and nobody is signed in. */
-const needsTicket = computed(() => invite.state.value === 'ready' && invite.closed.value)
+const needsTicket = computed(() => invite.state.value === 'ready' && invite.closed.value === true)
+/** A visitor's way in waits for the phase: neither the sign-up nor the ways to a ticket until it is read. */
+const phaseUnknown = computed(() => invite.state.value === 'ready' && invite.closed.value === undefined)
 
 const offer = computed(() => invite.preview.value?.program.referred ?? null)
 const inviter = computed(() => invite.preview.value?.inviter ?? null)
@@ -40,7 +42,7 @@ const inviter = computed(() => invite.preview.value?.inviter ?? null)
     data-referral="landing"
     :data-state="invite.state.value"
     :data-closed="needsTicket || undefined"
-    :aria-busy="invite.state.value === 'checking' || invite.state.value === 'claiming' || undefined"
+    :aria-busy="invite.state.value === 'checking' || invite.state.value === 'claiming' || phaseUnknown || undefined"
   >
     <p
       v-if="invite.state.value === 'checking'"
@@ -98,7 +100,7 @@ const inviter = computed(() => invite.preview.value?.inviter ?? null)
         </a>
       </template>
       <a
-        v-else-if="invite.state.value === 'ready' && invite.signInTo.value"
+        v-else-if="invite.state.value === 'ready' && invite.closed.value === false && invite.signInTo.value"
         data-referral="landing-sign-up"
         :href="invite.signInTo.value"
       >
