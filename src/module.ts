@@ -24,6 +24,7 @@ import { imageDependency } from './nuxt/image'
 import { registerStyles } from './nuxt/styles'
 import { registerProtection } from './nuxt/protection'
 import { registerSecurityRules, securityDefaults, securityDisabled } from './nuxt/security'
+import { registerDeploySiteConfig } from './nuxt/site'
 
 // The module definition; the helpers setup calls live in nuxt/, one file
 // per concern.
@@ -278,6 +279,8 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.hook('modules:done', () => {
       if (!hasNuxtModule('@nuxtjs/robots', nuxt)) addPlugin(resolver.resolve('./runtime/vue/plugins/noindex'))
     })
+    // A preview build's site for the app's SEO modules: its branch URL, never indexable (src/nuxt/site.ts).
+    registerDeploySiteConfig(nuxt)
     // Off a guarded page to sign-in when the session ends under it.
     addPlugin({ src: resolver.resolve('./runtime/vue/plugins/session-ended'), mode: 'client' })
     // A new account to its first run at /welcome, once.
