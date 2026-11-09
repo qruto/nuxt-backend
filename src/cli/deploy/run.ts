@@ -6,6 +6,8 @@ import { siteFromCloudUrl } from '../../convex/urls'
 import type { PreflightFinding } from '../../findings/types'
 import type { BillingSyncCommandOptions, BillingSyncReport } from '../billing'
 import type { EmailSyncReport } from '../email'
+import type { DataReport, DeploymentMigrations } from '../upgrade/data'
+import type { PoolsReport } from '../upgrade/pools'
 import type { DeployAsk } from '../ask'
 import type { EmailWebhookResult } from './email-webhook'
 import { BUILD_COMMAND, type DeployHost } from './host'
@@ -21,7 +23,7 @@ import { BUILD_COMMAND, type DeployHost } from './host'
 export type DeployOutcome = 'done' | 'unchanged' | 'planned' | 'skipped' | 'failed'
 
 export interface DeployStep {
-  id: 'deployment' | 'environment' | 'auth-secret' | 'site-url' | 'billing-token' | 'email-key' | 'protection-secret' | 'dev-inbox' | 'backend' | 'billing-catalog' | 'billing-ids' | 'email-webhook' | 'email-sync' | 'app-env' | 'gate'
+  id: 'deployment' | 'environment' | 'auth-secret' | 'site-url' | 'billing-token' | 'email-key' | 'protection-secret' | 'dev-inbox' | 'backend' | 'billing-catalog' | 'billing-ids' | 'data-migrations' | 'email-webhook' | 'email-sync' | 'app-env' | 'gate'
   capability: CapabilityName
   title: string
   outcome: DeployOutcome
@@ -70,6 +72,8 @@ export interface DeployDeps {
   emailWebhook: (apiKey: string, url: string, options: { dryRun: boolean }) => Promise<EmailWebhookResult>
   /** Production's own `email sync` (`email:syncEmail`, with its key): the topics, segments, contact properties and flows. `null` when production has no `email:syncEmail`. Absent: the step is skipped. */
   emailSync?: (options: { dryRun: boolean }) => Promise<EmailSyncReport | null>
+  /** Production's data migrations and workpool backfill, as `upgrade --prod --yes` runs them (a dry run reads where they stand). Absent: the step is skipped. */
+  migrate?: (options: { dryRun: boolean }) => Promise<DeploymentMigrations>
   /** `doctor --prod`'s findings. */
   doctor: () => Promise<PreflightFinding[]>
   /** Why the host's build would not ship the backend; null when it does or cannot be told. */
@@ -360,6 +364,72 @@ async function catalogIdsStep(state: DeployState, generated: string | null): Pro
     : { ...base, outcome: 'failed', detail: `billing sync wrote new ids, and npx convex deploy exited with code ${code}: run deploy again. ${commit}` })
 }
 
+/** The command that runs production's migrations by hand. */
+const MIGRATE_BY_HAND = 'npx nuxt-backend upgrade --prod --yes'
+
+/**
+ * What production's data migrations and workpool backfill came to, as a
+ * step's outcome: `deploy`'s and `deploy --build`'s. Migrations that go on
+ * on the deployment's scheduler are done for the deploy; one that failed, a
+ * production that did not answer, or a pool that refused the backfill fails.
+ */
+export function migrationsOutcome({ data, pools }: DeploymentMigrations, dryRun: boolean): Pick<DeployStep, 'outcome' | 'detail'> {
+  if (dryRun) return { outcome: 'planned', detail: `${plannedMigrations(data)}, then start the workpool backfill on every pool` }
+  const failure = migrationsFailure({ data, pools })
+  if (failure) return { outcome: 'failed', detail: `${failure}: run ${MIGRATE_BY_HAND}` }
+  return { outcome: 'done', detail: `${migratedDetail(data)}; ${backfillDetail(pools)}` }
+}
+
+/** The migrations still to run, by name. */
+const waiting = (data: DataReport) => data.migrations.filter(migration => migration.state !== 'done').map(migration => migration.name).join(', ')
+
+/** What a dry run would migrate. */
+function plannedMigrations(data: DataReport): string {
+  if (data.state === 'done' || data.state === 'none') return 'no data migration left'
+  if (data.state === 'pending' || data.state === 'running') return `would run ${waiting(data)}`
+  return 'would run the package\'s data migrations once the backend is pushed'
+}
+
+/** Why the migrations failed the deploy, or undefined. */
+function migrationsFailure({ data, pools }: DeploymentMigrations): string | undefined {
+  if (data.state === 'failed' || data.state === 'needs-push' || data.state === 'skipped') return data.reason ?? 'a data migration failed'
+  if (pools.state === 'failed') return `the workpool backfill was refused by ${pools.failed.map(pool => `${pool.component} (${pool.reason})`).join(', ')}`
+  return undefined
+}
+
+/** Where the data migrations ended. */
+function migratedDetail(data: DataReport): string {
+  if (data.state === 'none') return 'no data migration in this version'
+  if (data.state === 'running') return `${waiting(data)} still running on production's scheduler (${MIGRATE_BY_HAND} shows them finish)`
+  return 'every data migration done'
+}
+
+/** Where the workpool backfill ended. */
+function backfillDetail(pools: PoolsReport): string {
+  if (pools.state === 'started') return `the workpool backfill started on ${pools.pools.join(', ')}`
+  if (pools.state === 'skipped') return `the workpool backfill not asked: ${pools.reason ?? 'production did not list its components'}`
+  return 'no pool needs the workpool backfill'
+}
+
+/**
+ * 9b. Production's data migrations and the workpool backfill, after the
+ * last push: what a new version asks of a deployment that holds data, so
+ * the deploy leaves no `upgrade --prod --yes` to remember.
+ */
+async function migrationsStep(state: DeployState): Promise<void> {
+  if (!state.deps.migrate) return
+  const base = { id: 'data-migrations', capability: 'data', title: 'The data migrations' } as const
+  if (!state.options.dryRun && !state.steps.some(step => step.id === 'backend' && step.outcome === 'done')) {
+    return record(state, { ...base, outcome: 'skipped', detail: `they run on the backend this version pushes, which did not go up: run deploy again, or ${MIGRATE_BY_HAND} after the push` })
+  }
+  try {
+    record(state, { ...base, ...migrationsOutcome(await state.deps.migrate({ dryRun: state.options.dryRun }), state.options.dryRun) })
+  }
+  catch (error) {
+    record(state, { ...base, outcome: 'failed', detail: `${error instanceof Error ? error.message : String(error)}: run ${MIGRATE_BY_HAND}` })
+  }
+}
+
 /** Production's `/email/events` endpoint, or null while its HTTP origin is not known. */
 async function emailEndpoint(state: DeployState): Promise<string | null> {
   const url = state.url ?? (state.options.dryRun ? await state.deps.backend.url() : null)
@@ -496,7 +566,8 @@ const ENV_STEPS: Array<(state: DeployState) => Promise<void>> = [
 /**
  * Take production from nothing to a passing `doctor --prod`: link or create
  * the deployment, push its env, push the backend, sync the billing catalog
- * (and push again when that wrote new ids), register both webhooks, write the app's env into its host, then run the
+ * (and push again when that wrote new ids), run the data migrations on it,
+ * register both webhooks, write the app's env into its host, then run the
  * gate. A step that needs what another could not get is skipped and says
  * so; the next run picks it up.
  */
@@ -510,6 +581,7 @@ export async function runDeploy(options: DeployOptions, deps: DeployDeps): Promi
     for (const step of ENV_STEPS) await step(state)
     await backendStep(state)
     await catalogIdsStep(state, await billingStep(state))
+    await migrationsStep(state)
     await emailWebhookStep(state)
     await emailSyncStep(state)
     await appEnvStep(state)

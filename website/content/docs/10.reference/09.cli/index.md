@@ -491,7 +491,7 @@ Move the app to the version installed. It repairs the scaffold, as `doctor --fix
 ```bash
 npx nuxt-backend upgrade --dry-run      # each scaffold change as a diff, and where the migrations stand; writes nothing
 npx nuxt-backend upgrade                # the scaffold and the dev deployment's data
-npx nuxt-backend upgrade --prod --yes   # production's data, after its deploy
+npx nuxt-backend upgrade --prod --yes   # production's data, where its deploy did not run them
 npx nuxt-backend upgrade --json         # the report as one JSON document
 ```
 
@@ -558,7 +558,7 @@ The project file it writes is `backend/billing.generated.ts`, as `billing sync` 
 |---|---|
 | `--dry-run` | Print every step it would take, and change nothing. |
 | `--sandbox` | Set `BACKEND_ENVIRONMENT=sandbox` instead of `production`, publish the [dev inbox](/docs/develop/dev-inbox) (`EMAIL_DEV_INBOX=1`), and sync to the providers' test modes ([Deploy a demo or staging app](/docs/ship/deploy/staging)). |
-| `--build` | Run as the host's build command, as the [deploy template](/docs/ship/deploy/template) does: put what the first push needs on production where it lacks it (a generated `AUTH_SECRET`, and `SITE_URL` from the host's production URL), then run `convex deploy --cmd '<package manager> run build'`, the backend first and the app against it. The package manager is the one `package.json`'s `packageManager` pins, else the one whose lockfile sits in the project or above it in the repository (a workspace's root), else npm; it runs the build and the package's CLI (`pnpm exec nuxt-backend`, `yarn nuxt-backend`, `bunx nuxt-backend`, `npx nuxt-backend`). With a preview deploy key it fills the preview's env as [`env push --preview`](#preview-deployments) does, its `SITE_URL` from `VERCEL_BRANCH_URL`, else `VERCEL_URL` for a deployment made outside Git, and a new preview loads the billing products once pushed (`--preview-run billing:syncProducts`) when the build's env holds `BILLING_ACCESS_TOKEN`; without one it says so and skips it, since the sync would be refused and fail the build. It never sets `BACKEND_ENVIRONMENT`, so a new app stays on the test modes until `deploy` makes it live. |
+| `--build` | Run as the host's build command, as the [deploy template](/docs/ship/deploy/template) does: put what the first push needs on production where it lacks it (a generated `AUTH_SECRET`, and `SITE_URL` from the host's production URL), then run `convex deploy --cmd '<package manager> run build'`, the backend first and the app against it. The package manager is the one `package.json`'s `packageManager` pins, else the one whose lockfile sits in the project or above it in the repository (a workspace's root), else npm; it runs the build and the package's CLI (`pnpm exec nuxt-backend`, `yarn nuxt-backend`, `bunx nuxt-backend`, `npx nuxt-backend`). With a preview deploy key it fills the preview's env as [`env push --preview`](#preview-deployments) does, its `SITE_URL` from `VERCEL_BRANCH_URL`, else `VERCEL_URL` for a deployment made outside Git, and a new preview loads the billing products once pushed (`--preview-run billing:syncProducts`) when the build's env holds `BILLING_ACCESS_TOKEN`; without one it says so and skips it, since the sync would be refused and fail the build. With a production key, once `convex deploy` pushed the backend, it runs the package's data migrations and the workpool backfill there, as `upgrade --prod --yes` does, and a migration that fails fails the build; a preview has none to run. It never sets `BACKEND_ENVIRONMENT`, so a new app stays on the test modes until `deploy` makes it live. |
 | `--json` | Print the outcome as one JSON document; progress goes to stderr. |
 
 In order, it:
@@ -567,9 +567,10 @@ In order, it:
 2. sets `BACKEND_ENVIRONMENT` to `production`, unless the deployment already holds `sandbox`, which it keeps, or `--sandbox` is given. A value it cannot read stops the run: it never guesses;
 3. pushes production's own env: a generated `AUTH_SECRET`, the app's public origin as `SITE_URL`, the billing token and the email key, and on Vercel a generated bot-check proof secret. On a sandbox it also sets `EMAIL_DEV_INBOX=1`, so the demo's visitors read their sign-in codes off the page. Nothing is copied from `.env.local`, which holds development's;
 4. deploys the backend with `convex deploy`;
-5. syncs the billing catalog to the environment production bills in, as [`billing sync`](#billing-sync) does, and registers both providers' webhooks, storing their signing secrets on production. The email topics and segments come with [`email sync`](#email-sync);
-6. writes the env the Nuxt app needs into the Vercel project's production environment, through your own Vercel login: `NUXT_PUBLIC_BACKEND_URL`, a production `CONVEX_DEPLOY_KEY` it creates for the build, and the proof secret. It stores no token. On another host, it names what to set there;
-7. runs [`doctor --prod`](#doctor), and prints what fails and what bot protection, monitoring and hosting still lack.
+5. runs the package's data migrations and the workpool backfill on production, as [`upgrade --prod --yes`](#upgrade) does, once the backend went up (a dry run reads where they stand). One that fails fails the run, and the steps after it still run;
+6. syncs the billing catalog to the environment production bills in, as [`billing sync`](#billing-sync) does, and registers both providers' webhooks, storing their signing secrets on production. The email topics and segments come with [`email sync`](#email-sync);
+7. writes the env the Nuxt app needs into the Vercel project's production environment, through your own Vercel login: `NUXT_PUBLIC_BACKEND_URL`, a production `CONVEX_DEPLOY_KEY` it creates for the build, and the proof secret. It stores no token. On another host, it names what to set there;
+8. runs [`doctor --prod`](#doctor), and prints what fails and what bot protection, monitoring and hosting still lack.
 
 A key only you hold, such as the billing token, comes from the shell (`BILLING_ACCESS_TOKEN`, `EMAIL_API_KEY`, `SITE_URL`), or at a terminal `deploy` asks for it, without echoing a secret. In CI, without a terminal or with `--json`, it asks nothing: it names that step and skips it, and the next run picks it up. It refuses a dev or preview `CONVEX_DEPLOY_KEY`, as every command that writes production does.
 

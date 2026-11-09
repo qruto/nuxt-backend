@@ -12,6 +12,7 @@ import { packageManagerOf } from './deploy/package-manager'
 import { ensureEmailWebhook } from './deploy/email-webhook'
 import { buildCommandAdvice, deployHost } from './deploy/host'
 import { runDeploy, type DeployBackend } from './deploy/run'
+import { migrateDeployment } from './upgrade/data'
 
 /** The name of the deploy key `deploy` creates for the app's host. */
 const HOST_KEY_NAME = 'nuxt-backend-host'
@@ -59,7 +60,7 @@ export const deploy = withContract('deploy', {
     1: 'refused, a step failed, or `doctor --prod` fails',
   },
 }, defineCommand({
-  meta: { name: 'deploy', description: 'Take production from nothing to a passing doctor --prod: link or create the production deployment, push its env, push the backend, sync the billing catalog, register both webhooks, write the app\'s env into the Vercel project, then run doctor --prod. Safe to run again' },
+  meta: { name: 'deploy', description: 'Take production from nothing to a passing doctor --prod: link or create the production deployment, push its env, push the backend, sync the billing catalog, run the package\'s data migrations, register both webhooks, write the app\'s env into the Vercel project, then run doctor --prod. Safe to run again' },
   args: {
     'cwd': { type: 'string', description: 'Project directory', default: '.' },
     'dry-run': { type: 'boolean', description: 'Print every step it would take, and change nothing', default: false },
@@ -76,7 +77,8 @@ export const deploy = withContract('deploy', {
         process.exitCode = 1
         return
       }
-      process.exitCode = await runBuild({ backend: convexBackend(rootDir, { json: false }), convexDeploy: deployArgs => spawnConvex(rootDir, deployArgs), env: process.env, packageManager: packageManagerOf(rootDir), print: line => console.error(line) })
+      const print = (line: string) => console.error(line)
+      process.exitCode = await runBuild({ backend: convexBackend(rootDir, { json: false }), convexDeploy: deployArgs => spawnConvex(rootDir, deployArgs), env: process.env, packageManager: packageManagerOf(rootDir), migrate: () => migrateDeployment(rootDir, { prod: true, dryRun: false, print }), print })
       return
     }
     const key = nonProductionDeployKey({ ...readEnvFiles(rootDir), ...process.env })
@@ -95,6 +97,7 @@ export const deploy = withContract('deploy', {
       billingSync: options => runBillingSync(rootDir, options, { print }),
       emailWebhook: (apiKey, url, options) => ensureEmailWebhook(apiKey, url, options),
       emailSync: ({ dryRun }) => runEmailSync(rootDir, { prod: true, dryRun }),
+      migrate: ({ dryRun }) => migrateDeployment(rootDir, { prod: true, dryRun, print }),
       doctor: () => runDoctorChecks(rootDir, { prod: true }),
       buildAdvice: host.kind === 'vercel' ? buildCommandAdvice(rootDir) : null,
       print,

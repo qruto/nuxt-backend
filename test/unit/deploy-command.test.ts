@@ -5,6 +5,7 @@ import { PassThrough } from 'node:stream'
 import { runCommand } from 'citty'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { deploy } from '../../src/cli/deploy'
+import { PACKAGE_MIGRATIONS } from '../../src/convex/package-migrations'
 import { createPolarFake } from '../fixtures/polar-fake/server'
 
 // `nuxt-backend deploy` as a person or a host's build runs it: the flags,
@@ -23,33 +24,42 @@ const production = vi.hoisted(() => ({
   exists: true,
   calls: [] as Array<{ args: string[], input?: string }>,
   spawned: [] as string[][],
+  /** What production answers `migrations:status` and `migrations:run` with. */
+  migrations: [] as unknown[],
 }))
-vi.mock('../../src/convex-cli', async importOriginal => ({
-  ...await importOriginal<typeof import('../../src/convex-cli')>(),
-  runConvex: vi.fn(async (_rootDir: string, args: string[], options: { input?: string } = {}) => {
-    production.calls.push({ args, ...(options.input === undefined ? {} : { input: options.input }) })
-    const words = args.filter(arg => arg !== '--prod')
-    if (words[0] === 'deployment' && words[1] === 'create') {
-      production.exists = true
-      return { stdout: 'Created', stderr: '' }
-    }
-    if (!production.exists) throw new Error(`convex ${words[0]} exited with code 1: no production deployment`)
-    if (words[0] === 'env' && words[1] === 'list') return { stdout: [...production.env.keys()].join('\n'), stderr: '' }
-    if (words[0] === 'env' && words[1] === 'get') return { stdout: `${production.env.get(words[2]!) ?? ''}\n`, stderr: '' }
-    if (words[0] === 'env' && words[1] === 'set') {
-      production.env.set(words[2]!, options.input!)
-      return { stdout: '', stderr: '' }
-    }
-    if (words[0] === 'function-spec') return { stdout: JSON.stringify({ url: CLOUD, functions: [] }), stderr: '' }
-    if (words[0] === 'deploy') return { stdout: 'Deployed', stderr: '' }
-    if (words[0] === 'deployment' && words[1] === 'token') return { stdout: `Created a deploy key.\n${'prod:happy-otter-123|host-deploy-key-secret'}\n`, stderr: '' }
-    throw Object.assign(new Error(`convex ${words[0]} exited with code 1: Could not find function`), { missingFunction: true })
-  }),
-  spawnConvex: vi.fn(async (_rootDir: string, args: string[]) => {
-    production.spawned.push(args)
-    return 0
-  }),
-}))
+vi.mock('../../src/convex-cli', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../src/convex-cli')>()
+  return {
+    ...original,
+    runConvex: vi.fn(async (_rootDir: string, args: string[], options: { input?: string } = {}) => {
+      production.calls.push({ args, ...(options.input === undefined ? {} : { input: options.input }) })
+      const words = args.filter(arg => arg !== '--prod')
+      if (words[0] === 'deployment' && words[1] === 'create') {
+        production.exists = true
+        return { stdout: 'Created', stderr: '' }
+      }
+      if (!production.exists) throw new Error(`convex ${words[0]} exited with code 1: no production deployment`)
+      if (words[0] === 'env' && words[1] === 'list') return { stdout: [...production.env.keys()].join('\n'), stderr: '' }
+      if (words[0] === 'env' && words[1] === 'get') return { stdout: `${production.env.get(words[2]!) ?? ''}\n`, stderr: '' }
+      if (words[0] === 'env' && words[1] === 'set') {
+        production.env.set(words[2]!, options.input!)
+        return { stdout: '', stderr: '' }
+      }
+      if (words[0] === 'function-spec') return { stdout: JSON.stringify({ url: CLOUD, functions: [] }), stderr: '' }
+      if (words[0] === 'deploy') return { stdout: 'Deployed', stderr: '' }
+      if (words[0] === 'deployment' && words[1] === 'token') return { stdout: `Created a deploy key.\n${'prod:happy-otter-123|host-deploy-key-secret'}\n`, stderr: '' }
+      // The package's data migrations, each done, and a deployment that mounts one pool, whose backfill starts.
+      if (words.includes('migrations:status') || words.includes('migrations:run')) return { stdout: JSON.stringify(production.migrations), stderr: '' }
+      if (words.includes('__nuxt_backend_component_listing__')) throw new original.ConvexCliError('convex run exited with code 1', { code: 1, signal: null, timedOut: false, stderrTail: '', components: ['workpool'] })
+      if (words.includes('migrations:backfillPendingStartIds')) return { stdout: 'null', stderr: '' }
+      throw Object.assign(new Error(`convex ${words[0]} exited with code 1: Could not find function`), { missingFunction: true })
+    }),
+    spawnConvex: vi.fn(async (_rootDir: string, args: string[]) => {
+      production.spawned.push(args)
+      return 0
+    }),
+  }
+})
 
 let dir: string
 let rootDir: string
@@ -65,6 +75,7 @@ beforeEach(() => {
   production.exists = true
   production.calls.length = 0
   production.spawned.length = 0
+  production.migrations = PACKAGE_MIGRATIONS.map(({ name, since, does }) => ({ name, since, does, state: 'done', processed: 0 }))
   stdout = []
   stderr = []
   vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => void stdout.push(args.join(' ')))
@@ -144,6 +155,9 @@ describe('nuxt-backend deploy, the command', () => {
     expect(sets().map(call => call.args)).toEqual([['env', 'set', '--prod', 'AUTH_SECRET'], ['env', 'set', '--prod', 'SITE_URL']])
     expect(production.env.get('SITE_URL')).toBe('https://panels.vercel.app')
     expect(production.spawned).toEqual([['deploy', '--cmd', 'npm run build', '--cmd-url-env-var-name', 'NUXT_PUBLIC_BACKEND_URL']])
+    // Then production's data migrations and the workpool backfill, on the backend just pushed.
+    expect(production.calls.map(call => call.args).filter(args => args.includes('--component')).map(args => args.at(-2))).toEqual(['migrations:status', '--inline-query', 'migrations:backfillPendingStartIds'])
+    expect(stderr.join('\n')).toContain('deploy --build: the data migrations: every data migration done; the workpool backfill started on workpool')
     expect(process.exitCode).toBe(0)
     expect(stderr.join('\n')).not.toContain(production.env.get('AUTH_SECRET')!)
   })
@@ -272,7 +286,7 @@ describe('nuxt-backend deploy, the command', () => {
     const report = JSON.parse(stdout[0]!) as { steps: Array<{ id: string, outcome: string, detail: string }>, doctor: unknown }
     const ids = report.steps.map(step => step.id)
     expect(report.steps.find(step => step.id === 'billing-catalog')).toMatchObject({ outcome: 'failed', detail: expect.stringContaining(says) })
-    expect(ids.slice(ids.indexOf('billing-catalog') + 1)).toEqual(['email-webhook', 'email-sync', 'app-env', 'gate'])
+    expect(ids.slice(ids.indexOf('billing-catalog') + 1)).toEqual(['data-migrations', 'email-webhook', 'email-sync', 'app-env', 'gate'])
     expect(report.doctor).not.toBeNull()
     expect(process.exitCode).toBe(1)
     expect(`${stdout.join('\n')}\n${stderr.join('\n')}`).not.toContain(token)

@@ -4,11 +4,11 @@ import { agentsMdVersion, installedVersion } from '../agents'
 import { deployKeyType, nonProductionDeployKey, readEnvFiles } from '../env-push'
 import { progress, withContract } from './contract'
 import { repairProjectFiles } from './repair'
-import { type DataReport, migrateData } from './upgrade/data'
+import { type DataReport, migrateDeployment } from './upgrade/data'
 import { unifiedDiff } from './upgrade/diff'
 import { ejectedChanges, type EjectedChange, formatEjected } from './upgrade/ejected'
 import { formatUpgrade } from './upgrade/format'
-import { backfillPools, type PoolsReport } from './upgrade/pools'
+import type { PoolsReport } from './upgrade/pools'
 import { planRepairs } from './upgrade/scaffold'
 
 /** What `upgrade --json` prints. */
@@ -68,11 +68,7 @@ export async function runUpgrade(rootDir: string, options: UpgradeOptions): Prom
 
   const ejected = await ejectedChanges(rootDir)
   options.print(`[nuxt-backend] upgrade: the package's data migrations, ${options.prod ? 'production' : 'dev'} deployment…`)
-  const data = await migrateData(rootDir, { prod: options.prod, dryRun: options.dryRun, print: options.print })
-  // The same deployment: one that did not answer the migrations is not asked again.
-  const pools: PoolsReport = data.state === 'skipped'
-    ? { state: 'skipped', pools: [], failed: [], ...(data.reason ? { reason: data.reason } : {}) }
-    : await backfillPools(rootDir, { prod: options.prod, dryRun: options.dryRun })
+  const { data, pools } = await migrateDeployment(rootDir, { prod: options.prod, dryRun: options.dryRun, print: options.print })
   const report = { to, dryRun: options.dryRun, scaffold, ejected, data, pools }
   return { ...report, next: nextCommands(rootDir, report, options.prod) }
 }

@@ -10,6 +10,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { ConvexCliError, runConvex } from '../../convex-cli'
 import { PACKAGE_MIGRATIONS, type PackageMigrationStatus } from '../../convex/package-migrations'
 import { configuredDeployment, deployKeyType, deploymentFlags, readEnvFiles } from '../../env-push'
+import { backfillPools, type PoolsReport } from './pools'
 
 /**
  * Where the data half ended: every migration `done`, some still `running`
@@ -127,4 +128,24 @@ export async function migrateData(rootDir: string, options: DataOptions): Promis
   const migrations = await follow(rootDir, started, options)
   const state = overall(migrations)
   return { deployment, state: state === 'pending' ? 'running' : state, migrations }
+}
+
+/** What {@link migrateDeployment} did on the deployment: the data migrations, then the workpool backfill. */
+export interface DeploymentMigrations {
+  data: DataReport
+  pools: PoolsReport
+}
+
+/**
+ * The package's data migrations, then the workpool backfill on the same
+ * deployment: what `upgrade` runs after its repairs, and `deploy` and
+ * `deploy --build` after their push. A deployment that did not answer the
+ * migrations is not asked for its pools either.
+ */
+export async function migrateDeployment(rootDir: string, options: DataOptions): Promise<DeploymentMigrations> {
+  const data = await migrateData(rootDir, options)
+  const pools: PoolsReport = data.state === 'skipped'
+    ? { state: 'skipped', pools: [], failed: [], ...(data.reason ? { reason: data.reason } : {}) }
+    : await backfillPools(rootDir, { prod: options.prod, dryRun: options.dryRun })
+  return { data, pools }
 }
