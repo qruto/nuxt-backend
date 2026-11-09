@@ -342,9 +342,10 @@ jobs:
         # class of bug that only ships to Windows users.
         #
         # Two Node versions without a third leg: Linux runs the floor
-        # `engines.node` promises (read from package.json, so raising it needs
-        # no edit here), Windows the current LTS line (`lts` tracks it without
-        # a bump). Every other job runs `node@lts` on Linux.
+        # `engines.node` promises (the setup action reads it from
+        # package.json, so raising it needs no edit here), Windows the current
+        # LTS line (`lts` tracks it without a bump). Every other job runs
+        # `node@lts` on Linux, but `e2e`, which keeps to the floor too.
         include:
           - os: ubuntu-latest
             node: engines
@@ -362,24 +363,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Read the Node floor
-        id: floor
-        if: matrix.node == 'engines'
-        run: |
-          floor=$(jq -r '.engines.node | ltrimstr(">=")' package.json)
-          if ! [[ $floor =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::engines.node is not a plain '>=x.y.z' floor; teach this step to read it."
-            exit 1
-          fi
-          echo "runtime=node@$floor" >> "$GITHUB_OUTPUT"
-
       # `lib`: the `nuxt` vitest project boots a Nuxt app from the repository
       # root, not from the website, so nothing here needs `nuxt prepare website`.
       # Each leg saves its own store on main: the runtimes differ, and so do
-      # the cache keys.
+      # the cache keys. (`e2e` restores the Linux leg's and saves none.)
       - uses: ./.github/actions/setup
         with:
-          runtime: ${{ steps.floor.outputs.runtime || format('node@{0}', matrix.node) }}
+          runtime: ${{ matrix.node == 'engines' && 'engines' || format('node@{0}', matrix.node) }}
           prepare: lib
           save-cache: ${{ github.ref == 'refs/heads/main' }}
 
@@ -410,32 +400,58 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-      # Full-app end-to-end, on the Linux leg rather than a job of its own,
-      # which would pay a second checkout, install and prepare: builds
-      # `templates/starter` and `templates/panels` with @nuxt/test-utils/e2e
-      # and serves them on a real Nitro server against a stub deployment (SSR
-      # pages, the auth middleware's redirect, the Convex-aware CSP), with a
-      # browser leg for the sign-in form and a live query, and a screenshot of
-      # every module page. The other apps are installed and built in `pack`.
-      #
+  # Full-app end-to-end: builds `templates/starter` and `templates/panels` with
+  # @nuxt/test-utils/e2e and serves them on a real Nitro server against a stub
+  # deployment (SSR pages, the auth middleware's redirect, the Convex-aware
+  # CSP), with a browser leg for the sign-in form and a live query, and a
+  # screenshot of every module page. The other apps are installed and built in
+  # `pack`.
+  #
+  # A job of its own, beside `test` rather than on its Linux leg: there it ran
+  # after the unit suite, and made that leg the longest job of every run (9.9
+  # minutes, 3.4 of them this suite). The price is one more checkout, install
+  # and prepare, about a minute of runner time. It needs what that leg had and
+  # nothing more: the `lib` prepare (the apps link this checkout's stub build)
+  # and the same Node floor. Codegen for the apps is offline, so no local
+  # backend.
+  e2e:
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.src == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          runtime: engines
+          prepare: lib
+
       # The browser the e2e project drives. playwright-core is the lockfile
       # version, so the browser build it downloads is the one it was tested
       # against; `--with-deps` adds the runner's system libraries. Only the
       # headless shell: @nuxt/test-utils launches headless with no `channel`,
       # so the full Chrome download would go unused.
       - name: Install Chromium
-        if: ${{ !cancelled() && runner.os == 'Linux' }}
         run: pnpm exec playwright-core install --with-deps --only-shell chromium
 
       - name: End-to-end tests
-        if: ${{ !cancelled() && runner.os == 'Linux' }}
         run: pnpm run test:e2e
 
       # Every page the module mounts, at 390 and 1280 px in both schemes, from
       # test/e2e/screenshots.test.ts: compare a pull request's set with main's
       # to see what a change does to the packaged pages.
       - name: Upload module-page screenshots
-        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: module-page-screenshots
@@ -551,6 +567,31 @@ jobs:
           npm() { npx --yes npm@11.17.0 "$@"; }
           codegen() { flock "$RUNNER_TEMP/codegen.lock" "$CODEGEN"; }
 
+          # An install that fails on a version the registry does not serve
+          # yet runs once more, five minutes later. npm lists a release
+          # before every edge serves its tarball, and an edge keeps the 404
+          # it answered for five minutes (`cache-control: public,
+          # max-age=300`): rollup 4.68.2 went out at 14:18:06 on 2026-11-09,
+          # still answered 404 here at 14:21:41, and a re-run at 14:33
+          # passed. A shorter wait would read the same cached 404. Only those
+          # errors retry (npm's E404 and ETARGET, pnpm's FETCH_404 and
+          # NO_MATCHING_VERSION), only once, and the second attempt's result
+          # is the install's: a version that never appears still fails.
+          lagged() {
+            local log status=0
+            log=$(mktemp)
+            "$@" > "$log" 2>&1 || status=$?
+            cat "$log"
+            if [ "$status" -ne 0 ] && grep -qE 'npm error code (E404|ETARGET)|ERR_PNPM_(FETCH_404|NO_MATCHING_VERSION)' "$log"; then
+              echo "::warning::'$1 $2' hit a version the registry does not serve yet; trying once more in five minutes."
+              sleep 300
+              status=0
+              "$@" || status=$?
+            fi
+            rm -f "$log"
+            return "$status"
+          }
+
           # Copies an app without what a previous run left in it.
           fresh() {
             cp -R "$1" "$2"
@@ -585,7 +626,7 @@ jobs:
               if grep -rq '#backend/api' "$app/app"; then build_codegen=codegen; fi
             fi
             cd "$dir" \
-              && npm install --no-audit --no-fund "$TARBALL" \
+              && lagged npm install --no-audit --no-fund "$TARBALL" \
               && "$build_codegen" \
               && npm run build \
               && serve "$port"
@@ -609,7 +650,7 @@ jobs:
               console.log("floors:", JSON.stringify(pins))
             ' "$dir/package.json" \
               && cd "$dir" \
-              && npm install --no-audit --no-fund "$TARBALL" \
+              && lagged npm install --no-audit --no-fund "$TARBALL" \
               && codegen \
               && npm run build \
               && serve 3003
@@ -623,11 +664,11 @@ jobs:
               fresh "$app" "$dir"
               # Codegen goes unless the app commits it.
               git ls-files --error-unmatch "$app/backend/_generated/api.d.ts" > /dev/null 2>&1 || rm -rf "$dir/backend/_generated"
-              (cd "$dir" && pnpm add "$TARBALL") || return 1
+              (cd "$dir" && lagged pnpm add "$TARBALL") || return 1
             done
             cd "$RUNNER_TEMP/smoke-pnpm-starter" \
               && codegen \
-              && pnpm add @nuxt/a11y @nuxt/content @nuxt/eslint @nuxt/fonts @nuxt/hints \
+              && lagged pnpm add @nuxt/a11y @nuxt/content @nuxt/eslint @nuxt/fonts @nuxt/hints \
                 @nuxt/icon @nuxt/image @nuxt/scripts @nuxt/test-utils @nuxt/ui better-sqlite3
           }
 
@@ -638,9 +679,9 @@ jobs:
             printf '%s\n' "export default defineNuxtConfig({ modules: ['nuxt-backend'], telemetry: false })" > nuxt.config.ts
             printf '%s\n' '<template><div>smoke</div></template>' > app/app.vue
             printf '%s\n' 'publicHoistPattern:' "  - '@convex-dev/*'" 'allowBuilds:' '  esbuild: false' 'minimumReleaseAge: 0' > pnpm-workspace.yaml
-            pnpm add nuxt convex "$TARBALL" \
+            lagged pnpm add nuxt convex "$TARBALL" \
               && pnpm exec nuxt-backend init \
-              && pnpm install --no-frozen-lockfile \
+              && lagged pnpm install --no-frozen-lockfile \
               && pnpm exec nuxt build \
               && codegen
             # `init` adds the MCP server's SDK to devDependencies and says to
@@ -1013,7 +1054,7 @@ jobs:
   # The one required status check, and the only name the branch ruleset knows.
   # Every job above reports into it, so adding, renaming or splitting a job never
   # means editing the ruleset. `skipped` counts as a pass: `dependency-review` is
-  # skipped on pushes, and `test`/`pack`/`website` are skipped when no
+  # skipped on pushes, and `test`/`e2e`/`pack`/`website` are skipped when no
   # relevant file changed.
   all-checks:
     name: All checks passed
@@ -1026,6 +1067,7 @@ jobs:
       - changes
       - static
       - test
+      - e2e
       - pack
       - website
       - dependency-review

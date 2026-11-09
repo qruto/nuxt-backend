@@ -12,9 +12,22 @@
 # passes one (see weekly.yml).
 scheme = ["https", "http"]
 
-# Retry once; a single 5xx from a rate-limited host is not a dead link.
-max_retries = 2
-timeout = 20
+# A host that stalls now and then is not a dead link. The German Federal
+# Ministry of Justice's statute site (gesetze-im-internet.de, cited for the
+# cancellation button) answers a browser in under a second, but on GitHub's
+# runners it sometimes doesn't answer at all: the run of 2026-11-02 timed out
+# on it at 20 s, three attempts in a row, and the run before passed. lychee
+# has no timeout or retry count per host (a `[hosts]` table takes only
+# concurrency, interval and headers), so these hold for every host. Each
+# attempt gets 30 s, and a timeout, a reset connection, a 5xx, a 408 or a 429
+# is tried four more times, waiting 5 s, then 10, 20 and 40 between tries:
+# five chances over some four minutes rather than three within one. Only a
+# host that never answers pays all of it, and links are checked side by
+# side, so the run stays well inside the job's 15 minutes. A dead link
+# (404, 410) answers at once and is never retried.
+max_retries = 4
+retry_wait_time = 5
+timeout = 30
 # Some hosts refuse HEAD outright.
 method = "get"
 # Identify ourselves rather than looking like a scraper.
@@ -50,14 +63,6 @@ exclude = [
   # every law the compliance pages cite. The ELI addresses are permanent
   # identifiers, so a real move is not what this would catch.
   "^https?://eur-lex\\.europa\\.eu/eli/",
-  # The German Federal Ministry of Justice's statute site stalls on GitHub's
-  # runners now and then: the run of 2026-11-02 timed out on it (20 s, two
-  # retries), the run before passed, and a browser gets it at once. lychee
-  # has no timeout per host (a `[hosts]` table takes concurrency, interval,
-  # headers and accept), and raising `timeout` above would make every dead
-  # link slower to report. A section's address (`/bgb/__312k.html`, the
-  # cancellation button) is fixed by the statute's name and number.
-  "^https?://(www\\.)?gesetze-im-internet\\.de/",
   # GitHub settings pages answer a logged-out client with 404, not 403, so
   # `accept` below cannot cover them (RELEASE.md links the Actions settings).
   "^https?://github\\.com/.*/settings(/|$)",
