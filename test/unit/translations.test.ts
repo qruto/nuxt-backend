@@ -80,6 +80,16 @@ describe('an email to a reader of a translated language', () => {
     expect(russian.subject).toBe(translated('ru', 'email.welcome.subject'))
   })
 
+  it.each(TRANSLATED_LOCALES)('writes a notification in %s around the words it is handed, its link in that language', async (locale) => {
+    const data = { email: 'ada@example.com', type: 'auth.passkey_added', words: { title: formatLabel(translated(locale, 'notifications.auth.passkey_added.title'), {}) }, link: 'https://app.example.com/security', fields: {} }
+    const message = await renderEmail('notification', data, { locale, locales: TRANSLATED_LOCALES, localePaths: 'prefix', siteUrl: 'https://app.example.com' })
+    expect(message.subject).toBe(data.words.title)
+    expect(message.html).toContain(`lang="${locale}"`)
+    expect(message.html).toContain(`href="https://app.example.com/${locale}/security"`)
+    expect(message.text).toContain(translated(locale, 'notifications.emailNote'))
+    expect(message.text).not.toContain(LABELS.notifications.emailNote)
+  })
+
   it('reads the app\'s own message first, key by key, and English for a language the package does not speak', async () => {
     const de = { backend: { email: { invite: { subject: 'Komm zu {workspace}' } } } }
     expect((await renderEmail('invite', invite, { locale: 'de', messages: { de } })).subject).toBe('Komm zu Acme')

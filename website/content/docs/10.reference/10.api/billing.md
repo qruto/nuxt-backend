@@ -2357,7 +2357,7 @@ What billing sends its email through: the app's `setupEmail` instance.
 
 | Name | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| `preferences?` | `Pick`\<[`Email`](/docs/reference/api/email#email-23)\[`"preferences"`\], `"softOptIn"` \| `"topics"`\> | The soft opt-in a paid checkout joins its customer to (`setupEmail({ topics: { <key>: { softOptIn: true } } })`). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `preferences?` | `Pick`\<[`Email`](/docs/reference/api/email#email-24)\[`"preferences"`\], `"softOptIn"` \| `"topics"`\> | The soft opt-in a paid checkout joins its customer to (`setupEmail({ topics: { <key>: { softOptIn: true } } })`). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 
 ***
 

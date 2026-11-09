@@ -30,12 +30,9 @@ Each template takes the data of its email and returns `{ to, subject, html?, tex
 | `welcome` | Once, right after a user is created | `{ email, name }` |
 | `invite` | A workspace invitation, with an accept link | `{ email, url, inviterName, inviterEmail, workspaceName, role }` |
 | `gift` | A gift is paid, to its recipient ([Gifts](/docs/build/growth/offers/gifts#the-notification-email)) | `{ recipientEmail, purchaserName?, item, claimUrl }`: the sender's name (at most 40 characters, no links), the pack's name and the app's URL, never the purchaser's email or message |
+| `notification` | A [notification](/docs/build/email/notifications) the person gets by email, every kind alike ([One email per notification kind](#one-email-per-notification-kind)) | `{ email, type, words: { title, body? }, link, fields }`: the kind, its words in the reader's language as the inbox shows them, the absolute URL it opens, and the kind's own fields |
 
-The `0.2.0` features add their own emails to this registry, each overridable the same way. Their names land with each feature:
-
-- the waitlist's confirmation;
-- the alert about a sign-in from a new device;
-- the notifications a person chose to get by email ([Show in-app notifications](/docs/build/email/notifications)). The billing provider's receipts and reminders never join: they stay the provider's.
+The rest of the registry, each overridable the same way, is listed with its data on [`nuxt-backend/email`](/docs/reference/api/email#emailtemplates): the new-device and recovery alerts, the deletion notices, the waitlist's, a topic's confirmation, the plan pass and renewal reminders, the withdrawal receipt and the notice-and-action emails. The billing provider's receipts and reminders never join: they stay the provider's.
 
 Each template also gets a render context:
 
@@ -89,6 +86,38 @@ gift: (data, { byDefault }) => ({
 ### The welcome email
 
 `welcome` goes out once, right after sign-up, on every app. Onboarding that follows it belongs in an [email sequence](/docs/build/growth/engage/lifecycle-emails): the scaffold's `onSignup` sequence starts three days later. Restyle the welcome itself through `templates.welcome`.
+
+## One email per notification kind
+
+Every notification a person gets by email, a package kind or one of [yours](/docs/build/email/notifications/custom-events), renders through the `notification` template: the kind's title as the subject and heading, its body, a button to the page it opens, and the line on where to choose which notifications arrive by email. The words come worded already, in the reader's language, as the inbox shows them, so an override changes how they look, not what they say. `type` names the kind, so one override gives a kind its own email and hands every other kind to `byDefault`:
+
+```ts [backend/email.ts]
+import { setupEmail } from 'nuxt-backend/email'
+import { components } from './_generated/api'
+
+export const email = setupEmail(components, {
+  templates: {
+    notification: (data, { byDefault, t }) => {
+      switch (data.type) {
+        case 'app.strip_printed':
+          return {
+            to: data.email,
+            subject: data.words.title,
+            blocks: [
+              { heading: data.words.title },
+              { paragraph: t('strips.printedCopies', { count: Number(data.fields.copies) }) },
+              { button: { label: t('strips.track'), url: data.link } },
+            ],
+          }
+        default:
+          return byDefault(data)
+      }
+    },
+  },
+})
+```
+
+`link` is absolute, on `SITE_URL` (a bare path on a deployment without one, which a `button` refuses: `linkBlocks` gives it a line of text instead). The default passes it through `context.link`, so it opens in the reader's language; do the same in yours when your pages carry the language in their path. `fields` holds the event's own values, as the event was recorded: escape any a person typed when you write `html`. `npx nuxt-backend eject email:notification` copies the default, to switch on `type` inside it.
 
 ## Sent once
 

@@ -186,13 +186,14 @@ What `forget` answers: how many notifications went, and whether none of that kin
 
 Defined in: [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts)
 
-What the notifications need of `setupEmail`'s instance: the layout and words, and the sending rules.
+What the notifications need of `setupEmail`'s instance: the layout and words, the templates, and the sending rules.
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="compose"></a> `compose` | \<`Message`\>(`build`, `options?`) => `Promise`\<`Message`\> | - | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
+| <a id="render"></a> `render` | \<`Name`\>(`name`, `data`, `options?`) => `Promise`\<[`EmailMessage`](/docs/reference/api/email#emailmessage)\> | Render one of the package's emails, the app's override in effect: a notification's email is the `notification` template. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 | <a id="send"></a> `send` | (`ctx`, `message`) => `Promise`\<`string` \| `null`\> | The transactional send, under no sending rule: a transactional kind's email goes through it. | [src/convex/integrations/notifications.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/notifications.ts) |
 
 ***
