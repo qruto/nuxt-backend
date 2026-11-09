@@ -895,6 +895,7 @@
       "useGifts",
       "useHumanCheck",
       "useInboxAdmin",
+      "useInstallPrompt",
       "useInvite",
       "useJob",
       "useLabels",

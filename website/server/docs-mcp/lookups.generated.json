@@ -1222,6 +1222,12 @@
       "summary": "Web push on this device, for the signed-in person: whether the browser can take it, whether this device is subscribed, the permission, and the actions that subscribe and unsubscribe it.",
       "url": "/docs/reference/nuxt/composables"
     },
+    "useInstallPrompt": {
+      "tab": "Email",
+      "tier": "stable",
+      "summary": "Offer the install of the app from a button of its own: whether the browser handed over its install dialog, whether the app is installed, and the action that opens the dialog.",
+      "url": "/docs/reference/nuxt/composables"
+    },
     "useAnnouncements": {
       "tab": "Email",
       "tier": "stable",

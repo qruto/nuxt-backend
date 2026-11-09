@@ -90,7 +90,7 @@ Every name on this surface is brand-neutral: no export, value or type, and no re
   - `authRoute`
   - `css`
   - `devtools`
-  - `installable`, and its keys `themeColor`, `backgroundColor`, `description`, `icons` and `maskable`
+  - `installable`, and its keys `themeColor`, `backgroundColor`, `description`, `id`, `lang`, `orientation`, `icons` and `maskable`
   - `pages`
   - `redirects`
   - `url`
@@ -229,6 +229,7 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `useGifts`
   - `useHumanCheck` — a token for one call that `verifyHuman` checks on the deployment: a challenge answer, or a proof the app's server signs once its bot check passed
   - `useInboxAdmin` — the admin console's Inbox tab as data: the contact messages and inbound mail, and the replies an administrator sends to the support inbox
+  - `useInstallPrompt` — the install of the app from a button of its own: whether the browser handed over its install dialog, whether the app is installed, and opening the dialog
   - `useInvite` — check an invite code or an access link before signing up, and keep it for the tab's next sign-in
   - `useJob` — one queued job, live: its place in line, its progress, its result or the reason it failed, and `cancel()`
   - `useLabels` — a label group, resolved through the component prop, `appConfig.backend.labels`, `@nuxtjs/i18n` and English

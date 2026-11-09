@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { addServerHandler, hasNuxtModule, type Resolver } from '@nuxt/kit'
+import { addPlugin, addServerHandler, hasNuxtModule, type Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import { appBrandOf } from '../brand-file'
 import { logger } from './logger'
@@ -21,6 +21,8 @@ import { PUSH_WORKER_URL } from '../convex/web-push'
  */
 export function registerInstallable(resolver: Resolver, nuxt: Nuxt, options: InstallableOptions | false = {}): void {
   addServerHandler({ route: PUSH_WORKER_URL, method: 'get', handler: { nuxt: resolver.resolve('./runtime/server/push-worker') } })
+  // useInstallPrompt() reads the install events from the app's start, whoever serves the manifest.
+  addPlugin({ src: resolver.resolve('./runtime/vue/plugins/install-prompt.client'), mode: 'client' })
   if (options === false) return
   const publicDir = resolve(nuxt.options.rootDir, nuxt.options.dir?.public ?? 'public')
   nuxt.hook('modules:done', async () => {

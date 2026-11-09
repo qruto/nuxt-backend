@@ -62,6 +62,11 @@ describe('the web app manifest', () => {
       { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ])
     expect(webAppManifest('Panels', { themeColor: '#123456', backgroundColor: '#ffffff' })).toMatchObject({ theme_color: '#123456', background_color: '#ffffff' })
+    // The identity, the language and the orientation, each only when the option names it.
+    expect(webAppManifest('Panels', { id: '/', lang: 'en', orientation: 'any' })).toMatchObject({ id: '/', lang: 'en', orientation: 'any' })
+    expect(webAppManifest('Panels')).not.toHaveProperty('id')
+    expect(webAppManifest('Panels')).not.toHaveProperty('lang')
+    expect(webAppManifest('Panels')).not.toHaveProperty('orientation')
     expect(themeColorMeta({ light: '#ffb900', dark: '#1e1a4d' })).toEqual([
       { name: 'theme-color', content: '#ffb900', media: '(prefers-color-scheme: light)' },
       { name: 'theme-color', content: '#1e1a4d', media: '(prefers-color-scheme: dark)' },

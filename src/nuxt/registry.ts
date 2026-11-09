@@ -73,6 +73,7 @@ export function registerSaasComposables(resolver: Resolver): void {
     { name: 'useEmailPreferences', from: resolver.resolve('./runtime/vue/composables/use-email-preferences') },
     { name: 'useEmailLink', from: resolver.resolve('./runtime/vue/composables/use-email-link') },
     { name: 'usePushSubscription', from: resolver.resolve('./runtime/vue/composables/use-push-subscription') },
+    { name: 'useInstallPrompt', from: resolver.resolve('./runtime/vue/composables/use-install-prompt') },
     { name: 'useAnnouncements', from: resolver.resolve('./runtime/vue/composables/use-announcements') },
     { name: 'useAnnouncementsAdmin', from: resolver.resolve('./runtime/vue/composables/use-announcements') },
     { name: 'useContactForm', from: resolver.resolve('./runtime/vue/composables/use-contact-form') },

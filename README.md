@@ -147,6 +147,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useGifts` — gifts, from both sides
 - `useHumanCheck` — proof that a person makes a call: the client half of `verifyHuman`, for the calls that reach the deployment over the live connection and never pass through the app's server (a waitlist join, a contact form, a referral claim)
 - `useInboxAdmin` — the admin console's Inbox tab, as data: what people sent through the contact form and by email (reply addresses, workspace addresses, the support inbox), newest first, and the replies an administrator sends to the support inbox's threads, through `backend/email.ts` (experimental)
+- `useInstallPrompt` — offer the install of the app from a button of its own: whether the browser handed over its install dialog, whether the app is installed, and the action that opens the dialog
 - `useInvite` — redeem an invite code or an access link on a page of your own: check it before anyone signs in, and keep it for the tab so the sign-in hands it over with the code
 - `useJob` — one queued job, live: its status, what holds it and its place in line while it waits, its progress while it runs, and its result or the reason it failed (experimental)
 - `useLabels` — the labels of one packaged component's group, resolved for the person reading them

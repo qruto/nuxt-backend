@@ -95,7 +95,7 @@ export const TASK_SKILLS = [
     covers: 'transactional email, templates, delivery tracking, the dev inbox and notifications',
     docs: ['/docs/build/email', '/docs/develop/dev-inbox'],
     entrypoints: ['nuxt-backend/email', 'nuxt-backend/notifications'],
-    composables: ['useEmailStatus', 'useSandboxInbox', 'useNotifications', 'useNotificationInbox', 'useEmailPreferences', 'useEmailLink', 'usePushSubscription', 'useAnnouncements', 'useAnnouncementsAdmin', 'useContactForm', 'useInboxAdmin'],
+    composables: ['useEmailStatus', 'useSandboxInbox', 'useNotifications', 'useNotificationInbox', 'useEmailPreferences', 'useEmailLink', 'usePushSubscription', 'useInstallPrompt', 'useAnnouncements', 'useAnnouncementsAdmin', 'useContactForm', 'useInboxAdmin'],
     components: ['NotificationInbox', 'ContactForm'],
     commands: ['inbox', 'email sync'],
 

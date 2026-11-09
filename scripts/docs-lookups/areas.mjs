@@ -27,6 +27,7 @@ export const COMPOSABLE_AREAS = {
   useEmailPreferences: 'email',
   useEmailLink: 'email',
   usePushSubscription: 'email',
+  useInstallPrompt: 'email',
   useAnnouncements: 'email',
   useAnnouncementsAdmin: 'email',
   useBilling: 'billing',

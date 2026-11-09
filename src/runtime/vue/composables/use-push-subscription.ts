@@ -3,6 +3,7 @@ import { computed, getCurrentInstance, inject, onMounted, ref, watch, type Compu
 import { ConvexAuthStateKey, useMutation } from 'nuxt-convex-module/client'
 import type { PushConfig } from '../../../convex/integrations/notifications'
 import { useActionState } from '../utils/action-state'
+import { isInstalled } from '../utils/display-mode'
 import type { BackendError } from '../utils/backend-error'
 import { absentQuery, useLiveQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
@@ -49,11 +50,6 @@ export interface UsePushSubscriptionReturn {
 function isAppleMobile(): boolean {
   const { userAgent, maxTouchPoints } = navigator
   return /iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1)
-}
-
-/** The app runs from the Home Screen or as an installed app. */
-function isInstalled(): boolean {
-  return (navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia?.('(display-mode:standalone)').matches === true
 }
 
 /**

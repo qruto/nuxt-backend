@@ -794,6 +794,10 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "useInstallPrompt",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useAnnouncements",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -1551,9 +1555,9 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "63 in all",
+          "name": "64 in all",
           "to": "/docs/reference/nuxt/composables",
-          "label": "63 composables in all"
+          "label": "64 composables in all"
         }
       ]
     },
@@ -1978,6 +1982,10 @@
         },
         {
           "name": "usePushSubscription",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useInstallPrompt",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {

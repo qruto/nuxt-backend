@@ -547,6 +547,7 @@ const REGISTRY = {
     'useEmailPreferences',
     'useEmailLink',
     'usePushSubscription',
+    'useInstallPrompt',
     'useAnnouncements',
     'useAnnouncementsAdmin',
     'useNotifications',
