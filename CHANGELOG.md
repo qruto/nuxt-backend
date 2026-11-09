@@ -27,11 +27,11 @@ Each change, with the edit to make, is on the [Upgrade page](https://nuxt-backen
   - `onJobEnd` runs once for every job that ends, however it ends, and app code can read and cancel jobs with `jobs.get` and `jobs.cancel`.
   - `job.charge(n)` bills what a job made, capped at the hold taken at enqueue, and refunds the rest. A job can run free.
   - `ctx.image()` draws with image models inside a step.
-  - `setupAi({ gateway })` chooses the AI gateway, and `setupAi({ routes })` routes some models through it.
+  - `setupAi({ gateway })` chooses the AI gateway, and `setupAi({ routes })` gives some models a gateway order of their own.
   - `retryable()` marks a failure worth another try.
 - **Moderation.**
   - `setupAi({ moderation })` sets a policy: `block`, `escalate`, and how long flags are kept. The admin console lists the flags.
-  - Providers plug in: Azure Content Safety, OpenAI moderation, Arachnid Shield for known abuse imagery, and Llama Guard. Each decision is recorded as the statement of reasons.
+  - Providers plug in over the default classifier, Llama Guard 4 (text and images): Azure Content Safety, OpenAI moderation, and Arachnid Shield for known abuse imagery. Each decision is recorded as the statement of reasons.
 - **Billing.** Welcome credits on the free plan (`credits: { meter, units, once: true }`). `usePricing().launched`. `PricedPlan.gift` lists a plan's gift lengths at live prices. `npx nuxt-backend billing resync` refreshes every entity's entitlements, paced under the provider's rate limit.
 - **Growth.** `access.memberTickets` with `useMemberTicket()`, so members bring friends. The waitlist records the campaign source. `npx nuxt-backend access admit <email>`.
 - **Email.** A `notification` template that an app can switch by kind.
@@ -45,7 +45,7 @@ Each change, with the edit to make, is on the [Upgrade page](https://nuxt-backen
   - `nuxt-backend/test` adds `upload`, `seedCredits`, `seedBilling`, `drain` and `stubStorageFetch`.
   - `storage.expire`, `shareable({ onEnable })`, and `defineRetention({ schedule })`.
 - **CLI.**
-  - `doctor --prod` reads billing's launch state, an uptime monitor and the AI gateway budget.
+  - `doctor --prod` reads billing's launch state, checks for a `spendLimit`, and says where to set up an uptime monitor and each AI gateway's own cap.
   - `deploy --build` uses the project's package manager.
   - `upgrade` runs the workpool backfill.
 - **Security.**
