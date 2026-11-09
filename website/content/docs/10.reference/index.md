@@ -9,7 +9,7 @@ navigation:
 
 The reference lists every name the package gives you, exactly, so you can look one up while you build. It follows the shape of the package: its configuration, what it adds to the Nuxt app, its components, the backend it mounts, and its CLI. The [API reference](/docs/reference/api) under it is TypeDoc's, one page per import path and per composable.
 
-The pages describe `0.2.0`. A page whose names differ from the code today wears a **Changing** chip and names the unit that brings the code to it. Each such page opens with what changes, then the lookups. Those lookups are generated from the code by `pnpm docs:lookups`, and a test fails when a lookup and its code drift apart, so a generated table is always the code as it stands. A name a unit adds says so beside it, and the [Feature map](/docs/start/feature-map) shows what each unit builds. A name that leaves with the end-user MCP endpoint, or waits with the other service-app features, says so too, and the [Roadmap](/docs/start/roadmap) says why it waits.
+The pages describe the code as it is. Their lookups are generated from the code by `pnpm docs:lookups`, and a test fails when a lookup and its code drift apart, so a generated table is always the code as it stands. The [Feature map](/docs/start/feature-map) lists every feature with its status. A name that leaves with the end-user MCP endpoint, or waits with the other service-app features, says so too, and the [Roadmap](/docs/start/roadmap) says why it waits.
 
 A page header's keys lead to the code: **Source** opens the registry the page is generated from, **API** the generated page of what it documents. A name marked experimental may change shape in a minor release ([Stability](/docs/ship/releases/stability)).
 
