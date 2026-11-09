@@ -1,4 +1,4 @@
-import { backendError, getBackendError } from 'nuxt-backend/functions'
+import { backendError } from 'nuxt-backend/functions'
 import { generateText, type LanguageModel } from 'ai'
 import { v } from 'convex/values'
 import { api, internal } from './_generated/api'
@@ -124,33 +124,30 @@ export const keepPhoto = internalMutation({
   },
 })
 
-// What the page calls with a new upload. Another workspace's strip, or a
-// file kept already, is refused before the classifier reads the photo.
-// A photo the safety classifier flags
-// is refused with `invalid_input`, reason `content_blocked`, and never
-// claimed. When the upload itself is refused, by the classifier or the
-// claim (`invalid_input`: its type or size; `quota_exceeded`),
-// `storage.discard` deletes it at once rather than leaving it for the daily
-// sweep of unclaimed files. Any other failure (another workspace's strip,
-// a provider down) says nothing about the file, so it stays for a retry.
+// What the page calls with a new upload: checkPhoto, then the safety
+// classifier, then keepPhoto, as one call. Another workspace's strip, or a
+// file kept already, is refused before the classifier reads the photo. A
+// photo the classifier flags is refused with `invalid_input`, reason
+// `content_blocked`, and never claimed. When the upload itself is refused,
+// by the classifier or the claim (`invalid_input`: its type or size;
+// `quota_exceeded`), acceptUpload deletes it at once rather than leaving it
+// for the daily sweep of unclaimed files. Any other failure (another
+// workspace's strip, a provider down) says nothing about the file, so it
+// stays for a retry.
 export const attachPhoto = workspace.action({
   args: { id: v.id('strips'), photoId: v.string() },
   handler: async (ctx, { id, photoId }) => {
-    try {
-      await ctx.runQuery(internal.strips.checkPhoto, { id, photoId, workspaceId: ctx.workspace.id })
-      await ai.requireSafe(ctx, { images: [photoId] })
-      await ctx.runMutation(internal.strips.keepPhoto, {
+    await storage.acceptUpload(ctx, photoId, {
+      check: () => ctx.runQuery(internal.strips.checkPhoto, { id, photoId, workspaceId: ctx.workspace.id }),
+      safety: ai,
+      about: { subject: id },
+      keep: () => ctx.runMutation(internal.strips.keepPhoto, {
         id,
         photoId,
         userId: ctx.user.id,
         workspaceId: ctx.workspace.id,
-      })
-    }
-    catch (error) {
-      const code = getBackendError(error)?.code
-      if (code === 'invalid_input' || code === 'quota_exceeded') await storage.discard(ctx, photoId)
-      throw error
-    }
+      }),
+    })
   },
 })
 

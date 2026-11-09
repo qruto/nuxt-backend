@@ -559,6 +559,8 @@ export const GENERATED_SECTIONS: readonly string[] = [
   '/docs/reference/backend/hooks#setupemail-inboundonreply',
   '/docs/reference/backend/hooks#setupemail-inboundonworkspacemail',
   '/docs/reference/backend/hooks#setupemail-onunknownevent',
+  '/docs/reference/backend/hooks#storageacceptupload-check',
+  '/docs/reference/backend/hooks#storageacceptupload-keep',
   '/docs/reference/backend/hooks#storageshareable-canshare',
   '/docs/reference/backend/hooks#storageshareable-ogimage',
   '/docs/reference/backend/hooks#storageshareable-onenable',

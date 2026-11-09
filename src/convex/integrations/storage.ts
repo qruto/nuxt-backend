@@ -18,7 +18,7 @@ import {
 import { type GenericId, v } from 'convex/values'
 import { authSecrets, firstVerified, liveSecrets } from '../auth-secrets.js'
 import { readEnv } from '../delivery.js'
-import { backendError } from '../errors.js'
+import { backendError, getBackendError } from '../errors.js'
 import {
   DEFAULT_ACCEPTED_TYPES,
   DEFAULT_MAX_FILE_SIZE,
@@ -36,6 +36,7 @@ import {
   verifyFileUrl,
 } from '../files.js'
 import type { Billing } from './billing.js'
+import type { ModerationCtx, ModerationInput, ModerationSubject } from './ai/moderation.js'
 import { type AdapterFindOne, createAccessReads } from './access.js'
 import { DEFAULT_LIMITS } from './rate-limit.js'
 import { randomToken, sha256Hex } from '../tokens.js'
@@ -175,6 +176,46 @@ export interface ShareableOptions<DM extends GenericDataModel, T extends TableNa
   onEnable?: (ctx: ShareMutationCtx<DM>, row: DocumentByName<DM, T>, link: EnabledShareLink) => void | Promise<void>
 }
 
+/** The content check {@link Storage.acceptUpload} runs: the app's `ai`, from `setupAi`. */
+export interface UploadSafety {
+  /** `ai.requireSafe`: refuses an image the moderation policy blocks, `invalid_input` with reason `content_blocked`. */
+  requireSafe: (ctx: ModerationCtx, input: ModerationInput, about?: ModerationSubject) => Promise<void>
+}
+
+/** What {@link Storage.acceptUpload} runs around the content check: your check first, your keep last. */
+export interface AcceptUploadOptions<Kept> {
+  /**
+   * Your check that the upload may go where it is headed, before the
+   * content check reads it: the caller's row, room on it, not a file kept
+   * already. A check that refuses here costs no classifier call.
+   *
+   * @guarantee
+   * - Runs: in the action that calls `acceptUpload`, through the `ctx` your callback closed over (an internal query of yours, a rate limit)
+   * - Delivery: once per `acceptUpload`; a person's retry calls `acceptUpload` again, and with it this
+   * - Order: first, before the content check and `keep`
+   * - When it throws: `acceptUpload` throws its error, and neither the content check nor `keep` runs; an `invalid_input` or `quota_exceeded` refusal discards the upload, any other error keeps it for a retry
+   * - Idempotency: a check: it may run again for the same upload, so it should write nothing a second run would trip over
+   */
+  check?: () => unknown
+  /** The content check: your `ai` (`setupAi`), whose `requireSafe` reads the upload. `false` keeps the upload with no content check. */
+  safety: UploadSafety | false
+  /** What the content check records about the upload, for its flag: `{ subject, stage }`, and `userId` or `owner` when it is not the signed-in person's. Default stage `'upload'`. */
+  about?: ModerationSubject
+  /**
+   * Keep the upload: your internal mutation that claims it with
+   * `storage.claim` and writes your row, in one transaction. What it
+   * returns, `acceptUpload` returns.
+   *
+   * @guarantee
+   * - Runs: in the action that calls `acceptUpload`, through the `ctx` your callback closed over (`ctx.runMutation` of your mutation)
+   * - Delivery: once per `acceptUpload` whose check and content check passed
+   * - Order: last, after `check` and the content check passed
+   * - When it throws: `acceptUpload` throws its error; your mutation rolled back, the claim with it, so an `invalid_input` or `quota_exceeded` refusal (the claim's own, the type or the size, the quota) discards the upload, and any other error keeps it for a retry
+   * - Idempotency: your mutation's transaction: its claim and your row commit together or not at all, and a second keep of a claimed upload is refused `upload_claimed`
+   */
+  keep: () => Kept | Promise<Kept>
+}
+
 /** A quota: a number, or a quota key of the billing catalog. */
 export type StorageQuota = number | string
 
@@ -233,6 +274,29 @@ export interface Storage<DM extends GenericDataModel = GenericDataModel> {
    * only what your code decided the caller may send.
    */
   bytes: (ctx: Pick<GenericActionCtx<GenericDataModel>, 'runAction'>, storageId: string) => Promise<Uint8Array | null>
+  /**
+   * Accept an upload sent to an upload URL, in an action of yours: your
+   * `check`, then the content check (`safety`, your `ai`), then your `keep`,
+   * the mutation that claims it. A refusal of the upload itself
+   * (`invalid_input`, the classifier's `content_blocked` among them, or
+   * `quota_exceeded`) discards it at once and throws; any other failure (a
+   * provider down, another workspace's row) keeps it, so the same id can be
+   * sent again. Returns what `keep` returned.
+   *
+   * @example
+   * ```ts [backend/strips.ts]
+   * export const attachPhoto = workspace.action({
+   *   args: { id: v.id('strips'), photoId: v.string() },
+   *   handler: (ctx, { id, photoId }) => storage.acceptUpload(ctx, photoId, {
+   *     check: () => ctx.runQuery(internal.strips.checkPhoto, { id, photoId, workspaceId: ctx.workspace.id }),
+   *     safety: ai,
+   *     about: { subject: id },
+   *     keep: () => ctx.runMutation(internal.strips.keepPhoto, { id, photoId, userId: ctx.user.id, workspaceId: ctx.workspace.id }),
+   *   }),
+   * })
+   * ```
+   */
+  acceptUpload: <Kept>(ctx: ModerationCtx, storageId: string, options: AcceptUploadOptions<Kept>) => Promise<Kept>
   /** A file's URL once your query decided who may see it; `null` for a file that is gone or still checked. */
   fileUrl: (ctx: StorageReadCtx, storageId: string) => Promise<string | null>
   /**
@@ -302,6 +366,12 @@ interface StorageRefs {
 
 /** How long a preview card's URL works: seven days, minted again on each read. */
 const PREVIEW_TTL_MS = SIGNED_URL_TTL_MAX_MS
+
+/** A refusal of an upload itself, which the same file would meet again: `invalid_input` (the classifier's `content_blocked` among them) or `quota_exceeded`. */
+const isUploadRefusal = (error: unknown): boolean => {
+  const code = getBackendError(error)?.code
+  return code === 'invalid_input' || code === 'quota_exceeded'
+}
 
 /** A refusal of the file itself: `invalid_input` on `file`, with why. */
 function fileRefusal(reason: 'too_large' | 'unsupported_type' | 'upload_gone' | 'upload_claimed' | 'removed_copy', detail: string) {
@@ -479,6 +549,25 @@ export function setupStorage<DM extends GenericDataModel = GenericDataModel>(com
     return read ? new Uint8Array(read) : null
   }
 
+  const acceptUpload: Storage<DM>['acceptUpload'] = async (ctx, storageId, options) => {
+    const { check, safety, about, keep } = options ?? ({} as Partial<AcceptUploadOptions<never>>)
+    if (typeof keep !== 'function') throw new TypeError('[nuxt-backend] storage.acceptUpload: keep is your mutation that claims the upload (storage.claim) and writes your row: `keep: () => ctx.runMutation(internal.…, { … })`.')
+    if (safety !== false && typeof safety?.requireSafe !== 'function') throw new TypeError('[nuxt-backend] storage.acceptUpload: safety is your ai (setupAi), whose requireSafe checks the upload, or false to keep it with no content check.')
+    if (check !== undefined && typeof check !== 'function') throw new TypeError('[nuxt-backend] storage.acceptUpload: check is a function, run before the content check.')
+    try {
+      await check?.()
+      if (safety) await safety.requireSafe(ctx, { images: [storageId] }, { ...about, stage: about?.stage ?? 'upload' })
+      return await keep()
+    }
+    catch (error) {
+      // A refusal of the upload: the same file would be refused again, so it
+      // goes now rather than with the daily sweep. A failed discard leaves it
+      // to the sweep: the refusal is what the caller needs to see.
+      if (isUploadRefusal(error)) await discard(ctx, storageId).catch(() => false)
+      throw error
+    }
+  }
+
   const expire: Storage<DM>['expire'] = async (ctx, storageId, at) => {
     if (!storageId) return false
     const when = at instanceof Date ? at.getTime() : at
@@ -654,6 +743,7 @@ export function setupStorage<DM extends GenericDataModel = GenericDataModel>(com
     release,
     discard,
     bytes,
+    acceptUpload,
     expire,
     fileUrl,
     signedUrl,

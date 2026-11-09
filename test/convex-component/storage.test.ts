@@ -4,7 +4,7 @@ import { actionGeneric, componentsGeneric, defineSchema, defineTable, type Funct
 import { v } from 'convex/values'
 import backendTest, { asUser, defineBackendTestApp, seedWorkspace } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
-import { getBackendError } from '../../src/convex/errors'
+import { backendError, getBackendError } from '../../src/convex/errors'
 import { setupStorage } from '../../src/convex/integrations/storage'
 import { exifJpeg, jpegSegments, orientationOf } from '../helpers/images'
 
@@ -124,6 +124,43 @@ const dropUploadLater = actionGeneric({
   args: { fileId: v.string() },
   handler: async (ctx, { fileId }) => storage.discard(ctx, fileId),
 })
+// An upload accepted in one call: the strip's check, a content check, the
+// claim. The content check is a stand-in for `ai`: it answers what
+// `safety.verdict` says, and records what it read.
+const safety = { verdict: 'safe' as 'safe' | 'blocked' | 'down', read: [] as Array<{ images: string[], about: unknown }> }
+const fakeAi = {
+  requireSafe: async (_ctx: unknown, input: { images?: string[] }, about?: unknown) => {
+    safety.read.push({ images: input.images ?? [], about })
+    if (safety.verdict === 'blocked') throw backendError('invalid_input', { field: 'images', reason: 'content_blocked' })
+    if (safety.verdict === 'down') throw backendError('unavailable', { service: 'moderation', reason: 'provider_refused' })
+  },
+}
+const checkCover = queryGeneric({
+  args: { id: v.id('strips'), workspaceId: v.string() },
+  handler: async (ctx, { id, workspaceId }) => {
+    if ((await ctx.db.get(id))?.workspaceId !== workspaceId) throw backendError('forbidden', { reason: 'other_workspace' })
+  },
+})
+const keepCover = mutationGeneric({
+  args: { id: v.id('strips'), fileId: v.string(), userId: v.string(), workspaceId: v.string() },
+  handler: async (ctx, { id, fileId, userId, workspaceId }) => {
+    await storage.claim(ctx, fileId, { userId, workspaceId })
+    await ctx.db.patch(id, { coverId: fileId })
+    return { fileId }
+  },
+})
+const acceptCover = actionGeneric({
+  args: { id: v.id('strips'), fileId: v.string(), unchecked: v.optional(v.boolean()), misconfigured: v.optional(v.boolean()) },
+  handler: async (ctx, { id, fileId, unchecked, misconfigured }) => {
+    const owner = await caller(ctx)
+    return storage.acceptUpload(ctx, fileId, {
+      check: () => ctx.runQuery(makeFunctionReference<'query'>('strips:checkCover'), { id, workspaceId: owner.workspaceId }),
+      safety: misconfigured ? undefined as never : unchecked ? false : fakeAi,
+      about: { subject: id },
+      keep: () => ctx.runMutation(makeFunctionReference<'mutation', Record<string, unknown>, { fileId: string }>('strips:keepCover'), { id, fileId, ...owner }),
+    })
+  },
+})
 const downloadUrl = queryGeneric({
   args: { storageId: v.string(), ttl: v.optional(v.number()) },
   handler: async (ctx, { storageId, ttl }) => storage.signedUrl(ctx, storageId, { ttl }),
@@ -156,7 +193,7 @@ http.route({ path: '/noop', method: 'GET', handler: httpActionGeneric(async () =
 const testApp = defineBackendTestApp(appSchema, {
   './_generated/api.js': () => Promise.resolve({}),
   './storage.js': () => Promise.resolve(storage.api),
-  './strips.js': () => Promise.resolve({ create, addPhoto, addOwnPhoto, attachFile, remove, shared, downloadUrl, dropUpload, dropUploadLater, expirePhoto, expireFile, shareEvents }),
+  './strips.js': () => Promise.resolve({ create, addPhoto, addOwnPhoto, attachFile, remove, shared, downloadUrl, dropUpload, dropUploadLater, expirePhoto, expireFile, shareEvents, checkCover, keepCover, acceptCover }),
   './http.js': () => Promise.resolve({ default: http }),
 })
 type App = ReturnType<typeof testApp>
@@ -178,6 +215,7 @@ const ref = {
   downloadUrl: makeFunctionReference<'query', { storageId: string, ttl?: number }, string | null>('strips:downloadUrl'),
   dropUpload: makeFunctionReference<'mutation', { fileId: string }, boolean>('strips:dropUpload'),
   dropUploadLater: makeFunctionReference<'action', { fileId: string }, boolean>('strips:dropUploadLater'),
+  acceptCover: makeFunctionReference<'action', { id: string, fileId: string, unchecked?: boolean, misconfigured?: boolean }, { fileId: string }>('strips:acceptCover'),
   expirePhoto: makeFunctionReference<'mutation', { id: string, at: number | null }, boolean>('strips:expirePhoto'),
   expireFile: makeFunctionReference<'mutation', { fileId: string, at: number | null }, boolean>('strips:expireFile'),
   shareEvents: makeFunctionReference<'query', Record<string, never>, Array<{ stripId: string, by: string, rotated: boolean }>>('strips:shareEvents'),
@@ -222,6 +260,8 @@ beforeEach(() => {
   vi.stubEnv('AUTH_SECRET', 'test-secret-for-signed-file-urls-0123456789')
   vi.stubEnv('CONVEX_SITE_URL', 'https://happy-otter-123.convex.site')
   vi.stubEnv('SITE_URL', 'https://panels.example.com')
+  safety.verdict = 'safe'
+  safety.read = []
 })
 
 afterEach(() => {
@@ -522,6 +562,94 @@ describe('discard', () => {
     const author = await asUser(t)
     const id = await author.mutation(ref.create, { title: 'Monday' })
     for (const fileId of ['', 'not-an-id', id]) expect(await author.mutation(ref.dropUpload, { fileId }), fileId).toBe(false)
+  })
+})
+
+describe('acceptUpload', () => {
+  /** The strip's cover, as keepCover set it. */
+  const coverOf = async (t: App, id: string) => (await t.run(ctx => ctx.db.get(id as never)) as { coverId?: string }).coverId
+
+  test('runs the check, the content check and the keep in turn, and answers what keep returned', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const id = await author.mutation(ref.create, { title: 'Monday' })
+    const fileId = await upload(t, png())
+    expect(await author.action(ref.acceptCover, { id, fileId })).toEqual({ fileId })
+    expect(safety.read).toEqual([{ images: [fileId], about: { stage: 'upload', subject: id } }])
+    expect(await coverOf(t, id)).toBe(fileId)
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    expect(await author.query(ref.getFileUrl, { storageId: fileId })).toMatch(/^https:/)
+  })
+
+  test('discards an upload the content check refuses, and keeps nothing', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const id = await author.mutation(ref.create, { title: 'Monday' })
+    const fileId = await upload(t, png())
+    safety.verdict = 'blocked'
+    expect(await refusal(author.action(ref.acceptCover, { id, fileId }))).toMatchObject({ code: 'invalid_input', data: { field: 'images', reason: 'content_blocked' } })
+    expect(await exists(t, fileId)).toBe(false)
+    expect(await coverOf(t, id)).toBeUndefined()
+  })
+
+  test('discards an upload the claim refuses: over maxSize', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const id = await author.mutation(ref.create, { title: 'Monday' })
+    const fileId = await upload(t, png(5000))
+    expect(await refusal(author.action(ref.acceptCover, { id, fileId }))).toMatchObject({ code: 'invalid_input', data: { field: 'file', reason: 'too_large' } })
+    expect(await exists(t, fileId)).toBe(false)
+    expect(await coverOf(t, id)).toBeUndefined()
+  })
+
+  test('keeps the upload for a retry when the failure says nothing about the file', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const id = await author.mutation(ref.create, { title: 'Monday' })
+    const fileId = await upload(t, png())
+    safety.verdict = 'down'
+    expect(await refusal(author.action(ref.acceptCover, { id, fileId }))).toMatchObject({ code: 'unavailable' })
+    expect(await exists(t, fileId)).toBe(true)
+    expect(await coverOf(t, id)).toBeUndefined()
+
+    safety.verdict = 'safe'
+    expect(await author.action(ref.acceptCover, { id, fileId })).toEqual({ fileId })
+    expect(await coverOf(t, id)).toBe(fileId)
+  })
+
+  test('stops at the check: no content check is paid for, and the upload stays', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const stranger = await asUser(t)
+    const id = await author.mutation(ref.create, { title: 'Monday' })
+    const fileId = await upload(t, png())
+    expect(await refusal(stranger.action(ref.acceptCover, { id, fileId }))).toMatchObject({ code: 'forbidden', data: { reason: 'other_workspace' } })
+    expect(safety.read).toEqual([])
+    expect(await exists(t, fileId)).toBe(true)
+  })
+
+  test('never discards a kept file, though a second accept of it is refused', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const id = await author.mutation(ref.create, { title: 'Monday' })
+    const fileId = await upload(t, png())
+    await author.action(ref.acceptCover, { id, fileId })
+    expect(await refusal(author.action(ref.acceptCover, { id, fileId }))).toMatchObject({ code: 'invalid_input', data: { reason: 'upload_claimed' } })
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    expect(await author.query(ref.getFileUrl, { storageId: fileId })).toMatch(/^https:/)
+  })
+
+  test('keeps an upload with no content check under safety: false, and refuses a missing safety outright', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const id = await author.mutation(ref.create, { title: 'Monday' })
+    const unchecked = await upload(t, png())
+    expect(await author.action(ref.acceptCover, { id, fileId: unchecked, unchecked: true })).toEqual({ fileId: unchecked })
+    expect(safety.read).toEqual([])
+
+    const other = await upload(t, png())
+    await expect(author.action(ref.acceptCover, { id, fileId: other, misconfigured: true })).rejects.toThrow(/safety is your ai/)
+    expect(await exists(t, other)).toBe(true)
   })
 })
 
