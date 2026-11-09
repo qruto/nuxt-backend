@@ -136,7 +136,7 @@ export const ACCOUNT_DATA_SOURCES = {
     keyedBy: ['entity'],
     erasure: 'pseudonymized',
     erasureNote: 'The digest stays, without the entity: it keeps welcome credits to once per person, so signing up again does not get them twice (fraud prevention, the app\'s legitimate interest). It names no address, but anyone who knows an address can compute its digest, so it is still pseudonymous personal data.',
-    retention: 'As long as the app grants welcome credits, to keep them to once per person.',
+    retention: 'No expiry: it stays through an erasure, and after the app stops granting welcome credits, so they stay once per person.',
     exported: false,
   },
   billingProofs: {

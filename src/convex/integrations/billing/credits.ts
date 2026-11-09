@@ -177,7 +177,9 @@ export function createCredits(
    * re-credits the cache. Count meters cannot be compensated — their events
    * only count up. An `externalId` the provider already holds is a
    * duplicate it drops, so a retried refund under the same key credits the
-   * cache once too. Answers whether the event was new.
+   * cache once too. An entity never synced is read from the provider first,
+   * so the cache has a row to hold the credit. Answers whether the event was
+   * new.
    */
   const refund = async (ctx: RunWriteCtx & { auth?: Auth }, event: Parameters<Billing['refundCredits']>[1]): Promise<boolean> => {
     // A negative refund would ingest a positive event: a charge, not a refund.
@@ -192,6 +194,8 @@ export function createCredits(
     if (!await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, entityId)) {
       throw backendError('not_ready', { reason: 'no_customer' }, `[nuxt-backend] No billing customer for ${entityId}.`)
     }
+    // With no cached row, the credit below would land nowhere, and a read of the provider that does not count the event yet would show none.
+    if (!await ctx.runQuery(cache.getByUser, { userId: entityId })) await refreshEntitlements(ctx, entityId)
     const externalId = event.externalId ?? crypto.randomUUID()
     const result = await eventsIngest(provider.polar, {
       events: [{

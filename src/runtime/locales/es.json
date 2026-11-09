@@ -1823,7 +1823,7 @@
         },
         "welcomeCredits": {
           "holds": "Un hash (SHA-256) de la dirección a la que fueron los créditos de bienvenida, su parte local sin etiquetas ni puntos, y la entidad de facturación que los recibió: nunca la dirección.",
-          "kept": "Mientras la app dé créditos de bienvenida, para que sigan siendo una vez por persona."
+          "kept": "Sin caducidad: se conserva tras un borrado y también cuando la app deja de dar créditos de bienvenida, para que sigan siendo una vez por persona."
         },
         "billingProofs": {
           "holds": "Prueba del consentimiento a una suscripción con renovación (el plan, el precio y el intervalo mostrados, la versión de las condiciones, cuándo y quién) y de cada desistimiento en la UE: cuándo y quién.",
@@ -2579,7 +2579,7 @@
       "unavailable_stalled": "Esta tarea dejó de responder. Se te reembolsaron los créditos.",
       "unavailable_job_failed": "Esta tarea falló. Se te reembolsaron los créditos.",
       "unavailable_unexpected": "Algo salió mal.",
-      "invalid_input_reason": "Elige un motivo.",
+      "invalid_input_reason": "Indica un motivo.",
       "invalid_input_goodFaith": "Confirma que tu denuncia es exacta y que la haces de buena fe."
     },
     "email": {

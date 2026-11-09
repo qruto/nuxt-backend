@@ -1,7 +1,7 @@
 import { createFunctionHandle, type FunctionReference, type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, internalActionGeneric, makeFunctionReference, mutationGeneric, paginationOptsValidator, queryGeneric, type RegisteredAction, type RegisteredMutation, type RegisteredQuery } from 'convex/server'
 import { v } from 'convex/values'
 import { readEnv } from '../delivery.js'
-import type { EmailMessage, EmailRenderContext } from '../email-templates.js'
+import type { EmailMessage, EmailRenderContext, EmailTemplateData, EmailTemplateName } from '../email-templates.js'
 import { backendError } from '../errors.js'
 import { logBackend } from '../log.js'
 import {
@@ -191,9 +191,11 @@ export interface ForgottenNotifications {
   done: boolean
 }
 
-/** What the notifications need of `setupEmail`'s instance: the layout and words, and the sending rules. */
+/** What the notifications need of `setupEmail`'s instance: the layout and words, the templates, and the sending rules. */
 export interface NotificationsEmail {
   compose: <Message extends EmailMessage | null>(build: (context: EmailRenderContext) => Message | Promise<Message>, options?: { locale?: string | null }) => Promise<Message>
+  /** Render one of the package's emails, the app's override in effect: a notification's email is the `notification` template. */
+  render: <Name extends EmailTemplateName>(name: Name, data: EmailTemplateData<Name>, options?: { locale?: string }) => Promise<EmailMessage>
   /** The transactional send, under no sending rule: a transactional kind's email goes through it. */
   send: (ctx: Pick<GenericActionCtx<GenericDataModel>, 'runMutation'>, message: EmailMessage) => Promise<string | null>
   /**
@@ -459,7 +461,7 @@ export function setupNotifications(components: NotificationsComponents, options:
     return `${site}${page}`
   }
 
-  /** The words and the link of one notification for its reader; `null` without an email instance to word it with. */
+  /** The words and the link of one notification for its reader, and the language they are in; `null` without an email instance to word it with. */
   const worded = async (delivery: ScheduledDelivery, recipient: Recipient) => {
     if (!email) return null
     let words: { title: string, body: string | null, url: string, locale: string } | null = null
@@ -472,19 +474,16 @@ export function setupNotifications(components: NotificationsComponents, options:
 
   const deliverEmail = async (ctx: DeliveryCtx, delivery: ScheduledDelivery, recipient: Recipient) => {
     if (!email || !recipient.email) return
-    const message = await email.compose(({ t }) => {
-      const words = notificationWords(t, delivery.event.type, recipient, delivery.event.data ?? {}, notificationEntity(delivery.event.type, delivery.event.entityId))
-      return {
-        to: recipient.email!,
-        subject: words.title,
-        blocks: [
-          { heading: words.title },
-          ...(words.body ? [{ paragraph: words.body }] : []),
-          { button: { label: t('notifications.emailOpen'), url: target(delivery.event.type, delivery.link) } },
-          { note: t('notifications.emailNote') },
-        ],
-      }
-    }, { locale: recipient.locale })
+    const words = await worded(delivery, recipient)
+    if (!words) return
+    // The `notification` template, the app's override in effect, in the language the words are in: it puts the link in that language itself.
+    const message = await email.render('notification', {
+      email: recipient.email,
+      type: delivery.event.type,
+      words: { title: words.title, ...(words.body ? { body: words.body } : {}) },
+      link: target(delivery.event.type, delivery.link),
+      fields: delivery.event.data ?? {},
+    }, { locale: words.locale })
     // A transactional kind goes at once, as a transactional email does: no cap, no quiet hours.
     if (isTransactional(notify, delivery.event.type)) {
       await email.send(ctx, message)
@@ -492,7 +491,7 @@ export function setupNotifications(components: NotificationsComponents, options:
     }
     // The weekly cap and the quiet hours, as for every non-transactional email; never the sunset rule.
     const prepared = await email.preferences.prepare(ctx, message, undefined, async () => ({ unsubscribe: '' }), { sunset: false })
-    if (prepared) await ctx.runMutation(refs.email.send, prepared)
+    if (prepared) await ctx.runMutation(refs.email.send, { ...prepared })
   }
 
   const deliverPush = async (ctx: DeliveryCtx, delivery: ScheduledDelivery, recipient: Recipient) => {

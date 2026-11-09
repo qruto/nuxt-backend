@@ -6,6 +6,7 @@ import { HEALTH_ROUTE } from '../../src/convex/constants'
 import { LABELS } from '../../src/convex/labels'
 import { BROWSER_STORAGE } from '../../src/convex/legal'
 import { coolDown, coolingDown } from '../../src/runtime/vue/components/billing/upgrade-prompt'
+import LegalContactPoints from '../../src/runtime/vue/components/shell/LegalContactPoints.vue'
 import LegalDetail from '../../src/runtime/vue/components/shell/LegalDetail.vue'
 import LegalDocument from '../../src/runtime/vue/components/shell/LegalDocument.vue'
 import LegalProcessors from '../../src/runtime/vue/components/shell/LegalProcessors.vue'
@@ -163,6 +164,13 @@ describe('the operator\'s details and rows of its own', () => {
     appConfig.backend = { ...appConfig.backend, legal: { contact: 'support@panels.example', contactPoints: { users: 'help@panels.example' } } }
     const terms = await mountSuspended(LegalDocument, { props: { page: 'terms' } })
     expect(terms.find('[data-audience="users"] a').attributes('href')).toBe('mailto:help@panels.example')
+  })
+
+  it('takes the contact as the users\' point a Content page lists while that point is blank', async () => {
+    appConfig.backend = { ...appConfig.backend, legal: { contact: 'support@panels.example', contactPoints: { authorities: 'dsa@panels.example', users: '  ' } } }
+    const points = await mountSuspended(LegalContactPoints)
+    expect(points.find('[data-audience="users"] a').attributes('href')).toBe('mailto:support@panels.example')
+    expect(points.find('[data-audience="authorities"] a').attributes('href')).toBe('mailto:dsa@panels.example')
   })
 
   it('claims no moderation process while the app takes no reports', async () => {

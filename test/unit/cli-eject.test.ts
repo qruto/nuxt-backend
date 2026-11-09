@@ -70,6 +70,15 @@ describe('eject', () => {
     expect(read('backend/email.ts')).toContain('setupEmail(components, { templates: { emailChanged, invite } })')
   })
 
+  it('copies the notification email, which switches on the kind, as the one template every notification sends', () => {
+    expect(eject(root, 'email:notification').written).toEqual(['backend/emails/notification.ts', 'backend/email.ts'])
+    const copy = read('backend/emails/notification.ts')
+    expect(copy.split('\n')[0]).toBe(`// nuxt-backend eject: email:notification@${version}`)
+    expect(copy).toContain('import type { EmailMessage, EmailRenderContext, NotificationEmailData } from \'nuxt-backend/email\'')
+    expect(copy).toContain('export function notification({ email, words, link }: NotificationEmailData, context: EmailRenderContext): EmailMessage {')
+    expect(read('backend/email.ts')).toContain('setupEmail(components, { templates: { notification } })')
+  })
+
   it('puts an email in the functions directory convex.json names, and finds it there', () => {
     rmSync(join(root, 'backend'), { recursive: true })
     mkdirSync(join(root, 'convex'))
