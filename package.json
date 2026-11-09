@@ -224,7 +224,6 @@
     "skills:update": "npx -y skills@1.7.0 update -p -y",
     "bump": "pnpm exec taze major -w",
     "db:reset": "node scripts/db-reset.mjs",
-    "db:seed": "node scripts/db-seed.mjs",
     "test:docs": "vitest --project docs --run",
     "typecheck:subpaths": "vitest --project types --run",
     "upstream:check": "node scripts/check-upstream.mjs",

@@ -47,7 +47,9 @@ describe('billing resync', () => {
     vi.mocked(runConvex).mockResolvedValueOnce({ stdout: JSON.stringify({ queued: 100, more: true }), stderr: '' })
     expect(await resync()).toEqual({ deployment: 'dev', status: 'queued', queued: 100, more: true, entities: [] })
     expect(vi.mocked(runConvex).mock.calls.map(([, args]) => args)).toEqual([['run', 'billing:resyncEntitlements', '{}']])
-    expect(stderr.join('\n')).toContain('queued 100 billing entities on the dev deployment, and the pages after it follow on its scheduler')
+    expect(stderr.join('\n')).toContain('started on the dev deployment, 100 billing entities on its first page, and more pages after it. It reads them in turn, at most one a second')
+    // Where its outcome shows: each entity given up on, and the tally at the end.
+    expect(stderr.join('\n')).toContain('(billing.resync_failed) and, at the end, how many were read (billing.resync_done): npx convex logs --history 100')
     expect(process.exitCode).toBeUndefined()
   })
 
@@ -117,6 +119,18 @@ describe('billing resync', () => {
     expect(stderr.join('\n')).toContain('read the entitlements of 2 billing entities again on the dev deployment')
     expect(stderr.join('\n')).toContain('left team_2 alone: an erasure is deleting it')
     expect(process.exitCode).toBeUndefined()
+  })
+
+  it('reads on past an entity the provider kept refusing, names it, and fails', async () => {
+    vi.mocked(runConvex)
+      .mockResolvedValueOnce({ stdout: '"failed"', stderr: '' })
+      .mockResolvedValueOnce({ stdout: '"synced"', stderr: '' })
+    const report = await resync('--entity', 'team_1,team_2')
+    expect(report).toMatchObject({ status: 'failed', entities: [{ id: 'team_1', outcome: 'failed' }, { id: 'team_2', outcome: 'synced' }] })
+    expect(report.note).toContain('the provider kept refusing team_1')
+    expect(report.note).toContain('billing resync --entity team_1 again')
+    expect(stderr.join('\n')).toContain('read the entitlements of 1 billing entity again')
+    expect(process.exitCode).toBe(1)
   })
 
   it('keeps the entities read before one the deployment refused', async () => {
