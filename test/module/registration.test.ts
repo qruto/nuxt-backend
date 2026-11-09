@@ -692,6 +692,10 @@ describe('module registration (defaults)', () => {
     }
   })
 
+  it('puts the chunk-load recovery in a production build\'s pages', () => {
+    expect(nitroPlugins(getNuxt()).filter(plugin => /[\\/]runtime[\\/]server[\\/]chunk-recovery(?:\.ts)?$/.test(plugin))).toHaveLength(1)
+  })
+
   // The DevTools bridge is dev-only; the session-ended watch and the
   // passkey ceremony's idle load are always on.
   it('wires no error-reporting SDK without a DSN, installed or not: nothing imports it', () => {
@@ -1034,6 +1038,14 @@ describe('devtools: false', () => {
 
   it('registers no DevTools bridge plugin (nor does the default outside dev)', () => {
     expect(devtoolsPlugins(getNuxt())).toEqual([])
+  })
+})
+
+describe('chunkRecovery: false', () => {
+  const getNuxt = useBoot({ backend: { chunkRecovery: false } })
+
+  it('adds no recovery script to the pages', () => {
+    expect(nitroPlugins(getNuxt()).filter(plugin => plugin.includes('chunk-recovery'))).toEqual([])
   })
 })
 

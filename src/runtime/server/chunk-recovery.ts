@@ -1,0 +1,96 @@
+import { useRuntimeConfig } from 'nuxt/server'
+
+// Recovery from code that fails to load while a page starts.
+//
+// The server's HTML paints whatever happens next, so a failed chunk leaves a
+// page that looks finished and does nothing: a button with no handler and no
+// error for anyone to see, or Nuxt swapping a good page for a 500. A flaky
+// phone connection does that, and so does a deploy that replaces chunks under
+// an open page. One reload cures both. (Except in WebKit after an HTTP
+// error: there a scripted reload is served the same failed file, and only the
+// visitor's own navigation fetches it again, so a form that posts, rather
+// than one that needs the app, still works on a page that never woke.)
+//
+// All of this runs inline in the head, because nothing of the app can see
+// it: a chunk the entry imports statically fails before any app code runs,
+// and one the first route imports fails inside Nuxt's router plugin, ahead of
+// every plugin. The guard is `nuxt:reload`, the key Nuxt's own
+// `reloadNuxtApp` reads, so a page reloads once however it failed.
+
+/** How long a reload of one path holds off the next, in milliseconds. */
+export const RELOAD_GUARD_MS = 60_000
+
+/**
+ * The inline script: it reloads on a failed module script or stylesheet
+ * served from `assetsDir` (the app's `app.buildAssetsDir`) before the page
+ * has loaded, and on a failed dynamic import (`vite:preloadError`) before
+ * the app has mounted (no `[data-v-app]` yet). Later failures keep Nuxt's
+ * handling: a reload on navigation, nothing for a decoration. Without
+ * `sessionStorage` it stays put, since nothing would stop a loop. It writes
+ * no DOM sink, so Trusted Types has nothing to refuse.
+ */
+export function chunkRecoveryScript(assetsDir: string): string {
+  // As a JavaScript string that cannot close the script element it sits in.
+  const dir = JSON.stringify(assetsDir).replace(/</g, '\\u003c')
+  return `(function(){
+var dir=${dir}
+function recover(){
+var now=Date.now(),path=location.pathname
+try{
+var last=JSON.parse(sessionStorage.getItem('nuxt:reload')||'{}')
+if(last.path===path&&last.expires>now)return
+sessionStorage.setItem('nuxt:reload',JSON.stringify({path:path,expires:now+${RELOAD_GUARD_MS}}))
+}catch(error){return}
+location.reload()
+}
+addEventListener('error',function(event){
+var el=event.target
+if(document.readyState==='complete'||!el||!el.tagName)return
+var module=el.tagName==='SCRIPT'&&el.type==='module'
+var style=el.tagName==='LINK'&&el.rel==='stylesheet'
+if((module||style)&&(el.src||el.href||'').indexOf(dir)>=0)recover()
+},true)
+addEventListener('vite:preloadError',function(){
+if(!document.querySelector('[data-v-app]'))recover()
+})
+})()`
+}
+
+/** A `<meta charset>`, which must stay within the first 1024 bytes of the page. */
+const CHARSET = /<meta charset="?[\w-]+"?\s*\/?>/i
+
+/**
+ * The head with `tag` first, before every script and stylesheet it guards:
+ * right after the `<meta charset>`, which keeps its place at the very top.
+ */
+export function headWithScript(head: string[], tag: string): string[] {
+  const index = head.findIndex(chunk => CHARSET.test(chunk))
+  if (index === -1) return [tag, ...head]
+  const chunk = head[index]!
+  const end = chunk.search(CHARSET) + chunk.match(CHARSET)![0].length
+  return [...head.slice(0, index), `${chunk.slice(0, end)}${tag}${chunk.slice(end)}`, ...head.slice(index + 1)]
+}
+
+/** The part of the Nitro app the plugin uses: the render's HTML hook, with the event nuxt-security puts the request's nonce on. */
+interface RenderNitroApp {
+  hooks: { hook: (name: 'render:html', run: (html: { head: string[] }, context: { event: { context: { security?: { nonce?: string } } } }) => void) => unknown }
+}
+
+/**
+ * Puts the recovery script first in every server-rendered page of a
+ * production build (the module leaves it out of development, and out
+ * altogether with `backend.chunkRecovery: false`). Inline, so it carries
+ * the request's nonce, which the package's `script-src` trusts; nuxt-security
+ * adds the nonce to the head's scripts too, in whichever order the two run.
+ * A prerendered page has no nonce, and nuxt-security hashes its inline
+ * scripts instead. Written on the server alone, never through the head
+ * manager, so hydrating never writes it again. `nuxt/server` is its only
+ * server import, so the same file runs on Nitro 2 and Nitro 3.
+ */
+export default function chunkRecoveryPlugin(nitroApp: RenderNitroApp): void {
+  const script = chunkRecoveryScript((useRuntimeConfig() as { app?: { buildAssetsDir?: string } }).app?.buildAssetsDir || '/_nuxt/')
+  nitroApp.hooks.hook('render:html', (html, { event }) => {
+    const nonce = event.context.security?.nonce
+    html.head = headWithScript(html.head, `<script${nonce ? ` nonce="${nonce}"` : ''}>${script}</script>`)
+  })
+}

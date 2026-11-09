@@ -93,6 +93,17 @@ export interface ModuleOptions {
    * See {@link InstallableOptions}.
    */
   installable?: InstallableOptions | false
+  /**
+   * Reload a page once when its code fails to load before the app mounts
+   * (default `true`): a module script or stylesheet from
+   * `app.buildAssetsDir` that fails before the page has loaded, or a
+   * dynamic import that fails before the app mounts, as a flaky connection
+   * or a deploy that replaced the chunks under an open page leaves it. An
+   * inline script first in the head of a production build, with the
+   * request's nonce; the guard is Nuxt's own `nuxt:reload`, so a page
+   * reloads once, never in a loop. `false` leaves it out.
+   */
+  chunkRecovery?: boolean
 }
 
 /** The install and upgrade steps a published build declares (see `runsFromSource`). */
@@ -294,6 +305,11 @@ export default defineNuxtModule<ModuleOptions>({
     if (!securityDisabled(nuxt)) addPlugin({ src: resolver.resolve('./runtime/vue/plugins/trusted-types.client'), mode: 'client' })
     // The headers' exceptions for what other sites load, and Content's WebAssembly.
     registerSecurityRules(resolver, nuxt)
+    // One reload for a page whose code failed to load before it mounted (production builds).
+    if (!nuxt.options.dev && options.chunkRecovery !== false) {
+      const chunkRecovery = resolver.resolve('./runtime/server/chunk-recovery')
+      addNitroPlugin({ nitro2: chunkRecovery, nitro3: chunkRecovery })
+    }
     registerBaseComponentAliases(resolver, nuxt)
     hideBaseBrandNames(nuxt)
 
