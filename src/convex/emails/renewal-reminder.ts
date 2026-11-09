@@ -5,7 +5,10 @@ import { linkBlocks } from '../email-helpers.js'
 export function renewalReminder({ email, plan, amount, currency, interval, intervalCount, renewsAt, manageUrl }: RenewalReminderEmailData, context: EmailRenderContext): EmailMessage {
   const { t } = context
   const date = new Intl.DateTimeFormat(context.locale, { dateStyle: 'long', timeZone: 'UTC' }).format(renewsAt)
-  const price = new Intl.NumberFormat(context.locale, { style: 'currency', currency: currency.toUpperCase() || 'USD' }).format(amount / 100)
+  const code = currency.toUpperCase() || 'USD'
+  // The amount is in the currency's smallest unit: as many digits as the currency writes (2 for USD, 0 for JPY).
+  const format = new Intl.NumberFormat(context.locale, { style: 'currency', currency: code })
+  const price = format.format(amount / 10 ** (format.resolvedOptions().maximumFractionDigits ?? 2))
   const every = t(`email.renewalReminder.every.${interval === 'day' || interval === 'week' ? interval : 'month'}`, { count: intervalCount })
   const intro = t('email.renewalReminder.intro', { plan, price, every, date })
   const cancel = t('email.renewalReminder.cancel')
