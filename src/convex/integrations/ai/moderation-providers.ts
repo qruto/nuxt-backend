@@ -126,6 +126,13 @@ function envOf(env: Env, name: string, provider: string): string {
   return value
 }
 
+/** A URL without the slashes it ends in, in one pass from the end: no regex to backtrack over. */
+function withoutTrailingSlashes(url: string): string {
+  let end = url.length
+  while (end > 0 && url[end - 1] === '/') end--
+  return url.slice(0, end)
+}
+
 /** Base64 of bytes, as a provider takes an image in JSON. */
 function base64(bytes: Uint8Array): string {
   let binary = ''
@@ -226,7 +233,7 @@ export function azureContentSafety(options: AzureContentSafetyOptions): Moderati
   const id = 'azure-content-safety'
   if (typeof options?.region !== 'string' || !options.region.trim()) throw new TypeError('[nuxt-backend] azureContentSafety: name the `region` your Content Safety resource runs in, such as \'francecentral\'.')
   const call = async (env: Env, path: string, body: unknown) => {
-    const endpoint = envOf(env, 'CONTENT_SAFETY_ENDPOINT', id).replace(/\/+$/, '')
+    const endpoint = withoutTrailingSlashes(envOf(env, 'CONTENT_SAFETY_ENDPOINT', id))
     const key = envOf(env, 'CONTENT_SAFETY_KEY', id)
     return await send(id, { url: `${endpoint}/contentsafety/${path}?api-version=${AZURE_API_VERSION}`, headers: { 'Ocp-Apim-Subscription-Key': key }, body }) as { categoriesAnalysis?: Array<{ category: string, severity?: number }> }
   }

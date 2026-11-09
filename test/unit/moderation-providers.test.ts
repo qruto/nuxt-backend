@@ -33,6 +33,21 @@ describe('Azure AI Content Safety\'s severities', () => {
     await expect(azureContentSafety({ region: 'francecentral' }).check({ images: [{ bytes: wide, mediaType: 'image/png' }], stage: 'output' }, {})).rejects.toThrow(/checked at output is too large.*Downscale what the model made/)
   })
 
+  it('calls the endpoint without the slashes it ends in', async () => {
+    const urls: string[] = []
+    fakes[TEST_MODERATION_PROVIDERS] = (_provider: string, request: { url: string }) => {
+      urls.push(request.url)
+      return { categoriesAnalysis: [] }
+    }
+    try {
+      await azureContentSafety({ region: 'francecentral' }).check({ text: 'A fox', images: [] }, { CONTENT_SAFETY_ENDPOINT: 'https://x.cognitiveservices.azure.com///', CONTENT_SAFETY_KEY: 'key' })
+    }
+    finally {
+      Reflect.deleteProperty(fakes, TEST_MODERATION_PROVIDERS)
+    }
+    expect(urls).toEqual(['https://x.cognitiveservices.azure.com/contentsafety/text:analyze?api-version=2024-09-01'])
+  })
+
   it('takes the region the resource runs in, for the record and doctor', () => {
     expect(() => azureContentSafety({} as never)).toThrow(/name the `region`/)
     expect(azureContentSafety({ region: ' francecentral ' }).region).toBe('francecentral')
