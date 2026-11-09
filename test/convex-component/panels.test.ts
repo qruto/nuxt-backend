@@ -376,6 +376,16 @@ describe('templates/panels/backend', () => {
     expect(mail.filter(message => message.subject === 'Your strip is ready')).toEqual([])
   })
 
+  test('writes each account\'s email in its own language, of the five the package translates', async () => {
+    // Through the glob the app runs on, as a module of the template: its imports resolve as an app's do.
+    const { email } = await modules[`${PANELS}email.ts`]!() as { email: { locales: readonly string[], render: (name: 'gift', data: Record<string, unknown>, options: { locale: string }) => Promise<{ subject: string, html?: string }> } }
+    expect(email.locales).toEqual(['en', 'de', 'es', 'fr', 'ru'])
+    // The try kit's gift recipient reads German.
+    const gift = await email.render('gift', { recipientEmail: 'delivered+trygiftrecipient@resend.dev', purchaserName: 'Gus Giver', item: '100 credits', claimUrl: `${SITE}/` }, { locale: 'de' })
+    expect(gift.subject).toContain('Geschenk')
+    expect(gift.html).toContain('lang="de"')
+  })
+
   test('an account\'s strips are in its export, and its erasure deletes them', async () => {
     const photoId = await upload(TEST_IMAGE_PNG)
     const ada = await asUser(t, { email: 'delivered+erase@resend.dev' })

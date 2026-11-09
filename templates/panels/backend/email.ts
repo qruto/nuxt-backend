@@ -33,6 +33,10 @@ export const email = setupEmail(components, {
       subscribedByDefault: false,
     },
   },
+  // The languages Panels' emails are written in, by each account's own:
+  // the package's translations, as the site runs without @nuxtjs/i18n.
+  // Named, so messages for one language never narrow the others to English.
+  locales: ['en', 'de', 'es', 'fr', 'ru'],
   // The labels app.config.ts sets (labels.generated.ts, which the module
   // rewrites from it): the words of Panels' own notification (notifications.ts)
   // and its refusals, so its email and its push say what the inbox says.
