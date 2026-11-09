@@ -321,6 +321,31 @@ export const FINDING_DOCS = {
     why: 'A check with images that its classifier cannot read is refused as unchecked (`unavailable`, reason `not_configured`) rather than passed: every upload checked that way is refused.',
     fix: 'Route moderation through the Convex AI Gateway: a paid Convex plan, `@convex-dev/ai-sdk-provider` installed, and `\'convex\'` first in `setupAi({ gateway })`. Or name a classifier that reads images in `setupAi({ moderation: { model } })`. See [Content safety](/docs/build/ai/content-safety).',
   },
+  'ai-moderation-providers': {
+    checks: 'The moderation providers a backend file names in `setupAi({ moderation })` (`azureContentSafety`, `openaiModeration`, `arachnidShield`): a backend that checks images has a known-abuse match; and, where `setupAi({ inferenceRegion: \'eu\' })` pins processing to the EU, `azureContentSafety({ region })` names an EU region. With no provider named, nothing needs one.',
+    why: 'Without a known-abuse match, an upload of known child sexual abuse material reaches the other providers. A resource outside the EU processes images there.',
+    fix: 'Add `knownAbuse: arachnidShield()`. Create the Content Safety resource in an EU region and name it. See [Choose moderation providers](/docs/build/ai/content-safety/providers).',
+  },
+  'deployment-content-safety-endpoint': {
+    checks: '`CONTENT_SAFETY_ENDPOINT` is set on the deployment, once a backend file names `azureContentSafety()` in `setupAi({ moderation })`. With no provider that reads it, nothing needs it.',
+    why: 'The provider that reads it refuses every check it is asked for (`unavailable`, reason `not_configured`), and the content it would check is refused as unchecked.',
+    fix: 'Add `CONTENT_SAFETY_ENDPOINT` to `.env.local` and run `npx nuxt-backend env push` (`--prod` for production). See [Choose moderation providers](/docs/build/ai/content-safety/providers).',
+  },
+  'deployment-content-safety-key': {
+    checks: '`CONTENT_SAFETY_KEY` is set on the deployment, once a backend file names `azureContentSafety()` in `setupAi({ moderation })`. With no provider that reads it, nothing needs it.',
+    why: 'The provider that reads it refuses every check it is asked for (`unavailable`, reason `not_configured`), and the content it would check is refused as unchecked.',
+    fix: 'Add `CONTENT_SAFETY_KEY` to `.env.local` and run `npx nuxt-backend env push` (`--prod` for production). See [Choose moderation providers](/docs/build/ai/content-safety/providers).',
+  },
+  'deployment-second-opinion-key': {
+    checks: '`SECOND_OPINION_KEY` is set on the deployment, once a backend file names `openaiModeration()` in `setupAi({ moderation })`. With no provider that reads it, nothing needs it.',
+    why: 'The provider that reads it refuses every check it is asked for (`unavailable`, reason `not_configured`), and the content it would check is refused as unchecked.',
+    fix: 'Add `SECOND_OPINION_KEY` to `.env.local` and run `npx nuxt-backend env push` (`--prod` for production). See [Choose moderation providers](/docs/build/ai/content-safety/providers).',
+  },
+  'deployment-known-abuse-key': {
+    checks: '`KNOWN_ABUSE_KEY` is set on the deployment, once a backend file names `arachnidShield()` in `setupAi({ moderation })`. With no provider that reads it, nothing needs it.',
+    why: 'The provider that reads it refuses every check it is asked for (`unavailable`, reason `not_configured`), and the content it would check is refused as unchecked.',
+    fix: 'Add `KNOWN_ABUSE_KEY` to `.env.local` and run `npx nuxt-backend env push` (`--prod` for production). See [Choose moderation providers](/docs/build/ai/content-safety/providers).',
+  },
   'deployment-ai-gateway-api-key': {
     checks: 'A route for every `provider/model` id a backend file names (in a `model` option or a `ctx.model()` call, as a string), through the order `setupAi({ gateway })` names as a literal (the default order when it names none). With no model named, nothing needs one. In the default order, on Convex Cloud with `@convex-dev/ai-sdk-provider` installed, the Convex AI Gateway answers on a paid plan, so `AI_GATEWAY_API_KEY` is optional there. `gateway: \'vercel\'` needs the key everywhere; `gateway: \'convex\'` never reads it, and warns without the provider package, on an anonymous local deployment, and on a self-hosted one; a local deployment linked to a project passes, on that team\'s plan. An order it cannot read as a literal (a variable, the shorthand `{ gateway }`, an empty list, spread options, two `setupAi` calls that differ) warns that the route is not checked. An id built at run time is not read.',
     why: 'Without a gateway in the order that can serve the deployment, every call to a named model is refused. Convex runs actions on its own servers, never on Vercel, so the Vercel AI Gateway\'s keyless sign-in never reaches them: it needs the key.',

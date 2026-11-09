@@ -16,10 +16,14 @@ then `Cannot resolve module "nuxt-backend"`). So the command builds the package 
   public repository. The docs date each page by its last commit, and the sitemap's `lastmod`
   comes from that date, so a page last changed before the clone would go undated. If the fetch
   fails, those pages go undated, never wrongly dated, and the build goes on.
-- `dev:prepare:lib` generates the repository root's `.nuxt/tsconfig.json`, the module stub and
-  the Convex component. Without it `nuxt-module-build` can't resolve compiler options.
-- `build` then replaces the stub with a real build — the module, the component and the DevTools
-  panel. The stub symlinks `dist/runtime` at `src/`, fine for development, not for a deploy.
+- `nuxt-module-build prepare` generates the repository root's `.nuxt/tsconfig.json`. Without it
+  `nuxt-module-build` can't resolve compiler options.
+- `build:nuxt-module` and `build:convex-component` then build the module and the Convex
+  component, all the site loads, never the stub `dev:prepare:lib` makes (it symlinks
+  `dist/runtime` at `src/`, fine for development, not for a deploy). Not `dev:prepare:lib` plus
+  `build`: the module build cleans `dist/` first, throwing away the stub and the component
+  `dev:prepare:lib` had built, and `build` also builds the DevTools panel, which only a dev server
+  serves. That pair cost about half a minute of every deploy.
 - Then the site's own build, in one of two ways:
   - **production** (`VERCEL_ENV=production` and a `CONVEX_DEPLOY_KEY`): `convex deploy --cmd 'nuxt build'
     --cmd-url-env-var-name NUXT_PUBLIC_BACKEND_URL` pushes `website/backend/` to the playground's
@@ -33,6 +37,10 @@ then `Cannot resolve module "nuxt-backend"`). So the command builds the package 
     playground renders its offline state (`/playground/offline`, via
     `middleware/playground-offline.global.ts` — without it the module's `auth` middleware fails
     the gated pages on the server).
+- Last, on Vercel only, the script deletes `node_modules`. After every build Vercel packs
+  `node_modules` into a build cache, about a minute of billed post-build time for ~280 MB, and no
+  build restores it (`VERCEL_FORCE_NO_BUILD_CACHE`, below). The output in `.vercel/output` is
+  self-contained, so with the dependency trees gone that step has next to nothing to pack.
 
 The steps live in `vercel-build.sh`, which `vercel.json` runs: Vercel caps `buildCommand` at 256
 characters, and `vercel.json` allows no comments — its schema rejects unknown properties,
@@ -47,6 +55,16 @@ repeated that work on every push to a pull request. Keeping the rule in `vercel.
 than in the dashboard's Ignored Build Step keeps it reviewed with the code; leave that dashboard
 setting on Automatic.
 
+A push to `main` that changes nothing the site is built from doesn't deploy either.
+`vercel.json`'s `ignoreCommand` runs `vercel-ignore.sh`, which compares the push with the last
+commit that deployed (`VERCEL_GIT_PREVIOUS_SHA`) and skips the build when every change is in CI
+(`.github/`), the tests, `templates/` or `examples/` (the site's copy of Panels lives under
+`website/`), the DevTools panel, `budgets.json` or the repository notes the site never renders
+(`CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`, …). Everything else builds: `website/`, `src/`,
+`skills/`, `scripts/`, the lockfile and any path the script doesn't name. So does a push it can't
+decide, such as the first deployment of a branch or a previous commit it can't fetch. A
+Dependabot bump of a workflow no longer rebuilds the site.
+
 ## Settings that live in Vercel, not here
 
 | Setting | Value | Why |
@@ -54,8 +72,10 @@ setting on Automatic.
 | Root Directory | `website` | The app isn't at the repository root |
 | Include source files outside the Root Directory | **on** | The package is built from the repo root |
 | Node.js version | 24.x | `engines.node` |
+| Build machine | **Standard**, fixed (Settings → Build and Deployment → Build Machine), not Elastic | Build minutes are billed per vCPU. Elastic moved the project to the 8-vCPU Enhanced machine for its long builds, doubling the price of every minute, while the build averages about one busy core (prerendering, the Nitro bundle and `tsc` are mostly single-threaded) and peaks near 5 GB, within Standard's 8 GB |
+| Preview deployments | **off** (Settings → Git → disable preview deployments) | The same rule as `git.deploymentEnabled` above, held by the project too, so a branch push never builds even if `vercel.json` changes |
 | `ENABLE_EXPERIMENTAL_COREPACK` | `1` | Uses the `packageManager` pin instead of Vercel's own pnpm |
-| `VERCEL_FORCE_NO_BUILD_CACHE` | `1` | No restored `node_modules`: with the hoisted linker, a cached tree plus a changed lockfile fails `pnpm install` with `ERR_PNPM_EEXIST` on the nested `node_modules` it tries to rename. The install costs a minute more and is deterministic |
+| `VERCEL_FORCE_NO_BUILD_CACHE` | `1` | No restored `node_modules`: with the hoisted linker, a cached tree plus a changed lockfile fails `pnpm install` with `ERR_PNPM_EEXIST` on the nested `node_modules` it tries to rename. The install costs a minute more and is deterministic. Vercel still packs a cache after each build, so `vercel-build.sh` deletes `node_modules` first (above) |
 | Production env | `CONVEX_DEPLOY_KEY` (the playground's production deployment — the Convex integration sets it), `NUXT_SITE_URL=https://nuxt-backend.dev` | The live playground's Convex project and the canonical origin. `NUXT_PUBLIC_BACKEND_URL` is not set here: the build injects the deployment's URL (the `.convex.site` twin is derived from it — `NUXT_PUBLIC_CONVEX_SITE_URL` only for a custom domain) |
 | Preview and Development env | **nothing Convex-related** — remove the `CONVEX_DEPLOY_KEY` the integration adds to them | Nothing but `main` builds, and the build command ignores a key outside production anyway; removing it keeps the production key where it is needed |
 | Analytics, Speed Insights | **on** (each tab → Enable) | The site loads their scripts from `/_vercel/…` in a Vercel build (`shared/vercel.ts`); until each is on, its script answers 404 |

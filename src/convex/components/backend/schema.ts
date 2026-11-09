@@ -629,6 +629,22 @@ export const vAiFlag = {
   escalate: v.boolean(),
   /** The classifier that flagged it. */
   model: v.string(),
+  /** The providers' own codes for what they found, beside the shared `categories`. */
+  codes: v.optional(v.array(v.string())),
+  /** Every provider the check asked, in order: the text classifier, the image providers, a second opinion, a known-abuse match. */
+  providers: v.optional(v.array(v.string())),
+  /** The combined score per shared category, and whether any provider could judge it. */
+  scores: v.optional(v.record(v.string(), v.object({ score: v.number(), supported: v.boolean() }))),
+  /** The thresholds the check ran on. */
+  thresholds: v.optional(v.record(v.string(), v.number())),
+  /** The app's moderation policy version (`moderation.policy.version`), named in its statement of reasons. */
+  policyVersion: v.optional(v.string()),
+  /** Decided by automated means: every check is, until an administrator reviews it. */
+  automated: v.optional(v.boolean()),
+  /** A known-abuse match's evidence: the image's SHA-256, never the image. */
+  hash: v.optional(v.string()),
+  /** The playbook a match follows: `csam` for known child sexual abuse material. */
+  playbook: v.optional(v.literal('csam')),
   /** The policy it was judged under, as `setupAi({ moderation })` set it then. */
   policy: v.optional(v.string()),
   /** Kept through an erasure until it expires, under the pseudonym: escalated, or child sexual exploitation refused. */

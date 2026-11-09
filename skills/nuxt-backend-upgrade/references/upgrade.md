@@ -24,6 +24,12 @@ agent files and skills.
 | `catalog priced in its pinned `currency` alone` | `prices: { usd: { month: 1200 }, eur: { month: 1100 } }` | reshaped | every paid plan and pack carries a price in the organization's default currency, or `billing sync` refuses the catalog before it creates anything; `doctor` names them (`billing-currency`) |
 | `benefit attached to an existing product by hand` | `billing sync` | reshaped | the sync attaches a credit grant or a feature a plan's product lacks, and the provider grants it to its current subscribers; a second credit grant on one meter, and a pack's missing credits, are reported as drift instead |
 
+## [Moderation verdicts name shared categories](https://nuxt-backend.dev/docs/ship/releases/upgrade#moderation-verdicts-name-shared-categories)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `ai.moderate` | `ai.moderate` | reshaped | `categories` names shared categories (`sexual`, `hate`); the classifier's codes (`S12`) moved to `codes`, beside `scores` and `providers`; `block` and `escalate` take either |
+
 ## [A production checkout waits for billing to launch, and welcome credits come from the catalog](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-production-checkout-waits-for-billing-to-launch-and-welcome-credits-come-from-the-catalog)
 
 | Was | Now | Change | Note |

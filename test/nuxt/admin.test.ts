@@ -1180,8 +1180,8 @@ describe('the Moderation tab', () => {
     await flushPromises()
     const rows = wrapper.findAll('[data-admin="moderation-flag"]')
     expect(rows.map(row => row.findAll('td').map(cell => cell.text()))).toEqual([
-      ['u1', 'title · comic-1', 'S12, S4', 'Let through Escalated'],
-      ['Nobody signed in', 'job', 'S10', 'Blocked'],
+      ['u1', 'title · comic-1', 'S12, S4 meta-llama/llama-guard-4-12b', 'Let through Escalated'],
+      ['Nobody signed in', 'job', 'S10 meta-llama/llama-guard-4-12b', 'Blocked'],
     ])
     expect(rows[0]!.attributes('data-escalated')).toBe('true')
     expect(rows[1]!.attributes('data-blocked')).toBe('true')

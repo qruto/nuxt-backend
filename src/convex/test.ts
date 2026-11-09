@@ -16,6 +16,7 @@ import workpool from '@convex-dev/workpool/test'
 import { AUTH_TIME_CLAIM, IMPERSONATED_BY_CLAIM, SIGN_IN_METHOD_CLAIM, type SignInMethod } from './constants.js'
 import schema from './components/backend/schema.js'
 import { installTestModels } from './test-models.js'
+import { installTestModerationProviders } from './test-moderation.js'
 
 const modules = import.meta.glob('./components/backend/**/*.ts')
 
@@ -152,6 +153,8 @@ export function defineBackendTestApp<Schema extends AnySchema>(
 ): () => BackendTestApp<Schema> {
   // Every `provider/model` id answers with the AI SDK's mock, with no key.
   installTestModels()
+  // Every moderation provider answers with its fake, from the markers the content holds.
+  installTestModerationProviders()
   // Once, here: a later `vi.stubEnv(name, undefined)` really unsets one.
   setDeploymentEnv()
   const mounts = Object.entries(options.mounts ?? {})
@@ -234,6 +237,11 @@ const DEPLOYMENT_ENV = {
   AUTH_SECRET: 'nuxt-backend-test-secret-0123456789abcdef0123456789abcdef',
   SITE_URL: 'https://app.test',
   CONVEX_SITE_URL: 'https://convex.test',
+  // The moderation providers' keys: test values their fakes take, so a test of the policy needs none of its own.
+  CONTENT_SAFETY_ENDPOINT: 'https://content-safety.test',
+  CONTENT_SAFETY_KEY: 'test-content-safety-key',
+  SECOND_OPINION_KEY: 'test-second-opinion-key',
+  KNOWN_ABUSE_KEY: 'test:test-known-abuse-key',
 } as const
 
 /** Set each deployment variable the test file left unset, in `process.env` as the functions read it. */
@@ -722,5 +730,13 @@ export async function asUser<Schema extends AnySchema>(
   const method = signInMethod ? { [SIGN_IN_METHOD_CLAIM]: signInMethod } : {}
   return Object.assign(signIn({ ...user, ...active, ...impersonation, sessionId, [AUTH_TIME_CLAIM]: signedInAt, ...method }), account, { sessionId })
 }
+
+/**
+ * The markers the moderation providers' fakes read: `TEST_UNSAFE('sexual')`
+ * in text or an image's bytes finds that category at full strength,
+ * `TEST_FAINT('violence')` faintly, and `TEST_KNOWN_ABUSE` matches the
+ * known-abuse list.
+ */
+export { TEST_FAINT, TEST_KNOWN_ABUSE, TEST_UNSAFE } from './test-moderation.js'
 
 export default { register, schema, modules }

@@ -21,6 +21,22 @@
           "to": "/docs/reference/configuration/environment-variables#every-variable"
         },
         {
+          "name": "CONTENT_SAFETY_ENDPOINT",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "CONTENT_SAFETY_KEY",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "SECOND_OPINION_KEY",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
+          "name": "KNOWN_ABUSE_KEY",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
+        {
           "name": "PROVENANCE_PRIVATE_KEY",
           "to": "/docs/reference/configuration/environment-variables#every-variable"
         },
@@ -1018,6 +1034,26 @@
           "to": "/docs/reference/cli/diagnostics#ai-moderation-images"
         },
         {
+          "name": "ai-moderation-providers",
+          "to": "/docs/reference/cli/diagnostics#ai-moderation-providers"
+        },
+        {
+          "name": "deployment-content-safety-endpoint",
+          "to": "/docs/reference/cli/diagnostics#deployment-content-safety-endpoint"
+        },
+        {
+          "name": "deployment-content-safety-key",
+          "to": "/docs/reference/cli/diagnostics#deployment-content-safety-key"
+        },
+        {
+          "name": "deployment-second-opinion-key",
+          "to": "/docs/reference/cli/diagnostics#deployment-second-opinion-key"
+        },
+        {
+          "name": "deployment-known-abuse-key",
+          "to": "/docs/reference/cli/diagnostics#deployment-known-abuse-key"
+        },
+        {
           "name": "deployment-ai-gateway-api-key",
           "to": "/docs/reference/cli/diagnostics#deployment-ai-gateway-api-key"
         },
@@ -1551,9 +1587,9 @@
       "kind": "Environment variables",
       "items": [
         {
-          "name": "21 in all",
+          "name": "25 in all",
           "to": "/docs/reference/configuration/environment-variables#every-variable",
-          "label": "21 environment variables in all"
+          "label": "25 environment variables in all"
         }
       ]
     },
@@ -1561,9 +1597,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "102 in all",
+          "name": "107 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "102 findings in all"
+          "label": "107 findings in all"
         }
       ]
     }
