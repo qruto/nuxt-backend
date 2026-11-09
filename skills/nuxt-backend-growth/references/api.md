@@ -13,6 +13,8 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 |---|---|
 | `useCampaign()` | The campaign a visitor arrived with, read from the address: a campaign link's discount code and its UTM attribution, ready for checkout. |
 | `useGifts()` | Gifts, from both sides. |
+| `useGiftForm()` | The gift form without its markup: a credit pack or a plan pass with its length (the lengths the plan is gifted for, at their live prices), the recipient, a note and a delivery day, and the send, which signs a visitor in and brings them back, then opens the purchaser's checkout over `useGifts().send`. |
+| `useGiftList()` | The gift lists without their markup: what a person received and sent, with names, dates and states in their language, and every action over `useGifts()`, a cancel behind a recent sign-in. |
 | `useOnboarding()` | The first run at `/welcome` without its markup: the steps in order, where the person is, moving between them, and the stamp that ends it. |
 | `useActivation()` | The activation checklist without its markup: the first tasks `defineActivation` declares, which of them are done, the progress, and dismissing it. |
 | `useExperiment()` | The variant of an experiment, a `defineFlags` flag with `variants`, for whoever is looking. |
@@ -28,6 +30,8 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `<ActivationChecklist>` | The first tasks that lead to value, with progress, for a page of your app: the tasks `defineActivation` declares, each ticked off when its event is recorded, "2 of 4 done", a link per open task and a Dismiss button. |
 | `<HowDidYouHear>` | One optional question after sign-up: "How did you hear about us?". |
 | `<ReferralCard>` | A person's referral link, with copy and share buttons and the disclosure of the reward: the link is `/r/<code>` on this site, made the first time the card is read. |
+| `<GiftForm>` | The gift form: a credit pack or a plan pass with its length (the lengths the plan is gifted for, at their live prices), the recipient's email, a note and a delivery day, then the purchaser's own checkout (`useGifts().send`). |
+| `<GiftList>` | The gifts a person received, each to claim into a workspace they manage, and the gifts they sent, each with what they can still do until it is claimed: resend its notice, address it to someone else, date it again, or cancel it for a refund behind a recent sign-in. |
 
 ## Doctor findings
 

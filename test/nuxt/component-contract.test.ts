@@ -115,6 +115,12 @@ const world = {
   // The referral card: what its reads are doing.
   referral: ref<'ready' | 'loading' | 'error'>('ready'),
   giftPending: ref(false),
+  // The gift lists' read, and how a gift's send goes.
+  giftsLoading: ref(false),
+  giftsError: ref<Failure | null>(null),
+  giftSend: ref<'hang' | 'fail'>('hang'),
+  // The address's query, as useRoute() reads it.
+  routeQuery: ref<Record<string, string>>({}),
   featuresLoading: ref(false),
   featuresError: ref<Failure | null>(null),
   granted: ref(true),
@@ -194,6 +200,8 @@ const billing = {
   isPastDue: computed(() => world.subscription.value?.status === 'past_due'),
   isFinishingCheckout: computed(() => false),
   pendingChange: computed(() => world.pendingChange.value),
+  // A switch the preview cannot describe goes at once: the plan cards keep their one-press buttons here.
+  changeOf: () => null,
   checkout: vi.fn(never),
   pass: computed(() => null),
   portal: vi.fn(never),
@@ -365,9 +373,15 @@ const auditLog = {
 const gifts = {
   received: computed(() => world.gifts.value),
   unclaimed: computed(() => world.gifts.value),
-  isLoading: computed(() => false),
+  sent: computed(() => []),
+  isLoading: computed(() => world.giftsLoading.value),
   isPending: computed(() => world.giftPending.value),
+  error: computed(() => world.giftsError.value),
   claim: vi.fn(never),
+  send: vi.fn(async () => {
+    if (world.giftSend.value === 'fail') throw Object.assign(new Error('refused'), failure('invalid_input'))
+    return never()
+  }),
 }
 // A person's referral link and what it earned, as useReferrals reads them.
 const referrals = {
@@ -524,6 +538,15 @@ const pricing = {
   currency: computed(() => world.currencies.value[0]),
   currencies: computed(() => world.currencies.value),
   promotion: computed(() => world.promotion.value),
+  // The promotion while it runs, by the clock of the render.
+  activePromotion: computed(() => {
+    const offer = world.promotion.value
+    const now = Date.now()
+    return offer && !(offer.startsAt && Date.parse(offer.startsAt) > now) && !(offer.endsAt && Date.parse(offer.endsAt) <= now) ? offer : undefined
+  }),
+  requested: computed(() => undefined),
+  successUrlFor: () => undefined,
+  interval: computed(() => ((world.plans.value ?? []).some(plan => plan.prices.month) ? 'month' : 'year')),
   launched: computed(() => world.launched.value),
   setCurrency: vi.fn(),
   packFor: () => world.packs.value?.[0],
@@ -716,7 +739,7 @@ vi.mock('../../src/runtime/vue/composables/use-notifications', () => ({ useNotif
 vi.mock('../../src/runtime/vue/composables/use-credits', () => ({ useCredits: () => credits }))
 vi.mock('../../src/runtime/vue/composables/use-pricing', () => ({ usePricing: () => pricing }))
 // The pricing table's sign-in link and campaign read the address.
-mockNuxtImport('useRoute', () => () => ({ fullPath: '/pricing', query: {} }))
+mockNuxtImport('useRoute', () => () => ({ fullPath: '/pricing', path: '/pricing', query: world.routeQuery.value }))
 vi.mock('../../src/runtime/vue/utils/auth-session', () => ({ useAuthSession: () => auth }))
 // The auth client a passkey form loads before the tap: nothing to load here.
 vi.mock('../../src/runtime/vue/utils/passkey-prompt', () => ({ preparePasskeyPrompt: () => {} }))
@@ -899,6 +922,10 @@ function reset(): void {
   world.gifts.value = []
   world.announcements.value = []
   world.giftPending.value = false
+  world.giftsLoading.value = false
+  world.giftsError.value = null
+  world.giftSend.value = 'hang'
+  world.routeQuery.value = {}
   world.featuresLoading.value = false
   world.featuresError.value = null
   world.granted.value = true
@@ -1474,6 +1501,47 @@ const STAGING: Record<ContractedComponent, Staging> = {
       error: { before: () => (world.referral.value = 'error'), shows: '[data-referral="error"][role="alert"]' },
       // A signed-out visitor has no link: nothing renders.
       refused: { before: () => (world.authed.value = false), shows: null },
+    },
+  },
+  GiftForm: {
+    states: {
+      ready: { shows: '[data-gift="form"] [data-gift="packs"] ~ [data-gift="send"]' },
+      loading: {
+        before: () => {
+          world.plans.value = undefined
+          world.packs.value = undefined
+        },
+        shows: '[data-gift="form-root"][aria-busy="true"] [data-gift="loading"][role="status"]',
+      },
+      // Nothing on sale to give: a status says so, and no form.
+      empty: {
+        before: () => {
+          world.plans.value = []
+          world.packs.value = []
+        },
+        shows: '[data-gift="nothing"][role="status"]',
+        absent: ['[data-gift="form"]'],
+      },
+      pending: { busy: '[data-gift="send"]', shows: '[data-gift="form-root"][aria-busy="true"]' },
+      error: {
+        before: () => (world.giftSend.value = 'fail'),
+        after: async (wrapper) => {
+          await wrapper.find('[data-gift="form"]').trigger('submit')
+          await flushPromises()
+        },
+        shows: '[data-gift="form-error"][role="alert"]',
+      },
+      // Back from a paid checkout: a polite status says it is on its way.
+      sent: { before: () => (world.routeQuery.value = { sent: '1' }), shows: '[data-gift="sent"][role="status"][data-sent]' },
+    },
+  },
+  GiftList: {
+    states: {
+      // Two packs, from one sender: what each holds tells their buttons apart.
+      ready: { before: () => (world.gifts.value = GIFTS.map((gift, index) => ({ ...gift, pack: PACKS[index]!.key }))), shows: '[data-gift="list"] [data-gift="entries"] [data-gift="entry-claim"]' },
+      loading: { before: () => (world.giftsLoading.value = true), shows: '[data-gift="list"][aria-busy="true"] [data-gift="loading"][role="status"]' },
+      empty: { shows: '[data-gift="list"][data-state="empty"] [data-gift="empty"]' },
+      error: { before: () => (world.giftsError.value = failure()), shows: '[data-gift="list-error"][role="alert"]' },
     },
   },
   WithdrawalButton: {

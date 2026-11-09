@@ -89,6 +89,31 @@ deliberately absent: this package does not do per-seat billing.
 
 ***
 
+### PlanChangePreview
+
+Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
+
+What a plan change would do, before it is made ([UseBillingReturn.changeOf](#changeof)):
+when it takes effect, how the current period's difference is settled,
+and the rule that decided it. The same rule the server applies
+(`billing.updateSubscription`), so a confirmation of your own says what
+the switch will do.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="productid-1"></a> `productId` | `string` | The product the subscription would switch to. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="plan-1"></a> `plan?` | `string` | Its plan's catalog key (`'team'`; a yearly price reads as its plan's key), when the catalog names it. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="interval"></a> `interval?` | [`PlanChangeInterval`](#planchangeinterval) | The interval it bills at, when known. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="frominterval"></a> `fromInterval?` | [`PlanChangeInterval`](#planchangeinterval) | The interval the subscription bills at now, when known. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="applies"></a> `applies` | `"now"` \| `"period_end"` | `'now'`: the subscription moves at once. `'period_end'`: the change is scheduled for the end of the current period and reads back as `pendingChange` until then. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="appliesat-1"></a> `appliesAt` | `Date` \| `null` | When a scheduled change takes effect (the current period's end); `null` for one made at once, or while the period's end is not known. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="proration"></a> `proration` | `"now"` \| `"none"` | How the current period's difference is settled: `'now'`, prorated and charged or credited at once (by the provider's proration setting, or the `proration` passed to `changePlan`); `'none'` for a change that waits for the period's end, where nothing is settled mid-period and the new price is charged from the renewal on. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="rule"></a> `rule` | `"paid_year"` \| `null` | Why it waits, when it does: `'paid_year'` for a yearly price left for a monthly one, which runs out the year paid for (that price granted the year's credits up front). `null` for a change made at once. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+
+***
+
 ### EntitlementBenefit
 
 Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
@@ -270,7 +295,7 @@ billing id.
 | <a id="id-1"></a> `id` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="purchasername"></a> `purchaserName?` | `string` | The sender's name, at most 40 characters with no links. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="pack-1"></a> `pack?` | `string` | The credit pack's catalog key. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="plan-2"></a> `plan?` | `string` | For a plan pass, the plan's catalog key and how many months it lasts. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="plan-3"></a> `plan?` | `string` | For a plan pass, the plan's catalog key and how many months it lasts. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="months-1"></a> `months?` | `number` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="productids-1"></a> `productIds` | `string`[] | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="message-1"></a> `message?` | `string` | The sender's plain-text message, shown only inside the app. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -292,7 +317,7 @@ A plan pass a workspace holds: gifted until `endsAt`, with no card and no renewa
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="plan-3"></a> `plan` | `string` | The plan's catalog key. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="plan-4"></a> `plan` | `string` | The plan's catalog key. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="months-2"></a> `months?` | `number` | How many months it was given for. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="startedat-1"></a> `startedAt` | `Date` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="endsat-1"></a> `endsAt` | `Date` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -313,7 +338,7 @@ goes to, and where it stands. Never a billing id.
 | ------ | ------ | ------ | ------ |
 | <a id="id-2"></a> `id` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="item"></a> `item` | `string` | The gift's catalog key: the pack's, or the plan's for a pass. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="plan-4"></a> `plan?` | `string` | For a plan pass, the plan and its length in months. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="plan-5"></a> `plan?` | `string` | For a plan pass, the plan and its length in months. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="months-3"></a> `months?` | `number` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="recipientemail-1"></a> `recipientEmail` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="message-2"></a> `message?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -406,7 +431,7 @@ Per-call options for [UseBillingReturn.changePlan](#changeplan).
 | Property | Type | Description | Inherited from | Defined in |
 | ------ | ------ | ------ | ------ | ------ |
 | <a id="subscriptionid-4"></a> `subscriptionId?` | `string` | - | [`SubscriptionTargetOptions`](#subscriptiontargetoptions).[`subscriptionId`](#subscriptionid-3) | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="proration"></a> `proration?` | [`ClientProrationBehavior`](#clientprorationbehavior) | How to settle the mid-period difference. Defaults to the provider setting. Client-selectable behaviours only — see [ClientProrationBehavior](#clientprorationbehavior). | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="proration-1"></a> `proration?` | [`ClientProrationBehavior`](#clientprorationbehavior) | How to settle the mid-period difference. Defaults to the provider setting. Client-selectable behaviours only — see [ClientProrationBehavior](#clientprorationbehavior). | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 
 ***
 
@@ -463,7 +488,7 @@ Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qrut
 | <a id="productserror"></a> `productsError` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the products could not be read, or `null`: the products read's own part of `error`. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="subscription"></a> `subscription` | `ComputedRef`\<[`BillingSubscription`](#billingsubscription) \| `null` \| `undefined`\> | The current active subscription, `undefined` while loading. With a free plan in the catalog, the free plan is a subscription too, marked `free: true`; `null` when there is none at all (no free plan, or not started yet). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="subscriptions"></a> `subscriptions` | `ComputedRef`\<[`BillingSubscription`](#billingsubscription)[] \| `undefined`\> | Every subscription for the user (incl. ended/expired trials), or `undefined` while loading. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="plan-5"></a> `plan` | `ComputedRef`\<`string` \| `null` \| `undefined`\> | The catalog key of the current plan (`'free'`, `'pro'` — a yearly price reads as its plan's key), `null` without one, `undefined` while loading or for a product the catalog does not name. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="plan-6"></a> `plan` | `ComputedRef`\<`string` \| `null` \| `undefined`\> | The catalog key of the current plan (`'free'`, `'pro'` — a yearly price reads as its plan's key), `null` without one, `undefined` while loading or for a product the catalog does not name. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="issubscribed"></a> `isSubscribed` | `ComputedRef`\<`boolean`\> | `true` once a paid subscription is known: one that is not the free plan. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="isfree"></a> `isFree` | `ComputedRef`\<`boolean`\> | `true` once it's known the user is on the free plan, or on no subscription at all. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="pass"></a> `pass` | `ComputedRef`\<[`GiftedPass`](#giftedpass) \| `null`\> | The plan pass the workspace holds, gifted for a time: the plan's catalog key, how many months it was given for, and when it started and ends. `null` when there is none. A pass reads as a plan held, not as the free plan: `isSubscribed` is `true` and `isFree` `false` while it runs. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -482,6 +507,7 @@ Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qrut
 | <a id="ispastdue"></a> `isPastDue` | `ComputedRef`\<`boolean`\> | `true` while a payment failed and the provider retries it (the `status` is `past_due`): the plan still runs, and the customer updates the payment method in the portal (`portal()`). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="isfinishingcheckout"></a> `isFinishingCheckout` | `ComputedRef`\<`boolean`\> | `true` while the page refreshes the entitlements after the customer came back from checkout: the checkout-return plugin found the checkout's id on the address, took it off and is syncing once. The new plan reads back as soon as it is `false` again. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="pendingchange"></a> `pendingChange` | `ComputedRef`\<[`PendingPlanChange`](#pendingplanchange) \| `null`\> | The plan change scheduled for the start of the next period, `null` when none. Kept from the subscription's webhooks and from the response of a plan change, so it reads back as soon as `changePlan` returns. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="changeof"></a> `changeOf` | (`productId`) => [`PlanChangePreview`](#planchangepreview) \| `null` | What switching the subscription to `productId` would do — when it takes effect, how the period's difference is settled, and why — before `changePlan` makes it: what a confirmation step says. A yearly price left for a monthly one waits for the paid year's end; any other change applies at once. `null` without a paid subscription to change (none, the free plan, a gifted pass, still loading), and for the product it is already on. Reactive: call it inside a `computed` or the template. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="checkout"></a> `checkout` | (`productIds`, `options?`) => `Promise`\<`string`\> | Generate a checkout for the given product(s) and open it (returns the URL). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="portal"></a> `portal` | (`options?`) => `Promise`\<`string`\> | Open the billing customer portal (returns the URL). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="changeplan"></a> `changePlan` | (`productId`, `options?`) => `Promise`\<`void`\> | Switch the active subscription to another product (upgrade/downgrade). From a yearly price to a monthly one the switch waits for the paid year's end, whatever `proration` says: it reads back as `pendingChange`. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -882,6 +908,18 @@ The provider's churn-reason enum, recorded with a cancellation.
 
 ***
 
+### PlanChangeInterval
+
+```ts
+type PlanChangeInterval = "month" | "year";
+```
+
+Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
+
+A billing interval a plan is priced at, as a plan change reads it.
+
+***
+
 ### BenefitKind
 
 ```ts
@@ -1035,7 +1073,7 @@ its key and a length in months.
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="pack"></a> `pack?` | `string` | The credit pack's catalog key (`credits500`). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="plan-1"></a> `plan?` | `string` | A plan's catalog key, with its `months`: a plan pass. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="plan-2"></a> `plan?` | `string` | A plan's catalog key, with its `months`: a plan pass. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="months"></a> `months?` | `number` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="recipientemail"></a> `recipientEmail` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="message"></a> `message?` | `string` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -1128,8 +1166,11 @@ Defined in: [src/runtime/vue/composables/billing-format.ts](https://github.com/q
 
 Money the way the provider states it — a minor-unit integer plus an ISO
 currency code — rendered in `locale` (the active `@nuxtjs/i18n` locale a
-component passes), else the visitor's own. Unknown currency codes fall back
-to the bare amount rather than throwing mid-render.
+component passes), else the visitor's own. The minor unit is the
+currency's own: cents for USD and EUR (`1999` is $19.99), the yen itself
+for JPY (`1999` is ¥1,999), a fils for KWD (three digits). A whole amount
+shows no decimals. Without a currency the amount counts in cents; an
+unknown code falls back to the bare amount rather than throwing mid-render.
 
 #### Parameters
 

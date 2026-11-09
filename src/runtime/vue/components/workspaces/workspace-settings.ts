@@ -42,6 +42,10 @@ export interface WorkspaceSettingsSlotContext {
   openPortal: () => Promise<void>
   /** Keep a gifted plan: an ordinary checkout of it, which moves the pass to the paid plan in place. */
   keepGifted: () => Promise<void>
+  /** Switch the plan to another product at once, past the confirmation (`billing.changeOf` says when it applies). */
+  switchPlan: (productId: string) => Promise<void>
+  /** Pause the plan from the period's end for 1 to 3 months, resuming by itself after them. */
+  pausePlan: (months: number) => Promise<void>
   buyPack: (key: string) => Promise<void>
   refreshCredits: () => Promise<void>
 }

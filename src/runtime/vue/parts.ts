@@ -103,6 +103,11 @@ export interface PricingPartProps {
 export type PricingPeriodSwitchProps = PricingPartProps
 export type PricingCurrencySelectProps = PricingPartProps
 export type PricingCancelConfirmProps = PricingPartProps
+/** `PricingChangeConfirm`: a subscriber's switch to one plan's price, confirmed in one step. */
+export interface PricingChangeConfirmProps extends PricingPartProps {
+  /** The plan whose card asks: the group shows under it while it is open for its price. */
+  plan: ResolvedPlan
+}
 /** `PricingPlanCard`: one plan. */
 export interface PricingPlanCardProps extends PricingPartProps {
   /** The plan: its live pricing at the interval shown, joined with the app's copy. */

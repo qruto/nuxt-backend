@@ -144,6 +144,8 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useFeatures` — reactive feature-gating for the current user — the SaaS access primitive
 - `useFlag` — whether a feature flag is on for whoever is looking: their account, their active workspace and their plan, as `backend/flags.ts` declares the flag and the admin console overrides it
 - `useFlagAdmin` — the admin console's Flags tab, as data: every flag with its default and its override, and the change an administrator makes, through `listFlags` and `setFlag` of `backend/flags.ts`
+- `useGiftForm` — the gift form without its markup: a credit pack or a plan pass with its length (the lengths the plan is gifted for, at their live prices), the recipient, a note and a delivery day, and the send, which signs a visitor in and brings them back, then opens the purchaser's checkout over `useGifts().send` (experimental)
+- `useGiftList` — the gift lists without their markup: what a person received and sent, with names, dates and states in their language, and every action over `useGifts()`, a cancel behind a recent sign-in
 - `useGifts` — gifts, from both sides
 - `useHumanCheck` — proof that a person makes a call: the client half of `verifyHuman`, for the calls that reach the deployment over the live connection and never pass through the app's server (a waitlist join, a contact form, a referral claim)
 - `useInboxAdmin` — the admin console's Inbox tab, as data: what people sent through the contact form and by email (reply addresses, workspace addresses, the support inbox), newest first, and the replies an administrator sends to the support inbox's threads, through `backend/email.ts` (experimental)
@@ -174,6 +176,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useUsage` — consumption history for a credit meter, read from the provider's events API — the events your server ingested when it spent credits
 - `useWaitlist` — join the waitlist, and read a place in it, on markup of your own: the steps `<WaitlistForm>` runs
 - `useWaitlistAdmin` — the admin console's Waitlist tab, as data: the waiting people (the oldest first, narrowed by a filter) with a count per status, and the changes an administrator makes, through `backend/waitlist.ts`
+- `useWithdrawal` — the EU withdrawal window (Consumer Rights Directive Art. 11a): whether the signed-in billing manager's purchase is still inside its 14 days, until when, and the withdrawal itself — what `<WithdrawalButton>` is built on, for a section of your own around it
 - `useWorkflowStatus` — reactively track a durable [Workflow](https://www.convex.dev/components/workflow)'s status (experimental)
 - `useWorkspace` — workspace state and actions: the list, the switch, the members and the full invitation flow (invite / accept / decline / cancel — the packaged `AcceptInvitation` component and `/accept-invitation` page build on these)
 
@@ -204,6 +207,8 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `<ConsentPrompt>` — asks for the consents a person has not given at their current version, and nothing else: the required kinds `setupAccount({ consents })` declares after a version rises (the page waits behind a dialog until they are accepted), the age of an account that never answered the minimum age, and, while the app uses optional storage, one question per browser with **Allow** and **Decline** of equal weight
 - `<ContactForm>` — a contact form for visitors, and a feedback form for signed-in people: the same component
 - `<Gate>` — renders its content only for the people every check it names admits: signed in (`signed-in`), an app-wide role (`role`), the active workspace or a role in it (`workspace`), a feature of the plan (`feature`), or room left on a quota (`quota`, `amount`)
+- `<GiftForm>` — the gift form: a credit pack or a plan pass with its length (the lengths the plan is gifted for, at their live prices), the recipient's email, a note and a delivery day, then the purchaser's own checkout (`useGifts().send`)
+- `<GiftList>` — the gifts a person received, each to claim into a workspace they manage, and the gifts they sent, each with what they can still do until it is claimed: resend its notice, address it to someone else, date it again, or cancel it for a refund behind a recent sign-in
 - `<HowDidYouHear>` — one optional question after sign-up: "How did you hear about us?"
 - `<LegalContactPoints>` — the single points of contact the EU Digital Services Act asks every host to name: one for the authorities of the member states, the Commission and the Board (Art. 11), one for the people who use the app (Art. 12, `legal.contact` unless you name another), and the languages you answer in, from `appConfig.backend.legal.contactPoints`
 - `<LegalDetail>` — one of the company details `appConfig.backend.legal` holds, inside a sentence of yours: the company, its address and phone, the contact, the data protection officer, the registration number, the share capital, the VAT line, the publication director, the host or the consumer mediator

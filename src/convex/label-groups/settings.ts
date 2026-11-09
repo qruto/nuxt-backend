@@ -58,6 +58,41 @@ const SETTINGS_LABELS = {
   confirmEnds: 'The plan ends on {date}. Everything it includes stays until then.',
   confirmEndsPeriod: 'The plan ends with the current period. Everything it includes stays until then.',
   confirmCancel: 'Confirm cancellation',
+  // Switching the plan or its billing period: a picker of the prices on
+  // sale, then one confirmation of the price, when the switch happens and
+  // how the period settles. {price} is the price with its period.
+  changePlan: 'Change plan',
+  switchTo: 'Switch to',
+  choosePlan: 'Choose a plan',
+  billedAt: {
+    month: '{plan}, billed monthly',
+    year: '{plan}, billed yearly',
+  },
+  period: {
+    month: '/mo',
+    year: '/yr',
+  },
+  changeTitle: 'Switch to {plan}?',
+  changeNow: '{price} from now on. The switch happens at once, and the difference for this period is settled now.',
+  changeLater: '{price} from {date}. The year you paid for runs out first: the switch happens when it ends.',
+  changeLaterPeriod: '{price} once the year you paid for runs out: the switch happens when it ends.',
+  confirmChange: 'Confirm switch',
+  switchingPlan: 'Switching the plan…',
+  keepCurrent: 'Not now',
+  switched: 'The plan is now {plan}.',
+  switchScheduled: 'On {date}, the plan switches to {plan}.',
+  switchScheduledPeriod: 'The plan switches to {plan} when the year you paid for runs out.',
+  // Pausing: from the period's end, for one to three months, then it resumes by itself.
+  pause: 'Pause plan',
+  pauseTitle: 'Pause the plan',
+  pauseFrom: 'The plan pauses when this period ends, on {date}, and resumes by itself after the months you pick. Nothing is charged while it is paused.',
+  pauseFromPeriod: 'The plan pauses when this period ends, and resumes by itself after the months you pick. Nothing is charged while it is paused.',
+  pauseFor: 'Pause for',
+  pauseMonths: '{count} month | {count} months',
+  confirmPause: 'Confirm pause',
+  pausing: 'Pausing…',
+  pauseScheduled: 'The plan pauses when this period ends and resumes {date}.',
+  pauseScheduledPeriod: 'The plan pauses when this period ends.',
   // Back from checkout, while the new plan is read.
   finishingPurchase: 'Finishing your purchase…',
   // What the plan includes, by what each benefit gives.

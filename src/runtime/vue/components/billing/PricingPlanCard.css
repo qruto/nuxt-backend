@@ -105,4 +105,31 @@
     text-align: center;
     text-decoration: none;
   }
+
+  /* A subscriber's switch, confirmed in one step under the card's button. */
+  [data-pricing='change-confirm'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.7rem;
+    border: var(--bk-border-width) solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    font-size: 0.82rem;
+  }
+
+  [data-pricing='change-title'],
+  [data-pricing='change-when'] {
+    margin: 0;
+  }
+
+  [data-pricing='change-title'] {
+    font-weight: 600;
+  }
+
+  [data-pricing='confirm-change'] {
+    background: var(--bk-accent);
+    border-color: var(--bk-accent);
+    color: var(--bk-on-accent);
+    font-weight: 600;
+  }
 }

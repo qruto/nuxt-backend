@@ -2,16 +2,18 @@
 import { computed, onBeforeUnmount, ref, useId, watch, type Ref } from 'vue'
 import { useBackendConfig } from '../../composables/use-backend-config'
 import { useBackendPagePath } from '../../composables/use-backend-page-path'
+import { formatBillingAmount } from '../../composables/billing-format'
 import { useBilling } from '../../composables/use-billing'
 import { useCredits } from '../../composables/use-credits'
 import { useFeatures } from '../../composables/use-features'
-import { refusalText, useLabels, type BackendLabels, type LabelOverrides } from '../../composables/use-labels'
+import { refusalText, useLabels, type BackendLabels, type LabelKey, type LabelOverrides } from '../../composables/use-labels'
+import { usePricing } from '../../composables/use-pricing'
 import { useWorkspace, type Workspace } from '../../composables/use-workspace'
 import { inLocale } from '../../utils/intl'
 import { useSettingsMessage } from '../../utils/settings-message'
 import { workspaceSlug } from '../../utils/slug'
 import type { CreditPack } from '../../../config'
-import { createBillingSection } from './workspace-billing'
+import { createBillingSection, type PlanSwitchOption } from './workspace-billing'
 import { provideWorkspaceSettingsView, type WorkspaceSettingsSection, type WorkspaceSettingsSlotContext, type WorkspaceSettingsSlots } from './workspace-settings'
 
 /**
@@ -21,7 +23,9 @@ import { provideWorkspaceSettingsView, type WorkspaceSettingsSection, type Works
  * (`WorkspaceBilling`), which follows its subscription's state (a trial's
  * end, a failed payment to update in the portal, a pause to resume, a
  * cancellation to keep the plan from, a scheduled change to cancel) with
- * what it includes and a one-step cancellation; credits balance + top-up
+ * what it includes, a switch to another plan or billing period that says
+ * when it applies before it does, a pause of one to three months, and a
+ * one-step cancellation; credits balance + top-up
  * (`WorkspaceCredits`).
  *
  * Markup on `data-settings` hooks; replace any region via its slot — each
@@ -44,6 +48,10 @@ const emit = defineEmits({
   'plan-uncanceled': () => true,
   'plan-resumed': () => true,
   'change-canceled': () => true,
+  /** The plan switched, or was set to switch at the period's end, to this product. */
+  'plan-changed': (_productId: string) => true,
+  /** The plan was set to pause at the period's end, resuming then (epoch ms; `null` when not known). */
+  'plan-paused': (_resumesAt: number | null) => true,
   'topped-up': (_key: string) => true,
   'error': (_message: string) => true,
 })
@@ -53,6 +61,8 @@ const workspace = useWorkspace()
 const billing = useBilling()
 const credits = useCredits()
 const features = useFeatures()
+// The prices a plan can switch to, read in the browser only, and only when the plan section shows.
+const pricing = usePricing({ server: false, actions: false, enabled: () => props.sections.includes('billing') })
 const config = useBackendConfig()
 const labels = useLabels('settings', () => props.labels)
 const { t, locale } = labels
@@ -144,6 +154,24 @@ const packs = computed<CreditPack[]>(() => config.billing.packs.length > 0
   ? config.billing.packs
   : Object.entries(products.value).flatMap(([key, product]) => product?.isRecurring === false && product.isArchived !== true ? [{ key }] : []))
 
+/** Every price on sale the plan can switch to: each plan at each period, but the one the subscription is on. */
+function switchOptions(): PlanSwitchOption[] {
+  const current = billing.subscription.value?.productId
+  return (pricing.plans.value ?? []).flatMap((plan) => {
+    if (plan.free || plan.retired) return []
+    return (['month', 'year'] as const).flatMap((interval) => {
+      const price = plan.prices[interval]
+      if (!price || price.archived || price.productId === current) return []
+      return [{
+        key: price.productId,
+        productId: price.productId,
+        plan: t(`billedAt.${interval}` as LabelKey<BackendLabels['settings']>, { plan: plan.name }),
+        price: `${formatBillingAmount(price.amount, price.currency, locale.value)}${t(`period.${interval}` as LabelKey<BackendLabels['settings']>)}`,
+      }]
+    })
+  })
+}
+
 const section = createBillingSection({
   billing,
   features,
@@ -153,8 +181,9 @@ const section = createBillingSection({
   partId,
   productName,
   giftedProduct: plan => products.value[plan]?.id,
+  switchOptions,
   // One event per outcome; the union reads as each of them.
-  notify: event => emit(event as 'plan-canceled'),
+  notify: (event, argument) => (emit as (event: string, ...args: unknown[]) => void)(event, ...(argument === undefined ? [] : [argument])),
   announce: (text) => {
     note.value = { ok: true, text }
   },
@@ -196,6 +225,8 @@ const context = computed<WorkspaceSettingsSlotContext>(() => ({
   cancelChange: section.cancelChange,
   openPortal: section.openPortal,
   keepGifted: section.keepGifted,
+  switchPlan: section.switchPlan,
+  pausePlan: section.pausePlan,
   buyPack,
   refreshCredits,
 }))

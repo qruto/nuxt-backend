@@ -10,6 +10,31 @@ const GIFT_LABELS = {
   sentTitle: 'Sent',
   receivedEmpty: 'No gifts for you yet.',
   sentEmpty: 'You have not sent a gift yet.',
+  // The gift form (`<GiftForm>`, on the gifts page): a credit pack or a plan
+  // pass, for whom, with a note and a delivery day, then the purchaser's checkout.
+  formTitle: 'Send a gift',
+  kind: 'What to give',
+  kinds: {
+    pack: 'Credits',
+    pass: 'A plan',
+  },
+  packChoice: 'Which pack',
+  planChoice: 'Which plan',
+  lengthChoice: 'For how long',
+  lengthOption: '{count} month | {count} months',
+  passHint: 'A plan pass needs no card from them and never renews. It goes to a workspace on the free plan.',
+  recipient: 'Their email',
+  note: 'A note (optional)',
+  noteHint: '{count} of {max} characters, plain text, no links',
+  deliverDay: 'Deliver on (optional)',
+  deliverHint: 'Leave it empty to send it as soon as you pay.',
+  send: 'Pay {price} and send',
+  sending: 'Opening checkout…',
+  signInToSend: 'Sign in to send a gift',
+  payHint: 'You pay now. Until they receive it, you can change the date or the address, or cancel for a full refund.',
+  sentBack: 'Paid. The gift goes out on the day you picked; you will find it under Sent.',
+  nothingToGive: 'Nothing is on sale to give yet.',
+  sendFailed: 'The gift could not be sent',
   // The gifts page while billing is not launched on the deployment.
   soon: 'Plans open soon, and gifts with them.',
   // What a gift is: a pack by its name, a plan pass by its length.

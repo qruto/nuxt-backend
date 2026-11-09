@@ -195,6 +195,7 @@ Every name on this surface is brand-neutral: no export, value or type, and no re
 The names the module registers, exactly as it registers them (`src/module.ts` and `src/nuxt/`):
 
 - **Composables**:
+  - `formatBillingAmount` — writes a price the way the provider states it, in the currency's smallest unit, by that currency's own digits
   - `getBackendError` — reads a refusal's catalog code out of anything a call threw or resolved with
   - `useAccessAdmin` — the admin console's Access tab as data: the phase, the invite codes and access links, the invitations by address, and the changes an administrator makes
   - `useAccessPhase` — the app's launch phase, rendered on the server and live
@@ -226,6 +227,8 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `useFeatures`
   - `useFlag` — whether a feature flag is on for whoever is looking, rendered on the server and live
   - `useFlagAdmin` — the admin console's Flags tab as data: every flag with its default and override, and the change an administrator makes
+  - `useGiftForm` — the gift form without its markup: a pack or a plan pass with its length, the recipient, a note and a day, and the send that signs a visitor in first (experimental, below)
+  - `useGiftList` — the gifts a person received and sent, as rows ready to show, with every action on them
   - `useGifts`
   - `useHumanCheck` — a token for one call that `verifyHuman` checks on the deployment: a challenge answer, or a proof the app's server signs once its bot check passed
   - `useInboxAdmin` — the admin console's Inbox tab as data: the contact messages and inbound mail, and the replies an administrator sends to the support inbox
@@ -256,6 +259,7 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `useUsage`
   - `useWaitlist` — join the waitlist, verify the address by a sign-in code, read the place in line live, and leave
   - `useWaitlistAdmin` — the admin console's Waitlist tab as data: the waiting people, and the changes an administrator makes
+  - `useWithdrawal` — the EU withdrawal window: whether the purchase is inside its 14 days, until when, and the withdrawal
   - `useWorkflowStatus`
   - `useWorkspace`
 - **Components**:
@@ -278,6 +282,8 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `ConsentPrompt` — the consents a person is asked to accept again, the age of an account that never gave it, and the consent manager's question about optional storage
   - `ContactForm` — a contact form for visitors and a feedback form for signed-in people: the bot check, a honeypot and a limit per sender, and a message stored before anything is sent to the team
   - `Gate` — its content only for the people its props admit: signed in, an app-wide role, a workspace or a workspace role, a plan feature, room in a quota (the quota check is experimental, below)
+  - `GiftForm` — the gift form: a credit pack or a plan pass, for whom, a note and a day, then the purchaser's checkout (experimental, below)
+  - `GiftList` — the gifts a person received, to claim, and the ones they sent, to fix until they are claimed
   - `HowDidYouHear` — one optional question after sign-up, "How did you hear about us?", kept next to the first campaign link the person arrived through, asked once
   - `LegalContactPoints` — the single points of contact the Digital Services Act asks for, for authorities and for users, with the languages answered in, globally registered for Content pages
   - `LegalDetail` — one company detail from `appConfig.backend.legal` inside a sentence of the app's, globally registered for Content pages
@@ -334,6 +340,7 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `OnboardingTeammates`
   - `OnboardingWorkspace`
   - `PricingCancelConfirm`
+  - `PricingChangeConfirm`
   - `PricingCurrencySelect`
   - `PricingEmailOptOut`
   - `PricingPackCard`
@@ -660,6 +667,7 @@ Tagged `@experimental` in the source and in the API reference. These may change 
 - `setupEmail(…).devtools` — `previewEmails` and `sendEmailPreview`, the internal functions the DevTools Email tab runs with the Convex CLI on a dev deployment; `previews`, the sample set they render, and its entries (`EmailPreview`); and `forceColorScheme` from `nuxt-backend/email`, which shows a preview light or dark by rewriting the layout's media query, so it follows the layout's markup: the samples, the entries and what a preview carries may still change.
 - `useSandboxInbox` — the dev inbox for demos, previews and e2e runs, which reads the mail a test address received back from the email provider's own log of sent email, together with the `setupEmail(…).api.getSandboxInbox` action behind it and the `nuxt-backend inbox` command that reads it on dev deployments; how far back it reads, how many bodies it fetches and the code it extracts may still change.
 - `CatalogPlan.gift` and `PricedPlan.gift` (`PricedPlanGift`, `PricedGiftLength`) — a plan offered as a gift pass: the lengths it is sold for, each at its live price, the private purchase and pass products `billing sync` makes, the claim that switches a free workspace to the pass, and the end date the sweep keeps. Whether a pass can start from a workspace with a trial, and how its end reads beside a paid plan, may still change.
+- `useGiftForm` and `GiftForm` — the gift form, which sells a plan pass by the lengths of `PricedPlan.gift`: its fields, the address it reads the choice from and what `send` resolves with may still change with the passes.
 - `CatalogQuota`, `BillingCatalog.quotas`, `CatalogPlan.quotas`, `BillingCatalogIds.quotas`, `BillingComponents.shardedCounter`, `billing.getQuota`, `billing.requireQuota`, `billing.releaseQuota`, `QuotaUsage`, `useFeatures().quotas`, `useFeatures().quota()`, `useFeatures().remaining()`, `PricedPlan.quotas`, `<Gate quota>` and `quota_exceeded` — plan quotas: the catalog's quotas and the `<plan>-quotas` benefit `billing sync` writes them to, the counts and the refusal, `getFeatures`' `quotas`, and `<Gate quota>` with its `quota` labels. Whether a quota counts claims or rows, and how a downgrade below what is held reads, may still change.
 
 ## Deprecation

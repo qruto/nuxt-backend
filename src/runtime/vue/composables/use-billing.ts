@@ -117,6 +117,49 @@ export interface PendingPlanChange {
   appliesAt: Date
 }
 
+/** A billing interval a plan is priced at, as a plan change reads it. */
+export type PlanChangeInterval = 'month' | 'year'
+
+/**
+ * What a plan change would do, before it is made ({@link UseBillingReturn.changeOf}):
+ * when it takes effect, how the current period's difference is settled,
+ * and the rule that decided it. The same rule the server applies
+ * (`billing.updateSubscription`), so a confirmation of your own says what
+ * the switch will do.
+ */
+export interface PlanChangePreview {
+  /** The product the subscription would switch to. */
+  productId: string
+  /** Its plan's catalog key (`'team'`; a yearly price reads as its plan's key), when the catalog names it. */
+  plan?: string
+  /** The interval it bills at, when known. */
+  interval?: PlanChangeInterval
+  /** The interval the subscription bills at now, when known. */
+  fromInterval?: PlanChangeInterval
+  /**
+   * `'now'`: the subscription moves at once. `'period_end'`: the change is
+   * scheduled for the end of the current period and reads back as
+   * `pendingChange` until then.
+   */
+  applies: 'now' | 'period_end'
+  /** When a scheduled change takes effect (the current period's end); `null` for one made at once, or while the period's end is not known. */
+  appliesAt: Date | null
+  /**
+   * How the current period's difference is settled: `'now'`, prorated and
+   * charged or credited at once (by the provider's proration setting, or
+   * the `proration` passed to `changePlan`); `'none'` for a change that
+   * waits for the period's end, where nothing is settled mid-period and
+   * the new price is charged from the renewal on.
+   */
+  proration: 'now' | 'none'
+  /**
+   * Why it waits, when it does: `'paid_year'` for a yearly price left for a
+   * monthly one, which runs out the year paid for (that price granted the
+   * year's credits up front). `null` for a change made at once.
+   */
+  rule: 'paid_year' | null
+}
+
 type EmptyArgs = Record<string, never>
 type Query<Result> = FunctionReference<'query', 'public', EmptyArgs, Result>
 
@@ -635,6 +678,16 @@ export interface UseBillingReturn {
    * plan change, so it reads back as soon as `changePlan` returns.
    */
   pendingChange: ComputedRef<PendingPlanChange | null>
+  /**
+   * What switching the subscription to `productId` would do — when it takes
+   * effect, how the period's difference is settled, and why — before
+   * `changePlan` makes it: what a confirmation step says. A yearly price
+   * left for a monthly one waits for the paid year's end; any other change
+   * applies at once. `null` without a paid subscription to change (none,
+   * the free plan, a gifted pass, still loading), and for the product it is
+   * already on. Reactive: call it inside a `computed` or the template.
+   */
+  changeOf: (productId: string) => PlanChangePreview | null
   /** Generate a checkout for the given product(s) and open it (returns the URL). */
   checkout: (productIds: string | string[], options?: CheckoutOptions) => Promise<string>
   /** Open the billing customer portal (returns the URL). */
@@ -836,6 +889,40 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
   // Who may buy and manage, as the server decides it on every billing call.
   const { canManage, saveOffers, softOptIn } = useBillingAccess(billing.getBillingAccess)
 
+  // The interval a product bills at: the catalog key's `:year`, else the product's own.
+  const productIntervals = computed(() => {
+    const intervals = new Map<string, { plan: string, interval?: PlanChangeInterval }>()
+    for (const [key, product] of Object.entries(products.data.value ?? {})) {
+      if (!product) continue
+      const recurring = product.recurringInterval
+      const interval = key.endsWith(':year') ? 'year' : recurring === 'year' || recurring === 'month' ? recurring : undefined
+      intervals.set(product.id, { plan: key.replace(/:year$/, ''), ...(interval ? { interval } : {}) })
+    }
+    return intervals
+  })
+  const changeOf = (productId: string): PlanChangePreview | null => {
+    const subscription = currentSubscription.value
+    if (!subscription || subscription.free === true || subscription.pass || subscription.productId === productId) return null
+    const target = productIntervals.value.get(productId)
+    const recurring = subscription.recurringInterval
+    const fromInterval = recurring === 'year' || recurring === 'month'
+      ? recurring
+      : typeof subscription.productKey === 'string'
+        ? (subscription.productKey.endsWith(':year') ? 'year' : 'month')
+        : productIntervals.value.get(subscription.productId)?.interval
+    const waits = fromInterval === 'year' && target?.interval === 'month'
+    return {
+      productId,
+      ...(target ? { plan: target.plan } : {}),
+      ...(target?.interval ? { interval: target.interval } : {}),
+      ...(fromInterval ? { fromInterval } : {}),
+      applies: waits ? 'period_end' : 'now',
+      appliesAt: waits ? toBillingDate(subscription.currentPeriodEnd) : null,
+      proration: waits ? 'none' : 'now',
+      rule: waits ? 'paid_year' : null,
+    }
+  }
+
   const { isPending, failure, run } = useActionState(() => signedOut.value)
   const checkout = createCheckout(billing)
   const runPortal = billing.generateCustomerPortalUrl ? useAction(billing.generateCustomerPortalUrl) : null
@@ -891,6 +978,7 @@ export function useBilling(options: UseBillingOptions = {}): UseBillingReturn {
       if (!change || typeof change.productId !== 'string' || !appliesAt) return null
       return { productId: change.productId, appliesAt }
     }),
+    changeOf,
     checkout: (productIds, opts) => run(() => checkout(productIds, opts)),
     portal: (opts = {}) => run(async () => {
       if (!runPortal) notConfigured('portal')

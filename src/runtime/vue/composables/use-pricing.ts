@@ -9,7 +9,7 @@ import { useActiveLocale } from '../utils/active-locale'
 import { currencyCode, visitorCurrency } from '../utils/currency'
 import { diagnostics } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
-import { pricingBindings, shownInterval, type PricingBindings } from '../utils/pricing-bindings'
+import { askedInterval, onSite, pricingBindings, promotionRuns, shownInterval, type PricingBindings } from '../utils/pricing-bindings'
 import { useAuthSession } from '../utils/auth-session'
 import { useBilling } from './use-billing'
 import { useCampaign } from './use-campaign'
@@ -21,6 +21,21 @@ export type { PricedCredits, PricedOffer, PricedPack, PricedPlan, PricedPlanPric
 
 /** A billing interval a plan is priced at. */
 export type PricingInterval = CatalogInterval
+
+/**
+ * Where a checkout returns once paid: a path on the site (`/settings`) or a
+ * full URL on its own origin, or a function of what was bought that answers
+ * one (`plan => '/welcome?plan=' + plan.key`).
+ */
+export type PricingSuccessUrl<Item> = string | ((item: Item) => string)
+
+/** Where each kind of checkout returns to ({@link UsePricingOptions.successUrl}). */
+export interface PricingSuccessUrls {
+  /** A plan's checkout. Default: back to the page it started on. */
+  plan?: PricingSuccessUrl<PricedPlan>
+  /** A credit pack's checkout. Default: back to the page it started on. */
+  pack?: PricingSuccessUrl<PricedPack>
+}
 
 /** Options for {@link usePricing}. */
 export interface UsePricingOptions {
@@ -54,6 +69,13 @@ export interface UsePricingOptions {
    * banner that shows only while the balance is low.
    */
   enabled?: MaybeRefOrGetter<boolean>
+  /**
+   * Where a checkout returns once paid, per kind: a plan's to a welcome
+   * page, a pack's to the credits, say. A path is on the site. Read by
+   * `bind.planAction`'s checkout and answered by `successUrlFor` for a
+   * checkout of your own. Default: back to the page it started on.
+   */
+  successUrl?: PricingSuccessUrls
   /**
    * Build the actions `bind.planAction` runs (default `true`): a view
    * that runs its own, as `<PricingTable>` does, turns them off.
@@ -89,10 +111,29 @@ export interface UsePricingReturn {
   currencies: ComputedRef<string[]>
   /**
    * The promotion asked for (`discount`) with its real terms and dates;
-   * `undefined` without one. Whether it runs now is the page's to say,
-   * from `startsAt` and `endsAt` against its own clock.
+   * `undefined` without one, whether it runs now or not: `activePromotion`
+   * is the one that does.
    */
   promotion: ComputedRef<PricedPromotion | undefined>
+  /**
+   * The promotion asked for, while it runs: from its `startsAt` to its
+   * `endsAt`, by the server's clock — the moment the page rendered there,
+   * carried to the browser, so the server's HTML and the browser's render
+   * agree on it. `undefined` before it starts, after it ends, and without one.
+   */
+  activePromotion: ComputedRef<PricedPromotion | undefined>
+  /**
+   * The plan the address asks for (`?plan=<key>`, as `<UpgradePrompt>`
+   * links to it), when the pricing has a plan by that key: the card to mark
+   * and bring into view. `undefined` without one.
+   */
+  requested: ComputedRef<string | undefined>
+  /**
+   * Where a checkout of this kind returns, as an absolute URL on the site:
+   * the `successUrl` option's for it, else `undefined` (the checkout's
+   * own default, the current page). Pass it as `checkout`'s `successUrl`.
+   */
+  successUrlFor: (kind: 'plan' | 'pack', key: string) => string | undefined
   /**
    * Whether billing sells on this deployment yet: `false` on a production
    * deployment whose billing is not launched (no provider token, or no
@@ -124,7 +165,11 @@ export interface UsePricingReturn {
   packFor: (units: number, meter?: string) => PricedPack | undefined
   /** Read the pricing again. It is live already; this is for a retry after a failure. */
   refresh: () => Promise<void>
-  /** The interval the plans show: monthly when a plan is priced by the month, until `setInterval` picks another. */
+  /**
+   * The interval the plans show: the address's `?interval=` when a plan
+   * sells at it, else monthly when a plan is priced by the month, until
+   * `setInterval` picks another.
+   */
   interval: Ref<PricingInterval>
   /** Show the plans at another interval. */
   setInterval: (interval: PricingInterval) => void
@@ -187,7 +232,7 @@ function useDetectedCurrency() {
  * <template>
  *   <article v-for="plan in plans?.filter(plan => !plan.retired)" :key="plan.key">
  *     <h3>{{ plan.name }}</h3>
- *     <p v-if="plan.prices[interval]">{{ plan.prices[interval].amount / 100 }} {{ plan.prices[interval].currency }}</p>
+ *     <p v-if="plan.prices[interval]">{{ formatBillingAmount(plan.prices[interval].amount, plan.prices[interval].currency) }}</p>
  *   </article>
  * </template>
  * ```
@@ -205,6 +250,9 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
       currency: computed(() => undefined),
       currencies: computed(() => []),
       promotion: computed(() => undefined),
+      activePromotion: computed(() => undefined),
+      requested: computed(() => undefined),
+      successUrlFor: () => undefined,
       launched: computed(() => undefined),
       welcome: computed(() => undefined),
       setCurrency: () => {},
@@ -212,7 +260,7 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
       error: computed(() => null),
       packFor: () => undefined,
       refresh: async () => {},
-      ...intervalState(computed(() => [])),
+      ...intervalState(computed(() => []), () => undefined),
       bind: pricingBindings({ interval: ref('month'), setInterval: () => {}, pending: ref(null), manages: () => false, act: () => {} }),
     }
   }
@@ -233,13 +281,30 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
   const read = useAsyncQuery(billing.getPricing, args, options.server === false ? { server: false, lazy: true, key: 'backend:pricing:client' } : {})
   const plans = computed(() => read.data.value?.plans)
   const intervals = computed(() => CATALOG_INTERVALS.filter(interval => (plans.value ?? []).some(plan => !plan.retired && plan.prices[interval] && !plan.prices[interval].archived)))
-  const state = intervalState(intervals)
+  const state = intervalState(intervals, () => route.query.interval)
+  // One clock for the page: the server's, carried to the browser in the payload.
+  const renderedAt = useState('backend:pricing:now', () => Date.now())
+  const promotion = computed(() => read.data.value?.promotion)
+  const successUrlFor = (kind: 'plan' | 'pack', key: string): string | undefined => {
+    const wanted = options.successUrl?.[kind]
+    if (wanted === undefined) return undefined
+    const item = kind === 'plan' ? plans.value?.find(entry => entry.key === key) : read.data.value?.packs.find(entry => entry.key === key)
+    if (!item) return undefined
+    const url = typeof wanted === 'string' ? wanted : (wanted as (item: PricedPlan | PricedPack) => string)(item)
+    return onSite(url)
+  }
   return {
     plans,
     packs: computed(() => read.data.value?.packs),
     currency: computed(() => read.data.value?.currency),
     currencies: computed(() => read.data.value?.currencies ?? []),
-    promotion: computed(() => read.data.value?.promotion),
+    promotion,
+    activePromotion: computed(() => (promotion.value && promotionRuns(promotion.value, renderedAt.value) ? promotion.value : undefined)),
+    requested: computed(() => {
+      const key = route.query.plan
+      return typeof key === 'string' && (plans.value ?? []).some(plan => plan.key === key) ? key : undefined
+    }),
+    successUrlFor,
     launched: computed(() => (read.data.value ? read.data.value.launched !== false : undefined)),
     welcome: computed(() => plans.value?.find(plan => plan.free)?.welcome),
     setCurrency: (currency) => {
@@ -254,15 +319,19 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
     ...state,
     bind: options.actions === false
       ? pricingBindings({ ...state, manages: () => false, act: () => {} })
-      : planActions(state, plans, toValue(options.discount)),
+      : planActions(state, plans, toValue(options.discount), key => successUrlFor('plan', key)),
   }
 }
 
-/** The interval a pricing view shows, and how to change it. */
-function intervalState(intervals: ComputedRef<PricingInterval[]>): Pick<UsePricingReturn, 'interval' | 'setInterval' | 'pending'> {
+/** The interval a pricing view shows, and how to change it: the one picked, else the address's when a plan sells at it, else monthly. */
+function intervalState(intervals: ComputedRef<PricingInterval[]>, query: () => unknown): Pick<UsePricingReturn, 'interval' | 'setInterval' | 'pending'> {
   const picked = ref<PricingInterval | null>(null)
+  const asked = () => {
+    const wanted = askedInterval(query())
+    return wanted && intervals.value.includes(wanted) ? wanted : undefined
+  }
   const interval = computed<PricingInterval>({
-    get: () => picked.value ?? (intervals.value.includes('month') ? 'month' : intervals.value[0] ?? 'month'),
+    get: () => picked.value ?? asked() ?? (intervals.value.includes('month') ? 'month' : intervals.value[0] ?? 'month'),
     set: (next) => {
       picked.value = next
     },
@@ -278,7 +347,7 @@ function intervalState(intervals: ComputedRef<PricingInterval[]>): Pick<UsePrici
  * sign-in page and back, a subscriber changes plan, anyone else checks out,
  * with the address's campaign. One action at a time.
  */
-function planActions(state: Pick<UsePricingReturn, 'interval' | 'setInterval' | 'pending'>, plans: ComputedRef<PricedPlan[] | undefined>, discount: string | undefined): PricingBindings {
+function planActions(state: Pick<UsePricingReturn, 'interval' | 'setInterval' | 'pending'>, plans: ComputedRef<PricedPlan[] | undefined>, discount: string | undefined, successUrl: (key: string) => string | undefined): PricingBindings {
   const billing = useBilling()
   const campaign = useCampaign()
   const auth = useAuthSession()
@@ -301,7 +370,10 @@ function planActions(state: Pick<UsePricingReturn, 'interval' | 'setInterval' | 
     state.pending.value = key
     try {
       if (billing.isSubscribed.value) await billing.changePlan(price.productId)
-      else await billing.checkout(price.productId, { redirect: true, ...campaign.checkoutOptions.value, ...(discount ? { discount } : {}) })
+      else {
+        const back = successUrl(key)
+        await billing.checkout(price.productId, { redirect: true, ...campaign.checkoutOptions.value, ...(discount ? { discount } : {}), ...(back ? { successUrl: back } : {}) })
+      }
     }
     catch {
       // The failure is in `useBilling().error`; the button is free again.

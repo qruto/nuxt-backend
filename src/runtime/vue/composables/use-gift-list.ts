@@ -43,6 +43,12 @@ export interface SentGiftView {
 /** Where the lists stand. */
 export type GiftListState = 'loading' | 'empty' | 'ready' | 'pending' | 'error'
 
+/** Options for {@link useGiftList}. */
+export interface UseGiftListOptions {
+  /** Copy for the list, over `appConfig.backend.labels.gift` and the translations. */
+  labels?: MaybeRefOrGetter<LabelGroupOverrides<'gift'> | undefined>
+}
+
 /** What the gifts page's markup binds to. */
 export interface UseGiftListReturn {
   state: ComputedRef<GiftListState>
@@ -52,7 +58,7 @@ export interface UseGiftListReturn {
   workspaces: ComputedRef<Array<{ id: string, name: string }>>
   /** The workspace chosen to receive into, per gift; `''` is the personal workspace. */
   target: Ref<Record<string, string>>
-  /** Why the last action failed, in words, or `null`. */
+  /** Why the last action failed, else why the gifts could not be read, in words, or `null`. */
   error: ComputedRef<string | null>
   /** The outcome of the last action in words, for a polite status. */
   announcement: Ref<string>
@@ -67,18 +73,30 @@ export interface UseGiftListReturn {
 }
 
 /**
- * The gifts page without its markup: what a person received and sent, with
- * names, dates and states in their language, and every action over
- * `useGifts()`, a cancel behind a recent sign-in. State and actions; the
- * `/gifts` page's `<GiftList>` is this with the package's markup.
+ * The gift lists without their markup: what a person received and sent,
+ * with names, dates and states in their language, and every action over
+ * `useGifts()`, a cancel behind a recent sign-in. Actions never reject:
+ * their outcome is `announcement`, their refusal `error`, both in words.
+ * `<GiftList>`, on the `/gifts` page, is this with the package's markup.
  *
- * @internal
+ * @example
+ * ```vue
+ * <script setup lang="ts">
+ * const list = useGiftList()
+ * </script>
+ * <template>
+ *   <article v-for="gift in list.received.value" :key="gift.id">
+ *     {{ gift.what }}, from {{ gift.sender }}
+ *     <button v-if="gift.claimable" @click="list.claim(gift.id)">Receive</button>
+ *   </article>
+ * </template>
+ * ```
  */
-export function useGiftList(overrides?: MaybeRefOrGetter<LabelGroupOverrides<'gift'> | undefined>): UseGiftListReturn {
+export function useGiftList(options: UseGiftListOptions = {}): UseGiftListReturn {
   const gifts = useGifts()
   const workspace = useWorkspace()
   const pricing = usePricing()
-  const labels = useLabels('gift', () => toValue(overrides))
+  const labels = useLabels('gift', () => toValue(options.labels))
   const unit = useMeterUnit()
   const { t, locale } = labels
   const { withReauthentication } = useReauthentication()
@@ -164,7 +182,7 @@ export function useGiftList(overrides?: MaybeRefOrGetter<LabelGroupOverrides<'gi
     sent,
     workspaces,
     target,
-    error: computed(() => failure.value),
+    error: computed(() => failure.value ?? (gifts.error.value ? labels.errorMessage(gifts.error.value) : null)),
     announcement,
     busy,
     labels,

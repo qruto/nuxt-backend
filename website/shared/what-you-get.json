@@ -540,6 +540,14 @@
           "to": "/docs/reference/components/billing#withdrawalbutton"
         },
         {
+          "name": "<GiftForm>",
+          "to": "/docs/reference/components/billing#giftform"
+        },
+        {
+          "name": "<GiftList>",
+          "to": "/docs/reference/components/billing#giftlist"
+        },
+        {
           "name": "<ReferralCard>",
           "to": "/docs/reference/components/billing#referralcard"
         }
@@ -581,11 +589,27 @@
           "to": "/docs/reference/api/use-gifts"
         },
         {
+          "name": "useGiftList",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useGiftForm",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useWithdrawal",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useReferrals",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
           "name": "useReferralInvite",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "formatBillingAmount",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         }
       ]
@@ -1312,6 +1336,14 @@
           "to": "/docs/reference/components/billing#withdrawalbutton"
         },
         {
+          "name": "<GiftForm>",
+          "to": "/docs/reference/components/billing#giftform"
+        },
+        {
+          "name": "<GiftList>",
+          "to": "/docs/reference/components/billing#giftlist"
+        },
+        {
           "name": "<ReferralCard>",
           "to": "/docs/reference/components/billing#referralcard"
         },
@@ -1541,9 +1573,9 @@
       "kind": "Components",
       "items": [
         {
-          "name": "39 in all",
+          "name": "41 in all",
           "to": "/docs/reference/components",
-          "label": "39 components in all"
+          "label": "41 components in all"
         }
       ]
     },
@@ -1551,9 +1583,9 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "63 in all",
+          "name": "67 in all",
           "to": "/docs/reference/nuxt/composables",
-          "label": "63 composables in all"
+          "label": "67 composables in all"
         }
       ]
     },
@@ -1877,6 +1909,18 @@
           "to": "/docs/reference/api/use-gifts"
         },
         {
+          "name": "useGiftList",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useGiftForm",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useWithdrawal",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useReferrals",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -2021,6 +2065,10 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "formatBillingAmount",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useBackendConfig",
           "to": "/docs/reference/api/use-backend-config"
         },
@@ -2156,6 +2204,14 @@
         {
           "name": "<WithdrawalButton>",
           "to": "/docs/reference/components/billing#withdrawalbutton"
+        },
+        {
+          "name": "<GiftForm>",
+          "to": "/docs/reference/components/billing#giftform"
+        },
+        {
+          "name": "<GiftList>",
+          "to": "/docs/reference/components/billing#giftlist"
         },
         {
           "name": "<ReferralCard>",

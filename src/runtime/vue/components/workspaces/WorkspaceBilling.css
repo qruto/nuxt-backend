@@ -25,7 +25,10 @@
   }
 
   [data-settings='benefits-title'],
-  [data-settings='confirm-title'] {
+  [data-settings='confirm-title'],
+  [data-settings='switch-title'],
+  [data-settings='change-title'],
+  [data-settings='pause-title'] {
     margin: 0;
     font-size: 0.85rem;
     font-weight: 600;
@@ -85,6 +88,76 @@
     border: var(--bk-border-width) solid color-mix(in srgb, var(--bk-error) 40%, transparent);
     box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
+  }
+
+  /* The switch's picker and its confirmation, and the pause: one group each under the buttons. */
+  [data-settings='switch-picker'],
+  [data-settings='pause-confirm'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.8rem;
+    border: var(--bk-border-width) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow);
+    border-radius: var(--bk-radius);
+  }
+
+  [data-settings='change-confirm'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  [data-settings='change-when'],
+  [data-settings='pause-when'] {
+    margin: 0;
+    font-size: 0.85rem;
+  }
+
+  [data-settings='switch-label'] {
+    display: grid;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  [data-settings='switch-select'] {
+    font-weight: 400;
+  }
+
+  [data-settings='pause-legend'] {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  [data-settings='pause-lengths'] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  [data-settings='pause-length'] {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+  }
+
+  [data-settings='confirm-change'],
+  [data-settings='confirm-pause'] {
+    align-self: flex-start;
+    background: var(--bk-accent);
+    border-color: var(--bk-accent);
+    color: var(--bk-on-accent);
+    font-weight: 600;
+  }
+
+  [data-settings='change-back'],
+  [data-settings='pause-back'] {
+    align-self: flex-start;
   }
 
   [data-settings='confirm-cancel'] {

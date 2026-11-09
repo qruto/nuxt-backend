@@ -170,6 +170,21 @@ What `getPricing` answers: the plans and packs on sale, in catalog order.
 
 ***
 
+### PricingSuccessUrls
+
+Defined in: [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts)
+
+Where each kind of checkout returns to ([UsePricingOptions.successUrl](#successurl)).
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="plan"></a> `plan?` | [`PricingSuccessUrl`](#pricingsuccessurl)\<[`PricedPlan`](#pricedplan)\> | A plan's checkout. Default: back to the page it started on. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
+| <a id="pack"></a> `pack?` | [`PricingSuccessUrl`](#pricingsuccessurl)\<[`PricedPack`](#pricedpack)\> | A credit pack's checkout. Default: back to the page it started on. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
+
+***
+
 ### UsePricingOptions
 
 Defined in: [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts)
@@ -186,6 +201,7 @@ Options for [usePricing](#usepricing).
 | <a id="discount"></a> `discount?` | `MaybeRefOrGetter`\<`string` \| `undefined`\> | A public promotion to show (`'launch'`): its key, or its code as a campaign link carries it. Its terms come back as `promotion`, and each price and pack it applies to carries its `promotion` offer. A name that is no public promotion of the catalog shows none. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 | <a id="server"></a> `server?` | `boolean` | Read the pricing on the server too, so the page's HTML carries it (default `true`). `false` reads it in the browser only, without holding up the page: for something that only sometimes needs it, like a banner that sits in a layout — and for a pricing page served from a cache or prerendered, whose HTML would carry the currency guessed for the request that rendered it to every visitor. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 | <a id="enabled"></a> `enabled?` | `MaybeRefOrGetter`\<`boolean`\> | While this is `false` the pricing is not read, nor kept live (default `true`): for something that needs it only some of the time, like a banner that shows only while the balance is low. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
+| <a id="successurl"></a> `successUrl?` | [`PricingSuccessUrls`](#pricingsuccessurls) | Where a checkout returns once paid, per kind: a plan's to a welcome page, a pack's to the credits, say. A path is on the site. Read by `bind.planAction`'s checkout and answered by `successUrlFor` for a checkout of your own. Default: back to the page it started on. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 
 ***
 
@@ -204,7 +220,10 @@ What [usePricing](#usepricing) returns.
 | <a id="intervals"></a> `intervals` | `ComputedRef`\<[`CatalogInterval`](/docs/reference/api/billing#cataloginterval)[]\> | The intervals a plan on sale is priced at by a price that still sells, monthly first: what a monthly / yearly switch offers. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 | <a id="currency-4"></a> `currency` | `ComputedRef`\<`string` \| `undefined`\> | The currency the prices are in: the one chosen (`setCurrency`, a `?currency=` in the address, the `currency` option), else the visitor's — from the country their request comes from, else their language's region — when the catalog prices it, else the catalog's own. `undefined` until the pricing loads. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 | <a id="currencies-1"></a> `currencies` | `ComputedRef`\<`string`[]\> | Every currency the catalog prices in, its own first: what a currency switch offers. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
-| <a id="promotion-3"></a> `promotion` | `ComputedRef`\<[`PricedPromotion`](#pricedpromotion) \| `undefined`\> | The promotion asked for (`discount`) with its real terms and dates; `undefined` without one. Whether it runs now is the page's to say, from `startsAt` and `endsAt` against its own clock. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
+| <a id="promotion-3"></a> `promotion` | `ComputedRef`\<[`PricedPromotion`](#pricedpromotion) \| `undefined`\> | The promotion asked for (`discount`) with its real terms and dates; `undefined` without one, whether it runs now or not: `activePromotion` is the one that does. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
+| <a id="activepromotion"></a> `activePromotion` | `ComputedRef`\<[`PricedPromotion`](#pricedpromotion) \| `undefined`\> | The promotion asked for, while it runs: from its `startsAt` to its `endsAt`, by the server's clock — the moment the page rendered there, carried to the browser, so the server's HTML and the browser's render agree on it. `undefined` before it starts, after it ends, and without one. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
+| <a id="requested"></a> `requested` | `ComputedRef`\<`string` \| `undefined`\> | The plan the address asks for (`?plan=<key>`, as `<UpgradePrompt>` links to it), when the pricing has a plan by that key: the card to mark and bring into view. `undefined` without one. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
+| <a id="successurlfor"></a> `successUrlFor` | (`kind`, `key`) => `string` \| `undefined` | Where a checkout of this kind returns, as an absolute URL on the site: the `successUrl` option's for it, else `undefined` (the checkout's own default, the current page). Pass it as `checkout`'s `successUrl`. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 | <a id="launched-1"></a> `launched` | `ComputedRef`\<`boolean` \| `undefined`\> | Whether billing sells on this deployment yet: `false` on a production deployment whose billing is not launched (no provider token, or no production catalog), where `<PricingTable>` reads "Plans open soon" and every checkout is refused (`unavailable`, reason `not_launched`). Hide your own pricing and gift links on it. `undefined` until the pricing loads; a backend older than 0.3 reads as launched. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 | <a id="welcome-1"></a> `welcome` | `ComputedRef`\<`Omit`\<[`PricedCredits`](#pricedcredits), `"rollover"`\> \| `undefined`\> | The free plan's welcome credits: what each person gets once (`credits: { once: true }` in the catalog), with the meter's unit. `undefined` while the pricing loads, or when the catalog grants none. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 | <a id="setcurrency"></a> `setCurrency` | (`currency`) => `void` | Show the prices in another currency, for this visit; a checkout from the pricing table pays in it. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
@@ -212,7 +231,7 @@ What [usePricing](#usepricing) returns.
 | <a id="error"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the pricing could not be read, else `null`. The read never throws. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 | <a id="packfor"></a> `packFor` | (`units`, `meter?`) => [`PricedPack`](#pricedpack) \| `undefined` | The pack to offer someone short of `units` credits: the smallest that covers them, else the largest there is — on `meter` when one is named. `undefined` while the pricing loads, or with no pack on that meter. What an `insufficient_credits` refusal's call to action preselects (`need - balance`), and the low-credits notice too. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 | <a id="refresh"></a> `refresh` | () => `Promise`\<`void`\> | Read the pricing again. It is live already; this is for a retry after a failure. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
-| <a id="interval-1"></a> `interval` | `Ref`\<[`CatalogInterval`](/docs/reference/api/billing#cataloginterval)\> | The interval the plans show: monthly when a plan is priced by the month, until `setInterval` picks another. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
+| <a id="interval-1"></a> `interval` | `Ref`\<[`CatalogInterval`](/docs/reference/api/billing#cataloginterval)\> | The interval the plans show: the address's `?interval=` when a plan sells at it, else monthly when a plan is priced by the month, until `setInterval` picks another. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 | <a id="setinterval"></a> `setInterval` | (`interval`) => `void` | Show the plans at another interval. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 | <a id="pending"></a> `pending` | `Ref`\<`string` \| `null`\> | The key of the plan whose action runs (checkout or a plan change), else `null`. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
 | <a id="bind"></a> `bind` | [`PricingBindings`](#pricingbindings) | Attribute and handler bags for markup of your own: `periodSwitch`, `planCard(plan)`, `planAction(plan)` and `packCard(pack)`. Spread each with `v-bind`; they carry the accessibility attributes and the actions the packaged table has. | [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts) |
@@ -245,6 +264,26 @@ type PricingInterval = CatalogInterval;
 Defined in: [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts)
 
 A billing interval a plan is priced at.
+
+***
+
+### PricingSuccessUrl
+
+```ts
+type PricingSuccessUrl<Item> = string | ((item) => string);
+```
+
+Defined in: [src/runtime/vue/composables/use-pricing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-pricing.ts)
+
+Where a checkout returns once paid: a path on the site (`/settings`) or a
+full URL on its own origin, or a function of what was bought that answers
+one (`plan => '/welcome?plan=' + plan.key`).
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-item"></a> `Item` |
 
 ## Functions
 
@@ -288,7 +327,7 @@ const interval = ref<'month' | 'year'>('month')
 <template>
   <article v-for="plan in plans?.filter(plan => !plan.retired)" :key="plan.key">
     <h3>{{ plan.name }}</h3>
-    <p v-if="plan.prices[interval]">{{ plan.prices[interval].amount / 100 }} {{ plan.prices[interval].currency }}</p>
+    <p v-if="plan.prices[interval]">{{ formatBillingAmount(plan.prices[interval].amount, plan.prices[interval].currency) }}</p>
   </article>
 </template>
 ```

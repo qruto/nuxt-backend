@@ -53,6 +53,8 @@ const billing = {
   isPastDue: computed(() => subscription.value?.status === 'past_due'),
   isFinishingCheckout: computed(() => finishingCheckout.value),
   pendingChange: computed(() => pendingChange.value),
+  // A switch the preview cannot describe goes at once: the cards here keep their one-press buttons.
+  changeOf: () => null,
   isPending: computed(() => false),
   canManage: computed(() => canManage.value),
   error: computed(() => billingError.value),
@@ -136,6 +138,20 @@ const pricing = {
   currency: computed(() => pricingCurrency.value),
   currencies: computed(() => pricingCurrencies.value),
   promotion: computed(() => pricingPromotion.value),
+  // The promotion while it runs, by the clock of the render, as usePricing reads the server's.
+  activePromotion: computed(() => {
+    const offer = pricingPromotion.value
+    const now = Date.now()
+    return offer && !(offer.startsAt && Date.parse(offer.startsAt) > now) && !(offer.endsAt && Date.parse(offer.endsAt) <= now) ? offer : undefined
+  }),
+  requested: computed(() => (typeof route.query.plan === 'string' ? route.query.plan : undefined)),
+  successUrlFor: () => undefined,
+  // The interval shown: the address's when a plan sells at it, else monthly when one does.
+  interval: computed(() => {
+    const sold = (['month', 'year'] as const).filter(at => (pricingPlans.value ?? []).some(plan => !plan.retired && plan.prices[at]))
+    const asked = route.query.interval
+    return sold.find(at => at === asked) ?? (sold.includes('month') ? 'month' : sold[0] ?? 'month')
+  }),
   launched: computed(() => pricingLaunched.value),
   setCurrency: vi.fn((currency: string) => {
     pricingCurrency.value = currency

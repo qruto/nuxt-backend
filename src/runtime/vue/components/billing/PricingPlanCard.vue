@@ -11,8 +11,8 @@ import PricingPromotion from './PricingPromotion.vue'
 /**
  * One plan of `<PricingTable>`: its name, price, what a year saves, its
  * promotion and trial, its features, and its action, which follows the
- * subscription: subscribe (with the trial), switch up or down, switch the
- * billing period, cancel in one step, or keep the plan.
+ * subscription: subscribe (with the trial), switch up or down or switch the
+ * billing period after one confirmation, cancel in one step, or keep the plan.
  */
 defineOptions({ name: 'PricingPlanCard' })
 const props = defineProps<PricingPlanCardProps>()
@@ -131,6 +131,21 @@ const unit = useMeterUnit()
         {{ busy ? t('canceling') : t('cancel') }}
       </button>
       <PricingCancelConfirm :pricing="pricing" />
+    </template>
+    <template v-else-if="action.kind === 'change'">
+      <button
+        data-pricing="plan-action"
+        :data-intent="action.intent"
+        type="button"
+        :aria-describedby="nameId"
+        v-bind="{ ...busyAttributes(busy), ...view.change.toggleProps(action.target) }"
+      >
+        {{ busy ? action.busy : action.idle }}
+      </button>
+      <PricingChangeConfirm
+        :pricing="pricing"
+        :plan="plan"
+      />
     </template>
     <button
       v-else-if="action.kind === 'button'"

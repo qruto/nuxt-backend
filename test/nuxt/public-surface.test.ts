@@ -504,6 +504,7 @@ describe('@internal', () => {
 const REGISTRY = {
   composables: [
     'getBackendError',
+    'formatBillingAmount',
     'useAccount',
     'useConsents',
     'useContactForm',
@@ -537,6 +538,9 @@ const REGISTRY = {
     'useExperiment',
     'useFeatures',
     'useGifts',
+    'useGiftList',
+    'useGiftForm',
+    'useWithdrawal',
     'useHumanCheck',
     'useInboxAdmin',
     'useJob',
@@ -592,6 +596,8 @@ const REGISTRY = {
     'ConsentPrompt',
     'ContactForm',
     'Gate',
+    'GiftForm',
+    'GiftList',
     'HowDidYouHear',
     'LegalContactPoints',
     'LegalDetail',
@@ -623,7 +629,7 @@ const REGISTRY = {
     'ProfileIdentity', 'ProfileNameSection', 'ProfileEmailSection', 'ProfileLanguageSection', 'ProfilePreferencesSection',
     'SecurityPasskeys', 'SecuritySessions', 'SecurityAlerts', 'AccountExport', 'AccountDeletion',
     'WorkspaceList', 'WorkspaceBilling', 'WorkspaceCredits', 'AcceptInvitationActions', 'AuditLogEvent',
-    'PricingPeriodSwitch', 'PricingCurrencySelect', 'PricingPlanCard', 'PricingPackCard', 'PricingCancelConfirm', 'PricingEmailOptOut',
+    'PricingPeriodSwitch', 'PricingCurrencySelect', 'PricingPlanCard', 'PricingPackCard', 'PricingCancelConfirm', 'PricingChangeConfirm', 'PricingEmailOptOut',
     'BillingHistoryOrder', 'UsageHistoryEvent',
     'CancelFlowQuestion', 'CancelFlowOffer', 'CancelFlowConfirm', 'CancelFlowEnd',
     'AdminUsersTable', 'AdminUserDrawer', 'AdminWorkspacesTable', 'AdminWorkspaceDrawer',
@@ -637,7 +643,7 @@ const REGISTRY = {
 }
 
 /** The experimental tier, by the names STABILITY.md lists. */
-const EXPERIMENTAL = ['./ai', './monitoring', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_FAINT', 'TEST_KNOWN_ABUSE', 'ComponentTestKit', 'BackendTestAppOptions', 'BackendTestApp', 'TestFile', 'TestUploadOptions', 'StubStorageFetchOptions', 'TestTimers', 'TestBilling', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage', 'PricedPlanGift', 'PricedGiftLength']
+const EXPERIMENTAL = ['./ai', './monitoring', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_FAINT', 'TEST_KNOWN_ABUSE', 'ComponentTestKit', 'BackendTestAppOptions', 'BackendTestApp', 'TestFile', 'TestUploadOptions', 'StubStorageFetchOptions', 'TestTimers', 'TestBilling', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage', 'PricedPlanGift', 'PricedGiftLength', 'useGiftForm']
 
 /**
  * The experimental members of a stable type, by where the source tags them

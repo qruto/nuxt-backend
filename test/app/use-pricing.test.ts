@@ -310,3 +310,59 @@ describe('usePricing without getPricing', () => {
     expect(warn.mock.calls.map(call => String(call[0]))).toContainEqual(expect.stringContaining('the backend exports no `getPricing`'))
   })
 })
+
+describe('usePricing: the address, the offer window and where a checkout returns', () => {
+  it('shows the interval the address asks for, when a plan sells at it, until another is picked', async () => {
+    backendWith()
+    const yearly = await read({}, '/pricing?interval=year')
+    expect(yearly.interval.value).toBe('year')
+    yearly.setInterval('month')
+    expect(yearly.interval.value).toBe('month')
+    clearNuxtData()
+    backendWith(undefined, { ...PRICING, plans: [plan('pro', { month: price('prod_pro', 900) })] })
+    // Nothing sells by the year: the address cannot ask for it.
+    expect((await read({}, '/pricing?interval=year')).interval.value).toBe('month')
+    clearNuxtData()
+    backendWith()
+    expect((await read({}, '/pricing?interval=weekly')).interval.value).toBe('month')
+  })
+
+  it('reads the plan the address asks for, when the pricing has it', async () => {
+    backendWith()
+    expect((await read({}, '/pricing?plan=pro')).requested.value).toBe('pro')
+    clearNuxtData()
+    backendWith()
+    expect((await read({}, '/pricing?plan=unknown')).requested.value).toBeUndefined()
+  })
+
+  it('runs a promotion between its start and its end by the server\'s clock, the one the page rendered at', async () => {
+    const promotion = { key: 'launch', name: 'Launch', percentOff: 20, duration: 'once' as const }
+    backendWith(undefined, { ...PRICING, promotion: { ...promotion, endsAt: '2020-01-01T00:00:00.000Z' } })
+    const ended = await read({ discount: 'launch' })
+    expect(ended.promotion.value?.key).toBe('launch')
+    expect(ended.activePromotion.value).toBeUndefined()
+    clearNuxtData()
+    backendWith(undefined, { ...PRICING, promotion: { ...promotion, startsAt: '2020-01-01T00:00:00.000Z', endsAt: '2099-01-01T00:00:00.000Z' } })
+    expect((await read({ discount: 'launch' })).activePromotion.value?.key).toBe('launch')
+    // The clock the server rendered at, as the payload carries it: a page rendered after the end shows none.
+    clearNuxtData()
+    useState('backend:pricing:now').value = Date.parse('2099-06-01T00:00:00.000Z')
+    backendWith(undefined, { ...PRICING, promotion: { ...promotion, endsAt: '2099-01-01T00:00:00.000Z' } })
+    expect((await read({ discount: 'launch' })).activePromotion.value).toBeUndefined()
+    useState('backend:pricing:now').value = Date.now()
+  })
+
+  it('answers where each kind of checkout returns, a path on the site made absolute, and checks a plan out to it', async () => {
+    const backend = backendWith({}, PRICING, { 'billing:getCurrentSubscription': null, 'billing:getBillingAccess': { canManage: true } })
+    backend.stub('billing:generateCheckoutLink', () => ({ url: 'https://checkout.example.com/4' }))
+    const pricing = await read({ successUrl: { plan: chosen => `/welcome?plan=${chosen.key}`, pack: 'https://app.example.com/credits' } })
+    expect(pricing.successUrlFor('plan', 'pro')).toBe(`${window.location.origin}/welcome?plan=pro`)
+    expect(pricing.successUrlFor('pack', 'small')).toBe('https://app.example.com/credits')
+    expect(pricing.successUrlFor('plan', 'unknown')).toBeUndefined()
+    await press(pricing, 'pro')
+    expect(backend.callsTo('billing:generateCheckoutLink')).toEqual([expect.objectContaining({ productIds: ['prod_pro'], successUrl: `${window.location.origin}/welcome?plan=pro` })])
+    clearNuxtData()
+    backendWith()
+    expect((await read()).successUrlFor('plan', 'pro')).toBeUndefined()
+  })
+})
