@@ -395,7 +395,8 @@ the June test publish satisfies that, so nothing has to be published by hand.
 - **The upgrade fixture.** Snapshot the starter this release shipped, so the next release's
   `doctor --fix` is tested against it: `node scripts/upgrade-fixture.mjs <tag> <version>`, point
   `UPGRADE_BASE` in `test/helpers/upgrade-fixture.ts` at the new label, empty `ADDED_SINCE_BASE`
-  there, and delete the old snapshot.
+  there, and delete the old snapshot. The repair tests in `test/unit/cli-upgrade.test.ts` need
+  nothing: they take a file, a mount and a forward out of their own copy (`DRIFT` there).
 - **Deprecate the test publish.** `npm deprecate nuxt-backend@0.1.0 "Test publish — use >=0.2.0"`
   (see *Version numbers* above), then close the issues the release fixes. Only after the 0.2.0
   publish: the templates depend on `nuxt-backend: latest`, and until then `latest` is 0.1.0.
