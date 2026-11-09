@@ -125,7 +125,7 @@ npx nuxt-backend doctor --only billing,email   # some capabilities' checks
 
 <!-- generated:cli-doctor (pnpm docs:lookups, from src/cli/contract.ts) -->
 
-**Side effects:** reads only; --fix: writes project files, writes the dev deployment, writes provider accounts; --fix --prod: writes project files, writes production, writes provider accounts. **`--json`:** `{ $schema, findings, summary }`, described by https://nuxt-backend.dev/schemas/doctor.json; with `--fix`, the repair's progress goes to stderr. **Exit codes:** `0` no finding failed (warnings allowed); `1` a finding failed, or the flags were refused.
+**Side effects:** reads only; --fix: writes project files, writes the dev deployment, writes provider accounts; --fix --prod: writes project files, writes production, writes provider accounts. **`--json`:** `{ $schema, findings, summary }`, described by https://nuxt-backend.dev/schemas/doctor.json; with `--fix`, the repair's progress goes to stderr. **Exit codes:** `0` no finding failed (warnings allowed); `1` a finding failed, the flags were refused, or with `--fix`, `email sync` was refused or failed.
 
 <!-- /generated:cli-doctor -->
 
