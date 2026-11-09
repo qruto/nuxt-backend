@@ -438,5 +438,26 @@ describe('the lifecycle\'s rules', () => {
   it('counts a reverse trial by the address with plus tags and dots taken out', () => {
     expect(trialAddress(' A.na+trial@Example.com ')).toBe('ana@example.com')
     expect(trialAddress('ana@example.com')).toBe('ana@example.com')
+    expect(trialAddress('a.na+trial@example.com', 'production')).toBe('ana@example.com')
+  })
+
+  it('keeps a sandbox address whole outside production, so each sandbox identity is a person of its own', () => {
+    for (const environment of ['development', 'preview', 'sandbox', undefined] as const) {
+      expect(trialAddress(' Delivered+Pia@Resend.dev ', environment)).toBe('delivered+pia@resend.dev')
+      expect(trialAddress('delivered+gus@resend.dev', environment)).not.toBe(trialAddress('delivered+pia@resend.dev', environment))
+      // Any other address keeps the rule.
+      expect(trialAddress('a.na+trial@example.com', environment)).toBe('ana@example.com')
+    }
+    // Production keeps the rule for them too: one person behind every tag.
+    expect(trialAddress('delivered+pia@resend.dev', 'production')).toBe('delivered@resend.dev')
+    expect(trialAddress('delivered+gus@resend.dev', 'production')).toBe('delivered@resend.dev')
+  })
+
+  it('reads the deployment\'s BACKEND_ENVIRONMENT when no environment is given', () => {
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
+    expect(trialAddress('delivered+pia@resend.dev')).toBe('delivered@resend.dev')
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
+    expect(trialAddress('delivered+pia@resend.dev')).toBe('delivered+pia@resend.dev')
+    vi.unstubAllEnvs()
   })
 })

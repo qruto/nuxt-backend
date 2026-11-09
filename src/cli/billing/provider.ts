@@ -46,7 +46,7 @@ export interface CatalogIds {
 }
 
 export interface SyncLogEntry {
-  action: 'created' | 'exists' | 'adopted' | 'would-create' | 'updated' | 'would-update' | 'archived' | 'would-archive' | 'drift' | 'warn'
+  action: 'created' | 'exists' | 'adopted' | 'would-create' | 'updated' | 'would-update' | 'attached' | 'would-attach' | 'archived' | 'would-archive' | 'drift' | 'warn'
   kind: 'meter' | 'benefit' | 'product' | 'webhook' | 'custom-field' | 'currency' | 'discount'
   key: string
   id?: string

@@ -305,7 +305,7 @@ export interface BillingApi {
   getFeatures?: Query<Features | null>
   getCredits?: Query<Credits | null>
   getBillingAccess?: Query<{ canManage: boolean } | null>
-  syncEntitlements?: FunctionReference<'action', 'public', EmptyArgs, null>
+  syncEntitlements?: FunctionReference<'action', 'public', { checkoutId?: string }, null>
   giftCheckout?: FunctionReference<'action', 'public', GiftCheckoutArgs, { url: string }>
   getReceivedGifts?: Query<ReceivedGift[] | null>
   claimGift?: FunctionReference<'action', 'public', { giftId: string, successUrl?: string, workspaceId?: string }, { url: string | null }>

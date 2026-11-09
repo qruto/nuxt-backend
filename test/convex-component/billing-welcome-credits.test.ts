@@ -221,6 +221,23 @@ describe('welcome credits', () => {
     }
   })
 
+  test('are once per sandbox identity outside production: each tag of the provider\'s test address is a person, its reverse trial too', async () => {
+    const pia = await asUser(t, { email: 'delivered+pia@resend.dev' })
+    const gus = await asUser(t, { email: 'delivered+gus@resend.dev' })
+    for (const person of [pia, gus]) {
+      expect(await start(person.workspaceId!)).toBe('started')
+      await drain()
+      expect(welcomeEvents(person.workspaceId!)).toHaveLength(1)
+      expect(await current(person)).toMatchObject({ pass: { plan: 'pro', trial: true } })
+    }
+    // The same tag again is the same person.
+    const second = await seedWorkspace(t)
+    await t.mutation(adapter.create, { input: { model: 'member', data: { organizationId: second, userId: pia.userId, role: 'owner', createdAt: Date.now() } } })
+    expect(await start(second)).toBe('started')
+    await drain()
+    expect(welcomeEvents(second)).toEqual([])
+  })
+
   test('are queued for a first start whose answer was lost', async () => {
     const ada = await asUser(t, { email: 'ada@example.com' })
     const route = routeToFake(fake, FAKE)

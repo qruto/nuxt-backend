@@ -56,8 +56,9 @@ const GIFT_LABELS = {
   someone: 'Someone',
   claim: 'Receive gift',
   claiming: 'Receiving…',
-  // Announced once a claim went through.
+  // Announced once a claim went through: a credit pack's credits land a moment later, a plan pass starts at once.
   claimed: 'Gift received. The {unit} arrive in a moment.',
+  claimedPass: 'Gift received. Your plan starts now.',
   claimFailed: 'Could not receive the gift',
 } satisfies LabelTree
 

@@ -3,6 +3,7 @@ import type { productsCreate } from '@polar-sh/sdk/funcs/productsCreate.js'
 import type { Product } from '@polar-sh/sdk/models/components/product.js'
 import { type BillingCatalog, type CatalogCreditGrant, type CatalogInterval, type CatalogPlan, freePlanOf, PASS_LENGTHS, planCreditUnits, planPricesByCurrency, TRIAL_PASS_MAX_DAYS, trialPassDays } from '../../convex/catalog'
 import { isManaged, MANAGED_BY, type CatalogIds, type SyncLogEntry } from './provider'
+import { zeroPrices } from './plans'
 import { attachPlanQuotas, planQuotasBenefits } from './quotas'
 
 // A plan's gift as a pass in `billing sync`: the private purchase product per
@@ -113,6 +114,8 @@ export interface PassSyncContext {
   /** A plan's fixed prices, one per currency, as a create payload takes them. */
   price: (amounts: Array<[string | undefined, number]>, plan: CatalogPlan) => Parameters<typeof productsCreate>[1]['prices']
   currency: string | undefined
+  /** The organization's default presentment currency, which the provider wants on every product. */
+  organizationCurrency: string | undefined
   adopt: Record<string, string>
   dryRun: boolean
   log: SyncLogEntry[]
@@ -127,7 +130,7 @@ export interface PassSyncContext {
  * the generated map lists them under `passes`.
  */
 export async function syncPassProducts(catalog: BillingCatalog, context: PassSyncContext): Promise<void> {
-  const { client, ids, managedProducts, ensureProduct, price, currency, quotasByPlan, adopt, dryRun, log } = context
+  const { client, ids, managedProducts, ensureProduct, price, currency, organizationCurrency, quotasByPlan, adopt, dryRun, log } = context
   for (const [key, plan, lengths] of giftablePlans(catalog)) {
     const trialDays = trialPassDays(plan.trial)
     const entry = { pass: '', months: {} as Record<string, string>, ...(trialDays === undefined ? {} : { trialDays }) }
@@ -138,8 +141,8 @@ export async function syncPassProducts(catalog: BillingCatalog, context: PassSyn
       name: `${plan.name} (pass)`,
       description: plan.description,
       recurringInterval: 'month',
-      // Free is a fixed price of nothing, as the free plan's is.
-      prices: price([[currency, 0]], plan),
+      // Free is a fixed price of nothing, as the free plan's is, in each currency of the plan and the organization's.
+      prices: price(zeroPrices(plan, currency, organizationCurrency), plan),
       visibility: 'private',
       metadata: { managedBy: MANAGED_BY, key: passKey, passOf: key },
     }), managedProducts.find(item => isManaged(item.metadata as Record<string, unknown>, passKey)), (id) => { entry.pass = id })

@@ -44,6 +44,8 @@ describe('finishing a return from checkout', () => {
     expect(await finishCheckoutReturn({ query: { checkout_return: 'chk_a' }, strip, sync: refresh })).toBe(false)
     expect(strip).toHaveBeenCalledTimes(2)
     expect(refresh).toHaveBeenCalledTimes(1)
+    // With the checkout's id: a gift bought in it is settled first.
+    expect(refresh).toHaveBeenCalledWith('chk_a')
   })
 
   it('does nothing on an address without the parameter, and leaves a failed refresh to the webhooks', async () => {
@@ -88,6 +90,7 @@ describe('the refresh a return makes', () => {
     loading.value = false
     expect(await finishing).toBe(true)
     expect(sync.calls).toHaveLength(before + 1)
+    expect(sync.calls.at(-1)!.args).toEqual({ checkoutId: 'chk_in' })
     expect(finishingCheckout.value).toBe(false)
   })
 
@@ -125,7 +128,7 @@ describe('the checkout-return plugin', () => {
     await nuxtApp.callHook('app:mounted', nuxtApp.vueApp)
     await vi.waitFor(() => expect(sync.calls).toHaveLength(before + 1), { timeout: 15_000 })
     // Refreshed with no arguments, while the page said it is finishing the purchase.
-    expect(sync.calls[before]).toEqual({ args: {}, finishing: true })
+    expect(sync.calls[before]).toEqual({ args: { checkoutId: 'chk_1' }, finishing: true })
     await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/settings?tab=plan#billing'))
     expect(finishingCheckout.value).toBe(false)
   })

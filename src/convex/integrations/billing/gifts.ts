@@ -147,7 +147,7 @@ export function createGifts(
     return ctx.runQuery(gifts.countBought, {
       purchaserUserId,
       since: now - limit.days * DAY_MS,
-      pendingSince: settledOnly ? now + 1 : now - OPEN_CHECKOUT_MS,
+      pendingSince: settledOnly ? Number.MAX_SAFE_INTEGER : now - OPEN_CHECKOUT_MS,
       ...(excludeGiftId ? { excludeGiftId } : {}),
     })
   }
@@ -174,7 +174,7 @@ export function createGifts(
     return ctx.runQuery(gifts.countToAddress, {
       email: recipientEmail,
       since: now - DAY_MS,
-      pendingSince: settledOnly ? now + 1 : now - OPEN_CHECKOUT_MS,
+      pendingSince: settledOnly ? Number.MAX_SAFE_INTEGER : now - OPEN_CHECKOUT_MS,
       ...(excludeGiftId ? { excludeGiftId } : {}),
     })
   }
@@ -309,7 +309,9 @@ export function createGifts(
         products: [item.giftProductId],
         externalCustomerId: entityId,
         embedOrigin: args.origin,
-        successUrl: args.successUrl,
+        // The purchaser comes back with the checkout's id, which settles the
+        // gift where no `order.paid` arrives (a local deployment).
+        successUrl: withCheckoutReturn(args.successUrl),
         // A gift is bought at its price: a discount on it would be one more
         // way to turn a code into credits for someone else.
         allowDiscountCodes: false,
@@ -689,6 +691,32 @@ export function createGifts(
     else await purchasePaid(ctx, gift, order)
   }
 
+  /**
+   * Settle the caller's gift purchase on their return from its checkout:
+   * read the checkout's orders from the provider, and run each one that is
+   * paid (`status: 'paid'`, what `order.paid` says) and buys a gift of
+   * theirs through `purchasePaid`, as that webhook would. An order whose
+   * payment is still processing, or one refunded since, is left to its
+   * webhooks.
+   * A deployment the provider sends no webhooks to (a local one) settles its
+   * gifts this way; one that gets them settles each gift once, whichever
+   * comes first. Nothing for a signed-out caller, nor for one with no gift
+   * checkout opened in the last hour, so a plan's or a pack's return asks
+   * the provider for nothing more.
+   */
+  const settleCheckout = async (ctx: RunWriteCtx & { auth: Auth }, checkoutId: string): Promise<void> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return
+    const [opened, settled] = await Promise.all([giftsBought(ctx, identity.subject), giftsBought(ctx, identity.subject, { settledOnly: true })])
+    if (opened.count <= settled.count) return
+    const orders = unwrapProvider(await ordersList(provider.polar, { checkoutId, limit: 10 }), 'gift settlement')
+    for (const order of orders.result.items as GiftOrder[]) {
+      if (order.status !== 'paid' || order.metadata?.phase === 'claim') continue
+      const gift = await giftOf(ctx, order)
+      if (gift?.status === 'pending' && gift.purchaserUserId === identity.subject) await purchasePaid(ctx, gift, order)
+    }
+  }
+
   /** Whether the gift's discount was redeemed: a claim order is under way, or done. */
   const discountRedeemed = async (discountId: string): Promise<boolean> => {
     const found = await discountsGet(provider.polar, { id: discountId })
@@ -735,7 +763,7 @@ export function createGifts(
     registerSweep,
   })
 
-  return { giftCheckout, claimGift, getReceivedGifts, handleGiftOrderPaid, handleGiftOrderRefunded, passes, registerSweep, ...management }
+  return { giftCheckout, claimGift, getReceivedGifts, handleGiftOrderPaid, handleGiftOrderRefunded, settleCheckout, passes, registerSweep, ...management }
 }
 
 export type BillingGifts = ReturnType<typeof createGifts>

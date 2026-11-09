@@ -136,7 +136,6 @@
     "src/convex/notifications.ts:NOTIFICATION_KINDS",
     "src/pages/registry.ts:ModulePagesOptions",
     "src/runtime/config.ts:BackendAppConfig",
-    "src/runtime/vue/composables/use-billing.ts:EmptyArgs",
     "src/runtime/vue/composables/use-billing.ts:Query"
   ],
 

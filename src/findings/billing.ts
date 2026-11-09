@@ -25,6 +25,10 @@ export const BILLING_FINDINGS = {
   'billing-team-customers': { title: 'Team customers' },
   // The provider's own checkout links that sell a catalog product: deleted in its dashboard, never by `doctor --fix`.
   'billing-checkout-links': { title: 'Provider checkout links' },
+  // The catalog's prices against the organization's default currency, which the provider wants on every product.
+  'billing-currency': { title: 'Billing currency' },
+  // A plan product the sync found carries the credits and features the catalog gives its plan; `billing sync` attaches what is missing.
+  'billing-plan-benefits': { title: 'Plan benefits' },
   'billing-gift-twins': { title: 'Gift products' },
   'billing-pass-products': { title: 'Plan pass products' },
   'billing-feature-benefits': { title: 'Feature benefits' },

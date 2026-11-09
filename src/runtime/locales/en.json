@@ -1581,6 +1581,7 @@
       "claim": "Receive gift",
       "claiming": "Receiving…",
       "claimed": "Gift received. The {unit} arrive in a moment.",
+      "claimedPass": "Gift received. Your plan starts now.",
       "claimFailed": "Could not receive the gift"
     },
     "access": {

@@ -104,6 +104,8 @@ Read every billing entity's entitlements again from the billing provider into th
 | `billing-customer-emails` | billing | Customer emails |
 | `billing-team-customers` | billing | Team customers |
 | `billing-checkout-links` | billing | Provider checkout links |
+| `billing-currency` | billing | Billing currency |
+| `billing-plan-benefits` | billing | Plan benefits |
 | `billing-gift-twins` | billing | Gift products |
 | `billing-pass-products` | billing | Plan pass products |
 | `billing-feature-benefits` | billing | Feature benefits |

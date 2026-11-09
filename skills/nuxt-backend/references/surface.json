@@ -1284,6 +1284,8 @@
     "billing-customer-emails": "billing",
     "billing-team-customers": "billing",
     "billing-checkout-links": "billing",
+    "billing-currency": "billing",
+    "billing-plan-benefits": "billing",
     "billing-gift-twins": "billing",
     "billing-pass-products": "billing",
     "billing-feature-benefits": "billing",

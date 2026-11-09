@@ -17,6 +17,13 @@ has the reasons and every step. The core skill's `references/renames.json`, in
 After it, run `npx nuxt-backend doctor`, and `npx nuxt-backend init --agents` to refresh the app's
 agent files and skills.
 
+## [`billing sync` prices every product in the organization's currency, and attaches the benefits a product lacks](https://nuxt-backend.dev/docs/ship/releases/upgrade#billing-sync-prices-every-product-in-the-organizations-currency-and-attaches-the-benefits-a-product-lacks)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `catalog priced in its pinned `currency` alone` | `prices: { usd: { month: 1200 }, eur: { month: 1100 } }` | reshaped | every paid plan and pack carries a price in the organization's default currency, or `billing sync` refuses the catalog before it creates anything; `doctor` names them (`billing-currency`) |
+| `benefit attached to an existing product by hand` | `billing sync` | reshaped | the sync attaches a credit grant or a feature a plan's product lacks, and the provider grants it to its current subscribers; a second credit grant on one meter, and a pack's missing credits, are reported as drift instead |
+
 ## [The Better Auth client loads on first use, and a failed server call names its function](https://nuxt-backend.dev/docs/ship/releases/upgrade#the-better-auth-client-loads-on-first-use-and-a-failed-server-call-names-its-function)
 
 | Was | Now | Change | Note |

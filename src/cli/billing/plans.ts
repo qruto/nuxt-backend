@@ -157,6 +157,55 @@ export function refuseMissingDefaultCurrency(catalog: BillingCatalog, currency: 
 }
 
 /**
+ * The plans and packs that have no price in the organization's default
+ * presentment currency, as `plans.<key>` and `packs.<key>`: the provider
+ * refuses to make a product without one, whatever currency the catalog
+ * pins. The free plan is left out, and so are retired plans, which make
+ * nothing: the sync prices a free product at nothing in that currency
+ * itself. Empty when the organization's currency is not known.
+ */
+export function missingOrganizationCurrency(catalog: BillingCatalog, currency: string | undefined, organizationCurrency: string | undefined): string[] {
+  if (!organizationCurrency) return []
+  const lacks = (codes: Array<string | undefined>) => !codes.includes(organizationCurrency)
+  return [
+    ...Object.entries(catalog.plans ?? {})
+      .filter(([, plan]) => !plan.retired && !isFreePlan(plan) && lacks(planPricesByCurrency(plan, currency).map(([code]) => code)))
+      .map(([key]) => `plans.${key}`),
+    ...Object.entries(catalog.packs ?? {})
+      .filter(([, pack]) => lacks(packPricesByCurrency(pack, currency).map(([code]) => code)))
+      .map(([key]) => `packs.${key}`),
+  ]
+}
+
+/** What `billing sync` and `doctor` say of a catalog with no price in the organization's currency. */
+export function organizationCurrencyProblem(missing: string[], organizationCurrency: string): string {
+  return `the organization's default currency is ${organizationCurrency}, and ${missing.join(', ')} ${missing.length === 1 ? 'has' : 'have'} no price in it: the provider makes no product without one. Add ${organizationCurrency} to ${missing.length === 1 ? 'its' : 'their'} prices (\`prices: { usd: …, ${organizationCurrency}: … }\`), or change the organization's default currency in the provider dashboard`
+}
+
+/**
+ * Refuse a catalog with a plan or pack the provider would not make, before
+ * anything is created: one with no price in the organization's default
+ * presentment currency (see {@link missingOrganizationCurrency}).
+ */
+export function refuseMissingOrganizationCurrency(catalog: BillingCatalog, currency: string | undefined, organizationCurrency: string | undefined): void {
+  const missing = missingOrganizationCurrency(catalog, currency, organizationCurrency)
+  if (missing.length > 0) throw new Error(`[nuxt-backend] billing sync: ${organizationCurrencyProblem(missing, organizationCurrency!)}.`)
+}
+
+/**
+ * The currencies a product priced at nothing (the free plan's, a plan's
+ * pass) is priced in: the plan's own, and the organization's default
+ * presentment currency, which the provider wants on every product, each
+ * once. A currency that is not known stays the provider's default.
+ */
+export function zeroPrices(plan: Pick<CatalogPlan, 'prices'>, currency: string | undefined, organizationCurrency: string | undefined): Array<[string | undefined, number]> {
+  const codes = planPricesByCurrency(plan, currency).map(([code]) => code)
+  if (organizationCurrency && !codes.includes(organizationCurrency)) codes.push(organizationCurrency)
+  const named = [...new Set(codes.filter((code): code is string => code !== undefined))]
+  return named.length > 0 ? named.map(code => [code, 0]) : [[undefined, 0]]
+}
+
+/**
  * The managed product of a plan at one interval: tagged with the plan's
  * key and that interval, or — made before plans had intervals — tagged with
  * the key alone and billed at that interval.

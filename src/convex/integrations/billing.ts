@@ -175,7 +175,7 @@ export function setupBilling(
   freePlan.hooks.welcome = welcome.run
   const { generateCheckoutLink, checkout } = createCheckout(context, rules, customers, freePlan, catalogDiscounts, lifecycle)
   const { giftCheckout, claimGift, getReceivedGifts, getSentGifts, resendGift, changeGiftRecipient, rescheduleGift, cancelGift, runGiftSweep } = gifts
-  const functions = createBillingFunctions(context, entitlements, subscriptions, history, customers, quotas, freePlan, lifecycle, revenue)
+  const functions = createBillingFunctions(context, entitlements, subscriptions, history, customers, quotas, freePlan, lifecycle, revenue, gifts)
   const { resyncEntitlements } = createResync(context, entitlements)
   const { webhookEvents, webhookHandler } = createWebhooks(context, entitlements, gifts, customers, subscriptions, freePlan, lifecycle, createReferralOrders(context, rewards))
   const { hasFeature, requireFeature, activePlans } = createFeatures(context, pricing)

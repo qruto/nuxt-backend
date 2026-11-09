@@ -288,8 +288,8 @@ describe('buying a gift', () => {
       products: ['p_pack_gift'],
       externalCustomerId: 'org-personal',
       embedOrigin: 'https://app',
-      // A gift changes nothing the purchaser holds: it returns as sent.
-      successUrl: 'https://app/done',
+      // It comes back with the checkout's id, which settles the gift where no webhook arrives.
+      successUrl: 'https://app/done?checkout_return={CHECKOUT_ID}',
       allowDiscountCodes: false,
       metadata: { giftId: 'gift-1' },
     })

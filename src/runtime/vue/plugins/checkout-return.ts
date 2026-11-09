@@ -4,10 +4,11 @@ import { CHECKOUT_RETURN_PARAM } from '../../../convex/constants.js'
 
 /**
  * Finishes a return from checkout. The server sends a plan or pack checkout,
- * and a gift's claim, back with the checkout's id as `?checkout_return=`;
- * on a page that has it, this takes the parameter off the address, with the
- * `customer_session_token` the provider adds beside it (a key to the
- * customer's billing portal), and refreshes the entitlements once, while
+ * a gift's purchase and its claim back with the checkout's id as
+ * `?checkout_return=`; on a page that has it, this takes the parameter off
+ * the address, with the `customer_session_token` the provider adds beside
+ * it (a key to the customer's billing portal), and refreshes the
+ * entitlements once, settling a gift bought in that checkout first, while
  * `useBilling().isFinishingCheckout` says so, which the billing section of
  * `<WorkspaceSettings>` and `<PricingTable>` read out as "Finishing your
  * purchase…". Always on. An app's own `checkout_id` is never touched.
@@ -26,7 +27,7 @@ export default defineNuxtPlugin({
         .then(({ entitlementSync, finishCheckoutReturn }) => finishCheckoutReturn({
           query: route.query,
           strip: query => router.replace({ path: route.path, query, hash: route.hash }),
-          sync: () => nuxtApp.vueApp.runWithContext(entitlementSync)(),
+          sync: checkoutId => nuxtApp.vueApp.runWithContext(entitlementSync)(checkoutId),
         }))
         .catch((cause: unknown) => {
           // The address keeps the parameter; the webhooks still bring the plan.

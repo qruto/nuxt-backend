@@ -60,6 +60,7 @@ export const LOG_CODES = {
   'billing.gift_claim_hosted': 'A gift claim needs the provider\'s checkout to finish, because the pack asks for checkout fields; the recipient gets its $0 checkout.',
   'billing.gift_refunded_after_claim': 'A gift purchase was refunded after its recipient claimed it, or while the claim was under way; the credits stay with them.',
   'billing.gift_over_limit': 'A gift was paid past its purchaser\'s gift limit, so it was refunded instead of delivered.',
+  'billing.gift_settle_failed': 'A return from a gift checkout could not read its order from the provider, so the gift waits for its order.paid webhook to settle it.',
   'billing.gift_over_address_limit': 'A gift was paid past its recipient address\'s daily limit of five, so it was refunded instead of delivered.',
   'billing.gift_sweep_unregistered': 'The gift sweep could not be registered with the component, so a gift dated for later is delivered by its scheduled function only.',
   'billing.referral_step_failed': 'The referral program could not act on an order delivery (start a hold, or void a referral); the delivery itself was accepted, and the sweep checks the order again at the end of the hold.',

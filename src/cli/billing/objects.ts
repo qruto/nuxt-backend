@@ -126,6 +126,31 @@ export function describeBenefitDrift(
   return parts.length > 0 ? parts.join('; ') : undefined
 }
 
+/** A benefit as a listed product carries it: what it grants, and its catalog key. */
+export interface CarriedBenefit { id: string, type?: string, properties?: { meterId?: unknown }, metadata?: Record<string, unknown> }
+
+/** A benefit the catalog gives a product: its id, its catalog key, and the meter a credit grant credits. */
+export interface WantedBenefit { id: string, key: string, meterId?: string }
+
+/**
+ * The catalog's benefits a product lacks (`missing`, by id), and the credit
+ * grants among them it can't take (`doubled`): one on a meter the product
+ * grants on already, with the benefit it grants there instead, by key.
+ */
+export function missingBenefits(carried: CarriedBenefit[], wanted: WantedBenefit[]): { missing: string[], doubled: Array<{ key: string, granted: string }> } {
+  const carriedIds = new Set(carried.map(benefit => benefit.id))
+  const onMeter = (meterId: string | undefined) => meterId === undefined ? undefined : carried.find(benefit => benefit.type === 'meter_credit' && benefit.properties?.meterId === meterId)
+  const missing: string[] = []
+  const doubled: Array<{ key: string, granted: string }> = []
+  for (const benefit of wanted) {
+    if (carriedIds.has(benefit.id) || missing.includes(benefit.id)) continue
+    const rival = onMeter(benefit.meterId)
+    if (rival) doubled.push({ key: benefit.key, granted: typeof rival.metadata?.key === 'string' ? rival.metadata.key : rival.id })
+    else missing.push(benefit.id)
+  }
+  return { missing, doubled }
+}
+
 /**
  * The log entry for an object that already exists at the provider: plain
  * `exists`, or `drift` carrying what no longer matches the catalog and what
@@ -143,31 +168,37 @@ export function existsOrDrift(
   return { action: 'drift', kind, key, id, note: `${drifted} — ${remedy}` }
 }
 
-/**
- * The currency every fixed and metered price is created in: the catalog's
- * `currency` when pinned, else the organization's default presentment
- * currency — the provider rejects a product whose prices miss it. Left to
- * the provider default only when the organization cannot be read (a token
- * without the organizations scope), which the log calls out.
- */
-export async function resolvePriceCurrency(catalog: BillingCatalog, client: Polar, log: SyncLogEntry[]): Promise<PriceCurrency | undefined> {
-  if (catalog.currency) return catalog.currency.toLowerCase() as PriceCurrency
-  if (!catalog.plans && !catalog.packs) return undefined
-  let organizations: Awaited<ReturnType<typeof organizationsListOrganizations>> | undefined
+/** The organization's default presentment currency, lower-cased, or `undefined` when it cannot be read (a token without the organizations scope). */
+async function readOrganizationCurrency(client: Polar): Promise<string | undefined> {
   try {
-    organizations = await organizationsListOrganizations(client, { limit: 1 })
+    const organizations = await organizationsListOrganizations(client, { limit: 1 })
+    const currency = organizations.ok ? organizations.value?.result.items[0]?.defaultPresentmentCurrency : undefined
+    return typeof currency === 'string' ? currency.toLowerCase() : undefined
   }
   catch {
-    organizations = undefined
-  }
-  const organization = organizations?.ok ? organizations.value?.result.items[0] : undefined
-  if (!organization) {
-    log.push({ action: 'warn', kind: 'currency', key: 'provider default', note: 'organization unreadable — set `currency` in the catalog to pin one' })
     return undefined
   }
-  const currency = organization.defaultPresentmentCurrency as PriceCurrency
-  log.push({ action: 'exists', kind: 'currency', key: currency, note: 'organization default — set `currency` in the catalog to pin one' })
-  return currency
+}
+
+/**
+ * The currency every fixed and metered price is created in, and the
+ * organization's default presentment currency, which the provider wants on
+ * every product it makes. The first is the catalog's `currency` when
+ * pinned, else the organization's. Both are left to the provider default
+ * only when the organization cannot be read (a token without the
+ * organizations scope): the log calls that out for a catalog that pins none.
+ */
+export async function resolvePriceCurrency(catalog: BillingCatalog, client: Polar, log: SyncLogEntry[]): Promise<{ currency: PriceCurrency | undefined, organizationCurrency: string | undefined }> {
+  const pinned = catalog.currency ? catalog.currency.toLowerCase() as PriceCurrency : undefined
+  if (!catalog.plans && !catalog.packs) return { currency: pinned, organizationCurrency: undefined }
+  const organizationCurrency = await readOrganizationCurrency(client)
+  if (pinned) return { currency: pinned, organizationCurrency }
+  if (!organizationCurrency) {
+    log.push({ action: 'warn', kind: 'currency', key: 'provider default', note: 'organization unreadable — set `currency` in the catalog to pin one' })
+    return { currency: undefined, organizationCurrency }
+  }
+  log.push({ action: 'exists', kind: 'currency', key: organizationCurrency, note: 'organization default — set `currency` in the catalog to pin one' })
+  return { currency: organizationCurrency as PriceCurrency, organizationCurrency }
 }
 
 /**

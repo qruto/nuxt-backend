@@ -190,7 +190,8 @@ export interface OrderRecord {
   subscriptionId: string | null
   checkoutId: string | null
   discountId: string | null
-  status: 'paid' | 'refunded' | 'partially_refunded'
+  /** `pending` while its payment is still processing: a test sets it, the fake's own checkouts are paid at once. */
+  status: 'pending' | 'paid' | 'refunded' | 'partially_refunded'
   billingReason: 'purchase' | 'subscription_create' | 'subscription_cycle' | 'subscription_update'
   subtotalAmount: number
   discountAmount: number
@@ -313,7 +314,8 @@ export interface DeliveryRecord {
 
 export interface FakeState {
   version: 1
-  organization: { id: string, name: string, slug: string, createdAt: number, settings?: OrganizationSettings }
+  /** `defaultPresentmentCurrency`: what every product it makes must be priced in (`usd` unless a test sets another). */
+  organization: { id: string, name: string, slug: string, createdAt: number, settings?: OrganizationSettings, defaultPresentmentCurrency?: string }
   /** The secret it signs webhooks with unless the app names its own. */
   webhookSecret: string
   products: Record<string, ProductRecord>

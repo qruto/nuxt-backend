@@ -8,13 +8,14 @@ import { checkoutLinksList } from '@polar-sh/sdk/funcs/checkoutLinksList.js'
 import { membersListMembers } from '@polar-sh/sdk/funcs/membersListMembers.js'
 import { organizationsListOrganizations } from '@polar-sh/sdk/funcs/organizationsListOrganizations.js'
 import { productsList } from '@polar-sh/sdk/funcs/productsList.js'
-import { type BillingCatalog, freePlanOf, planProductKey, pricedIntervals } from '../../convex/catalog'
+import { type BillingCatalog, type CatalogInterval, type CatalogPlan, freePlanOf, planCreditUnits, planProductKey, pricedIntervals } from '../../convex/catalog'
 import { providerClientOptions } from '../../convex/integrations/billing/provider-client'
 import { finding, type PreflightFinding } from '../../findings'
 import { resolveFunctionsDir } from '../../scaffold'
 import { scopedForeverDiscounts } from './discounts'
 import { loadGenerated } from './generated'
 import { giftablePlans, passProductKey, passPurchaseKey } from './passes'
+import { missingOrganizationCurrency, organizationCurrencyProblem } from './plans'
 import { listAllPages, MANAGED_BY, type CatalogIds, type Environment } from './provider'
 
 // --- doctor: catalog ↔ provider cross-checks ---
@@ -52,6 +53,8 @@ export interface BillingOrganizationState {
   customerEmailsOff: string[]
   /** Customer-portal toggles. */
   portal: { updatePlan: boolean, pause: boolean }
+  /** The organization's default presentment currency, lower-cased: every product the provider makes needs a price in it. */
+  defaultCurrency?: string
   /** Managed catalog key → benefit type (`custom` is the legacy feature shape). */
   benefitTypeByKey: Record<string, string>
   /**
@@ -64,9 +67,10 @@ export interface BillingOrganizationState {
   /**
    * Managed catalog key → the product's visibility, its live fixed prices
    * (currency → amount, `''` for one that names no currency; absent when it
-   * has none), and how many benefits it carries, for the gift twin checks.
+   * has none), how many benefits it carries, for the gift twin checks, and
+   * the catalog keys of the managed ones among them, for the plan benefit check.
    */
-  productByKey: Record<string, { visibility?: string, prices?: Record<string, number>, benefits?: number }>
+  productByKey: Record<string, { visibility?: string, prices?: Record<string, number>, benefits?: number, benefitKeys?: string[] }>
   /**
    * The provider's own checkout links that sell a managed catalog product:
    * each link's label (`null` without one) and the catalog keys it sells.
@@ -117,10 +121,15 @@ async function readManagedProducts(polar: Polar): Promise<{ productByKey: Billin
     const fixed = (prices ?? []).filter(price => price.amountType === 'fixed' && !price.isArchived && typeof price.priceAmount === 'number')
     // A plan's yearly product shares its key: it goes by the generated map's `<plan>:year`.
     const key = metadata.interval === 'year' ? planProductKey(metadata.key, 'year') : metadata.key
+    const benefitKeys = (benefits ?? []).flatMap((benefit) => {
+      const tag = (benefit as { metadata?: Record<string, unknown> }).metadata
+      return tag?.managedBy === MANAGED_BY && typeof tag.key === 'string' ? [tag.key] : []
+    })
     productByKey[key] = {
       visibility: typeof visibility === 'string' ? visibility : '',
       ...(fixed.length > 0 ? { prices: Object.fromEntries(fixed.map(price => [price.priceCurrency ?? '', price.priceAmount!])) } : {}),
       benefits: benefits?.length ?? 0,
+      benefitKeys,
     }
     keyById.set(product.id, key)
   }
@@ -185,6 +194,7 @@ export async function readBillingOrganizationState(
       preventTrialAbuse: subscription.preventTrialAbuse,
       customerEmailsOff: customerEmailsOff(organization.customerEmailSettings as unknown as Record<string, unknown> | undefined),
       portal: { updatePlan: portal.subscription.updatePlan, pause: portal.subscription.pause ?? false },
+      ...(typeof organization.defaultPresentmentCurrency === 'string' ? { defaultCurrency: organization.defaultPresentmentCurrency.toLowerCase() } : {}),
       benefitTypeByKey,
       memberModel: organization.featureSettings?.memberModelEnabled === true,
       membersReadable: members.ok,
@@ -350,6 +360,78 @@ function passProductsFinding(plans: Array<[string, readonly number[]]>, state: B
         `${problems.join('; ')} — gifts of ${problems.length === 1 ? 'that plan' : 'those plans'} may be refused, charge the recipient, or grant nothing.`,
         'Run `npx nuxt-backend billing sync`: it creates the missing products. Make a public one private in the provider dashboard.',
       )
+}
+
+/**
+ * The credit benefit a plan's product at one interval grants, as `billing
+ * sync` names it: `<plan>-credits` monthly (and yearly on a monthly meter
+ * cycle), `<plan>-credits-year` yearly. `undefined` for a plan with no
+ * credits every cycle (none, or welcome credits granted once).
+ */
+function planCreditBenefit(key: string, plan: CatalogPlan, interval: CatalogInterval): string | undefined {
+  const monthly = interval === 'month' || plan.meterCycle === 'month'
+  if (!plan.credits || plan.credits.once || planCreditUnits(plan.credits, monthly ? 'month' : interval) === undefined) return undefined
+  return monthly ? `${key}-credits` : `${key}-credits-${interval}`
+}
+
+/**
+ * What each plan product that exists lacks of the catalog's benefits: its
+ * credit grant for its cycle and its features. A product not made yet is
+ * left to `billing sync`, which makes it with them. A credit grant under
+ * another of the plan's credit keys (a yearly product made before plans had
+ * intervals carries `<plan>-credits`) counts as its grant.
+ */
+function planBenefitProblems(catalog: BillingCatalog, state: BillingOrganizationState): string[] {
+  return Object.entries(catalog.plans ?? {}).filter(([, plan]) => !plan.retired).flatMap(([key, plan]) => pricedIntervals(plan).flatMap((interval) => {
+    const productKey = planProductKey(key, interval)
+    const carried = state.productByKey[productKey]?.benefitKeys
+    if (!carried) return []
+    const credits = planCreditBenefit(key, plan, interval)
+    const lacks = [
+      ...(credits && !carried.some(name => name === `${key}-credits` || name.startsWith(`${key}-credits-`)) ? [credits] : []),
+      ...(plan.features ?? []).filter(feature => feature in (catalog.features ?? {}) && !carried.includes(feature)),
+    ]
+    return lacks.length > 0 ? [`product ${productKey} lacks ${lacks.join(', ')}`] : []
+  }))
+}
+
+/**
+ * Whether every plan product carries the benefits the catalog gives the
+ * plan: a product found by its key keeps what it was made with, so a grant
+ * or a feature the catalog added since, or one another app's catalog left
+ * off, reaches none of its subscribers until it is attached.
+ */
+function planBenefitsFinding(catalog: BillingCatalog, state: BillingOrganizationState): PreflightFinding[] {
+  const granting = Object.values(catalog.plans ?? {}).some(plan => !plan.retired && ((plan.credits && !plan.credits.once) || (plan.features ?? []).length > 0))
+  if (!granting) return []
+  const problems = planBenefitProblems(catalog, state)
+  return [problems.length === 0
+    ? finding('billing-plan-benefits', 'pass', 'Every plan product carries the credits and features the catalog gives its plan.')
+    : finding(
+        'billing-plan-benefits',
+        'warn',
+        `${problems.join('; ')}: ${problems.length === 1 ? 'its' : 'their'} subscribers are granted none of it.`,
+        'Run `npx nuxt-backend billing sync`: it attaches a missing benefit to the product that exists, and the provider grants it to the product\'s current subscribers too. A product that grants other credits on the same meter is drift there: swap them in the provider dashboard.',
+      )]
+}
+
+/**
+ * Whether every plan and pack has a price in the organization's default
+ * presentment currency: the provider makes no product without one, so
+ * `billing sync` refuses the catalog before it creates anything.
+ */
+function currencyFinding(catalog: BillingCatalog, state: BillingOrganizationState): PreflightFinding[] {
+  const organization = state.defaultCurrency
+  if (!organization || (!catalog.plans && !catalog.packs)) return []
+  const missing = missingOrganizationCurrency(catalog, catalog.currency?.toLowerCase() ?? organization, organization)
+  return [missing.length === 0
+    ? finding('billing-currency', 'pass', `Every plan and pack has a price in ${organization}, the organization's default currency.`)
+    : finding(
+        'billing-currency',
+        'warn',
+        `${organizationCurrencyProblem(missing, organization)}. \`billing sync\` refuses the catalog until they do.`,
+        `Add ${organization} to those prices in billing.catalog.ts and run \`npx nuxt-backend billing sync\`, or make the catalog's currency the organization's default in the provider dashboard.`,
+      )]
 }
 
 /** The plan pass finding, for a catalog that offers a plan as a gift. */
@@ -545,6 +627,8 @@ export function collectBillingFindings(
   findings.push(...promotionPortalFinding(catalog, state))
   findings.push(teamCustomersFinding(state))
   findings.push(...checkoutLinksFinding(state))
+  findings.push(...currencyFinding(catalog, state))
+  findings.push(...planBenefitsFinding(catalog, state))
   if (packs.length > 0) findings.push(giftTwinsFinding(packs.map(([key]) => key), state))
   findings.push(...passFindings(catalog, state))
 
