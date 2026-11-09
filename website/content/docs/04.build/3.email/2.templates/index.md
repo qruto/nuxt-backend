@@ -93,11 +93,16 @@ Every notification a person gets by email, a package kind or one of [yours](/doc
 
 ```ts [backend/email.ts]
 import { setupEmail } from 'nuxt-backend/email'
+import de from '../i18n/locales/de.json'
+import en from '../i18n/locales/en.json'
 import { components } from './_generated/api'
+import { labels } from './labels.generated'
 
 export const email = setupEmail(components, {
+  labels,
+  messages: { en, de },
   templates: {
-    notification: (data, { byDefault, t }) => {
+    notification: (data, { byDefault, t, link }) => {
       switch (data.type) {
         case 'app.strip_printed':
           return {
@@ -106,7 +111,7 @@ export const email = setupEmail(components, {
             blocks: [
               { heading: data.words.title },
               { paragraph: t('strips.printedCopies', { count: Number(data.fields.copies) }) },
-              { button: { label: t('strips.track'), url: data.link } },
+              { button: { label: t('strips.track'), url: link(data.link) } },
             ],
           }
         default:
@@ -117,7 +122,27 @@ export const email = setupEmail(components, {
 })
 ```
 
-`link` is absolute, on `SITE_URL` (a bare path on a deployment without one, which a `button` refuses: `linkBlocks` gives it a line of text instead). The default passes it through `context.link`, so it opens in the reader's language; do the same in yours when your pages carry the language in their path. `fields` holds the event's own values, as the event was recorded: escape any a person typed when you write `html`. `npx nuxt-backend eject email:notification` copies the default, to switch on `type` inside it.
+The words come from two places. `data.words` is the kind's own title and body, as the inbox shows them: `notifications.strip_printed` in app config, which reaches the backend through `labels.generated.ts` ([Labels reach the backend](/docs/build/ui/customize/labels#labels-reach-the-backend)). Words of the email alone, `strips.printedCopies` and `strips.track` here, are keys of your own: `t` reads them from the root of `setupEmail`'s `messages`, in the reader's language, then your default language, then English ([Send email in each reader's language](/docs/build/email/templates/languages)):
+
+```json [i18n/locales/en.json]
+{
+  "strips": {
+    "printedCopies": "One copy ships today. | {count} copies ship today.",
+    "track": "Track it"
+  }
+}
+```
+
+```json [i18n/locales/de.json]
+{
+  "strips": {
+    "printedCopies": "Ein Exemplar wird heute verschickt. | {count} Exemplare werden heute verschickt.",
+    "track": "Sendung verfolgen"
+  }
+}
+```
+
+`link` is absolute, on `SITE_URL` (a bare path on a deployment without one, which a `button` refuses: `linkBlocks` gives it a line of text instead). The default passes it through `context.link`, as the sample does, so it opens in the reader's language when your pages carry the language in their path. `fields` holds the event's own values, as the event was recorded: escape any a person typed when you write `html`. `npx nuxt-backend eject email:notification` copies the default, to switch on `type` inside it.
 
 ## Sent once
 
