@@ -1518,7 +1518,11 @@
         "own": "C’est votre propre lien.",
         "invalid": "Ce lien ne fonctionne plus.",
         "checking": "Vérification du lien…",
-        "continue": "Continuer"
+        "continue": "Continuer",
+        "closed": "L’inscription demande une invitation pour le moment. Une fois votre compte créé, revenez à ce lien dans la journée pour en profiter.",
+        "haveInvite": "J’ai une invitation",
+        "joinWaitlist": "Rejoindre la liste d’attente",
+        "signIn": "Déjà un compte ? Connectez-vous pour en profiter"
       }
     },
     "pastDue": {

@@ -7,6 +7,7 @@ import type { BackendError } from '../utils/backend-error'
 import { failureOf } from '../utils/backend-error'
 import { absentQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
+import { useAccessPhase } from './use-access'
 import { useBackendPagePath } from './use-backend-page-path'
 import type { ReferralsApiRefs } from './use-referrals'
 
@@ -32,6 +33,15 @@ export interface UseReferralInviteReturn {
   isPending: ComputedRef<boolean>
   /** Where the sign-in page sends a visitor, who is returned to this page to claim. `null` with the sign-in page turned off. */
   signInTo: ComputedRef<string | null>
+  /**
+   * `true` while the app is not public (`useAccessPhase`): a new account
+   * needs a ticket first, an invite or an admitted place on the waitlist,
+   * so signing up here without one only joins the waitlist. An account
+   * claims within a day of its sign-up, so it comes back to the link then.
+   * `false` while the phase is read, and for an app without
+   * `backend/access.ts`.
+   */
+  closed: ComputedRef<boolean>
   /** Claim the referral for the signed-in account: the explicit step. Never rejects: a code that cannot be used is `ignored`. */
   claim: () => Promise<void>
   /** Why the claim failed, or else why the link could not be read. */
@@ -52,7 +62,8 @@ export interface UseReferralInviteReturn {
  * and stays live in the browser. The server renders nobody as signed in, so
  * `state` starts at `ready` there, and the claim only ever runs in the
  * browser. A link that cannot be read reads as `invalid`, with the reason in
- * `error`.
+ * `error`. While the app is not public, `closed` says a visitor needs a
+ * ticket before the sign-up can make them an account.
  *
  * @example
  * ```vue
@@ -73,6 +84,7 @@ export function useReferralInvite(options: UseReferralInviteOptions = {}): UseRe
   const signedIn = computed(() => auth != null && auth.isAuthenticated.value)
   const loginPath = useBackendPagePath('login')
   const landing = useBackendPagePath('referral')
+  const { phase } = useAccessPhase()
 
   const code = computed(() => {
     const value = route.params.code
@@ -136,6 +148,7 @@ export function useReferralInvite(options: UseReferralInviteOptions = {}): UseRe
     isLoading: computed(() => Boolean(api.previewReferral) && preview.value === undefined),
     isPending: computed(() => outcome.value === 'claiming'),
     signInTo,
+    closed: computed(() => phase.value !== undefined && phase.value !== 'public'),
     claim,
     error: computed(() => claimFailure.value ?? readFailure.value),
   }

@@ -3,13 +3,18 @@
  * What the `/r/<code>` page shows: who invited the visitor and what they
  * get, the way to sign up (which brings them back here to claim), and the
  * claim itself. The code stays in the address; nothing is stored on the
- * device.
+ * device. While the app is not public, a visitor needs a ticket before
+ * signing up makes them an account: the page says so, and offers the
+ * invite page (carrying the code, so the sign-in it leads to comes back
+ * here to claim), the waitlist in early access, and a sign-in for an
+ * account that exists.
  *
  * Internal: the page's body, built on `useReferralInvite`.
  *
  * @internal
  */
 import { computed } from 'vue'
+import { useAccessPhase } from '../../composables/use-access'
 import { useBackendPagePath } from '../../composables/use-backend-page-path'
 import { useLabels } from '../../composables/use-labels'
 import { useReferralInvite } from '../../composables/use-referral-invite'
@@ -17,6 +22,14 @@ import { useReferralInvite } from '../../composables/use-referral-invite'
 const invite = useReferralInvite()
 const { t, errorMessage } = useLabels('referral')
 const home = useBackendPagePath('settings')
+const invitePath = useBackendPagePath('invite')
+const waitlistPath = useBackendPagePath('waitlist')
+const { phase } = useAccessPhase()
+
+/** The invite page, carrying this link's code: the sign-in it leads to comes back here to claim. */
+const inviteTo = computed(() => (invitePath.value ? `${invitePath.value}?ref=${encodeURIComponent(invite.code.value)}` : null))
+/** The visitor needs a ticket first: the app is not public, and nobody is signed in. */
+const needsTicket = computed(() => invite.state.value === 'ready' && invite.closed.value)
 
 const offer = computed(() => invite.preview.value?.program.referred ?? null)
 const inviter = computed(() => invite.preview.value?.inviter ?? null)
@@ -26,6 +39,7 @@ const inviter = computed(() => invite.preview.value?.inviter ?? null)
   <section
     data-referral="landing"
     :data-state="invite.state.value"
+    :data-closed="needsTicket || undefined"
     :aria-busy="invite.state.value === 'checking' || invite.state.value === 'claiming' || undefined"
   >
     <p
@@ -57,8 +71,34 @@ const inviter = computed(() => invite.preview.value?.inviter ?? null)
           {{ t('landing.youGetNothing') }}
         </template>
       </p>
+      <template v-if="needsTicket">
+        <p data-referral="landing-closed">
+          {{ t('landing.closed') }}
+        </p>
+        <a
+          v-if="inviteTo"
+          data-referral="landing-invite"
+          :href="inviteTo"
+        >
+          {{ t('landing.haveInvite') }}
+        </a>
+        <a
+          v-if="phase === 'early-access' && waitlistPath"
+          data-referral="landing-waitlist"
+          :href="waitlistPath"
+        >
+          {{ t('landing.joinWaitlist') }}
+        </a>
+        <a
+          v-if="invite.signInTo.value"
+          data-referral="landing-sign-in"
+          :href="invite.signInTo.value"
+        >
+          {{ t('landing.signIn') }}
+        </a>
+      </template>
       <a
-        v-if="invite.state.value === 'ready' && invite.signInTo.value"
+        v-else-if="invite.state.value === 'ready' && invite.signInTo.value"
         data-referral="landing-sign-up"
         :href="invite.signInTo.value"
       >

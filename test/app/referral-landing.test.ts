@@ -85,6 +85,44 @@ describe('the referral link\'s page', () => {
     expect(backend.callsTo('referrals:claimReferral')).toEqual([])
   })
 
+  it('tells a visitor while the app is closed that signing up takes an invite, and offers the ways in that come back here', async () => {
+    const backend = backendWith()
+    backend.state.queries['access:getAccessPhase'] = { phase: 'early-access' }
+    const wrapper = await landing()
+    expect(state(wrapper)).toBe('ready')
+    expect(part(wrapper, 'landing').attributes('data-closed')).toBe('true')
+    expect(part(wrapper, 'landing-closed').text()).toBe('Signing up takes an invite right now. Once you have an account, come back to this link within a day to claim it.')
+    // The invite page carries the code: the sign-in it leads to comes back here to claim.
+    expect(part(wrapper, 'landing-invite').attributes('href')).toBe('/invite?ref=ADA123')
+    expect(part(wrapper, 'landing-waitlist').attributes('href')).toBe('/waitlist')
+    expect(part(wrapper, 'landing-sign-in').attributes('href')).toBe(`/login?redirect=${encodeURIComponent('/r/ADA123?claim=1')}`)
+    expect(part(wrapper, 'landing-sign-up').exists()).toBe(false)
+
+    // Invite only, the waitlist takes nobody new.
+    backend.state.queries['access:getAccessPhase'] = { phase: 'invite-only' }
+    await flushPromises()
+    expect(part(wrapper, 'landing-waitlist').exists()).toBe(false)
+    expect(part(wrapper, 'landing-invite').exists()).toBe(true)
+
+    // Public, the sign-up is the way in again.
+    backend.state.queries['access:getAccessPhase'] = { phase: 'public' }
+    await flushPromises()
+    expect(part(wrapper, 'landing').attributes('data-closed')).toBeUndefined()
+    expect(part(wrapper, 'landing-sign-up').exists()).toBe(true)
+    expect(part(wrapper, 'landing-closed').exists()).toBe(false)
+  })
+
+  it('says whether the app is closed, for a page of the app\'s own, and lets a signed-in person claim whatever the phase', async () => {
+    const backend = backendWith(PREVIEW, {})
+    const invite = await withInvite()
+    // Not read yet: nothing says the app is closed.
+    expect(invite.closed.value).toBe(false)
+    backend.state.queries['access:getAccessPhase'] = { phase: 'invite-only' }
+    await flushPromises()
+    expect(invite.closed.value).toBe(true)
+    expect(invite.state.value).toBe('claimable')
+  })
+
   it('words a trial, an offer of nothing, and an inviter without a name', async () => {
     backendWith({ inviter: null, program: { ...PREVIEW.program, referred: { kind: 'trial', days: 14 } } })
     const trial = await landing()

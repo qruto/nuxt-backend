@@ -1518,7 +1518,11 @@
         "own": "Este es tu propio enlace.",
         "invalid": "Este enlace ya no funciona.",
         "checking": "Comprobando el enlace…",
-        "continue": "Continuar"
+        "continue": "Continuar",
+        "closed": "Ahora mismo hace falta una invitación para registrarse. Cuando tengas cuenta, vuelve a este enlace en menos de un día para reclamarla.",
+        "haveInvite": "Tengo una invitación",
+        "joinWaitlist": "Únete a la lista de espera",
+        "signIn": "¿Ya tienes cuenta? Inicia sesión para reclamarla"
       }
     },
     "pastDue": {

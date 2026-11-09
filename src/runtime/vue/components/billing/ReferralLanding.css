@@ -18,6 +18,7 @@
 
   [data-referral='landing-from'],
   [data-referral='landing-offer'],
+  [data-referral='landing-closed'],
   [data-referral='landing-status'] {
     margin: 0;
     line-height: 1.5;
@@ -28,6 +29,7 @@
   }
 
   [data-referral='landing-sign-up'],
+  [data-referral='landing-invite'],
   [data-referral='landing-claim'],
   [data-referral='landing-continue'] {
     justify-self: start;
@@ -42,6 +44,13 @@
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
+  }
+
+  /* The ways on while the app is closed, after the invite: the waitlist, and a sign-in for an account that exists. */
+  [data-referral='landing-waitlist'],
+  [data-referral='landing-sign-in'] {
+    justify-self: start;
+    color: var(--bk-accent);
   }
 
   [data-referral='landing'] :where(a, button):focus-visible {
