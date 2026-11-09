@@ -14,7 +14,7 @@ export interface WaitlistFormSlots {
 
 /**
  * What `<WaitlistForm>` hands its packaged parts beside the `waitlist` prop:
- * the props that shape their words and links. A part outside the form (the
+ * the props that shape their words. A part outside the form (the
  * `/waitlist` page renders `WaitlistPlace` alone) reads the defaults.
  *
  * @internal
@@ -24,14 +24,12 @@ export interface WaitlistFormView {
   labels: () => LabelGroupOverrides<'waitlist'> | undefined
   /** The text of each of your questions, by key. */
   questionLabels: () => Record<string, string> | undefined
-  /** The page a friend's link opens: the one with the form. */
-  shareTo: () => string
 }
 
 const WAITLIST_FORM_VIEW: InjectionKey<WaitlistFormView> = Symbol('nuxt-backend:waitlist-form')
 
-/** A part outside `<WaitlistForm>`: the app's words, and a friend's link that opens the home page. */
-const STANDALONE: WaitlistFormView = { labels: () => undefined, questionLabels: () => undefined, shareTo: () => '/' }
+/** A part outside `<WaitlistForm>`: the app's words. */
+const STANDALONE: WaitlistFormView = { labels: () => undefined, questionLabels: () => undefined }
 
 /** @internal */
 export function provideWaitlistFormView(view: WaitlistFormView): void {

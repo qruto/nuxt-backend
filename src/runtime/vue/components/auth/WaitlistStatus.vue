@@ -1,40 +1,107 @@
 <script setup lang="ts">
 /**
- * What the `/waitlist` page shows: the person's place, read from the signed
- * token in the address's fragment (kept there, so the link can be
- * bookmarked), live as the list moves. A link that was not signed here, or
- * an entry that is gone, reads as a dead link.
+ * What the `/waitlist` page shows, by the launch phase and the visitor:
+ *
+ * - a status link (`/waitlist#<token>`): the person's place, read from the
+ *   signed token in the fragment (kept there, so the link can be
+ *   bookmarked), live as the list moves; a link that was not signed here,
+ *   or an entry that is gone, says so above the join;
+ * - in early access, without one: `<WaitlistForm>`, whose friend's link
+ *   opens this page, and the status link written into the address once
+ *   the code checks, so a bookmark keeps the place;
+ * - invite only: the place a status link holds still stands, and a new
+ *   visitor is sent to the invite page;
+ * - public: no line, and the way to sign up;
+ * - signed in: nothing to wait for.
  *
  * Internal: the page's body, built on `useWaitlist`; the place is the
- * `WaitlistPlace` part, so an app's same-named component shows it here too.
+ * `WaitlistPlace` part and the join `<WaitlistForm>`, so an app's
+ * same-named component shows here too.
  *
  * @internal
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
+import { ConvexAuthStateKey } from 'nuxt-convex-module/client'
+import { useAccessPhase } from '../../composables/use-access'
+import { useBackendPagePath } from '../../composables/use-backend-page-path'
 import { useLabels } from '../../composables/use-labels'
-import { useWaitlist } from '../../composables/use-waitlist'
+import { useReturnPath } from '../../composables/use-return-path'
+import { useWaitlist, type WaitlistPlace } from '../../composables/use-waitlist'
 
+// The place behind a status link: the link's own, never a friend's code.
 const waitlist = useWaitlist({ ref: null })
+const { phase, isLoading: phaseLoading } = useAccessPhase()
 const { t } = useLabels('waitlist')
-const asked = ref(false)
+const loginPath = useBackendPagePath('login')
+const invitePath = useBackendPagePath('invite')
+const home = useReturnPath()
+const auth = inject(ConvexAuthStateKey, null)
+const signedIn = computed(() => auth != null && auth.isAuthenticated.value)
+const authLoading = computed(() => auth != null && auth.isLoading.value)
+const opened = ref(false)
 const hadToken = ref(false)
+// The person left the list, here or through the form: the page says so above the join.
+const left = ref(false)
+
+/** The status token in the address; a mangled link is one that opens nothing. */
+function addressToken(): string {
+  const hash = window.location.hash.replace(/^#/, '')
+  try {
+    return decodeURIComponent(hash).trim()
+  }
+  catch {
+    return hash.trim()
+  }
+}
+
+/** Write the address's fragment, or clear it, without a navigation. */
+function writeFragment(token: string | null): void {
+  const { pathname, search } = window.location
+  window.history.replaceState(window.history.state, '', token ? `${pathname}${search}#${encodeURIComponent(token)}` : `${pathname}${search}`)
+}
 
 onMounted(() => {
-  const token = decodeURIComponent(window.location.hash.replace(/^#/, '')).trim()
+  const token = addressToken()
   if (token) {
     hadToken.value = true
     waitlist.status(token)
   }
-  asked.value = true
+  opened.value = true
 })
+
+// Leave took the entry behind the link: a reload must not read the old token as a dead link.
+watch(() => waitlist.step.value, (step, before) => {
+  if (before !== 'status' || step !== 'join') return
+  left.value = true
+  hadToken.value = false
+  writeFragment(null)
+})
+
+/** A join made here: its status link in the address, for a bookmark, over a dead one. */
+function joined(place: WaitlistPlace) {
+  left.value = false
+  hadToken.value = false
+  if (place.token) writeFragment(place.token)
+}
+
+/** A place left through the form: the address no longer holds it. */
+function leftForm() {
+  left.value = true
+  writeFragment(null)
+}
 
 /** The `data-state` of the page: what the person reads now. */
 const state = computed(() => {
-  // Leave took the entry: the flow went back to its first step.
-  if (hadToken.value && waitlist.step.value === 'join') return 'left'
-  if (!asked.value || waitlist.isLoading.value) return 'checking'
-  // No token in the address, or one that names no entry: the link does not work.
-  return waitlist.place.value === undefined ? 'unknown' : 'ready'
+  // The fragment is the browser's alone, so the server renders the wait.
+  if (!opened.value || authLoading.value || (phase.value === undefined && phaseLoading.value) || (hadToken.value && waitlist.isLoading.value)) return 'checking'
+  if (signedIn.value) return 'member'
+  // Open to all, the line is over; invite only, a place already held stands.
+  if (phase.value === 'public') return 'open'
+  if (hadToken.value && waitlist.place.value !== undefined) return 'ready'
+  if (phase.value === 'invite-only') return 'closed'
+  if (left.value) return 'left'
+  // A token that names no entry: the link does not work.
+  return hadToken.value ? 'unknown' : 'join'
 })
 </script>
 
@@ -52,24 +119,75 @@ const state = computed(() => {
     >
       {{ t('page.checking') }}
     </p>
-    <p
-      v-else-if="state === 'unknown'"
-      data-waitlist="status"
-      role="alert"
-    >
-      {{ t('page.unknown') }}
-    </p>
-    <p
-      v-else-if="state === 'left'"
-      data-waitlist="status"
-      role="status"
-      aria-live="polite"
-    >
-      {{ t('left') }}
-    </p>
     <WaitlistPlace
-      v-else
+      v-else-if="state === 'ready'"
       :waitlist="waitlist"
     />
+    <template v-else-if="state === 'member'">
+      <p
+        data-waitlist="status"
+        role="status"
+      >
+        {{ t('page.member') }}
+      </p>
+      <a
+        data-waitlist="page-continue"
+        :href="home"
+      >
+        {{ t('page.continue') }}
+      </a>
+    </template>
+    <template v-else-if="state === 'open'">
+      <p
+        data-waitlist="status"
+        role="status"
+      >
+        {{ t('page.open') }}
+      </p>
+      <a
+        v-if="loginPath"
+        data-waitlist="page-sign-up"
+        :href="loginPath"
+      >
+        {{ t('signUp') }}
+      </a>
+    </template>
+    <template v-else-if="state === 'closed'">
+      <p
+        data-waitlist="status"
+        role="status"
+      >
+        {{ t('page.closed') }}
+      </p>
+      <a
+        v-if="invitePath"
+        data-waitlist="page-invite"
+        :href="invitePath"
+      >
+        {{ t('page.haveInvite') }}
+      </a>
+    </template>
+    <template v-else>
+      <p
+        v-if="state === 'unknown'"
+        data-waitlist="status"
+        role="alert"
+      >
+        {{ t('page.unknown') }}
+      </p>
+      <p
+        v-else-if="state === 'left'"
+        data-waitlist="status"
+        role="status"
+        aria-live="polite"
+      >
+        {{ t('left') }}
+      </p>
+      <WaitlistForm
+        source="waitlist"
+        @joined="joined"
+        @left="leftForm"
+      />
+    </template>
   </section>
 </template>

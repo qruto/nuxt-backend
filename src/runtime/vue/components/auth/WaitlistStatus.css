@@ -4,7 +4,7 @@
  * `@layer nuxt-backend`, so any rule of the app's wins.
  */
 @layer nuxt-backend {
-  /* The `/waitlist` page's body: a status while the link is read, then the place. */
+  /* The `/waitlist` page's body: a status while the link is read, then the place, the join, or the way on. */
   :where(section)[data-waitlist='page'] {
     display: flex;
     flex-direction: column;
@@ -15,5 +15,29 @@
   [data-waitlist='status'] {
     margin: 0;
     line-height: 1.5;
+  }
+
+  [data-waitlist='status'][role='alert'] {
+    color: var(--bk-error);
+  }
+
+  /* The way on once there is no line to wait in: the app, the sign-up, or the invite page. */
+  [data-waitlist='page-continue'],
+  [data-waitlist='page-sign-up'],
+  [data-waitlist='page-invite'] {
+    align-self: flex-start;
+    padding: 0.5rem 0.9rem;
+    border-radius: var(--bk-radius-control);
+    background: var(--bk-accent);
+    color: var(--bk-on-accent);
+    text-decoration: none;
+    box-shadow: var(--bk-shadow-control);
+    font-family: var(--bk-font-control, var(--bk-font));
+    font-weight: 600;
+  }
+
+  :where([data-waitlist='page']) a:focus-visible {
+    outline: 2px solid var(--bk-accent);
+    outline-offset: 2px;
   }
 }

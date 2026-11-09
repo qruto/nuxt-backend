@@ -1639,9 +1639,14 @@
       "leaving": "Saliendo…",
       "left": "Saliste de la lista de espera. Tu dirección se ha eliminado.",
       "page": {
-        "title": "Tu posición",
+        "title": "Lista de espera",
         "checking": "Comprobando tu posición…",
-        "unknown": "Este enlace no funciona. Abre el enlace de tu correo de confirmación."
+        "unknown": "Este enlace no funciona. Abre el enlace de tu correo de confirmación o vuelve a unirte.",
+        "member": "Ya has iniciado sesión, así que no tienes que esperar en la lista.",
+        "continue": "Continuar",
+        "open": "Ya puede registrarse cualquiera: no hay lista de espera.",
+        "closed": "La lista de espera está cerrada. Ahora mismo hace falta una invitación para registrarse.",
+        "haveInvite": "Tengo una invitación"
       }
     },
     "report": {

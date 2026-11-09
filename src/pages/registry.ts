@@ -84,7 +84,7 @@ export interface ModulePagesOptions {
   terms?: string | false
   /** Where a topic email's unsubscribe link and a double opt-in's confirmation link land (public, kept out of search indexes and caches): one press leaves the topic, or confirms it. Default `/unsubscribe`. */
   unsubscribe?: string | false
-  /** Where a waitlist status link lands (public, kept out of search indexes): a person's place in the line, read from the signed token in the link's fragment. Default `/waitlist`. */
+  /** The waitlist (public, kept out of search indexes): the join in early access, and a person's place in the line, read from the signed token in a status link's fragment; it follows the launch phase. Default `/waitlist`. */
   waitlist?: string | false
   /** The first run a new account sees once after its first sign-in: name, workspace, teammates and a plan, with steps of your own (private). Default `/welcome`. */
   welcome?: string | false

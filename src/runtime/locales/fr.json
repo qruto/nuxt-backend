@@ -1639,9 +1639,14 @@
       "leaving": "Départ…",
       "left": "Vous avez quitté la liste d’attente. Votre adresse a été supprimée.",
       "page": {
-        "title": "Votre place",
+        "title": "Liste d’attente",
         "checking": "Vérification de votre place…",
-        "unknown": "Ce lien ne fonctionne pas. Ouvrez le lien de votre e-mail de confirmation."
+        "unknown": "Ce lien ne fonctionne pas. Ouvrez le lien de votre e-mail de confirmation, ou inscrivez-vous à nouveau.",
+        "member": "Vous êtes déjà connecté : pas de liste d’attente pour vous.",
+        "continue": "Continuer",
+        "open": "Tout le monde peut s’inscrire maintenant : il n’y a plus de liste d’attente.",
+        "closed": "La liste d’attente est fermée. L’inscription demande une invitation pour le moment.",
+        "haveInvite": "J’ai une invitation"
       }
     },
     "report": {

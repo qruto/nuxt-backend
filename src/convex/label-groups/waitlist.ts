@@ -38,9 +38,14 @@ const WAITLIST_LABELS = {
   leaving: 'Leaving…',
   left: 'You left the waitlist. Your address is removed.',
   page: {
-    title: 'Your place',
+    title: 'Waitlist',
     checking: 'Checking your place…',
-    unknown: 'This link doesn\'t work. Open the link in your confirmation email.',
+    unknown: 'This link doesn\'t work. Open the link in your confirmation email, or join again.',
+    member: 'You\'re signed in already, so there\'s no waitlist for you.',
+    continue: 'Continue',
+    open: 'Everyone can sign up now: there\'s no waitlist.',
+    closed: 'The waitlist is closed. Signing up takes an invite right now.',
+    haveInvite: 'I have an invite',
   },
 } satisfies LabelTree
 

@@ -290,6 +290,8 @@ const MODULE_PRIMARIES: Record<string, string[]> = {
   ReferralLanding: ['ReferralLanding.css'],
   SecuritySettings: ['SecurityPasskeys.css'],
   UpgradePrompt: ['UpgradePrompt.css'],
+  // The `/waitlist` page's own panel: its ways on (the app, the sign-up, the invite page) fill with the accent. No playground page renders it.
+  WaitlistStatus: ['WaitlistStatus.css'],
   WaitlistForm: ['WaitlistForm.css', 'WaitlistPlace.css'],
   WorkspaceSettings: ['WorkspaceList.css', 'WorkspaceBilling.css'],
 }

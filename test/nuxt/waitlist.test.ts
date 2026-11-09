@@ -7,7 +7,8 @@ import type { WaitlistStatusView } from '../../src/convex/integrations/waitlist'
 
 // The waitlist on the page: useWaitlist's steps over the auth client and a
 // stand-in for `backend/waitlist.ts`, <WaitlistForm> and its slots, and the
-// `/waitlist` page's body reading a status link.
+// `/waitlist` page's body: a status link's place, the join without one, and
+// what each launch phase and a signed-in visitor read there.
 
 type Answer = { data?: unknown, error?: Record<string, unknown> | null }
 const ok = (data: unknown = { success: true }): Answer => ({ data, error: null })
@@ -22,6 +23,8 @@ const client = {
 }
 
 vi.mock('nuxt-convex-module/better-auth/client', () => ({
+  // Where a page that is done sends the person: no `?redirect=` here, so the default.
+  resolveAuthRedirect: (_redirect: unknown, fallback: string) => fallback,
   useBetterAuth: () => ({
     isLoading: computed(() => false),
     isAuthenticated: computed(() => false),
@@ -52,8 +55,14 @@ vi.mock('nuxt-convex-module/client', async original => ({
   }),
 }))
 
-const route = reactive({ query: {} as Record<string, string> })
+const route = reactive({ path: '/waitlist', query: {} as Record<string, string> })
 mockNuxtImport('useRoute', () => () => route)
+
+// The launch phase the page reads (useAccessPhase's own tests hold the read).
+const launch = ref<string | undefined>('early-access')
+vi.mock('../../src/runtime/vue/composables/use-access', () => ({
+  useAccessPhase: () => ({ phase: computed(() => launch.value), isPublic: computed(() => launch.value === 'public'), isLoading: computed(() => launch.value === undefined), error: computed(() => null) }),
+}))
 
 // The bot check asks for no token where the app checks nobody (the protection tests hold the rest).
 vi.mock('../../src/runtime/vue/composables/use-human-check', () => ({ useHumanCheck: () => ({ mode: computed(() => 'off'), isPending: computed(() => false), error: ref(null), token: async () => null }) }))
@@ -63,6 +72,7 @@ const { registerComponents } = await import('../helpers/register-components')
 const { WaitlistForm } = await registerComponents('WaitlistForm') as Record<'WaitlistForm', Component>
 const { default: WaitlistStatus } = await import('../../src/runtime/vue/components/auth/WaitlistStatus.vue')
 const { BackendApiKey } = await import('../../src/runtime/vue/utils/namespace')
+const { ConvexAuthStateKey } = await import('nuxt-convex-module/client')
 
 const api = { getWaitlistQuestions: 'waitlist:getWaitlistQuestions', joinWaitlist: 'waitlist:joinWaitlist', waitlistStatus: 'waitlist:waitlistStatus', leaveWaitlist: 'waitlist:leaveWaitlist' }
 const provide = { [BackendApiKey as symbol]: { waitlist: api } }
@@ -80,8 +90,8 @@ function inSetup<T>(runner: () => T): T {
   }), { global: { provide } }) as VueWrapper)
   return result!
 }
-const render = (component: object, props: Record<string, unknown> = {}) => {
-  const wrapper = mount(component as never, { props: props as never, attachTo: document.body, global: { provide } }) as VueWrapper
+const render = (component: object, props: Record<string, unknown> = {}, extra: Record<symbol, unknown> = {}) => {
+  const wrapper = mount(component as never, { props: props as never, attachTo: document.body, global: { provide: { ...provide, ...extra } } }) as VueWrapper
   mounted.push(wrapper)
   return wrapper
 }
@@ -93,7 +103,8 @@ beforeEach(() => {
   answers.clear()
   answers.set(key('waitlist:getWaitlistQuestions', {}), QUESTIONS)
   route.query = {}
-  window.location.hash = ''
+  launch.value = 'early-access'
+  window.history.replaceState(null, '', '/waitlist')
 })
 afterEach(() => {
   for (const wrapper of mounted.splice(0)) wrapper.unmount()
@@ -243,6 +254,23 @@ describe('useWaitlist', () => {
     expect(waitlist.place.value).toBeUndefined()
   })
 
+  it('builds the link a waiting person shares: the page it runs on, or the one asked for, with their code', async () => {
+    answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), VIEW)
+    const here = inSetup(() => useWaitlist())
+    expect(here.shareLink.value).toBeNull()
+    here.status('entry.signature')
+    await nextTick()
+    expect(here.shareLink.value).toBe(`${window.location.origin}/waitlist?ref=ABCD2345`)
+    const elsewhere = inSetup(() => useWaitlist({ shareTo: '/launch?from=post' }))
+    elsewhere.status('entry.signature')
+    await nextTick()
+    expect(elsewhere.shareLink.value).toBe(`${window.location.origin}/launch?from=post&ref=ABCD2345`)
+    // Admitted, there is nothing left to share.
+    answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), { ...VIEW, status: 'admitted' })
+    await nextTick()
+    expect(here.shareLink.value).toBeNull()
+  })
+
   it('hands markup of its own the attributes it needs', async () => {
     const waitlist = inSetup(() => useWaitlist())
     expect(waitlist.bind.emailInput).toMatchObject({ type: 'email', autocomplete: 'email', required: true })
@@ -386,7 +414,7 @@ describe('the /waitlist page', () => {
     await flushPromises()
     expect(window.location.hash).toBe('#entry.signature')
     expect(wrapper.find('[data-waitlist="position"]').text()).toBe('You\'re #48 of 1,204')
-    expect((wrapper.find('[data-waitlist="share-link"]').element as HTMLInputElement).value).toContain('/?ref=ABCD2345')
+    expect((wrapper.find('[data-waitlist="share-link"]').element as HTMLInputElement).value).toBe(`${window.location.origin}/waitlist?ref=ABCD2345`)
     expect(wrapper.find('[data-waitlist="share-intro"]').text()).toContain('moves you up')
     expect(wrapper.find('[data-waitlist="friends"]').text()).toBe('2 friends have joined with your link.')
   })
@@ -400,10 +428,7 @@ describe('the /waitlist page', () => {
     expect(wrapper.find('[data-waitlist="page"]').attributes('data-state')).toBe('unknown')
   })
 
-  it('says the same of an address with no token, and shows the way in for an admitted person', async () => {
-    const empty = render(WaitlistStatus)
-    await flushPromises()
-    expect(empty.find('[data-waitlist="page"]').attributes('data-state')).toBe('unknown')
+  it('shows the way in for an admitted person', async () => {
     answers.set(key('waitlist:waitlistStatus', { token: 'in.signature' }), { ...VIEW, status: 'admitted', position: null })
     window.location.hash = '#in.signature'
     const admitted = render(WaitlistStatus)
@@ -422,5 +447,79 @@ describe('the /waitlist page', () => {
     await flushPromises()
     expect(leaveCall).toHaveBeenCalledWith({ token: 'entry.signature' })
     expect(wrapper.find('[data-waitlist="page"]').attributes('data-state')).toBe('left')
+    // The old token leaves the address, and the join is offered again.
+    expect(window.location.hash).toBe('')
+    expect(wrapper.find('[data-waitlist="join"]').exists()).toBe(true)
+  })
+
+  it('joins without a token in early access, and writes the status link into the address once the code checks', async () => {
+    route.query = { ref: 'FRND2345' }
+    const wrapper = render(WaitlistStatus)
+    await flushPromises()
+    expect(wrapper.find('[data-waitlist="page"]').attributes('data-state')).toBe('join')
+    // The friend's link the visitor came through rides along with the join.
+    expect(wrapper.find('[data-waitlist="referral"]').exists()).toBe(true)
+    await wrapper.find('[data-waitlist="input-email"]').setValue('mo@panels.example')
+    await wrapper.find('[data-waitlist="join"]').trigger('submit')
+    await flushPromises()
+    expect(joinCall).toHaveBeenCalledWith(expect.objectContaining({ source: 'waitlist', ref: 'FRND2345' }))
+    client.signIn.emailOtp.mockResolvedValueOnce(ticketRequired('early-access', { position: 48, total: 1204, token: 'entry.signature' }))
+    answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), VIEW)
+    await wrapper.find('[data-waitlist="input-code"]').setValue('123456')
+    await wrapper.find('[data-waitlist="verify"]').trigger('submit')
+    await flushPromises()
+    expect(window.location.hash).toBe('#entry.signature')
+    expect(wrapper.find('[data-waitlist="position"]').text()).toBe('You\'re #48 of 1,204')
+    // A friend's link opens this page, where the join is.
+    expect((wrapper.find('[data-waitlist="share-link"]').element as HTMLInputElement).value).toBe(`${window.location.origin}/waitlist?ref=ABCD2345`)
+  })
+
+  it('offers the join again under a link that does not work', async () => {
+    answers.set(key('waitlist:waitlistStatus', { token: 'forged.signature' }), null)
+    window.location.hash = '#forged.signature'
+    const wrapper = render(WaitlistStatus)
+    await flushPromises()
+    expect(wrapper.find('[data-waitlist="join"]').exists()).toBe(true)
+  })
+
+  it('sends a new visitor to the invite page while invite only, and keeps a place a link holds', async () => {
+    launch.value = 'invite-only'
+    const closed = render(WaitlistStatus)
+    await flushPromises()
+    expect(closed.find('[data-waitlist="page"]').attributes('data-state')).toBe('closed')
+    expect(closed.find('[data-waitlist="status"]').text()).toBe('The waitlist is closed. Signing up takes an invite right now.')
+    expect(closed.find('[data-waitlist="page-invite"]').attributes('href')).toBe('/invite')
+    expect(closed.find('[data-waitlist="join"]').exists()).toBe(false)
+    answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), VIEW)
+    window.location.hash = '#entry.signature'
+    const held = render(WaitlistStatus)
+    await flushPromises()
+    expect(held.find('[data-waitlist="page"]').attributes('data-state')).toBe('ready')
+    expect(held.find('[data-waitlist="position"]').exists()).toBe(true)
+  })
+
+  it('has no line once the app is public, only the way to sign up, whatever the link', async () => {
+    launch.value = 'public'
+    answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), VIEW)
+    window.location.hash = '#entry.signature'
+    const wrapper = render(WaitlistStatus)
+    await flushPromises()
+    expect(wrapper.find('[data-waitlist="page"]').attributes('data-state')).toBe('open')
+    expect(wrapper.find('[data-waitlist="page-sign-up"]').attributes('href')).toBe('/login')
+    expect(wrapper.find('[data-waitlist="position"]').exists()).toBe(false)
+  })
+
+  it('waits for the phase, then tells a signed-in visitor there is no line for them', async () => {
+    launch.value = undefined
+    const signedIn = { [ConvexAuthStateKey as symbol]: { isLoading: computed(() => false), isAuthenticated: computed(() => true) } }
+    const wrapper = render(WaitlistStatus, {}, signedIn)
+    await flushPromises()
+    expect(wrapper.find('[data-waitlist="page"]').attributes('data-state')).toBe('checking')
+    launch.value = 'early-access'
+    await flushPromises()
+    expect(wrapper.find('[data-waitlist="page"]').attributes('data-state')).toBe('member')
+    expect(wrapper.find('[data-waitlist="status"]').text()).toBe('You\'re signed in already, so there\'s no waitlist for you.')
+    expect(wrapper.find('[data-waitlist="page-continue"]').attributes('href')).toBe('/')
+    expect(wrapper.find('[data-waitlist="join"]').exists()).toBe(false)
   })
 })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { watch } from 'vue'
 import type { LabelGroupOverrides } from '../../composables/use-labels'
 import { useLabels } from '../../composables/use-labels'
 import { useWaitlist, type UseWaitlistReturn, type WaitlistPlace } from '../../composables/use-waitlist'
@@ -17,8 +17,9 @@ import { provideWaitlistFormView, type WaitlistFormSlots } from './waitlist-form
  * dropped.
  *
  * The same steps run on the sign-in page, where a new address in early
- * access lands on `<AuthForm>`'s `waitlisted` step, and on the `/waitlist`
- * page, which follows a place by its status link. Semantic markup with
+ * access lands on `<AuthForm>`'s `waitlisted` step. The `/waitlist` page
+ * renders this form in early access, and follows a place by its status
+ * link. Semantic markup with
  * `data-waitlist` attributes for styling.
  *
  * @example
@@ -52,9 +53,8 @@ const emit = defineEmits({
 
 defineSlots<WaitlistFormSlots>()
 
-const waitlist = useWaitlist({ ...(props.source ? { source: props.source } : {}) })
+const waitlist = useWaitlist({ ...(props.source ? { source: props.source } : {}), shareTo: () => props.shareTo })
 const { errorMessage } = useLabels('waitlist', () => props.labels)
-const route = computed(() => (typeof window === 'undefined' ? '/' : window.location.pathname))
 
 // The place part unmounts the moment the entry is gone, so the form says so for it.
 watch(() => waitlist.step.value, (step, before) => {
@@ -84,7 +84,6 @@ const steps: UseWaitlistReturn = {
 provideWaitlistFormView({
   labels: () => props.labels,
   questionLabels: () => props.questionLabels,
-  shareTo: () => props.shareTo ?? route.value,
 })
 </script>
 

@@ -18,14 +18,8 @@ const { t } = useLabels('waitlist', view.labels)
 const copied = ref(false)
 const place = computed(() => props.waitlist.place.value)
 
-/** The link a friend opens: the form's page with the person's code, built where it runs. */
-const link = computed(() => {
-  const code = place.value?.status === 'waiting' ? place.value.shareCode : ''
-  if (!code) return ''
-  const origin = typeof window === 'undefined' ? '' : window.location.origin
-  const to = view.shareTo()
-  return `${origin}${to}${to.includes('?') ? '&' : '?'}ref=${encodeURIComponent(code)}`
-})
+/** The link a friend opens: the form's page with the person's code (`useWaitlist().shareLink`). */
+const link = computed(() => props.waitlist.shareLink.value ?? '')
 
 async function copy() {
   try {

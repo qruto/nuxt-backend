@@ -1639,9 +1639,14 @@
       "leaving": "Wird verlassen…",
       "left": "Sie haben die Warteliste verlassen. Ihre Adresse wurde entfernt.",
       "page": {
-        "title": "Ihr Platz",
+        "title": "Warteliste",
         "checking": "Ihr Platz wird geprüft…",
-        "unknown": "Dieser Link funktioniert nicht. Öffnen Sie den Link in Ihrer Bestätigungs-E-Mail."
+        "unknown": "Dieser Link funktioniert nicht. Öffnen Sie den Link in Ihrer Bestätigungs-E-Mail, oder tragen Sie sich erneut ein.",
+        "member": "Sie sind bereits angemeldet, eine Warteliste gibt es für Sie nicht.",
+        "continue": "Weiter",
+        "open": "Jetzt kann sich jeder registrieren: Es gibt keine Warteliste mehr.",
+        "closed": "Die Warteliste ist geschlossen. Für die Registrierung braucht es derzeit eine Einladung.",
+        "haveInvite": "Ich habe eine Einladung"
       }
     },
     "report": {
