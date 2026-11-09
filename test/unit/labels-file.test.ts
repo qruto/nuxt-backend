@@ -1,11 +1,13 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as magicast from 'magicast'
 import { brandSourceDirs } from '../../src/brand-file'
-import { labelsOfAppConfig, readAppLabels, renderLabelsFile } from '../../src/labels-file'
+import { appLabelsOf, labelsOfAppConfig, readAppLabels, renderLabelsFile } from '../../src/labels-file'
 import { labelsFileFinding, syncLabelsFile } from '../../src/labels-sync'
+import { registerAppConfigFiles } from '../../src/nuxt/brand'
+import { logger } from '../../src/nuxt/logger'
 
 // The labels app.config sets (`backend.labels`), carried into the functions
 // directory as labels.generated.ts, which the scaffold's email.ts passes to
@@ -73,6 +75,34 @@ export default defineAppConfig({ backend: { labels: { notifications: copy, activ
     })
   })
 
+  it('reads no value through a type import, a namespace import, a JSON file, or more than three files deep', () => {
+    writeFileSync(join(dir, 'copy.json'), '{ "title": "From JSON" }')
+    writeFileSync(join(dir, 'one.ts'), `import { two } from './two'\nexport const one = { title: 'One', deep: two }\n`)
+    writeFileSync(join(dir, 'two.ts'), `import { three } from './three'\nexport const two = { title: 'Two', deep: three }\n`)
+    writeFileSync(join(dir, 'three.ts'), `import { four } from './four'\nexport const three = { title: 'Three', deep: four }\n`)
+    writeFileSync(join(dir, 'four.ts'), `export const four = { title: 'Four' }\n`)
+    const text = `import type { Kinds } from './kinds'
+import * as everything from './one'
+import copy from './copy.json'
+import { one } from './one'
+export default defineAppConfig({ backend: { labels: { auth: everything, gift: copy, notifications: one, errors: Kinds as never, ai: { ...one, title: 'Own' } } } })`
+    expect(labelsOfAppConfig(magicast, text, join(dir, 'app.config.ts'))).toEqual({
+      notifications: { title: 'One', deep: { title: 'Two', deep: { title: 'Three' } } },
+      ai: { title: 'Own', deep: { title: 'Two', deep: { title: 'Three' } } },
+    })
+  })
+
+  it('keeps the app\'s own shape where a layer writes another, and reads nothing when the config does not load', async () => {
+    mkdirSync(join(dir, 'app'))
+    mkdirSync(join(dir, 'layer'))
+    writeFileSync(join(dir, 'app', 'app.config.ts'), `export default defineAppConfig({ backend: { labels: { auth: { title: 'Mine' } } } })`)
+    writeFileSync(join(dir, 'layer', 'app.config.ts'), `export default defineAppConfig({ backend: { labels: { auth: { title: { nested: 'x' } }, gift: { claim: 'Take it' } } } })`)
+    expect(await readAppLabels([join(dir, 'app'), join(dir, 'layer')])).toEqual({ auth: { title: 'Mine' }, gift: { claim: 'Take it' } })
+    expect(await appLabelsOf(null)).toBeNull()
+    expect(await appLabelsOf({ srcDir: join(dir, 'app') })).toEqual({ auth: { title: 'Mine' } })
+    expect(await appLabelsOf({ _layers: 'not a list' } as never)).toBeNull()
+  })
+
   it('reads nothing from a file that does not parse or sets no labels', () => {
     expect(labelsOfAppConfig(magicast, 'export default defineAppConfig({ ui: {} })', join(dir, 'app.config.ts'))).toEqual({})
     expect(labelsOfAppConfig(magicast, 'export default {', join(dir, 'app.config.ts'))).toEqual({})
@@ -120,5 +150,47 @@ describe('the generated file', () => {
     const root = join(import.meta.dirname, '../..')
     expect(readFileSync(join(root, 'templates/starter/backend/labels.generated.ts'), 'utf-8')).toBe(renderLabelsFile({}))
     expect(readFileSync(join(root, 'templates/panels/backend/labels.generated.ts'), 'utf-8')).toBe(renderLabelsFile(await readAppLabels([join(root, 'templates/panels/app')])))
+  })
+})
+
+describe('the module', () => {
+  let rootDir: string
+  beforeEach(() => {
+    rootDir = mkdtempSync(join(tmpdir(), 'labels-module-'))
+    mkdirSync(join(rootDir, 'app'))
+    mkdirSync(join(rootDir, 'backend'))
+    vi.spyOn(logger, 'info').mockImplementation(() => {})
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    rmSync(rootDir, { recursive: true, force: true })
+  })
+
+  it('writes the brand and labels files on start, and the labels again when a script changes', async () => {
+    const hooks: Record<string, (...args: unknown[]) => Promise<void> | void> = {}
+    const hook = (name: string, run: (...args: unknown[]) => Promise<void>) => {
+      hooks[name] = run
+    }
+    const nuxt = { options: { rootDir, srcDir: join(rootDir, 'app'), test: false, _layers: [] }, hook }
+    const config = (title: string) => writeFileSync(join(rootDir, 'app', 'app.config.ts'), `export default defineAppConfig({ backend: { brand: { name: 'Panels' }, labels: { auth: { title: '${title}' } } } })\n`)
+    config('Sign in to Panels')
+    registerAppConfigFiles(nuxt as never)
+    await hooks['modules:done']!()
+    const labels = () => readFileSync(join(rootDir, 'backend', 'labels.generated.ts'), 'utf-8')
+    expect(labels()).toBe(renderLabelsFile({ auth: { title: 'Sign in to Panels' } }))
+    expect(readFileSync(join(rootDir, 'backend', 'brand.generated.ts'), 'utf-8')).toContain('name: \'Panels\'')
+    config('Welcome back')
+    // A page or a generated file changing is no reason to read app.config again.
+    await hooks['builder:watch']!('change', 'pages/index.vue')
+    await hooks['builder:watch']!('change', 'backend/labels.generated.ts')
+    expect(labels()).toContain('Sign in to Panels')
+    await hooks['builder:watch']!('change', 'app.config.ts')
+    expect(labels()).toBe(renderLabelsFile({ auth: { title: 'Welcome back' } }))
+  })
+
+  it('writes nothing under a test runner', () => {
+    const hook = vi.fn()
+    registerAppConfigFiles({ options: { rootDir, test: true }, hook } as never)
+    expect(hook).not.toHaveBeenCalled()
   })
 })

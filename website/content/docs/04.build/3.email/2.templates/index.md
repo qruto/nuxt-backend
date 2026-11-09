@@ -136,7 +136,7 @@ The words come from two places. `data.words` is the kind's own title and body, a
 ```json [i18n/locales/de.json]
 {
   "strips": {
-    "printedCopies": "Ein Exemplar wird heute verschickt. | {count} Exemplare werden heute verschickt.",
+    "printedCopies": "Heute verschicken wir 1 Exemplar. | Heute verschicken wir {count} Exemplare.",
     "track": "Sendung verfolgen"
   }
 }

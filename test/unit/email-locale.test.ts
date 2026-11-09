@@ -317,6 +317,9 @@ describe('the labels app config sets (labels.generated.ts)', () => {
     expect(t('en', { labels: coins })('notifications.billing.credits_low.title')).toBe('Running low on coins')
     expect(t('en', { labels: coins })('notifications.billing.credits_low.body', { balance: 1, workspace: 'Studio' })).toBe('Studio has 1 coin left.')
     expect(t('en', { labels: coins })('email.lifecycle.creditsLow.subject', { unit: 'pages' })).toBe('You are running low on pages')
+    // A balance that is no number agrees as several; a language tag the runtime refuses reads the `other` form.
+    expect(t('en')('notifications.billing.credits_low.bodyYours', { balance: 'a few' })).toBe('You have a few credits left.')
+    expect(t('en-')('notifications.billing.credits_low.bodyYours', { balance: 1 })).toBe('You have 1 credits left.')
   })
 
   it('reach the words inside a packaged email, its placeholders filled', async () => {
