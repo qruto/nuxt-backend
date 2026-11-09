@@ -277,6 +277,9 @@ export const POLICIES: Record<string, Policy> = {
  * once an app could export it, scaffold or not.
  */
 export const OPT_IN_POLICIES: Record<string, Policy> = {
+  // ai.ts with providers: a decision's statement of reasons (DSA Art. 17),
+  // for the person it was about or an administrator; `null` to anyone else.
+  'ai:getModerationStatement': { access: 'authed', owned: true },
   // admin.ts with `reports`: the one-click report is a signed-in person's
   // own; the notice form and an appeal are anyone's; the Reports tab and its
   // decisions are an administrator's, in person.

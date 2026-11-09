@@ -330,11 +330,16 @@ Types: `WorkflowId`, `WorkflowStatus`, `WorkflowComponents`, `EmailSequenceStep`
 |---|---|
 | `priceTokens()` | Price a model call in credits from its token usage and a price table the app owns. |
 | `setupAi()` | Configure the AI rails over billing + rate limiting + streaming. |
+| `arachnidShield()` | Project Arachnid Shield (the Canadian Centre for Child Protection): a match of an image's hashes against known child sexual abuse material, free once your organization is vetted. |
+| `azureContentSafety()` | Azure AI Content Safety, on your own Azure resource: text and images, in the region you created it in (processing stays there, and inputs are neither stored nor trained on). |
+| `openaiModeration()` | OpenAI's moderation endpoint (`omni-moderation-latest`), free with an OpenAI API key: text and images. |
+| `DEFAULT_THRESHOLDS` | The score at or above which a category flags the content. |
+| `MODERATION_CATEGORIES` | Every category, in the order a statement of reasons lists them. |
 | `defineJobQueue()` | Declare the app's generation queue, once, in `backend/jobs.ts`: kinds of jobs (`jobs.define`) run their steps (`jobs.step`) in a fair line with tiers from plan features, each model under a limit that adapts to `429`s, credits held while a job waits, charged when it starts and refunded when it fails, and each job's cost reported to the billing provider. |
 | `vJobEnd` | How a job ended, as `onJobEnd` receives it: use these as your function's `args` (`internalMutation({ args: vJobEnd, handler })`). |
 | `retryable()` | An error a job step throws for a failure another attempt may not meet, such as a model that answered with no image: the queue waits and runs the step again, up to 4 attempts, as for a provider's passing error, instead of failing the job at once. |
 
-Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBalanceEvent`, `AiCreditsConfig`, `AiModel`, `AiGateway`, `ModelRoutes`, `InferenceRegion`, `MeteredModel`, `ModelStatus`, `SetupAiConfig`, `AiGuestConfig`, `GuestClaim`, `MeteredUsage`, `FinalizedCost`, `ReportedCost`, `MeteredCost`, `MeteredContext`, `MeteredActionConfig`, `MeteredStreamConfig`, `PersonCost`, `AiCosts`, `AiApi`, `Ai`, `ModelPrice`, `TokenPriceTable`, `TokenUsage`, `GeneratedImage`, `ImageStoreContext`, `JobProvenance`, `ProvenanceConfig`, `StoreImageOptions`, `Chat`, `ChatConfig`, `ChatMessage`, `ChatReply`, `ChatThread`, `AiEmbeddingModel`, `Knowledge`, `KnowledgeAddCost`, `KnowledgeApi`, `KnowledgeConfig`, `KnowledgeDocument`, `KnowledgePassage`, `ModerationConfig`, `ModerationCtx`, `ModerationFlag`, `ModerationInput`, `ModerationLog`, `ModerationSubject`, `ModerationVerdict`, `AdminJobView`, `CancelOptions`, `DefineJobQueueOptions`, `EnqueueOptions`, `GuestJobs`, `JobContext`, `JobDefinition`, `JobEnd`, `JobModelLimit`, `JobProgress`, `JobRecord`, `JobQueue`, `JobQueueApi`, `JobQueueComponents`, `JobStepContext`, `JobStepDefinition`, `JobTier`, `JobView`, `OnJobEnd`, `QueueChange`, `StepResult`, `AiImageModel`.
+Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBalanceEvent`, `AiCreditsConfig`, `AiModel`, `AiGateway`, `ModelRoutes`, `InferenceRegion`, `MeteredModel`, `ModelStatus`, `SetupAiConfig`, `AiGuestConfig`, `GuestClaim`, `MeteredUsage`, `FinalizedCost`, `ReportedCost`, `MeteredCost`, `MeteredContext`, `MeteredActionConfig`, `MeteredStreamConfig`, `PersonCost`, `AiCosts`, `AiApi`, `Ai`, `ModelPrice`, `TokenPriceTable`, `TokenUsage`, `GeneratedImage`, `ImageStoreContext`, `JobProvenance`, `ProvenanceConfig`, `StoreImageOptions`, `Chat`, `ChatConfig`, `ChatMessage`, `ChatReply`, `ChatThread`, `AiEmbeddingModel`, `Knowledge`, `KnowledgeAddCost`, `KnowledgeApi`, `KnowledgeConfig`, `KnowledgeDocument`, `KnowledgePassage`, `ModerationConfig`, `ModerationCtx`, `ModerationFlag`, `ModerationInput`, `ModerationLog`, `ModerationStatement`, `ModerationSubject`, `ModerationVerdict`, `AzureContentSafetyOptions`, `KnownAbuseProvider`, `ModerationImage`, `ModerationProvider`, `ProviderEnv`, `ProviderInput`, `CategoryScore`, `ModerationCategory`, `ProviderReading`, `AdminJobView`, `CancelOptions`, `DefineJobQueueOptions`, `EnqueueOptions`, `GuestJobs`, `JobContext`, `JobDefinition`, `JobEnd`, `JobModelLimit`, `JobProgress`, `JobRecord`, `JobQueue`, `JobQueueApi`, `JobQueueComponents`, `JobStepContext`, `JobStepDefinition`, `JobTier`, `JobView`, `OnJobEnd`, `QueueChange`, `StepResult`, `AiImageModel`.
 
 ### `nuxt-backend/storage`
 
@@ -405,6 +410,9 @@ Types: `BackendPaths`, `DefineBackendAuthConfigOptions`.
 | `seedCredits()` | Set one meter's credit balance for a billing entity, as a sync from the provider leaves it, keeping its plans, features and other meters. |
 | `seedWorkspace()` | Create a workspace with no members yet, for several `asUser` callers to join: `asUser(t, { workspace: id, workspaceRole: 'admin' })`. |
 | `asUser()` | Create an account in the `backend` component's auth tables and return the instance signed in as it, the way a real sign-in leaves it: the account with the role `'user'`, a personal workspace it owns and has active, and the claims a real token carries. |
+| `TEST_FAINT()` | The marker that finds a category faintly, just under its threshold. |
+| `TEST_KNOWN_ABUSE` | The marker the known-abuse fake matches. |
+| `TEST_UNSAFE()` | The marker that finds a category at full strength. |
 | `default` | The default export. |
 
 Types: `ComponentTestKit`, `BackendTestAppOptions`, `TestFile`, `TestUploadOptions`, `BackendTestApp`, `StubStorageFetchOptions`, `TestTimers`, `TestBilling`, `TestUserOptions`, `TestUser`.
@@ -663,7 +671,7 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `billing` | Plans with monthly and yearly prices, prepaid credits, a server-rendered pricing page, feature gates, gifts and the customer portal, from a catalog in code. | `BILLING_ACCESS_TOKEN`, `BILLING_WEBHOOK_SECRET` |
 | `email` | Transactional and marketing mail from one template registry, with delivery tracking and the dev inbox. | `EMAIL_API_KEY`, `EMAIL_FROM`, `EMAIL_MARKETING_FROM`, `EMAIL_REGION`, `EMAIL_WEBHOOK_SECRET`, `EMAIL_DEV_INBOX` |
 | `notifications` | An in-app inbox for every event the backend records about a person and for events of your own, live and in each person's language, with the unread count and marking read; the kinds that allow it by email, and as web push to each device a person allowed, under their channel choices. | `PUSH_PUBLIC_KEY`, `PUSH_PRIVATE_KEY` |
-| `ai` | Metered model calls and streams: each call reserves prepaid credits, runs the model by its provider/model id, then settles at the cost it reports. | `AI_GATEWAY_API_KEY`, `PROVENANCE_PRIVATE_KEY`, `PROVENANCE_CERTIFICATE` |
+| `ai` | Metered model calls and streams: each call reserves prepaid credits, runs the model by its provider/model id, then settles at the cost it reports. | `AI_GATEWAY_API_KEY`, `PROVENANCE_PRIVATE_KEY`, `PROVENANCE_CERTIFICATE`, `CONTENT_SAFETY_ENDPOINT`, `CONTENT_SAFETY_KEY`, `SECOND_OPINION_KEY`, `KNOWN_ABUSE_KEY` |
 | `protection` | Bot checks on the requests that send a sign-in code or create an account, and on the calls of your own that verifyHuman guards. | `PROTECTION_PROOF_SECRET`, `PROTECTION_CHALLENGE_SECRET_KEY`, `NUXT_PUBLIC_BACKEND_CHALLENGE_SITE_KEY` |
 | `monitoring` | Error reports from the browser, the Nuxt server and the backend's actions, cron check-ins, and a health endpoint for uptime checks. | `MONITORING_DSN` |
 | `flags` | Feature flags read inside queries and mutations, targeted by account, workspace, plan or a stable percentage, and the kill switches that pause sign-ups, checkout and AI or put up a maintenance banner. |  |
@@ -752,6 +760,11 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `ai-spend-limit` | ai | AI spend limit on a sandbox |
 | `ai-gateway-budget` | ai | AI gateway budget |
 | `ai-moderation-images` | ai | Image checks and the safety classifier |
+| `ai-moderation-providers` | ai | Moderation providers |
+| `deployment-content-safety-endpoint` | ai | Deployment CONTENT_SAFETY_ENDPOINT |
+| `deployment-content-safety-key` | ai | Deployment CONTENT_SAFETY_KEY |
+| `deployment-second-opinion-key` | ai | Deployment SECOND_OPINION_KEY |
+| `deployment-known-abuse-key` | ai | Deployment KNOWN_ABUSE_KEY |
 | `deployment-ai-gateway-api-key` | ai | Deployment AI_GATEWAY_API_KEY |
 | `deployment-provenance-private-key` | ai | Deployment PROVENANCE_PRIVATE_KEY |
 | `deployment-provenance-certificate` | ai | Deployment PROVENANCE_CERTIFICATE |
@@ -793,6 +806,10 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `BILLING_ACCESS_TOKEN` | billing | deployment | optional | billing reads answer empty; on production billing is not launched (the pricing reads "Plans open soon" and every sale is refused as not_launched), elsewhere a checkout is refused as not_configured |
 | `BILLING_WEBHOOK_SECRET` | billing | deployment | optional | billing events are rejected — entitlements refresh only on demand (syncEntitlements) |
 | `AI_GATEWAY_API_KEY` | ai | deployment | optional | a provider/model id the backend names goes through the Convex AI Gateway alone, on Convex Cloud with a paid plan and @convex-dev/ai-sdk-provider installed; anywhere else (a free plan, a self-hosted deployment) it is refused when called. Under setupAi({ gateway: 'vercel' }) it is refused everywhere |
+| `CONTENT_SAFETY_ENDPOINT` | ai | deployment | optional | azureContentSafety() refuses every check it is asked for (`unavailable`, reason `not_configured`), so content it would check is refused as unchecked |
+| `CONTENT_SAFETY_KEY` | ai | deployment | optional | as without CONTENT_SAFETY_ENDPOINT: the two call the resource together |
+| `SECOND_OPINION_KEY` | ai | deployment | optional | openaiModeration() refuses every check it is asked for, so a score in the gray band is refused as unchecked |
+| `KNOWN_ABUSE_KEY` | ai | deployment | optional | arachnidShield() refuses every check, so every image the app moderates is refused as unchecked |
 | `PROVENANCE_PRIVATE_KEY` | ai | deployment | optional | generated images are stored with the IPTC source type and no signed C2PA manifest (`ai.provenance_unsigned`); `doctor --prod` fails once the backend turns provenance on |
 | `PROVENANCE_CERTIFICATE` | ai | deployment | optional | as without PROVENANCE_PRIVATE_KEY: the two sign together |
 | `PUSH_PUBLIC_KEY` | notifications | deployment | optional | the in-app inbox and email notifications work, but web push does not: `getPushConfig` answers no key, so `usePushSubscription` reads unsupported |

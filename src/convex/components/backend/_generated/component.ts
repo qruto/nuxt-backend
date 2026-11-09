@@ -5326,6 +5326,34 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       >;
     };
     moderation: {
+      get: FunctionReference<
+        "query",
+        "internal",
+        { id: string },
+        null | {
+          at: number;
+          automated?: boolean;
+          blocked: boolean;
+          categories: Array<string>;
+          codes?: Array<string>;
+          escalate: boolean;
+          hash?: string;
+          id: string;
+          legalHold?: boolean;
+          model: string;
+          owner?: string;
+          playbook?: "csam";
+          policy?: string;
+          policyVersion?: string;
+          providers?: Array<string>;
+          scores?: Record<string, { score: number; supported: boolean }>;
+          stage?: string;
+          subject?: string;
+          thresholds?: Record<string, number>;
+          userId?: string;
+        },
+        Name
+      >;
       list: FunctionReference<
         "query",
         "internal",
@@ -5345,16 +5373,24 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           isDone: boolean;
           page: Array<{
             at: number;
+            automated?: boolean;
             blocked: boolean;
             categories: Array<string>;
+            codes?: Array<string>;
             escalate: boolean;
+            hash?: string;
             id: string;
             legalHold?: boolean;
             model: string;
             owner?: string;
+            playbook?: "csam";
             policy?: string;
+            policyVersion?: string;
+            providers?: Array<string>;
+            scores?: Record<string, { score: number; supported: boolean }>;
             stage?: string;
             subject?: string;
+            thresholds?: Record<string, number>;
             userId?: string;
           }>;
         },
@@ -5364,16 +5400,24 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
+          automated?: boolean;
           blocked: boolean;
           categories: Array<string>;
+          codes?: Array<string>;
           days: number;
           escalate: boolean;
+          hash?: string;
           legalHold?: boolean;
           model: string;
           owner?: string;
+          playbook?: "csam";
           policy?: string;
+          policyVersion?: string;
+          providers?: Array<string>;
+          scores?: Record<string, { score: number; supported: boolean }>;
           stage?: string;
           subject?: string;
+          thresholds?: Record<string, number>;
           userId?: string;
         },
         string,

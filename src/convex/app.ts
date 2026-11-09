@@ -57,6 +57,13 @@ import { type BackendEnvironment, parseBackendEnvironment } from './environment.
  *   where a `provider/model` id goes when the Convex AI Gateway does not
  *   answer it (a free plan, a self-hosted deployment). Without either, the id
  *   is refused when called.
+ * - `CONTENT_SAFETY_ENDPOINT`, `CONTENT_SAFETY_KEY` — the Azure AI Content
+ *   Safety resource `azureContentSafety()` checks images with.
+ *   `SECOND_OPINION_KEY` — the OpenAI key `openaiModeration()` asks for a
+ *   second opinion with. `KNOWN_ABUSE_KEY` — the credentials
+ *   `arachnidShield()` matches known abuse material with. Unset, the
+ *   provider that reads one refuses every check, and the content is refused
+ *   as unchecked.
  * - `PROVENANCE_PRIVATE_KEY`, `PROVENANCE_CERTIFICATE` — the key that signs
  *   the content credentials `ctx.storeImage` writes (`setupAi({ provenance })`)
  *   and its certificate chain. Unset, generated images carry the IPTC source
@@ -100,6 +107,11 @@ export const backendEnv = {
   BILLING_WEBHOOK_SECRET: v.optional(v.string()),
   // AI — optional; the gateway's own name, never renamed.
   AI_GATEWAY_API_KEY: v.optional(v.string()),
+  // AI moderation providers — optional: the image checks, the second opinion and the known-abuse match.
+  CONTENT_SAFETY_ENDPOINT: v.optional(v.string()),
+  CONTENT_SAFETY_KEY: v.optional(v.string()),
+  SECOND_OPINION_KEY: v.optional(v.string()),
+  KNOWN_ABUSE_KEY: v.optional(v.string()),
   // AI provenance — optional: the key content credentials are signed with, and its certificate chain.
   PROVENANCE_PRIVATE_KEY: v.optional(v.string()),
   PROVENANCE_CERTIFICATE: v.optional(v.string()),
