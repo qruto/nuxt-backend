@@ -49,11 +49,14 @@ function sourceFiles(dir: string): string[] {
   })
 }
 
+/** A name as code spells it: an upper-case identifier, a whole word. */
+const IDENTIFIER = /\b[A-Z][A-Z0-9_]*\b/g
+
 /** The names of `candidates` the app's own files mention, as whole words. */
 function namesTheAppMentions(rootDir: string, candidates: readonly string[]): Set<string> {
   const found = new Set<string>()
   if (candidates.length === 0) return found
-  const pattern = new RegExp(`\\b(?:${candidates.join('|')})\\b`, 'g')
+  const wanted = new Set(candidates)
   for (const file of sourceFiles(rootDir)) {
     let text: string
     try {
@@ -62,7 +65,9 @@ function namesTheAppMentions(rootDir: string, candidates: readonly string[]): Se
     catch {
       continue
     }
-    for (const [name] of text.matchAll(pattern)) found.add(name)
+    for (const [name] of text.matchAll(IDENTIFIER)) {
+      if (wanted.has(name)) found.add(name)
+    }
     if (found.size === candidates.length) break
   }
   return found
