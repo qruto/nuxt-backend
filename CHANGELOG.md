@@ -1,5 +1,145 @@
 # Changelog
 
+## v0.3.0
+
+[compare changes](https://github.com/qruto/nuxt-backend/compare/v0.2.1...v0.3.0)
+
+### 🚀 Enhancements
+
+#### AI
+
+- Choose the AI gateway with setupAi({ gateway }) ([#193](https://github.com/qruto/nuxt-backend/pull/193))
+- Hear of every job's end with onJobEnd, and read and cancel jobs from app code ([#206](https://github.com/qruto/nuxt-backend/pull/206))
+- Charge a queued job for what it made, run one free, and read a cold balance at start ([#209](https://github.com/qruto/nuxt-backend/pull/209))
+- Draw with image models in job steps, route some models per gateway, and bound each step ([#210](https://github.com/qruto/nuxt-backend/pull/210))
+- Set a moderation policy, keep its flags, and list them in the admin console ([#211](https://github.com/qruto/nuxt-backend/pull/211))
+- Moderate with pluggable providers over shared categories, and record each decision ([#218](https://github.com/qruto/nuxt-backend/pull/218))
+
+#### Billing
+
+- Welcome credits, a not-launched state for production, and gift lengths on plans ([#203](https://github.com/qruto/nuxt-backend/pull/203))
+
+#### CLI
+
+- Billing resync, access admit, deploy --build package manager, upgrade workpool backfill ([#202](https://github.com/qruto/nuxt-backend/pull/202))
+- Doctor --prod reads billing's launch state, an uptime monitor and the AI gateway budget ([#214](https://github.com/qruto/nuxt-backend/pull/214))
+
+#### Email
+
+- Render notification emails through a notification template an app can switch by kind ([#215](https://github.com/qruto/nuxt-backend/pull/215))
+
+#### UI
+
+- Font, border and shadow tokens and one [data-backend] root ([#201](https://github.com/qruto/nuxt-backend/pull/201))
+- UseReportForm, useSignInAlerts, legal and DSA components, PWA manifest options ([#205](https://github.com/qruto/nuxt-backend/pull/205))
+
+#### Access
+
+- Member tickets, and the waitlist records the campaign source ([#207](https://github.com/qruto/nuxt-backend/pull/207))
+
+#### Base
+
+- Adopt nuxt-convex-module 0.14, load the auth client on first use, retry a failed upload ([#217](https://github.com/qruto/nuxt-backend/pull/217))
+
+#### Composables
+
+- Register useReferralInvite and useEmailLink, and read the invite on the server ([#182](https://github.com/qruto/nuxt-backend/pull/182))
+
+#### Data
+
+- Test kit helpers, file expiry, share-link hooks and scheduled retention ([#197](https://github.com/qruto/nuxt-backend/pull/197))
+
+#### Labels
+
+- Carry app config labels to emails and notifications as labels.generated.ts ([#221](https://github.com/qruto/nuxt-backend/pull/221))
+
+### 🩹 Fixes
+
+- Address the CodeRabbit findings left on the 0.3.0 pull requests ([#216](https://github.com/qruto/nuxt-backend/pull/216))
+
+#### AI
+
+- Give a budget back what a run did not spend ([#184](https://github.com/qruto/nuxt-backend/pull/184))
+
+#### Auth
+
+- Take @convex-dev/better-auth 0.12.7 ([#185](https://github.com/qruto/nuxt-backend/pull/185))
+- ⚠️  Move to Better Auth 1.7 and nuxt-convex-module 0.13 ([#188](https://github.com/qruto/nuxt-backend/pull/188))
+- ⚠️  Require passkey user verification and name a ban's end ([#198](https://github.com/qruto/nuxt-backend/pull/198))
+
+#### Billing
+
+- Pace billing resync under the provider's rate limit, say what doctor skipped ([#222](https://github.com/qruto/nuxt-backend/pull/222))
+- Attach missing plan benefits, require the org's currency, settle gifts on return ([#223](https://github.com/qruto/nuxt-backend/pull/223))
+
+#### Playground
+
+- Name the site's email languages, and document app config versus messages ([#224](https://github.com/qruto/nuxt-backend/pull/224))
+
+#### Security
+
+- Keep the limiter, the upgrade and HSTS off nuxt dev ([#180](https://github.com/qruto/nuxt-backend/pull/180))
+- Let other sites load og images and the logo, allow Content's WASM ([#199](https://github.com/qruto/nuxt-backend/pull/199))
+
+#### Labels
+
+- Warn in development when titleYours shadows an override ([#183](https://github.com/qruto/nuxt-backend/pull/183))
+
+#### Monitoring
+
+- Let the browser's error reports through connect-src ([#181](https://github.com/qruto/nuxt-backend/pull/181))
+- ⚠️  Send browser reports through Sentry's managed tunnel ([#200](https://github.com/qruto/nuxt-backend/pull/200))
+
+#### Scripts
+
+- Drop the reset steps that call functions 0.2.0 removed ([#220](https://github.com/qruto/nuxt-backend/pull/220))
+
+### 📖 Documentation
+
+- Describe built features as they are, drop the 0.2 preview upgrade notes ([#204](https://github.com/qruto/nuxt-backend/pull/204))
+
+#### Docs
+
+- Describe the code as it is, without 0.2.0 transition markers ([#192](https://github.com/qruto/nuxt-backend/pull/192))
+
+#### Upgrade
+
+- Add the passkey, ban and Better Auth 1.7 sections for 0.3 ([#226](https://github.com/qruto/nuxt-backend/pull/226))
+
+### 🏡 Chore
+
+#### Budgets
+
+- Re-measure the tarball after the 0.3.0 lanes merged so far ([#212](https://github.com/qruto/nuxt-backend/pull/212))
+
+#### Lint
+
+- Run local lint on one worker with a cache, keep CI uncached ([#208](https://github.com/qruto/nuxt-backend/pull/208))
+
+### 🤖 CI
+
+- Cache the Convex local backend, fetched through the GitHub API ([#194](https://github.com/qruto/nuxt-backend/pull/194))
+- Fall back to the CLI's download when the Convex backend archive is bad ([#196](https://github.com/qruto/nuxt-backend/pull/196))
+
+#### Website
+
+- Cut the Vercel build's billed minutes ([#219](https://github.com/qruto/nuxt-backend/pull/219))
+
+#### Deps
+
+- Bump the actions group across 1 directory with 2 updates ([#186](https://github.com/qruto/nuxt-backend/pull/186))
+- Bump step-security/harden-runner from 2.22.3 to 2.22.4 ([#195](https://github.com/qruto/nuxt-backend/pull/195))
+
+#### ⚠️ Breaking Changes
+
+- **Auth:** ⚠️  Move to Better Auth 1.7 and nuxt-convex-module 0.13 ([#188](https://github.com/qruto/nuxt-backend/pull/188))
+- **Auth:** ⚠️  Require passkey user verification and name a ban's end ([#198](https://github.com/qruto/nuxt-backend/pull/198))
+- **monitoring:** ⚠️  Send browser reports through Sentry's managed tunnel ([#200](https://github.com/qruto/nuxt-backend/pull/200))
+
+### ❤️ Contributors
+
+- Slava Razum ([@slavarazum](https://github.com/slavarazum))
+
 ## v0.2.1
 
 [compare changes](https://github.com/qruto/nuxt-backend/compare/v0.2.0...v0.2.1)
