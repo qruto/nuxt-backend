@@ -5,6 +5,11 @@ import { authClient } from '../../../src/runtime/vue/auth-client'
 // package's own Better Auth client (src/runtime/vue/auth-client.ts), which
 // talks to the test's server on the page's own origin.
 
+/** The base module's loader, as it resolves: the one client, already loaded here. */
+export async function loadAuthClient() {
+  return authClient
+}
+
 export function useBetterAuth() {
   const session = authClient.useSession()
   return {
