@@ -6,11 +6,10 @@
  * The tables come from the schemas themselves — the app's, the backend
  * component's, and the ones the Resend and Polar components ship — so a new
  * table is covered the day it is declared. Each is emptied with an empty
- * `convex import --replace`, Convex's own way to clear a table. What an import
- * cannot reach runs through the app's functions: the message aggregates
- * (`_clearAll:run`) and the stored uploads (`files:cleanupOrphanUploads`).
- * The visitors' counters live in the sharded counter component, whose one
- * table is emptied the same way.
+ * `convex import --replace`, Convex's own way to clear a table. Uploads are
+ * the backend component's (`setupStorage`): the `backend` scope empties their
+ * rows. The visitors' counters live in the sharded counter component, whose
+ * one table is emptied the same way.
  *
  * Usage:
  *   pnpm db:reset                          every scope, on the dev deployment
@@ -18,10 +17,10 @@
  *   pnpm db:reset --prod --yes backend     production — `--yes` is required
  *
  * Scopes:
- *   app      the website's own tables, its uploads, the message aggregates
- *            and the visitors' counters
+ *   app      the website's own tables and the visitors' counters
  *   backend  the backend component: accounts, sessions, workspaces, agent
- *            OAuth, the billing cache, gifts, AI requests, webhook log, inbox
+ *            OAuth, the billing cache, gifts, AI requests, uploads, webhook
+ *            log, inbox
  *   email    the email provider's component (sent emails and their events)
  *   polar    the billing provider's component (customers, products and
  *            subscriptions); refill products with `billing:syncProducts`
@@ -56,7 +55,7 @@ export async function resetPlan(scopes = Object.keys(SCOPES)) {
   const plan = []
   for (const scope of scopes) {
     const { component, schema, also = [] } = SCOPES[scope]
-    plan.push({ scope, component, tables: await tablesOf(schema), main: true })
+    plan.push({ scope, component, tables: await tablesOf(schema) })
     for (const extra of also) plan.push({ scope, component: extra.component, tables: await tablesOf(extra.schema) })
   }
   return plan
@@ -86,19 +85,10 @@ export function resetDeployment(plan, target, log = line => console.log(line)) {
   const empty = join(scratch, 'empty.jsonl')
   writeFileSync(empty, '')
   try {
-    for (const { scope, component, tables, main } of plan) {
+    for (const { component, tables } of plan) {
       const componentArgs = component ? ['--component', component] : []
       for (const table of tables) {
         step(`${component ?? 'app'}/${table}`, 'import', [...componentArgs, '--table', table, '--replace', '-y', empty])
-      }
-      if (scope === 'app' && main) {
-        step('app/message aggregates', 'run', ['_clearAll:run', '{}'])
-        // With the files table empty every stored upload is an orphan; a cutoff
-        // of now lets the sweep take all of them.
-        step('app/stored uploads', 'run', ['files:cleanupOrphanUploads', JSON.stringify({
-          paginationOpts: { numItems: 100, cursor: null },
-          cutoff: Date.now(),
-        })])
       }
     }
   }

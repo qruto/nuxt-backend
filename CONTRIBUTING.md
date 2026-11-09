@@ -159,8 +159,8 @@ key, for the deploy rule below. `env push --prod` / `doctor --prod` refuse a dev
 schemas themselves and clears each one with an empty `convex import --replace`. Pass scopes to
 narrow it:
 
-- `app`: the website's tables, uploads, message aggregates and counters.
-- `backend`: the backend component (accounts, sessions, workspaces, the billing cache, gifts).
+- `app`: the website's tables and counters.
+- `backend`: the backend component (accounts, sessions, workspaces, the billing cache, gifts, uploads).
 - `email`: the email provider's component.
 - `polar`: the billing provider's component. Refill its products with
   `npx convex run billing:syncProducts '{}'`.
