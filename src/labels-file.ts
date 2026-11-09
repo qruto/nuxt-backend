@@ -119,13 +119,15 @@ function binding(magicast: Magicast, scope: ModuleScope, name: string): { node: 
   return imported ? importedValue(magicast, scope, imported) : undefined
 }
 
-/** A property's key as text; `undefined` for a computed one. */
+/** Keys that would reach an object's prototype when written: never a label's. */
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+/** A property's key as text; `undefined` for a computed one, and for one that would reach the tree's prototype. */
 function keyName(entry: Node): string | undefined {
   if (entry.computed) return undefined
   const key = entry.key as Node
-  if (key.type === 'Identifier') return key.name as string
-  if (key.type === 'StringLiteral') return key.value as string
-  return undefined
+  const name = key.type === 'Identifier' ? key.name as string : key.type === 'StringLiteral' ? key.value as string : undefined
+  return name === undefined || UNSAFE_KEYS.has(name) ? undefined : name
 }
 
 /** What one entry of an object literal adds to the tree: a spread's labels, or one key's label or tree (an empty one adds nothing). */
@@ -179,10 +181,11 @@ export function labelsOfAppConfig(magicast: Magicast, text: string, file: string
   return read && typeof read === 'object' ? read : {}
 }
 
-/** `layer` under `into`, key by key: what `into` sets already stays, as Nuxt merges app config. */
+/** `layer` under `into`, key by key: what `into` sets already stays, as Nuxt merges app config. A key that would reach the prototype is skipped. */
 function mergeUnder(into: LabelTree, layer: LabelTree): void {
   for (const [key, value] of Object.entries(layer)) {
-    const own = into[key]
+    if (UNSAFE_KEYS.has(key)) continue
+    const own = Object.hasOwn(into, key) ? into[key] : undefined
     if (own === undefined) into[key] = typeof value === 'string' ? value : structuredClone(value)
     else if (typeof own === 'object' && typeof value === 'object') mergeUnder(own, value)
   }

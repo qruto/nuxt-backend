@@ -103,6 +103,25 @@ export default defineAppConfig({ backend: { labels: { auth: everything, gift: co
     expect(await appLabelsOf({ _layers: 'not a list' } as never)).toBeNull()
   })
 
+  it('reads no key that would reach a prototype, so app.config cannot pollute one', async () => {
+    const text = `export default defineAppConfig({
+  backend: {
+    labels: {
+      __proto__: { polluted: 'x' },
+      auth: { '__proto__': { polluted: 'y' }, constructor: 'x', prototype: 'y', title: 'Hi' },
+    },
+  },
+})`
+    const read = labelsOfAppConfig(magicast, text, join(dir, 'app.config.ts'))
+    expect(read).toEqual({ auth: { title: 'Hi' } })
+    expect(Object.getPrototypeOf(read)).toBe(Object.prototype)
+    writeFileSync(join(dir, 'app.config.ts'), text)
+    const merged = await readAppLabels([dir, dir])
+    expect(merged).toEqual({ auth: { title: 'Hi' } })
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+    expect(Object.getPrototypeOf(merged)).toBe(Object.prototype)
+  })
+
   it('reads nothing from a file that does not parse or sets no labels', () => {
     expect(labelsOfAppConfig(magicast, 'export default defineAppConfig({ ui: {} })', join(dir, 'app.config.ts'))).toEqual({})
     expect(labelsOfAppConfig(magicast, 'export default {', join(dir, 'app.config.ts'))).toEqual({})

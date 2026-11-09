@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -76,8 +76,8 @@ describe(`the ${UPGRADE_BASE} starter, after doctor --fix`, () => {
   })
 
   it('writes the labels app.config sets into labels.generated.ts, and goes back with them', async () => {
+    // The starter has no app.config of its own: this one comes and goes with the test.
     const config = join(dir, 'app/app.config.ts')
-    const before = existsSync(config) ? readFileSync(config, 'utf-8') : undefined
     mkdirSync(join(dir, 'app'), { recursive: true })
     writeFileSync(config, `export default defineAppConfig({ backend: { labels: { notifications: { strip_ready: { title: 'Your strip is ready' } } } } })\n`)
     try {
@@ -85,8 +85,7 @@ describe(`the ${UPGRADE_BASE} starter, after doctor --fix`, () => {
       expect(readFileSync(join(dir, 'backend/labels.generated.ts'), 'utf-8')).toBe(renderLabelsFile({ notifications: { strip_ready: { title: 'Your strip is ready' } } }))
     }
     finally {
-      if (before === undefined) rmSync(config)
-      else writeFileSync(config, before)
+      rmSync(config, { force: true })
     }
     expect((await repairProjectFiles(dir)).changes).toEqual(['backend/labels.generated.ts → the labels app.config sets'])
     expect(readFileSync(join(dir, 'backend/labels.generated.ts'), 'utf-8')).toBe(BACKEND_FILE_TEMPLATES['labels.generated.ts'])
