@@ -147,7 +147,7 @@ Test on Polar's sandbox, where every event is real and no money moves ([Develop 
 
 1. Buy a plan or a pack on `/pricing` with the test card `4242 4242 4242 4242`.
 2. Watch the delivery arrive in the delivery log: the admin console's Webhooks tab, or `getWebhookDeliveries` for administrators ([The delivery log](/docs/ship/security/webhooks#the-delivery-log)).
-3. To run a handler again, redeliver the event from the provider's webhook dashboard. In `0.2.0` the admin console [replays a delivery](/docs/ship/operate/replay) too.
+3. To run a handler again, redeliver the event from the provider's webhook dashboard. The admin console [replays a delivery](/docs/ship/operate/replay) too.
 
 Polar's webhooks need a URL they can reach. A cloud dev deployment has one. A local deployment does not: there the return from checkout refreshes the entitlements once, and your handlers run only when a tunnel forwards the deliveries (`npx nuxt-backend billing sync --webhook https://your-tunnel-host/billing/events`).
 
