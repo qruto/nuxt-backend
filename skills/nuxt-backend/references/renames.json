@@ -34,6 +34,14 @@
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#the-upload-field-retries-a-failure-and-prepares-a-file-before-it-uploads"
     },
     {
+      "from": "ai.moderate",
+      "to": "ai.moderate",
+      "change": "reshaped",
+      "section": "Moderation verdicts name shared categories",
+      "note": "`categories` names shared categories (`sexual`, `hate`); the classifier's codes (`S12`) moved to `codes`, beside `scores` and `providers`; `block` and `escalate` take either",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#moderation-verdicts-name-shared-categories"
+    },
+    {
       "from": "`unavailable` (reason `not_configured`) from a production checkout",
       "to": "`unavailable` (reason `not_launched`)",
       "change": "reshaped",
@@ -54,7 +62,7 @@
       "to": "credits: { meter, units, once: true }",
       "change": "reshaped",
       "section": "A production checkout waits for billing to launch, and welcome credits come from the catalog",
-      "note": "welcome credits on the free plan, granted once after the reverse trial; drop the hand-rolled grant",
+      "note": "welcome credits on the free plan, granted once per person on the first start, as soon as the reverse trial begins; drop the hand-rolled grant",
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-production-checkout-waits-for-billing-to-launch-and-welcome-credits-come-from-the-catalog"
     },
     {

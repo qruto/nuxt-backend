@@ -102,7 +102,7 @@ export const CAPABILITIES = {
       { name: 'Polar', gives: 'the credit meters each call spends' },
     ],
     development: 'the models themselves, through the Convex AI Gateway or a Vercel AI Gateway key, and credits from the billing sandbox',
-    env: ['AI_GATEWAY_API_KEY', 'PROVENANCE_PRIVATE_KEY', 'PROVENANCE_CERTIFICATE'],
+    env: ['AI_GATEWAY_API_KEY', 'PROVENANCE_PRIVATE_KEY', 'PROVENANCE_CERTIFICATE', 'CONTENT_SAFETY_ENDPOINT', 'CONTENT_SAFETY_KEY', 'SECOND_OPINION_KEY', 'KNOWN_ABUSE_KEY'],
     findings: ['ai'],
     docs: '/docs/build/ai',
     devtools: 'billing',

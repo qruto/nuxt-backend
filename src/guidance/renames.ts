@@ -59,6 +59,7 @@ export function sectionUrl(section: string): string {
 
 const LAZY_AUTH = 'The Better Auth client loads on first use, and a failed server call names its function'
 const UPLOAD_RETRY = 'The upload field retries a failure, and prepares a file before it uploads'
+const SHARED_CATEGORIES = 'Moderation verdicts name shared categories'
 const LAUNCH = 'A production checkout waits for billing to launch, and welcome credits come from the catalog'
 const STEP_TIMEOUT = 'A job step stops its model calls at its timeout'
 const MEMBER_TICKETS = 'Members bring friends with a ticket of their own, and the waitlist records the campaign'
@@ -79,10 +80,12 @@ export const RENAMES: readonly Rename[] = [
   // 0.3: the upload field runs on the upload queue, retries a failure and prepares a file.
   { from: 'useUploadField', to: 'useUploadField({ claim, prepare })', change: 'reshaped', section: UPLOAD_RETRY, note: 'returns retry and bind.retry; a failure ends in error with Try again, a refusal in refused, and the error slot adds refused and retry' },
 
+  // A verdict's categories are the shared ones; the classifier's codes moved to `codes`.
+  { from: 'ai.moderate', to: 'ai.moderate', change: 'reshaped', section: SHARED_CATEGORIES, note: '`categories` names shared categories (`sexual`, `hate`); the classifier\'s codes (`S12`) moved to `codes`, beside `scores` and `providers`; `block` and `escalate` take either' },
   // 0.3: billing before it launches, and welcome credits.
   { from: '`unavailable` (reason `not_configured`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'only a sale on a production deployment with no token or no production catalog; every other refusal keeps `not_configured`' },
   { from: '`not_ready` (reason `no_catalog`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog`' },
-  { from: 'billing.refundCredits in onUserCreated', to: 'credits: { meter, units, once: true }', change: 'reshaped', section: LAUNCH, note: 'welcome credits on the free plan, granted once after the reverse trial; drop the hand-rolled grant' },
+  { from: 'billing.refundCredits in onUserCreated', to: 'credits: { meter, units, once: true }', change: 'reshaped', section: LAUNCH, note: 'welcome credits on the free plan, granted once per person on the first start, as soon as the reverse trial begins; drop the hand-rolled grant' },
 
   // A job step aborts its model calls at its timeout, 3 minutes by default.
   { from: 'jobs.step', to: 'jobs.step', change: 'reshaped', section: STEP_TIMEOUT, note: 'a step aborts its model calls at `timeout`, by default 3 minutes or 80% of `stallAfter`; set `timeout` for a longer step, below `stallAfter`' },

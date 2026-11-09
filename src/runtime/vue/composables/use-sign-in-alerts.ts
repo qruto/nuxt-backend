@@ -82,7 +82,7 @@ const keyOf = (alert: SignInAlert) => `${alert.at}:${alert.sessionId ?? ''}`
  * </script>
  * <template>
  *   <ul v-bind="signIns.bind.root.value">
- *     <li v-for="alert in signIns.alerts.value" :key="alert.at" v-bind="signIns.bind.alert(alert)">
+ *     <li v-for="alert in signIns.alerts.value" :key="`${alert.at}:${alert.sessionId ?? ''}`" v-bind="signIns.bind.alert(alert)">
  *       {{ signIns.sentence(alert) }}
  *       <button v-if="signIns.canSignOut(alert)" v-bind="signIns.bind.signOut(alert)">{{ t('alertSignOut') }}</button>
  *     </li>

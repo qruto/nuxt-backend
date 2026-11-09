@@ -295,6 +295,7 @@ function landing(input: InputRule | undefined) {
 const ARGS: Record<string, (owned: Owned, input?: InputRule) => Record<string, unknown>> = {
   'admin:listUsers': () => ({ paginationOpts: { numItems: 10, cursor: null } }),
   'ai:listModerationFlags': () => ({ paginationOpts: { numItems: 10, cursor: null } }),
+  'ai:getModerationStatement': owned => ({ flagId: owned.optIn!.flagId }),
   'admin:getUser': owned => ({ userId: owned.userId }),
   'admin:listWorkspaces': () => ({ paginationOpts: { numItems: 10, cursor: null } }),
   'admin:getWorkspace': owned => ({ workspaceId: owned.workspaceId }),
@@ -635,6 +636,8 @@ interface OptInOwned {
   waitlistToken: string
   /** The principal's referral code. */
   referralCode: string
+  /** A moderation decision about the principal's upload. */
+  flagId: string
 }
 
 const PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), char => char.charCodeAt(0))
@@ -748,7 +751,7 @@ const internalRef = (path: string) => makeFunctionReference<'mutation'>(path) as
 
 /** The principal's things the opt-in functions act on. */
 async function seedOptIn(t: App, principal: TestUser, owned: Owned): Promise<Owned> {
-  const { reports, storage, waitlist, referrals } = components.backend!
+  const { reports, storage, waitlist, referrals, moderation } = components.backend!
   const [stripId, hiddenId, appealedId] = await Promise.all([0, 1, 2].map(() => run<string>(t, internalRef('probe:seedStrip'), { authorId: principal.userId })))
   const subject = (id: string) => ({ table: 'strips', id })
   for (const id of [stripId!, hiddenId!, appealedId!]) await run(t, reports!.fileReport!, { subject: subject(id), reporterId: 'reporter_probe', reason: 'abuse' })
@@ -762,7 +765,9 @@ async function seedOptIn(t: App, principal: TestUser, owned: Owned): Promise<Own
   await run(t, waitlist!.stage!, { email: 'waiting@example.com', key: 'join_probe', source: 'form' })
   const waitlistToken = await run<string>(t, internalRef('probe:seedEntry'), { email: 'waiting@example.com', join: 'join_probe' })
   const { code: referralCode } = await run<{ code: string }>(t, referrals!.codeFor!, { userId: principal.userId })
-  return { ...owned, optIn: { stripId: stripId!, storageId, appealToken: APPEAL_TOKEN, appealId: rows.appeals[0]!.id, waitlistToken, referralCode } }
+  await run(t, moderation!.record!, { userId: principal.userId, stage: 'upload', categories: ['sexual'], blocked: true, escalate: false, model: 'azure-content-safety', providers: ['azure-content-safety'], automated: true, days: 90 })
+  const flags = await t.query(moderation!.list! as unknown as FunctionReference<'query', 'internal'>, { paginationOpts: { numItems: 1, cursor: null } }) as { page: Array<{ id: string }> }
+  return { ...owned, optIn: { stripId: stripId!, storageId, appealToken: APPEAL_TOKEN, appealId: rows.appeals[0]!.id, waitlistToken, referralCode, flagId: flags.page[0]!.id } }
 }
 
 const OPT_IN_SURFACE: Surface = { app: optInApp, functions: optInFunctions, seed: seedOptIn }

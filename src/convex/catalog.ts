@@ -202,7 +202,8 @@ export interface CatalogPlanCreditGrant extends Omit<CatalogCreditGrant, 'units'
    * Grant the credits once, as welcome credits, instead of every cycle:
    * the free plan's alone. Each person gets `units` (a whole number) once,
    * when the first billing entity they own first starts on the free plan,
-   * after the reverse trial if the catalog has one, and never again: not for
+   * as soon as the reverse trial begins if the catalog has one (not when it
+   * ends), and never again: not for
    * a second workspace, an account made again with their address, a retry
    * or a concurrent start. The person is the owner's address, tags and dots
    * taken out, kept as a hash, as the reverse trial counts it. `billing sync` pushes no credit benefit for them: they land

@@ -39,6 +39,7 @@ let failNext = false
 const notifications = setupNotifications(components as never, {
   email: {
     compose: email.compose,
+    render: email.render,
     send: email.send,
     preferences: {
       caps: email.preferences.caps,

@@ -107,7 +107,7 @@ allowance, and the yearly product grants twelve times it once a year;
 | <a id="meter-1"></a> `meter` | `string` | The catalog meter key the credits land on. | [`CatalogCreditGrant`](#catalogcreditgrant).[`meter`](#meter) | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="rollover-1"></a> `rollover?` | `boolean` | Carry unused credits into the next cycle. Defaults to `false` for plan grants (use-it-or-lose-it monthly allowances) and `true` for packs (purchased credits keep). | [`CatalogCreditGrant`](#catalogcreditgrant).[`rollover`](#rollover) | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 | <a id="units-1"></a> `units` | \| `number` \| `Partial`\<`Record`\<[`CatalogInterval`](#cataloginterval), `number`\>\> | - | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
-| <a id="once"></a> `once?` | `boolean` | Grant the credits once, as welcome credits, instead of every cycle: the free plan's alone. Each person gets `units` (a whole number) once, when the first billing entity they own first starts on the free plan, after the reverse trial if the catalog has one, and never again: not for a second workspace, an account made again with their address, a retry or a concurrent start. The person is the owner's address, tags and dots taken out, kept as a hash, as the reverse trial counts it. `billing sync` pushes no credit benefit for them: they land as a refund-shaped usage event on a sum meter (`meter` needs a `property`), keyed `welcome:<entityId>`. | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
+| <a id="once"></a> `once?` | `boolean` | Grant the credits once, as welcome credits, instead of every cycle: the free plan's alone. Each person gets `units` (a whole number) once, when the first billing entity they own first starts on the free plan, as soon as the reverse trial begins if the catalog has one (not when it ends), and never again: not for a second workspace, an account made again with their address, a retry or a concurrent start. The person is the owner's address, tags and dots taken out, kept as a hash, as the reverse trial counts it. `billing sync` pushes no credit benefit for them: they land as a refund-shaped usage event on a sum meter (`meter` needs a `property`), keyed `welcome:<entityId>`. | - | [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/catalog.ts) |
 
 ***
 
@@ -2357,7 +2357,7 @@ What billing sends its email through: the app's `setupEmail` instance.
 
 | Name | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| `preferences?` | `Pick`\<[`Email`](/docs/reference/api/email#email-23)\[`"preferences"`\], `"softOptIn"` \| `"topics"`\> | The soft opt-in a paid checkout joins its customer to (`setupEmail({ topics: { <key>: { softOptIn: true } } })`). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| `preferences?` | `Pick`\<[`Email`](/docs/reference/api/email#email-24)\[`"preferences"`\], `"softOptIn"` \| `"topics"`\> | The soft opt-in a paid checkout joins its customer to (`setupEmail({ topics: { <key>: { softOptIn: true } } })`). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 
 ***
 

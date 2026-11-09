@@ -586,6 +586,7 @@
         "blocked": "Bloqué",
         "passed": "Laissé passer",
         "escalatedMark": "Escaladé",
+        "knownAbuseMark": "Abus connu : suivre la procédure CSAM",
         "nobody": "Personne n’était connecté",
         "newer": "Plus récents",
         "older": "Plus anciens"
@@ -1823,7 +1824,7 @@
         },
         "welcomeCredits": {
           "holds": "Une empreinte (SHA-256) de l’adresse à laquelle sont allés les crédits de bienvenue, sa partie locale sans étiquettes ni points, et l’entité de facturation qui les a reçus : jamais l’adresse.",
-          "kept": "Tant que l’app accorde des crédits de bienvenue, pour qu’ils restent une fois par personne."
+          "kept": "Sans expiration : elle reste après un effacement, et aussi quand l’app cesse d’accorder des crédits de bienvenue, pour qu’ils restent une fois par personne."
         },
         "billingProofs": {
           "holds": "La preuve du consentement à un abonnement renouvelable (le forfait, le prix et la périodicité affichés, la version des conditions, quand et par qui) et de chaque rétractation dans l’UE : quand et par qui.",
@@ -2580,7 +2581,7 @@
       "unavailable_stalled": "Cette tâche a cessé de répondre. Vos crédits ont été remboursés.",
       "unavailable_job_failed": "Cette tâche a échoué. Vos crédits ont été remboursés.",
       "unavailable_unexpected": "Une erreur s’est produite.",
-      "invalid_input_reason": "Choisissez un motif.",
+      "invalid_input_reason": "Indiquez un motif.",
       "invalid_input_goodFaith": "Confirmez que votre signalement est exact et fait de bonne foi."
     },
     "email": {
