@@ -2,46 +2,48 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// The upgrade fixture. templates/starter as an earlier release shipped it,
-// a committed snapshot that scripts/upgrade-fixture.mjs writes from git
-// history (no network, no history needed at test time): the unit test
-// asserts what `doctor --fix` adds to it, the e2e test also typechecks and
-// builds the result.
+// The upgrade fixture. templates/starter as the last release shipped it, a
+// committed snapshot that scripts/upgrade-fixture.mjs writes from git history
+// (no network, no history needed at test time): the unit test asserts what
+// `doctor --fix` adds to it, the e2e test also typechecks and builds the
+// result. The repair machinery itself (test/unit/cli-upgrade.test.ts) runs on
+// a drifted copy of it instead, {@link checkoutDriftedStarter}, so it has
+// something to repair whatever the snapshot lacks.
 
 /**
  * The snapshot the fixture upgrades from, by its label under
- * test/fixtures/upgrade/: C9b's starter, the last scaffold before
- * maintenance (F3). At each release, write the last published starter
- * there (`node scripts/upgrade-fixture.mjs <tag> <label>`), point this at
- * it, and empty {@link ADDED_SINCE_BASE}.
+ * test/fixtures/upgrade/: the starter 0.3.0 shipped. At each release, write
+ * the starter it shipped there (`node scripts/upgrade-fixture.mjs <tag>
+ * <version>`), point this at it, empty {@link ADDED_SINCE_BASE} and delete
+ * the old snapshot.
  */
-export const UPGRADE_BASE = 'c9b'
+export const UPGRADE_BASE = '0.3.0'
 
 /**
  * What the scaffold gained after {@link UPGRADE_BASE}, which the repair must
  * add to the old starter: backend files, `convex.config.ts` mounts (by
  * component name) and forwarded env names, and `registerBackendRoutes` route
- * groups in `http.ts`.
- * Two changes are not additions. DEFER dropped the agent token exchange (`mcp`)
- * from `auth.ts` and `http.ts`, and ENV dropped the forwarded `EMAIL_TEST_MODE`
- * from `convex.config.ts`: the repair does not rewrite an app's code (it names a
- * stale forward in the `convex-config` finding instead), so the snapshot's
- * three files were edited by hand to match. SIMPLIFY slimmed the scaffold: its
- * empty aggregates.ts, migrations.ts, search.ts and crons.ts went, with the
- * action cache, aggregate and migrations mounts, and functions.ts, billing.ts,
- * email.ts, auth.ts and ai.ts moved off the subpaths and bags it removed, so
- * the snapshot lost those files and mounts and took today's five by hand.
- * Every later PR that changes the scaffold adds its own here.
+ * groups in `http.ts`. A change that is not an addition (a file, mount or
+ * forward the scaffold drops) is edited into the snapshot by hand instead:
+ * the repair does not rewrite an app's code. Every PR that changes the
+ * scaffold adds its own here.
  */
 export const ADDED_SINCE_BASE = {
-  /** F4a: audit.ts, the activity trail's setupAudit and its reads. F7: admin.ts, the admin console's setupAdmin and its reads. FLAGS: flags.ts, setupFlags with the app's flags and its reads. NOTIFY: notifications.ts, setupNotifications and the reads and writes of the in-app inbox (audit.ts passes it to setupAudit). F8: account.ts, setupAccount with the export and the providers' part of an erasure. OPS1: webhooks.ts, setupWebhooks with the delivery log and its replay. SETUP: paths.generated.ts, the paths nuxt.config declares, which the module writes. PREFS: brand.generated.ts, the brand app.config declares. LABELS: labels.generated.ts, the labels app.config sets. */
-  files: ['audit.ts', 'notifications.ts', 'account.ts', 'admin.ts', 'webhooks.ts', 'flags.ts', 'paths.generated.ts', 'brand.generated.ts', 'labels.generated.ts'],
-  /** F14: the sharded counter and workpool components. */
-  mounts: ['shardedCounter', 'workpool'],
+  files: [] as string[],
+  mounts: [] as string[],
   routes: [] as string[],
-  /** MON: the monitoring DSN, forwarded to the backend component for its cron's check-ins. ENV: the deployment's kind, which email's test mode and the cron's environment read. */
-  forwards: ['BACKEND_ENVIRONMENT', 'MONITORING_DSN'],
+  forwards: [] as string[],
 }
+
+/**
+ * What {@link checkoutDriftedStarter} takes out of the {@link UPGRADE_BASE}
+ * starter, so the repair has one of each kind to put back: a backend file,
+ * a mount (its import and its `app.use`) and a forwarded env name of
+ * `convex.config.ts`. Not a list to keep up: a scaffold change touches it
+ * only when it drops one of these three, and then the checkout throws and
+ * names it.
+ */
+export const DRIFT = { file: 'flags.ts', mount: 'workpool', forward: 'MONITORING_DSN' } as const
 
 /** Write a fixture's files into a new directory under `parent` and return it. */
 function checkout(parent: string, fixture: string): string {
@@ -58,6 +60,29 @@ function checkout(parent: string, fixture: string): string {
 /** Write the {@link UPGRADE_BASE} starter into a new directory under `parent` and return it. */
 export function checkoutBaseStarter(parent: string): string {
   return checkout(parent, `${UPGRADE_BASE}/starter.json`)
+}
+
+/**
+ * Write the {@link UPGRADE_BASE} starter into a new directory under `parent`,
+ * {@link DRIFT} taken out, and return it: an older starter with known drift,
+ * for the tests of the repair machinery (diffs, dry runs, links, a functions
+ * directory outside the app).
+ */
+export function checkoutDriftedStarter(parent: string): string {
+  const dir = checkoutBaseStarter(parent)
+  rmSync(join(dir, 'backend', DRIFT.file))
+  const config = join(dir, 'backend/convex.config.ts')
+  let source = readFileSync(config, 'utf-8')
+  for (const line of [
+    `import ${DRIFT.mount} from '@convex-dev/${DRIFT.mount}/convex.config'\n`,
+    `app.use(${DRIFT.mount})\n`,
+    `    ${DRIFT.forward}: app.env.${DRIFT.forward},\n`,
+  ]) {
+    if (!source.includes(line)) throw new Error(`The ${UPGRADE_BASE} starter's convex.config.ts has no ${JSON.stringify(line)}: pick another DRIFT in test/helpers/upgrade-fixture.ts.`)
+    source = source.replace(line, '')
+  }
+  writeFileSync(config, source)
+  return dir
 }
 
 /** Remove a fixture directory. */

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -12,10 +12,7 @@ import { prepareExampleApp, type PreparedExampleApp } from './helpers/example-ap
 // The upgrade fixture, built: the starter as it shipped at UPGRADE_BASE,
 // repaired by `doctor --fix`, must typecheck and build against this
 // checkout. test/unit/upgrade-fixture.test.ts asserts what the repair adds;
-// this proves the result is an app, once the one edit the 0.2 Upgrade page
-// left to the reader is made (`billing.api` no longer has
-// `getWebhookDeliveries`: it lives in backend/webhooks.ts, which the repair
-// writes). In the e2e project because the build
+// this proves the result is an app. In the e2e project because the build
 // takes about ten seconds.
 //
 // The fixture lives under the repository's .tmp/ (gitignored), so the app
@@ -57,8 +54,6 @@ let app: PreparedExampleApp | undefined
 beforeAll(async () => {
   dir = checkoutBaseStarter(join(repoDir, '.tmp'))
   await repairProjectFiles(dir)
-  const billing = join(dir, 'backend/billing.ts')
-  writeFileSync(billing, readFileSync(billing, 'utf8').replace(', getWebhookDeliveries,\n} = billing.api', ',\n} = billing.api'))
   app = prepareExampleApp(dir)
   // The offline codegen (`--system-udfs`) writes no `components`, which only
   // a deployment's analysis of convex.config.ts can: declare the mounts the

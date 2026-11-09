@@ -11,10 +11,11 @@
  * or scanned as code of this repository.
  *
  * Refresh it at each release, from the starter the last published version
- * shipped (its release tag), and empty ADDED_SINCE_BASE then:
+ * shipped (its release tag), point UPGRADE_BASE at it, empty ADDED_SINCE_BASE
+ * and delete the old snapshot:
  *
  *   node scripts/upgrade-fixture.mjs <ref> <label>
- *   node scripts/upgrade-fixture.mjs v0.2.0 0.2.0
+ *   node scripts/upgrade-fixture.mjs v0.3.0 0.3.0
  */
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'

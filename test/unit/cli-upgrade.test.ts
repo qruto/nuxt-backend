@@ -10,10 +10,12 @@ import { migrateData } from '../../src/cli/upgrade/data'
 import { backfillPools, POOL_BACKFILL } from '../../src/cli/upgrade/pools'
 import { ConvexCliError, runConvex } from '../../src/convex-cli'
 import { PACKAGE_MIGRATIONS, type PackageMigrationStatus } from '../../src/convex/package-migrations'
-import { ADDED_SINCE_BASE, checkoutBaseStarter, removeFixture } from '../helpers/upgrade-fixture'
+import { checkoutBaseStarter, checkoutDriftedStarter, DRIFT, removeFixture } from '../helpers/upgrade-fixture'
 
 // `nuxt-backend upgrade` on the upgrade fixture (test/fixtures/upgrade/): the
-// starter as an earlier release shipped it. It repairs the scaffold and runs
+// starter as the last release shipped it, with a file, a mount and a
+// forwarded env name taken out (DRIFT) where the scaffold's repair is under
+// test, so there is always something to repair. It repairs the scaffold and runs
 // the package's data migrations, and rewrites none of the app's code. A dry
 // run shows each scaffold change as a diff and writes nothing, the run writes
 // what the dry run showed, and a second run changes nothing. The deployment
@@ -87,13 +89,12 @@ function deployment(...answers: Array<PackageMigrationStatus[] | Error>) {
   }
 }
 
-describe('the starter an earlier release shipped', () => {
+describe('a starter that lacks what the scaffold has', () => {
   beforeEach(() => {
-    dir = checkoutBaseStarter(parent)
+    dir = checkoutDriftedStarter(parent)
   })
 
-  it('gains what the scaffold added since, rewrites none of the app\'s code, and then does nothing', async () => {
-    // The starter's pages still use names the previews of `main` renamed: the command leaves them to their author.
+  it('gains what it lacks, rewrites none of the app\'s code, and then does nothing', async () => {
     const before = snapshot()
     const report = await upgradeJson()
     expect(Object.keys(report).sort()).toEqual(['data', 'dryRun', 'ejected', 'next', 'pools', 'scaffold', 'to'])
@@ -102,11 +103,12 @@ describe('the starter an earlier release shipped', () => {
     const after = snapshot()
     expect(Object.keys(after).filter(path => !path.startsWith('backend/') && after[path] !== before[path])).toEqual([])
     expect(readFileSync(join(dir, 'app/pages/index.vue'), 'utf-8')).toBe(before['app/pages/index.vue'])
-    expect(report.scaffold.written).toEqual(ADDED_SINCE_BASE.files.map(file => `backend/${file}`))
+    expect(report.scaffold.written).toEqual([`backend/${DRIFT.file}`])
     expect(report.scaffold.changes).toEqual([
-      `backend/convex.config.ts: mounted ${ADDED_SINCE_BASE.mounts.join(', ')}`,
-      `backend/convex.config.ts: forwarded ${ADDED_SINCE_BASE.forwards.join(', ')}`,
+      `backend/convex.config.ts: mounted ${DRIFT.mount}`,
+      `backend/convex.config.ts: forwarded ${DRIFT.forward}`,
     ])
+    for (const file of [DRIFT.file, 'convex.config.ts']) expect(after[`backend/${file}`], `backend/${file}`).toBe(readFileSync(join(__dirname, '../../templates/starter/backend', file), 'utf-8'))
     expect((await upgradeJson()).scaffold).toEqual({ written: [], changes: [] })
   })
 
@@ -136,7 +138,7 @@ describe('the starter an earlier release shipped', () => {
     try {
       const before = snapshot(functions)
       const report = await upgradeJson('--dry-run')
-      expect(report.scaffold.written).toEqual(ADDED_SINCE_BASE.files.map(file => `../${name}/${file}`))
+      expect(report.scaffold.written).toEqual([`../${name}/${DRIFT.file}`])
       expect(snapshot(functions)).toEqual(before)
       // Before the fix, the scratch copy's `../<name>` was a folder of the temporary directory itself.
       expect(existsSync(join(tmpdir(), name))).toBe(false)
@@ -150,8 +152,15 @@ describe('the starter an earlier release shipped', () => {
     const before = snapshot()
     const report = await upgradeJson('--dry-run')
     expect(snapshot()).toEqual(before)
-    expect(report.scaffold.written).toEqual(ADDED_SINCE_BASE.files.map(file => `backend/${file}`))
-    expect(report.scaffold.diffs).toEqual([expect.stringMatching(/^--- a\/backend\/convex\.config\.ts\n[\s\S]*\n\+import workpool from '@convex-dev\/workpool\/convex\.config'\n/)])
+    expect(report.scaffold.written).toEqual([`backend/${DRIFT.file}`])
+    expect(report.scaffold.diffs).toHaveLength(1)
+    const [diff = ''] = report.scaffold.diffs ?? []
+    expect(diff).toMatch(/^--- a\/backend\/convex\.config\.ts\n/)
+    expect(diff.split('\n').filter(line => /^[+-](?![+-]{2} )/.test(line))).toEqual([
+      `+import ${DRIFT.mount} from '@convex-dev/${DRIFT.mount}/convex.config'`,
+      `+    ${DRIFT.forward}: app.env.${DRIFT.forward},`,
+      `+app.use(${DRIFT.mount})`,
+    ])
   })
 })
 
