@@ -89,6 +89,8 @@ const ERROR_LABELS = {
   invalid_input_unsupported_type: 'That type of file isn\'t accepted. Pick another one.',
   invalid_input_upload_gone: 'That upload is gone. Upload the file again.',
   invalid_input_upload_claimed: 'That upload was already used. Upload the file again.',
+  // A photo the browser could not open to prepare it (preparePhoto).
+  invalid_input_unreadable: 'This photo won\'t open here. Try a JPEG or PNG.',
   // An appeal of a decision on reported content that the decision no longer takes.
   invalid_input_appeal_expired: 'This decision can no longer be appealed.',
   invalid_input_appealed_already: 'This decision was appealed already.',

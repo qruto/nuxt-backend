@@ -707,6 +707,7 @@
         "stripImageMetadata"
       ],
       "types": [
+        "AcceptUploadOptions",
         "EnabledShareLink",
         "FileOwner",
         "MintedShareLink",
@@ -722,7 +723,8 @@
         "StorageQuota",
         "StorageReadCtx",
         "StorageWriteCtx",
-        "StoredFile"
+        "StoredFile",
+        "UploadSafety"
       ]
     },
     "nuxt-backend/notifications": {
@@ -861,7 +863,10 @@
   },
   "autoImports": {
     "composables": [
+      "PhotoPrepError",
       "getBackendError",
+      "isPhotoFile",
+      "preparePhoto",
       "useAccessAdmin",
       "useAccessPhase",
       "useAccount",

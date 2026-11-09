@@ -737,6 +737,7 @@
   "errors.invalid_input_unsupported_type": [],
   "errors.invalid_input_upload_gone": [],
   "errors.invalid_input_upload_claimed": [],
+  "errors.invalid_input_unreadable": [],
   "errors.not_ready": [],
   "errors.not_ready_no_customer": [],
   "errors.not_ready_no_catalog": [],

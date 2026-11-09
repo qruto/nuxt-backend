@@ -2560,6 +2560,7 @@
       "invalid_input_unsupported_type": "Ce type de fichier n’est pas accepté. Choisissez-en un autre.",
       "invalid_input_upload_gone": "Ce téléversement n’existe plus. Téléversez à nouveau le fichier.",
       "invalid_input_upload_claimed": "Ce téléversement a déjà été utilisé. Téléversez à nouveau le fichier.",
+      "invalid_input_unreadable": "Cette photo ne s’ouvre pas ici. Essayez un JPEG ou un PNG.",
       "invalid_input_appeal_expired": "Cette décision ne peut plus faire l’objet d’un recours.",
       "invalid_input_appealed_already": "Un recours a déjà été formé contre cette décision.",
       "invalid_input_removed_copy": "Ce fichier a été retiré de l’application et ne peut pas être téléversé à nouveau.",

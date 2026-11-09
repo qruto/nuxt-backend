@@ -2560,6 +2560,7 @@
       "invalid_input_unsupported_type": "Ese tipo de archivo no se admite. Elige otro.",
       "invalid_input_upload_gone": "Esa subida ya no existe. Vuelve a subir el archivo.",
       "invalid_input_upload_claimed": "Esa subida ya se usó. Vuelve a subir el archivo.",
+      "invalid_input_unreadable": "Esta foto no se abre aquí. Prueba con un JPEG o un PNG.",
       "invalid_input_appeal_expired": "Esta decisión ya no se puede recurrir.",
       "invalid_input_appealed_already": "Esta decisión ya se recurrió.",
       "invalid_input_removed_copy": "Este archivo se retiró de la app y no se puede volver a subir.",

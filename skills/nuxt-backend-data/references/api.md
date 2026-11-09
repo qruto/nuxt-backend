@@ -18,6 +18,9 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `useWorkflowStatus()` | Reactively track a durable Workflow's status. |
 | `useShareLink()` | One row's share link: whether it has a live one and since when, read live, and the actions that turn it on (or mint a new one) and off, through `getShareLink`, `enableShareLink` and `revokeShareLink` of `backend/storage.ts`. |
 | `useUploadField()` | The upload field without its markup: pick a file (by the button or by dropping it), run your `prepare` on it, upload it with the base module's `useUploadQueue` through the upload URL `setupStorage` mints, then hand the storage id to your `claim`, where the deployment checks it. |
+| `preparePhoto()` | Make one photo ready to send, in the browser: decoded (a HEIC through `heic-to` when this browser can't open it, loaded only then), turned upright by its EXIF orientation, scaled down to `longEdge`, and re-encoded as `type` (JPEG by default) on a canvas, which keeps the pixels and drops every metadata tag, GPS included. |
+| `isPhotoFile()` | Whether a file picked, dropped or pasted is worth preparing as a photo: an image type, or a HEIC the device left untyped. |
+| `PhotoPrepError()` | A photo `preparePhoto` could not make ready, as the refusal it is: `invalid_input` on `file`, with `reason`. |
 
 ## Components
 
@@ -77,4 +80,4 @@ Types: `WorkflowId`, `WorkflowStatus`, `WorkflowComponents`, `EmailSequenceStep`
 | `sniffContentType()` | The type a file is, read from its signature (its first bytes), or `null` for one the package does not recognise. |
 | `stripImageMetadata()` | An image's bytes without its EXIF, XMP, IPTC and GPS data, its container rewritten and its pixels untouched, so quality is unchanged: JPEG, PNG and WebP. |
 
-Types: `FileOwner`, `StoredFile`, `ResolvedShareLink`, `ShareLinkState`, `MintedShareLink`, `StorageApi`, `StorageReadCtx`, `StorageWriteCtx`, `ShareCtx`, `ShareMutationCtx`, `EnabledShareLink`, `ShareableOptions`, `StorageQuota`, `SetupStorageOptions`, `Storage`, `StorageComponents`.
+Types: `FileOwner`, `StoredFile`, `ResolvedShareLink`, `ShareLinkState`, `MintedShareLink`, `StorageApi`, `StorageReadCtx`, `StorageWriteCtx`, `ShareCtx`, `ShareMutationCtx`, `EnabledShareLink`, `ShareableOptions`, `UploadSafety`, `AcceptUploadOptions`, `StorageQuota`, `SetupStorageOptions`, `Storage`, `StorageComponents`.

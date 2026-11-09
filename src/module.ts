@@ -22,6 +22,7 @@ import { registerPathsFile } from './nuxt/paths'
 import { hideBaseBrandNames, registerBackendApi, registerBaseComponentAliases, registerPageAccess, registerSaasComposables } from './nuxt/registry'
 import { imageDependency } from './nuxt/image'
 import { registerStyles } from './nuxt/styles'
+import { registerPhotoDecoder } from './nuxt/photos'
 import { registerProtection } from './nuxt/protection'
 import { registerSecurityRules, securityDefaults, securityDisabled } from './nuxt/security'
 
@@ -307,6 +308,8 @@ export default defineNuxtModule<ModuleOptions>({
 
     // After the pages: it adds to the public runtime config they publish.
     registerProtection(resolver, nuxt)
+    // preparePhoto's HEIC decoder, an optional peer: a stand-in when the app has none.
+    registerPhotoDecoder(resolver, nuxt)
     // Error reports, cron check-ins and the health route (the monitoring layer).
     registerMonitoring(resolver, nuxt)
     // The visitor's address for the billing provider's local pricing: a checkout is created on the deployment.

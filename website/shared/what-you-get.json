@@ -1111,6 +1111,18 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "preparePhoto",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "isPhotoFile",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "PhotoPrepError",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "getBackendError",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -1551,9 +1563,9 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "63 in all",
+          "name": "66 in all",
           "to": "/docs/reference/nuxt/composables",
-          "label": "63 composables in all"
+          "label": "66 composables in all"
         }
       ]
     },
@@ -1958,6 +1970,18 @@
         },
         {
           "name": "useUploadField",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "preparePhoto",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "isPhotoFile",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "PhotoPrepError",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
