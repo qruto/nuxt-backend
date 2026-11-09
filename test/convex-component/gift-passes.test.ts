@@ -450,3 +450,76 @@ describe('a plan pass', () => {
     expect(fake.state.subscriptions[pass.id]!.productId).toBe(ids.products.pro)
   })
 })
+
+describe('a gift bought on a deployment the provider sends no webhooks to', () => {
+  /** Turn every endpoint off or on: off, the provider delivers nothing, as to a local deployment. */
+  const webhooks = (enabled: boolean) => {
+    for (const endpoint of Object.values(fake.state.endpoints)) endpoint.enabled = enabled
+  }
+  /** Buy a gift and pay for it; answers the checkout id its return carries back. */
+  async function buy(ada: Caller, item: Record<string, unknown>): Promise<string> {
+    const { url } = await ada.action(fn<'action'>('billing:giftCheckout'), gift(item))
+    const paid = await fake.handle(new Request(`${url}/pay`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', 'origin': FAKE } }))
+    await fake.idle()
+    const back = new URL(paid.headers.get('location')!)
+    expect(`${back.origin}${back.pathname}`).toBe(`${SITE}/gifts`)
+    return back.searchParams.get('checkout_return')!
+  }
+  /** The purchaser's return from checkout, as the client's checkout-return plugin makes it. */
+  const comeBack = async (caller: Caller, checkoutId: string) => {
+    await caller.action(fn<'action'>('billing:syncEntitlements'), { checkoutId })
+    await drain()
+  }
+  const orderOf = (checkoutId: string) => Object.values(fake.state.orders).find(order => order.checkoutId === checkoutId)!
+  const fire = async (type: string, id: string) => {
+    await fake.handle(new Request(`${FAKE}/_fake/fire`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ type, id }) }))
+    await drain()
+  }
+
+  test('is settled by the purchaser\'s return from its checkout: paid, delivered, and theirs to receive', async () => {
+    const ada = await purchaser()
+    webhooks(false)
+    const checkoutId = await buy(ada, { pack: 'credits500', recipientEmail: 'delivered+offline@resend.dev' })
+    const recipient = await asUser(t, { email: 'delivered+offline@resend.dev' })
+    expect(await received(recipient)).toEqual([])
+
+    await comeBack(ada, checkoutId)
+    expect((await sent(ada))![0]).toMatchObject({ status: 'delivered', item: 'credits500' })
+    expect((await received(recipient))![0]).toMatchObject({ status: 'paid' })
+  })
+
+  test('settles once, whichever of the return and the webhook comes first', async () => {
+    const ada = await purchaser()
+    webhooks(false)
+    const first = await buy(ada, { pack: 'credits500', recipientEmail: 'delivered+twice@resend.dev' })
+    await comeBack(ada, first)
+    const discounts = Object.keys(fake.state.discounts).length
+    const [settled] = (await sent(ada))!
+    // The webhook lands after the return settled it: nothing more.
+    webhooks(true)
+    await fire('order.paid', orderOf(first).id)
+    expect((await sent(ada))![0]).toEqual(settled)
+    expect(Object.keys(fake.state.discounts)).toHaveLength(discounts)
+
+    // The webhook settles it first, and the return after it does nothing more.
+    const second = await buy(ada, { pack: 'credits500', recipientEmail: 'delivered+webhook@resend.dev' })
+    const delivered = (await sent(ada))!.find(entry => entry.status === 'delivered' && entry.id !== settled!.id)!
+    await comeBack(ada, second)
+    expect((await sent(ada))!.find(entry => entry.id === delivered.id)).toEqual(delivered)
+    expect(Object.keys(fake.state.discounts)).toHaveLength(discounts + 1)
+    const recipient = await asUser(t, { email: 'delivered+webhook@resend.dev' })
+    expect(await received(recipient)).toHaveLength(1)
+  })
+
+  test('settles only the caller\'s own gift', async () => {
+    const ada = await purchaser()
+    webhooks(false)
+    const checkoutId = await buy(ada, { pack: 'credits500', recipientEmail: 'delivered+mine@resend.dev' })
+    const other = await asUser(t, { email: 'grace@example.com' })
+    await other.action(fn<'action'>('billing:syncEntitlements'), { checkoutId })
+    await drain()
+    expect(await sent(ada)).toEqual([])
+    await comeBack(ada, checkoutId)
+    expect((await sent(ada))![0]).toMatchObject({ status: 'delivered' })
+  })
+})

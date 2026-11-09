@@ -57,6 +57,7 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const SYNC_ORGANIZATION = '`billing sync` prices every product in the organization\'s currency, and attaches the benefits a product lacks'
 const LAUNCH = 'A production checkout waits for billing to launch, and welcome credits come from the catalog'
 const STEP_TIMEOUT = 'A job step stops its model calls at its timeout'
 const MEMBER_TICKETS = 'Members bring friends with a ticket of their own, and the waitlist records the campaign'
@@ -70,6 +71,10 @@ const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from token
  * `const` per section heading above the list, and its entries in it.
  */
 export const RENAMES: readonly Rename[] = [
+  // 0.3: billing sync against what the organization holds.
+  { from: 'catalog priced in its pinned `currency` alone', to: 'prices: { usd: { month: 1200 }, eur: { month: 1100 } }', change: 'reshaped', section: SYNC_ORGANIZATION, note: 'every paid plan and pack carries a price in the organization\'s default currency, or `billing sync` refuses the catalog before it creates anything; `doctor` names them (`billing-currency`)' },
+  { from: 'benefit attached to an existing product by hand', to: 'billing sync', change: 'reshaped', section: SYNC_ORGANIZATION, note: 'the sync attaches a credit grant or a feature a plan\'s product lacks, and the provider grants it to its current subscribers; a second credit grant on one meter, and a pack\'s missing credits, are reported as drift instead' },
+
   // 0.3: billing before it launches, and welcome credits.
   { from: '`unavailable` (reason `not_configured`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'only a sale on a production deployment with no token or no production catalog; every other refusal keeps `not_configured`' },
   { from: '`not_ready` (reason `no_catalog`) from a production checkout', to: '`unavailable` (reason `not_launched`)', change: 'reshaped', section: LAUNCH, note: 'a production deployment with a token whose catalog `billing sync --env production` never wrote; a sandbox one keeps `no_catalog`' },

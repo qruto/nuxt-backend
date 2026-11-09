@@ -243,8 +243,8 @@ describe('syncBillingCatalog', () => {
       { id: 'ben_c', metadata: { managedBy: 'nuxt-backend', key: 'credits500-credits' } },
     ]) as never)
     vi.mocked(productsList).mockResolvedValue(page([
-      { id: 'prod_pro', recurringInterval: 'month', metadata: { managedBy: 'nuxt-backend', key: 'pro', interval: 'month' } },
-      { id: 'prod_pack', metadata: { managedBy: 'nuxt-backend', key: 'credits500' } },
+      { id: 'prod_pro', recurringInterval: 'month', benefits: [{ id: 'ben_p' }, { id: 'ben_f' }], metadata: { managedBy: 'nuxt-backend', key: 'pro', interval: 'month' } },
+      { id: 'prod_pack', benefits: [{ id: 'ben_c' }], metadata: { managedBy: 'nuxt-backend', key: 'credits500' } },
       { id: 'prod_pack_gift', metadata: { managedBy: 'nuxt-backend', key: 'credits500-gift', giftOf: 'credits500' } },
     ]) as never)
 
@@ -449,10 +449,12 @@ describe('syncBillingCatalog — price currency', () => {
     expect(result.log).toContainEqual(expect.objectContaining({ action: 'exists', kind: 'currency', key: 'eur' }))
   })
 
-  it('pins the catalog currency, lowercased, without reading the organization', async () => {
-    await syncBillingCatalog({ ...catalog, currency: 'GBP' }, options, fakeClient)
+  it('pins the catalog currency, lowercased, and refuses one the organization does not default to', async () => {
+    await expect(syncBillingCatalog({ ...catalog, currency: 'GBP' }, options, fakeClient)).rejects.toThrow('the organization\'s default currency is usd, and plans.pro, packs.credits500 have no price in it')
+    expect(productsCreate).not.toHaveBeenCalled()
 
-    expect(organizationsListOrganizations).not.toHaveBeenCalled()
+    vi.mocked(organizationsListOrganizations).mockResolvedValue(page([{ defaultPresentmentCurrency: 'gbp' }]) as never)
+    await syncBillingCatalog({ ...catalog, currency: 'GBP' }, options, fakeClient)
     expect(productsCreate).toHaveBeenCalledWith(fakeClient, expect.objectContaining({
       name: '500 credits',
       prices: [{ amountType: 'fixed', priceAmount: 2000, priceCurrency: 'gbp' }],
@@ -688,7 +690,8 @@ const healthyState: BillingOrganizationState = {
   benefitTypeByKey: { priority_support: 'feature_flag' },
   memberModel: true,
   membersReadable: true,
-  productByKey: { 'credits500': { visibility: 'public', prices: { usd: 2000 }, benefits: 1 }, 'credits500-gift': { visibility: 'private', prices: { usd: 2000 }, benefits: 0 } },
+  defaultCurrency: 'usd',
+  productByKey: { 'pro': { visibility: 'public', prices: { usd: 2900 }, benefits: 2, benefitKeys: ['pro-credits', 'priority_support'] }, 'credits500': { visibility: 'public', prices: { usd: 2000 }, benefits: 1 }, 'credits500-gift': { visibility: 'private', prices: { usd: 2000 }, benefits: 0 } },
   checkoutLinks: [],
 }
 
@@ -773,8 +776,8 @@ describe('readBillingOrganizationState', () => {
 
     // Every live fixed price, by its currency; an archived one never.
     expect(state?.productByKey).toEqual({
-      'credits500': { visibility: 'public', prices: { usd: 2000 }, benefits: 1 },
-      'credits500-gift': { visibility: 'private', prices: { usd: 2000, eur: 1800 }, benefits: 0 },
+      'credits500': { visibility: 'public', prices: { usd: 2000 }, benefits: 1, benefitKeys: [] },
+      'credits500-gift': { visibility: 'private', prices: { usd: 2000, eur: 1800 }, benefits: 0, benefitKeys: [] },
     })
   })
 
@@ -850,9 +853,28 @@ describe('collectBillingFindings', () => {
       'billing-customer-emails',
       'billing-team-customers',
       'billing-checkout-links',
+      'billing-currency',
+      'billing-plan-benefits',
       'billing-gift-twins',
       'billing-feature-benefits',
     ])
+  })
+
+  it('warns about a plan product that lacks its credits or a feature, by the key each cycle grants under', () => {
+    const yearly: BillingCatalog = { ...catalog, plans: { pro: { ...catalog.plans!.pro!, prices: { month: 2900, year: 29000 }, credits: { meter: 'credits', units: { month: 500, year: 6000 } } } } }
+    const lacking = collectBillingFindings(yearly, {
+      ...healthyState,
+      productByKey: { ...healthyState.productByKey, 'pro': { benefits: 0, benefitKeys: [] }, 'pro:year': { benefits: 1, benefitKeys: ['priority_support'] } },
+    }, { tokenPresent: true }).find(entry => entry.id === 'billing-plan-benefits')
+    expect(lacking).toMatchObject({ status: 'warn', message: 'product pro lacks pro-credits, priority_support; product pro:year lacks pro-credits-year: their subscribers are granted none of it.' })
+    // A yearly product made before plans had intervals grants `<plan>-credits`, which counts as its grant.
+    const legacy = collectBillingFindings(yearly, {
+      ...healthyState,
+      productByKey: { ...healthyState.productByKey, 'pro:year': { benefits: 2, benefitKeys: ['pro-credits', 'priority_support'] } },
+    }, { tokenPresent: true }).find(entry => entry.id === 'billing-plan-benefits')
+    expect(legacy).toMatchObject({ status: 'pass' })
+    // Welcome credits are no benefit, and a catalog with no grant and no feature gets no finding.
+    expect(collectBillingFindings({ meters: { credits: { property: 'amount' } }, plans: { free: { name: 'Free', prices: { month: 0 }, credits: { meter: 'credits', units: 5, once: true } } } }, healthyState, { tokenPresent: true }).some(entry => entry.id === 'billing-plan-benefits')).toBe(false)
   })
 
   it('warns about catalog products the provider sells through its own checkout links, and skips links it can\'t read', () => {

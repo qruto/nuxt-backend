@@ -1580,6 +1580,7 @@
       "claim": "Geschenk empfangen",
       "claiming": "Wird empfangen…",
       "claimed": "Geschenk empfangen. Die Credits kommen gleich an.",
+      "claimedPass": "Geschenk empfangen. Ihr Tarif beginnt jetzt.",
       "claimFailed": "Das Geschenk konnte nicht empfangen werden"
     },
     "access": {

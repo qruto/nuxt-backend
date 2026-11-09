@@ -1580,6 +1580,7 @@
       "claim": "Recevoir le cadeau",
       "claiming": "Réception…",
       "claimed": "Cadeau reçu. Les crédits arrivent dans un instant.",
+      "claimedPass": "Cadeau reçu. Votre forfait commence maintenant.",
       "claimFailed": "Impossible de recevoir le cadeau"
     },
     "access": {

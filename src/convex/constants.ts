@@ -149,10 +149,11 @@ export const IMPERSONATION_SESSION_SECONDS = 1800
 export const LAST_SIGN_IN_COOKIE = 'better-auth.last_used_login_method'
 /**
  * The query parameter a checkout's return URL carries the checkout's id in.
- * The server appends it to the `successUrl` of every plan and pack checkout
- * and of a gift's claim, with the provider's placeholder, which the
- * provider fills in on the way back; the client's checkout-return plugin
- * takes it off the address and refreshes the entitlements once. The
+ * The server appends it to the `successUrl` of every plan and pack checkout,
+ * of a gift's purchase and of its claim, with the provider's placeholder,
+ * which the provider fills in on the way back; the client's checkout-return
+ * plugin takes it off the address and refreshes the entitlements once,
+ * settling a gift bought in that checkout. The
  * package's own name, never `checkout_id`: an app that reads that one on
  * its own success page keeps it.
  */

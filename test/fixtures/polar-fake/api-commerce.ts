@@ -248,9 +248,11 @@ export function commerceRoutes(context: ApiContext): Route[] {
       ...externalIds.flatMap(externalId => customerByExternalId(state, externalId)?.id ?? []),
     ])
     const productId = query.get('product_id')
+    const checkoutIds = new Set(all(query, 'checkout_id'))
     const filtered = all(query, 'customer_id').length > 0 || externalIds.length > 0
     const items = newestFirst(Object.values(state.orders)).filter(order =>
-      (!filtered || customerIds.has(order.customerId)) && (!productId || order.productId === productId))
+      (!filtered || customerIds.has(order.customerId)) && (!productId || order.productId === productId)
+      && (checkoutIds.size === 0 || (order.checkoutId !== null && checkoutIds.has(order.checkoutId))))
     const page = paginate(items, query)
     return reply(200, 'orders', { ...page, items: page.items.map(models.order) })
   }

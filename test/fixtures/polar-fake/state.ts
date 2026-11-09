@@ -313,7 +313,8 @@ export interface DeliveryRecord {
 
 export interface FakeState {
   version: 1
-  organization: { id: string, name: string, slug: string, createdAt: number, settings?: OrganizationSettings }
+  /** `defaultPresentmentCurrency`: what every product it makes must be priced in (`usd` unless a test sets another). */
+  organization: { id: string, name: string, slug: string, createdAt: number, settings?: OrganizationSettings, defaultPresentmentCurrency?: string }
   /** The secret it signs webhooks with unless the app names its own. */
   webhookSecret: string
   products: Record<string, ProductRecord>

@@ -206,7 +206,8 @@ export interface CatalogPlanCreditGrant extends Omit<CatalogCreditGrant, 'units'
    * ends), and never again: not for
    * a second workspace, an account made again with their address, a retry
    * or a concurrent start. The person is the owner's address, tags and dots
-   * taken out, kept as a hash, as the reverse trial counts it. `billing sync` pushes no credit benefit for them: they land
+   * taken out, kept as a hash, as the reverse trial counts it (outside
+   * production, a `delivered+<label>@resend.dev` sandbox address whole). `billing sync` pushes no credit benefit for them: they land
    * as a refund-shaped usage event on a sum meter (`meter` needs a
    * `property`), keyed `welcome:<entityId>`.
    */

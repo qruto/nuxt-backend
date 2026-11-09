@@ -152,6 +152,38 @@ describe('billing sync — the webhook secret', () => {
   })
 })
 
+describe('billing sync — a run the provider stops', () => {
+  it('prints the sync\'s own refusal as one line, writes nothing, and exits 1', async () => {
+    const refusal = '[nuxt-backend] billing sync: the organization\'s default currency is eur, and plans.pro has no price in it: the provider makes no product without one.'
+    const steps = deps({ sync: vi.fn(() => Promise.reject(new Error(refusal))) })
+    const result = await runBillingSync(rootDir, {}, steps)
+
+    expect(result).toEqual({ exitCode: 1, report: null, refusal: refusal.slice('[nuxt-backend] '.length) })
+    expect(lines.filter(line => line.startsWith('[nuxt-backend] billing sync: '))).toEqual([refusal])
+    expect(output()).not.toContain('    at ')
+    expect(steps.setEnv).not.toHaveBeenCalled()
+    expect(existsSync(join(rootDir, 'backend/billing.generated.ts'))).toBe(false)
+  })
+
+  it('prints a request the provider refused as one line, with its reason', async () => {
+    const refused = Object.assign(new Error('API error occurred: {"detail":[...]}\n    at somewhere'), { statusCode: 422, detail: [{ msg: 'The organization\'s default presentment currency must be present in the prices.' }] })
+    const result = await runBillingSync(rootDir, {}, deps({ sync: vi.fn(() => Promise.reject(refused)) }))
+
+    expect(result.exitCode).toBe(1)
+    expect(lines).toContain('[nuxt-backend] billing sync: the provider refused a request as invalid: The organization\'s default presentment currency must be present in the prices.')
+  })
+
+  it('keeps any other refusal of the provider as it was: its body may echo the token', async () => {
+    const refused = Object.assign(new Error('API error occurred: Status 401 {"detail":"The access token polar_oat_test is invalid."}'), { statusCode: 401, detail: 'The access token polar_oat_test is invalid.' })
+    await expect(runBillingSync(rootDir, {}, deps({ sync: vi.fn(() => Promise.reject(refused)) }))).rejects.toBe(refused)
+    expect(output()).not.toContain('polar_oat_test')
+  })
+
+  it('lets any other failure through, with its stack', async () => {
+    await expect(runBillingSync(rootDir, {}, deps({ sync: vi.fn(() => Promise.reject(new TypeError('boom'))) }))).rejects.toThrow('boom')
+  })
+})
+
 describe('billing sync — the webhook URL', () => {
   it('says why it leaves the webhook alone with --webhook off', async () => {
     const steps = deps()

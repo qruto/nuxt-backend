@@ -9,12 +9,17 @@
  * — and looked up by that tag on the next run, so re-running is idempotent.
  * Nothing remote is ever deleted, and no price or credit grant a customer
  * holds is rewritten: a changed name, price, units or rollover is reported
- * as drift, like a managed object whose key left the catalog. Four writes
+ * as drift, like a managed object whose key left the catalog. Five writes
  * go further: a plan's trial follows the catalog (it only decides what a new
- * checkout gets), a plan's quotas follow it on its `<plan>-quotas` benefit,
- * attached to products that exist already too, a `retired` plan's products
- * are archived (subscribers keep them; nobody new buys them), and a pack's
- * private gift twin follows its pack's live price and sheds benefits.
+ * checkout gets), a plan's product that exists gets the catalog's benefits
+ * it lacks attached (adding a grant, never a second credit grant on one
+ * meter; a pack's product is left as it is, drift), a
+ * plan's quotas follow it on its `<plan>-quotas` benefit, attached to
+ * products that exist already too, a `retired` plan's products are archived
+ * (subscribers keep them; nobody new buys them), and a pack's private gift
+ * twin follows its pack's live price and sheds benefits. A catalog with a
+ * plan or pack that has no price in the organization's default currency is
+ * refused before anything is created: the provider makes no such product.
  * The catalog's `discounts` (promotions) are the provider's own discounts,
  * kept in line in place: name, code, dates, redemption caps and product
  * scope always, the amount and months while nobody has redeemed one; a
@@ -344,6 +349,34 @@ async function resolveSyncTarget(rootDir: string, options: BillingSyncCommandOpt
 }
 
 /**
+ * What stopped a sync, as one line: a refusal of the sync's own (a catalog
+ * the provider would not take, refused before anything is created), or a
+ * request the provider found invalid, with the reasons it gave for each
+ * field. `undefined` for anything else, which keeps its stack: a body the
+ * provider sends back may echo the request, the token among it, so it is
+ * never printed here.
+ */
+function syncStopped(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return undefined
+  if (error.message.startsWith('[nuxt-backend] billing sync: ')) return error.message.slice('[nuxt-backend] '.length)
+  const { statusCode, detail } = error as { statusCode?: unknown, detail?: unknown }
+  const reasons = Array.isArray(detail) ? detail.flatMap(entry => typeof (entry as { msg?: unknown }).msg === 'string' ? [(entry as { msg: string }).msg] : []) : []
+  return statusCode === 422 && reasons.length > 0 ? `billing sync: the provider refused a request as invalid: ${reasons.join('; ')}` : undefined
+}
+
+/** The provider sync's result, or the line that stopped it (see {@link syncStopped}); any other failure throws. */
+async function syncOrStopped(run: () => Promise<BillingSyncResult>): Promise<BillingSyncResult | { refusal: string }> {
+  try {
+    return await run()
+  }
+  catch (error) {
+    const refusal = syncStopped(error)
+    if (refusal === undefined) throw error
+    return { refusal }
+  }
+}
+
+/**
  * `billing sync`, as data: read the deployment it writes, push the catalog,
  * store the webhook endpoint's secret on that deployment (never printed),
  * write the id map, and load the deployment's products. `--env production`
@@ -362,7 +395,11 @@ export async function runBillingSync(rootDir: string, options: BillingSyncComman
   const context: SecretContext = { force: options.force === true, prod, where: deploymentLabel(deployment.url, prod) }
   print(`[nuxt-backend] billing sync → ${environment} (${deployment.url ? context.where : 'deployment not readable'})${dryRun ? ' — dry run' : ''}`)
 
-  const result = await (deps.sync ?? syncBillingCatalog)(catalog, { rootDir, environment, accessToken, dryRun, adopt, ...webhookSyncOptions(plan, context) })
+  const result = await syncOrStopped(() => (deps.sync ?? syncBillingCatalog)(catalog, { rootDir, environment, accessToken, dryRun, adopt, ...webhookSyncOptions(plan, context) }))
+  if ('refusal' in result) {
+    console.error(`[nuxt-backend] ${result.refusal}`)
+    return { exitCode: 1, report: null, refusal: result.refusal }
+  }
   for (const entry of result.log) {
     print(`  ${entry.action.padEnd(12)} ${entry.kind.padEnd(8)} ${entry.key}${entry.id ? ` (${entry.id})` : ''}${entry.note ? ` — ${entry.note}` : ''}`)
   }

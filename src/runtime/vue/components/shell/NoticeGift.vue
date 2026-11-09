@@ -33,9 +33,9 @@ const labels = useLabels('gift')
 const { t, rich, locale } = labels
 const uid = useId()
 const partId = (key: string, part: string) => `${uid}-${key}-${part}`
-// The gift being received, what the last claim left to say.
+// The gift being received, what the last claim left to say: a pack's credits on their way, or a plan pass that started.
 const claiming: Ref<string | null> = ref(null)
-const received = ref(false)
+const received: Ref<'credits' | 'plan' | null> = ref(null)
 const failed: Ref<(() => string) | null> = ref(null)
 const busy = () => claiming.value !== null || gifts.isPending.value
 
@@ -67,12 +67,13 @@ async function claim(giftId: string): Promise<void> {
   if (busy()) return
   const hadFocus = holdsFocus(region.value)
   claimedAt = Math.max(0, gifts.unclaimed.value.findIndex(gift => gift.id === giftId))
+  const plan = gifts.unclaimed.value.find(gift => gift.id === giftId)?.plan !== undefined
   claiming.value = giftId
-  received.value = false
+  received.value = null
   failed.value = null
   try {
     if (await gifts.claim(giftId)) {
-      received.value = true
+      received.value = plan ? 'plan' : 'credits'
       emit('claimed', 1)
       keepFocus = hadFocus
       void nextTick(settleFocus)
@@ -158,7 +159,7 @@ const named = (gift: ReceivedGift) => `${partId(gift.id, 'message')} ${partId(gi
         data-gift="claimed"
         tabindex="-1"
       >
-        {{ t('claimed') }}
+        {{ received === 'plan' ? t('claimedPass') : t('claimed') }}
       </p>
     </div>
     <p

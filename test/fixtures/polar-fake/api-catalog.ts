@@ -68,7 +68,8 @@ function benefitProperties(type: BenefitRecord['type'], properties: Body): Benef
 
 export function catalogRoutes(context: ApiContext): Route[] {
   const { state, models, deliveries, now } = context
-  const currency = 'usd'
+  // The organization's default presentment currency: a price that names none is in it, and a new product needs one in it.
+  const currency = state.organization.defaultPresentmentCurrency ?? 'usd'
 
   const listProducts: Route[2] = ({ query }) => {
     const ids = all(query, 'id')
@@ -86,6 +87,9 @@ export function catalogRoutes(context: ApiContext): Route[] {
   const createProduct: Route[2] = ({ body }) => {
     const metadata = metadataOf(body.metadata)
     const time = now()
+    const prices = pricesOf(body.prices, [], time, currency)
+    // As the provider has refused since late 2026, whatever currency the product is sold in.
+    if (!prices.some(price => price.priceCurrency === currency)) throw invalid('prices', 'The organization\'s default presentment currency must be present in the prices.')
     const product: ProductRecord = {
       id: idFor('product', managedKey(metadata), state.products),
       name: requiredText(body, 'name'),
@@ -97,7 +101,7 @@ export function catalogRoutes(context: ApiContext): Route[] {
       visibility: (text(body, 'visibility') ?? 'public') as ProductRecord['visibility'],
       isArchived: false,
       metadata,
-      prices: pricesOf(body.prices, [], time, currency),
+      prices,
       benefitIds: [],
       customFields: attachedFields(context, body.attached_custom_fields),
       createdAt: time,

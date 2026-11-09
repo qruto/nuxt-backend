@@ -685,6 +685,14 @@
           "to": "/docs/reference/cli/diagnostics#billing-checkout-links"
         },
         {
+          "name": "billing-currency",
+          "to": "/docs/reference/cli/diagnostics#billing-currency"
+        },
+        {
+          "name": "billing-plan-benefits",
+          "to": "/docs/reference/cli/diagnostics#billing-plan-benefits"
+        },
+        {
           "name": "billing-gift-twins",
           "to": "/docs/reference/cli/diagnostics#billing-gift-twins"
         },
@@ -1553,9 +1561,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "100 in all",
+          "name": "102 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "100 findings in all"
+          "label": "102 findings in all"
         }
       ]
     }

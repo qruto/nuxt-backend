@@ -1580,6 +1580,7 @@
       "claim": "Recibir regalo",
       "claiming": "Recibiendo…",
       "claimed": "Regalo recibido. Los créditos llegarán en un momento.",
+      "claimedPass": "Regalo recibido. Tu plan empieza ahora.",
       "claimFailed": "No se pudo recibir el regalo"
     },
     "access": {

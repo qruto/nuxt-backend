@@ -4,7 +4,8 @@ import { resolveBackendPaths } from '../../paths.js'
 import { backendError } from '../../errors.js'
 import { logBackend } from '../../log.js'
 import { BILLING_ACCESS, type BillingContext } from './context.js'
-import { readEnv } from '../../delivery.js'
+import { backendEnvironment, isSandboxAddress, readEnv } from '../../delivery.js'
+import { type BackendEnvironment, isLive } from '../../environment.js'
 import type { CatalogDiscounts } from './discounts.js'
 import type { BillingFreePlan } from './free-plan.js'
 import { addMonths, type BillingPasses } from './passes.js'
@@ -57,11 +58,18 @@ export function remindsItself(interval: string | null | undefined, count = 1): b
 
 /**
  * The plus tag and the dots taken out of an address's local part, lower-cased:
- * the form a reverse trial is counted by, so `ana+2@example.com` and
- * `a.na@example.com` are the address that already had one.
+ * the person a reverse trial and welcome credits are counted by, so
+ * `ana+2@example.com` and `a.na@example.com` are the address that already
+ * had them. Outside production (`BACKEND_ENVIRONMENT` anything but
+ * `production`, or unset), the email provider's sandbox addresses are kept
+ * whole, tag and all: every `delivered+<label>@resend.dev` is a person of
+ * its own, as the playground's identities and a test's are, where the rule
+ * would make them all one. Production keeps the rule for them too.
  */
-export function trialAddress(email: string): string {
-  const [local = '', domain = ''] = email.trim().toLowerCase().split('@')
+export function trialAddress(email: string, environment: BackendEnvironment | undefined = backendEnvironment()): string {
+  const address = email.trim().toLowerCase()
+  if (!isLive(environment) && isSandboxAddress(address)) return address
+  const [local = '', domain = ''] = address.split('@')
   return `${local.split('+')[0]!.replaceAll('.', '')}@${domain}`
 }
 

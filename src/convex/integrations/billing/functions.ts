@@ -3,12 +3,14 @@ import { v } from 'convex/values'
 import { ADMIN_READ, BILLING_ACCESS, type BillingContext } from './context.js'
 import type { BillingCustomers } from './customers.js'
 import type { BillingFreePlan, QueueCtx } from './free-plan.js'
+import type { BillingGifts } from './gifts.js'
 import { benefitKindOf, type BillingEntitlements } from './entitlements.js'
 import type { BillingHistory } from './history.js'
 import type { BillingLifecycleOps } from './lifecycle.js'
 import type { BillingQuotas } from './quotas.js'
 import type { BillingRevenue } from './revenue.js'
 import { REVENUE_INTERVALS } from './types/revenue.js'
+import { logBackend } from '../../log.js'
 import type { BillingSubscriptions } from './subscriptions.js'
 import type { ProviderCtx } from './types/base.js'
 import type { CurrentSubscriptions } from './types/options.js'
@@ -48,6 +50,7 @@ export function createBillingFunctions(
   freePlan: Pick<BillingFreePlan, 'start' | 'welcome' | 'backfill' | 'isFreeProduct'>,
   lifecycle: BillingLifecycleOps,
   { getRevenue }: BillingRevenue,
+  { settleCheckout }: Pick<BillingGifts, 'settleCheckout'>,
 ) {
   /**
    * Subscription rows marked `free: true` when on a free plan's product
@@ -246,13 +249,21 @@ export function createBillingFunctions(
     },
   })
 
+  // `checkoutId` is the checkout a return came back from (the client's
+  // checkout-return plugin passes it): a gift bought there is settled first.
   const syncEntitlements = actionGeneric({
-    args: {},
-    handler: async (ctx) => {
+    args: { checkoutId: v.optional(v.string()) },
+    handler: async (ctx, { checkoutId }) => {
       const { userId } = await requireEntity(ctx, BILLING_ACCESS.read)
       // Guard the live provider fan-out: throttle per billing entity so a caller
       // can't loop this to burn the access token's quota / trip provider limits.
       await throttle(ctx, userId, 'entitlement syncs')
+      // A gift the return cannot settle is the webhook's to settle: the refresh goes ahead.
+      if (checkoutId) {
+        await settleCheckout(ctx, checkoutId.slice(0, 200)).catch((error: unknown) => {
+          logBackend('warn', 'billing.gift_settle_failed', 'A return from a gift checkout could not settle the gift; its order.paid webhook still does.', error)
+        })
+      }
       await refreshEntitlements(ctx, userId)
       return null
     },

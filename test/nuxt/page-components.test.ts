@@ -2770,6 +2770,18 @@ describe('GiftClaimBanner', () => {
     wrapper.unmount()
   })
 
+  it('says a claimed plan pass starts now, where a pack\'s credits arrive in a moment', async () => {
+    giftList.value = [{ id: 'g1', status: 'paid', purchaserName: 'Grace', plan: 'pro', months: 3, createdAt: 1 }, { id: 'g2', status: 'paid', purchaserName: 'Gus', pack: 'credits500', createdAt: 2 }]
+    const wrapper = mount(GiftClaimBanner, { attachTo: document.body })
+    await wrapper.findAll('[data-gift=claim]')[0]!.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-gift=claimed]').text()).toBe('Gift received. Your plan starts now.')
+    await wrapper.findAll('[data-gift=claim]')[1]!.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-gift=claimed]').text()).toBe('Gift received. The credits arrive in a moment.')
+    wrapper.unmount()
+  })
+
   it('moves focus to the gift that takes the claimed one\'s place, or the one before it after the last', async () => {
     giftList.value = [
       { id: 'g1', status: 'paid', purchaserName: 'Grace', createdAt: 1 },

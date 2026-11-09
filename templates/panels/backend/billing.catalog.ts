@@ -7,8 +7,11 @@ import { defineBillingCatalog } from 'nuxt-backend/billing'
 // Push it with `npx nuxt-backend billing sync`, which writes the ids to
 // billing.generated.ts.
 export default defineBillingCatalog({
-  // Every price is created in US dollars, whatever the organization's default
-  // currency: plans and packs then read alike on the pricing page.
+  // US dollars and euros, a native price in each on the same product: the
+  // pricing page offers both, and a visitor in any other currency pays in US
+  // dollars. The organization's default currency needs a price too, since
+  // the provider makes no product without one: billing sync refuses a
+  // catalog that leaves it out, so add yours if it is neither.
   currency: 'usd',
   meters: { credits: {} },
   plans: {
@@ -19,14 +22,14 @@ export default defineBillingCatalog({
     },
     studio: {
       name: 'Studio',
-      prices: { month: 1200, year: 12000 },
+      prices: { usd: { month: 1200, year: 12000 }, eur: { month: 1200, year: 12000 } },
       credits: { meter: 'credits', units: 400 },
       features: ['priority_queue'],
     },
   },
   packs: {
-    credits100: { name: '100 credits', price: 500, credits: { meter: 'credits', units: 100 } },
-    credits500: { name: '500 credits', price: 2000, credits: { meter: 'credits', units: 500 } },
+    credits100: { name: '100 credits', price: { usd: 500, eur: 500 }, credits: { meter: 'credits', units: 100 } },
+    credits500: { name: '500 credits', price: { usd: 2000, eur: 2000 }, credits: { meter: 'credits', units: 500 } },
   },
   features: {
     priority_queue: { description: 'Your strips start drawing first' },

@@ -16,8 +16,8 @@ import { BILLING_WEBHOOK_PROVISION_EVENTS, isFreePlan, providerTrialOf, packPric
 import { refuseInvalidDiscounts, refuseUnpricedDiscounts, syncDiscounts } from './discounts'
 import { addCurrencyPrices, alignGiftTwin, fixedPrices, giftProductKey, giftTwinPrices, moveGiftTwins } from './gift-twins'
 import { derivedPassKeys, refuseInvalidGifts, syncPassProducts } from './passes'
-import { customFieldCreatePayload, describeBenefitDrift, describeMeterDrift, describeProductDrift, existsOrDrift, resolvePriceCurrency } from './objects'
-import { findPlanProduct, isUntaggedPlanProduct, pushPlanTrial, recordPlanProduct, refuseInvalidPrices, refuseMissingDefaultCurrency, refuseOnceCredits, refuseUnpricedPlans, retirePlan, unpricedPlanProducts } from './plans'
+import { type CarriedBenefit, customFieldCreatePayload, describeBenefitDrift, describeMeterDrift, describeProductDrift, existsOrDrift, missingBenefits, resolvePriceCurrency, type WantedBenefit } from './objects'
+import { findPlanProduct, isUntaggedPlanProduct, pushPlanTrial, recordPlanProduct, refuseInvalidPrices, refuseMissingDefaultCurrency, refuseMissingOrganizationCurrency, refuseOnceCredits, refuseUnpricedPlans, retirePlan, unpricedPlanProducts, zeroPrices } from './plans'
 import { isManaged, listAllPages, MANAGED_BY, type CatalogIds, type Environment, type SyncLogEntry } from './provider'
 import { attachPlanQuotas, attachRetiredPlanQuotas, droppedQuotasKeys, ensurePlanQuotas, planQuotasBenefits, planQuotasKeys, recordQuotaKeys, refuseInvalidQuotas } from './quotas'
 
@@ -159,8 +159,9 @@ export async function syncBillingCatalog(
     ? await listAllPages(page => customFieldsList(client, { limit: 100, page }))
     : []
 
-  const currency = await resolvePriceCurrency(catalog, client, log)
+  const { currency, organizationCurrency } = await resolvePriceCurrency(catalog, client, log)
   refuseMissingDefaultCurrency(catalog, currency)
+  refuseMissingOrganizationCurrency(catalog, currency, organizationCurrency)
   refuseUnpricedDiscounts(catalog, currency)
   recordFallbackCurrency(ids, catalog, currency)
 
@@ -247,6 +248,12 @@ export async function syncBillingCatalog(
   // --- Benefits (feature benefits + per-product credit grants) ---
   const benefitIdByKey = new Map<string, string>()
   const createdBenefits = new Map<string, string>()
+  // Each benefit this run found or made, by id: its catalog key, and the meter a credit grant credits.
+  const benefitInfo = new Map<string, { key: string, meterId?: string }>()
+  const noteBenefit = (id: string, key: string, payload: { properties?: unknown }) => {
+    const meterId = (payload.properties as { meterId?: unknown } | undefined)?.meterId
+    benefitInfo.set(id, { key, ...(typeof meterId === 'string' ? { meterId } : {}) })
+  }
   const ensureBenefit = async (
     key: string,
     create: () => Parameters<typeof benefitsCreate>[1],
@@ -260,6 +267,7 @@ export async function syncBillingCatalog(
     const existing = managedBenefits.find(item => isManaged((item as { metadata?: Record<string, unknown> }).metadata, key))
     if (existing) {
       benefitIdByKey.set(key, existing.id)
+      noteBenefit(existing.id, key, existing as { properties?: unknown })
       // A credit grant whose units or rollover changed in either place: the
       // provider's grants follow its own figure, so say which one is live.
       log.push(existsOrDrift(
@@ -286,6 +294,7 @@ export async function syncBillingCatalog(
     if (!created.ok) throw created.error
     benefitIdByKey.set(key, created.value.id)
     createdBenefits.set(key, created.value.id)
+    noteBenefit(created.value.id, key, created.value as { properties?: unknown })
     log.push({ action: 'created', kind: 'benefit', key, id: created.value.id })
     return created.value.id
   }
@@ -332,6 +341,45 @@ export async function syncBillingCatalog(
 
   // --- Products (plans + packs) ---
   /**
+   * Attach to a subscription product that exists (a plan's, a pass) the
+   * catalog's benefits it lacks: a plan's credit grant or a feature added
+   * since it was made, or one that another app's catalog on the same
+   * organization left off. Attaching adds a grant and rewrites none, so it is
+   * pushed, and the provider grants it to the product's current subscribers
+   * too. A credit grant is never attached beside another one on the same
+   * meter, which would grant both: that is drift. So is a benefit a one-time
+   * product (a pack) lacks: the provider would grant it to everyone who ever
+   * bought the product, at once. A plan's quotas benefit attaches on its own
+   * (`attachPlanQuotas`), and an adopted product is never reached here.
+   */
+  const attachMissingBenefits = async (key: string, product: (typeof managedProducts)[number], wanted: Array<string | null>): Promise<void> => {
+    const carried = (product.benefits ?? []) as unknown as CarriedBenefit[]
+    // A benefit not made yet (a dry run) has no id to attach: its would-create line says it.
+    const known = wanted.flatMap((id): WantedBenefit[] => {
+      const info = id === null ? undefined : benefitInfo.get(id)
+      return info ? [{ id: id!, ...info }] : []
+    })
+    const { missing, doubled } = missingBenefits(carried, known)
+    for (const { key: meant, granted } of doubled) {
+      log.push({ action: 'drift', kind: 'product', key, id: product.id, note: `grants ${granted} on the meter where the catalog says ${meant}: attaching it too would grant both — swap them in the provider dashboard` })
+    }
+    const keyOf = (id: string) => benefitInfo.get(id)!.key
+    if (missing.length > 0 && !product.recurringInterval) {
+      for (const id of missing) log.push({ action: 'drift', kind: 'product', key, id: product.id, note: `lacks benefit ${keyOf(id)}: attaching it would grant it to everyone who bought the product before — attach it in the provider dashboard if they should have it` })
+      return
+    }
+    if (missing.length > 0 && !dryRun) await pushBenefits(product, carried, missing)
+    for (const id of missing) log.push({ action: dryRun ? 'would-attach' : 'attached', kind: 'benefit', key: keyOf(id), id, note: `to product ${key}` })
+  }
+
+  /** Attach benefits beside the ones a product carries, and keep them on it: the steps after this one replace its benefits from what it carries. */
+  const pushBenefits = async (product: (typeof managedProducts)[number], carried: CarriedBenefit[], attach: string[]): Promise<void> => {
+    const updated = await productsUpdateBenefits(client, { id: product.id, productBenefitsUpdate: { benefits: [...carried.map(benefit => benefit.id), ...attach] } })
+    if (!updated.ok) throw updated.error
+    product.benefits = [...carried, ...attach.map(id => ({ id }))] as unknown as typeof product.benefits
+  }
+
+  /**
    * Find or create one product. `existing` is the managed product the
    * caller found for it; `record` keeps its id (in `products` by default).
    * Resolves with the product found, or `undefined` when it was adopted,
@@ -365,6 +413,7 @@ export async function syncBillingCatalog(
         describeProductDrift(existing, create()),
         'a created product is never rewritten; rename the catalog key to publish a new one',
       ))
+      await attachMissingBenefits(key, existing, benefits)
       return existing
     }
     if (dryRun) {
@@ -440,7 +489,10 @@ export async function syncBillingCatalog(
     }
     benefits.push(...planQuotasBenefits(key, productKey, quotasId, { adopt, log }))
     const attachedCustomFields = attachCustomFields(productKey, plan.customFields)
-    const amounts = planPricesByCurrency(plan, currency).map(([code, byInterval]) => [code, byInterval[interval]!] as [string | undefined, number])
+    // The free plan's product is priced at nothing in the organization's currency too, which the provider wants on every product.
+    const amounts = isFreePlan(plan)
+      ? zeroPrices(plan, currency, organizationCurrency)
+      : planPricesByCurrency(plan, currency).map(([code, byInterval]) => [code, byInterval[interval]!] as [string | undefined, number])
     const prices = pricesFor(productKey, plan, amounts)
     const trial = providerTrialOf(plan.trial)
     const found = await ensureProduct(productKey, benefits, () => ({
@@ -532,6 +584,7 @@ export async function syncBillingCatalog(
     planCreditKey,
     price: (amounts, plan) => fixedPricesOf(amounts, plan.taxBehavior ? { taxBehavior: plan.taxBehavior } : {}),
     currency,
+    organizationCurrency,
     adopt,
     dryRun,
     log,

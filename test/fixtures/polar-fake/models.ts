@@ -614,7 +614,7 @@ export function createModels(state: FakeState, baseUrl: string) {
     status: 'active',
     detailsSubmittedAt: null,
     ssoEnforced: false,
-    defaultPresentmentCurrency: 'usd',
+    defaultPresentmentCurrency: state.organization.defaultPresentmentCurrency ?? 'usd',
     defaultTaxBehavior: 'location',
     featureSettings: { memberModelEnabled: true },
     subscriptionSettings: { allowMultipleSubscriptions: false, prorationBehavior: 'prorate', benefitRevocationGracePeriod: 0, preventTrialAbuse: true, allowCustomerUpdates: true, ...state.organization.settings?.subscriptionSettings } as Organization['subscriptionSettings'],

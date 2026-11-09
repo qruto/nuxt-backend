@@ -7,13 +7,14 @@ import type { BillingApi } from '../composables/use-billing'
 import { useBackendNamespace } from './namespace'
 
 // The return from checkout. The server appends `checkout_return` with the
-// provider's placeholder to the success URL of every plan and pack checkout
-// and of a gift's claim, so a customer who paid comes back with the
-// checkout's id on the address. The client's
-// checkout-return plugin hands it here: the parameter comes off the address
-// at once, with the customer-session token the provider adds beside it, and
-// the entitlements are refreshed from the provider once, so the new plan
-// reads back before its webhooks land.
+// provider's placeholder to the success URL of every plan and pack checkout,
+// of a gift's purchase and of its claim, so a customer who paid comes back
+// with the checkout's id on the address. The client's checkout-return plugin
+// hands it here: the parameter comes off the address at once, with the
+// customer-session token the provider adds beside it, and the entitlements
+// are refreshed from the provider once, with the checkout's id, so the new
+// plan reads back before its webhooks land, and a gift bought there is
+// settled where none land.
 
 /**
  * `true` while the page refreshes the entitlements after a return from
@@ -42,8 +43,8 @@ export interface CheckoutReturn {
   query: LocationQuery
   /** Replace the address's query with this one: the same address without the parameter and the provider's token. */
   strip: (query: LocationQuery) => unknown
-  /** Refresh the entitlements from the provider once. A failure is left to the webhooks. */
-  sync: () => Promise<unknown>
+  /** Refresh the entitlements from the provider once, for the checkout this id names. A failure is left to the webhooks. */
+  sync: (checkoutId: string) => Promise<unknown>
 }
 
 /**
@@ -64,7 +65,7 @@ export async function finishCheckoutReturn({ query, strip, sync }: CheckoutRetur
   finished.add(id)
   finishingCheckout.value = true
   try {
-    await sync()
+    await sync(id)
     return true
   }
   catch {
@@ -79,19 +80,20 @@ export async function finishCheckoutReturn({ query, strip, sync }: CheckoutRetur
  * The refresh a return makes, bound to the app's backend client: it waits
  * for the session to settle (a return is a fresh page load, and the token
  * comes a moment later), then calls the scaffolded `syncEntitlements` for a
- * signed-in person. Nothing for a signed-out visitor, nor where the backend
+ * signed-in person, with the checkout's id: a gift bought in that checkout
+ * is settled first. Nothing for a signed-out visitor, nor where the backend
  * exports no `syncEntitlements`. Call it inside the app's injection context.
  */
-export function entitlementSync(): () => Promise<void> {
+export function entitlementSync(): (checkoutId?: string) => Promise<void> {
   const auth = inject(ConvexAuthStateKey, null)
   const billing = useBackendNamespace<BillingApi>('billing', 'useBilling')
   const run = billing.syncEntitlements ? useAction(billing.syncEntitlements) : null
-  return async () => {
+  return async (checkoutId) => {
     if (!run) return
     if (auth) {
       await until(() => auth.isLoading.value).toBe(false, { timeout: AUTH_WAIT_MS, throwOnTimeout: true })
       if (!auth.isAuthenticated.value) return
     }
-    await run({})
+    await run(checkoutId ? { checkoutId } : {})
   }
 }

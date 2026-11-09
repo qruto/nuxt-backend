@@ -238,6 +238,16 @@ export const FINDING_DOCS = {
     why: 'A purchase through such a link names no billing entity: the provider makes a customer of the buyer\'s email, which the app maps to nobody, so the buyer pays and the app grants nothing, or a second plan lands beside the free one.',
     fix: 'Delete those links in the provider\'s dashboard, and link to the app\'s pricing page instead: its checkout names the billing entity.',
   },
+  'billing-currency': {
+    checks: 'Every plan and pack the catalog sells has a price in the organization\'s default presentment currency, whatever currency the catalog pins. The free plan and a plan\'s pass are left out: the sync prices them at nothing in it itself.',
+    why: 'The provider makes no product without a price in that currency, so `billing sync` refuses the catalog before it creates anything, and a plan or pack added later is never made.',
+    fix: 'Add the currency to those prices in `billing.catalog.ts` (`prices: { usd: …, eur: … }`) and run `npx nuxt-backend billing sync`, or make the catalog\'s currency the organization\'s default in the provider\'s dashboard.',
+  },
+  'billing-plan-benefits': {
+    checks: 'Every plan product that exists carries the credit grant for its cycle (`<plan>-credits`, `<plan>-credits-year`) and the plan\'s features. A product not made yet is left to the sync.',
+    why: 'The sync finds a product by its key and keeps what it was made with: a grant or a feature added to the catalog since, or one another app\'s catalog on the same organization left off, reaches none of its subscribers until it is attached.',
+    fix: 'Run `npx nuxt-backend billing sync`: it attaches a missing benefit to the plan\'s product, and the provider grants it to its current subscribers too. A product that grants other credits on the same meter is drift: swap them in the provider\'s dashboard.',
+  },
   'billing-gift-twins': {
     checks: 'Every pack has a private gift product with no benefits, at its pack\'s live prices in every currency. A pack or twin with no live fixed price warns too.',
     why: 'A gift buys the pack\'s twin; without one, gifts of that pack are refused, sold at the wrong price or in the wrong currency, or grant a benefit twice.',
