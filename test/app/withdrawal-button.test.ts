@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, h } from 'vue'
 import { enableAutoUnmount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { backendError } from '../../src/convex/errors'
 import { createBackendMock, resetBackendMock, type BackendMock } from '../../src/runtime/test-utils'
+import { useWithdrawal, type UseWithdrawalReturn } from '../../src/runtime/vue/composables/use-withdrawal'
 import { registerComponents } from '../helpers/register-components'
 
 await registerComponents('WithdrawalButton')
@@ -173,5 +175,58 @@ describe('<WithdrawalButton>', () => {
     vi.advanceTimersByTime(60_000)
     await flushPromises()
     expect(wrapper.html()).not.toContain('data-withdrawal')
+  })
+})
+
+describe('useWithdrawal', () => {
+  async function withdrawal(): Promise<UseWithdrawalReturn> {
+    let state!: UseWithdrawalReturn
+    await mountSuspended(defineComponent({
+      setup() {
+        state = useWithdrawal()
+        return () => h('div')
+      },
+    }))
+    await flushPromises()
+    return state
+  }
+
+  it('says whether a period is open and until when, without the button', async () => {
+    const endsAt = Date.now() + 10 * DAY
+    manager(endsAt)
+    const state = await withdrawal()
+    expect(state.isLoading.value).toBe(false)
+    expect(state.isOpen.value).toBe(true)
+    expect(state.endsAt.value?.getTime()).toBe(endsAt)
+    expect(state.period.value).toMatchObject({ subscriptionId: 'sub_1', plan: 'pro' })
+  })
+
+  it('is closed without a period, signed out, and once the read failed', async () => {
+    const backend = createBackendMock({ user: {}, queries: { 'billing:getWithdrawal': { period: null } } })
+    const state = await withdrawal()
+    expect(state.isOpen.value).toBe(false)
+    expect(state.endsAt.value).toBeNull()
+    backend.fail('billing:getWithdrawal', backendError('unavailable', { service: 'billing', reason: 'unexpected' }))
+    await flushPromises()
+    expect(state.period.value).toBeNull()
+    expect(state.error.value).toMatchObject({ code: 'unavailable' })
+    backend.signOut()
+    await flushPromises()
+    expect(state.period.value).toBeNull()
+    expect(state.isLoading.value).toBe(false)
+  })
+
+  it('withdraws the open period\'s subscription, resolving with the receipt\'s time, and rejects with the refusal', async () => {
+    const backend = manager()
+    const state = await withdrawal()
+    backend.stub('billing:withdraw', () => ({ withdrawnAt: 1234 }))
+    await expect(state.withdraw()).resolves.toBe(1234)
+    expect(state.withdrawnAt.value).toBe(1234)
+    expect(backend.callsTo('billing:withdraw')).toEqual([{ subscriptionId: 'sub_1' }])
+
+    backend.fail('billing:withdraw', backendError('invalid_input', { field: 'subscriptionId' }))
+    await expect(state.withdraw()).rejects.toThrow()
+    expect(state.error.value).toMatchObject({ code: 'invalid_input' })
+    expect(state.isPending.value).toBe(false)
   })
 })
