@@ -142,9 +142,9 @@ export interface ShareableOptions<DM extends GenericDataModel, T extends TableNa
    *
    * @guarantee
    * - Runs: in `enableShareLink`'s and `revokeShareLink`'s mutations and in `getShareLink`'s query, in their transaction, with the signed-in caller as `ctx.user`
-   * - Delivery: once per call; a live `getShareLink` runs it again whenever what it read changes. Not asked when the caller is the one who shared the link and only reads or revokes it
-   * - Order: after the caller is checked (signed in, account present, not banned) and the row is found (a missing row fails `invalid_input` first), before the link is read or written
-   * - When it throws: `enableShareLink` and `revokeShareLink` fail with its error and change nothing; `getShareLink` reads the throw as `false` and answers `null`
+   * - Delivery: once per `enableShareLink`; in `revokeShareLink` and `getShareLink` only when the row has a live link and the caller is not the one who shared it. A live `getShareLink` runs it again whenever what it read changes
+   * - Order: `enableShareLink` asks it after the caller is checked (signed in, account present, not banned) and the row is found (a missing row fails `invalid_input` first), before the link is written; `revokeShareLink` after the same caller check and the link read; `getShareLink` after the link read, with only the signed-in identity checked
+   * - When it throws: `enableShareLink` and `revokeShareLink` fail with its error and change nothing; `getShareLink` reads a throw, a missing row included, as `false` and answers `null`
    * - Idempotency: a check: it may run many times for one row and caller, and writes nothing
    */
   canShare: (ctx: ShareCtx<DM>, row: DocumentByName<DM, T>) => boolean | Promise<boolean>
