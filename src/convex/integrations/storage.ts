@@ -135,15 +135,42 @@ export interface EnabledShareLink {
 export interface ShareableOptions<DM extends GenericDataModel, T extends TableNamesInDataModel<DM>> {
   /** Where the public page lives: a link reads `SITE_URL` + `path` + `/` + the token. */
   path: string
-  /** Whether the signed-in caller may turn the row's link on or rotate it. */
+  /**
+   * Whether the signed-in caller may turn the row's link on or rotate it.
+   * The same answer lets someone other than the one who shared it see that
+   * the link is on, and take it offline.
+   *
+   * @guarantee
+   * - Runs: in `enableShareLink`'s and `revokeShareLink`'s mutations and in `getShareLink`'s query, in their transaction, with the signed-in caller as `ctx.user`
+   * - Delivery: once per call; a live `getShareLink` runs it again whenever what it read changes. Not asked when the caller is the one who shared the link and only reads or revokes it
+   * - Order: after the caller is checked (signed in, account present, not banned) and the row is found (a missing row fails `invalid_input` first), before the link is read or written
+   * - When it throws: `enableShareLink` and `revokeShareLink` fail with its error and change nothing; `getShareLink` reads the throw as `false` and answers `null`
+   * - Idempotency: a check: it may run many times for one row and caller, and writes nothing
+   */
   canShare: (ctx: ShareCtx<DM>, row: DocumentByName<DM, T>) => boolean | Promise<boolean>
-  /** The storage id of the image the preview card shows, or `null` for none. */
+  /**
+   * The storage id of the image the preview card shows, or `null` for none.
+   *
+   * @guarantee
+   * - Runs: in `resolveShareLink`, inside the query or mutation of yours that calls it, once the token matched a live link and its row was found; never from an action
+   * - Delivery: once per resolve; a live query that resolves the link runs it again whenever what it read changes
+   * - Order: after the link and its row are read, before the image's expiring URL is signed
+   * - When it throws: `resolveShareLink` throws, and with it the function of yours that called it
+   * - Idempotency: synchronous and given only the row: it may run many times for one row, and should read nothing else
+   */
   ogImage?: (row: DocumentByName<DM, T>) => string | null | undefined
   /**
    * Runs in `enableShareLink`'s mutation once the link is on, a new one
    * replacing an earlier one included: record an event, tick off a
    * checklist step, stamp the row. A throw rolls the link back with it.
    * `link.url` is the live secret: never store or log it.
+   *
+   * @guarantee
+   * - Runs: in `enableShareLink`'s mutation, in its transaction, with the caller who turned the link on as `ctx.user`
+   * - Delivery: once per `enableShareLink` that succeeds; each rotation is a call of its own, with `link.rotated` set
+   * - Order: after `canShare` agreed and the new link replaced any earlier one, before the mutation returns the link
+   * - When it throws: the mutation fails with its error and rolls back with it: no new link, and an earlier one stays live
+   * - Idempotency: its writes commit with the link or not at all; a conflict reruns the whole mutation, never this hook alone
    */
   onEnable?: (ctx: ShareMutationCtx<DM>, row: DocumentByName<DM, T>, link: EnabledShareLink) => void | Promise<void>
 }

@@ -76,7 +76,7 @@ A busy button is `aria-disabled` and ignores the press. `disabled` would drop ke
 | `waitlisted` | Reads their place on the waitlist ("You're #48 of 1,204", from `waitlist`), while the app is in early access. | `invite-code`, when they have a code |
 | `invite-code` | Types an invite code, while the app is invite only. `redeemInviteCode()` checks it. | `passkey-offer` |
 
-`passkey-offer` and `recover` are the sign-in security steps ([The passkey offer](#the-passkey-offer), [Passkey-only accounts](#passkey-only-accounts)). Four steps are new in `0.2.0`:
+`passkey-offer` and `recover` are the sign-in security steps ([The passkey offer](#the-passkey-offer), [Passkey-only accounts](#passkey-only-accounts)). Four steps come with features of their own:
 
 - `age` comes with a minimum age ([Set a minimum age](/docs/build/auth/accounts/consents#set-a-minimum-age)). The new address is asked once, after its code checked, and sends the same code again with the age.
 - `undeliverable` arrives with [suppressed addresses](/docs/build/email/delivery/suppressions#what-a-person-sees-at-sign-in). It shows the same words whether the address has an account or not.
@@ -193,7 +193,7 @@ const { step, email, lastMethod } = flow
 - **When it asks.** On the `choose` and `request-code` steps, once the page shows a field marked `webauthn`. A challenge lasts five minutes, so the flow renews it every four and a half minutes while the page is in view.
 - **What the person sees.** A picked passkey finishes the flow, as `signInWithPasskey()` does. A passkey the server refuses, such as one removed from the account but still on the device, lands in `error` as `invalid_input` on `passkey`. A browser without conditional mediation offers nothing in the field, and the passkey button still works.
 - **Where the last method comes from.** Better Auth's [`lastLoginMethod`](https://better-auth.com/docs/plugins/last-login-method) plugin records each sign-in on the account (`user.lastLoginMethod`) and in a cookie that lasts 30 days. The cookie holds the method's name only. The server render reads it too, so the page renders the same on both sides.
-- **The cookie asks first in `0.2.0`.** It is not strictly necessary, so it is set only once the person allows it in the consent manager. Without it, `lastMethod` is `null` and the page opens on `choose`. A browser that never chose, or declined, gets no cookie ([Ask before optional storage](/docs/build/auth/accounts/consents#ask-before-optional-storage)).
+- **The cookie asks first.** It is not strictly necessary, so it is set only once the person allows it in the consent manager. Without it, `lastMethod` is `null` and the page opens on `choose`. A browser that never chose, or declined, gets no cookie ([Ask before optional storage](/docs/build/auth/accounts/consents#ask-before-optional-storage)).
 - **Its limits.** Every passkey sign-in starts with a challenge the server stores, so the challenge route is limited per client and for the whole deployment ([Privileged routes](/docs/ship/security/rate-limits#privileged-routes)).
 
 To tie the cookie to a consent of your own, pass your own `lastLoginMethod` in `authOptions.plugins`. Better Auth names a code sign-in `email-otp` and a passkey's `passkey` itself. Keep `storesLastSignInCookie` as the check to follow the consent manager's choice, or write your own:

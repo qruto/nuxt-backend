@@ -77,7 +77,7 @@ thin: record or hand off.
 - [Add chat](https://nuxt-backend.dev/docs/build/ai/chat): Give each person chat threads with a model that knows your instructions, every reply streamed to the page, kept on the server and paid for in credits: ai.chat on the backend and useChat in a page, on Convex's Agent component. Reach for `nuxt-backend/ai`.
 - [Choose moderation providers](https://nuxt-backend.dev/docs/build/ai/content-safety/providers): Check images with Azure AI Content Safety, ask OpenAI's moderation for a second opinion, and match known abuse material with Project Arachnid Shield, over one set of categories and thresholds, with a statement of reasons for every decision.
 - [Keep content safe](https://nuxt-backend.dev/docs/build/ai/content-safety): Check prompts and uploads with a safety model through the gateway before you spend on them, let people report what slipped through, and review reports in the admin console's Reports tab.
-- [Label AI-generated content](https://nuxt-backend.dev/docs/build/ai/provenance): Mark what a model made, in the file and in the page: C2PA content credentials and the IPTC digital source type in every generated image, a provenance record of which model made what from which inputs, and the visible AI-generated label the EU AI Act asks for.
+- [Label AI-generated content](https://nuxt-backend.dev/docs/build/ai/provenance): Mark what a model made, in the file and in the page: C2PA content credentials and the IPTC digital source type in each generated image once `setupAi({ provenance })` is on, a provenance record of which model made what from which inputs, and the visible AI-generated label the EU AI Act asks for.
 <!-- /generated:tasks -->
 
 ## The API

@@ -28,7 +28,7 @@ Pick the scheduler for one delayed call, and a cron when the same thing repeats 
 
 ## What the component already runs
 
-The `backend` component cleans up after itself. Its own cron starts a maintenance pass every hour, wherever the component is mounted, so your app schedules nothing for it. A pass deletes what is past its window in the component's own tables: expired sessions and codes, settled AI request records, old email records, unanswered invitations, activity past its year, old exports and failed erasures. With `0.2.0` it also deletes uploads nobody claimed ([Keep storage clean](/docs/build/data/files/cleanup)).
+The `backend` component cleans up after itself. Its own cron starts a maintenance pass every hour, wherever the component is mounted, so your app schedules nothing for it. A pass deletes what is past its window in the component's own tables: expired sessions and codes, settled AI request records, old email records, unanswered invitations, activity past its year, old exports and failed erasures. It also deletes uploads nobody claimed ([Keep storage clean](/docs/build/data/files/cleanup)).
 
 [Schedule jobs](/docs/build/data/jobs/scheduled#the-maintenance-the-component-runs) names each task and how a pass runs. [Limits and retention](/docs/reference/backend/limits#windows-and-lifetimes) gives every window. A sign-in code takes its own path from the start and [leaves no record](/docs/build/email/sending#secret-emails-leave-no-record).
 
