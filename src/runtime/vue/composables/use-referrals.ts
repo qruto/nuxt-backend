@@ -7,6 +7,7 @@ import { useAuthSession } from '../utils/auth-session'
 import type { BackendError } from '../utils/backend-error'
 import { absentQuery, useLiveQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
+import { usePageOrigin } from '../utils/page-origin'
 import { useBackendPagePath } from './use-backend-page-path'
 import { useLabels } from './use-labels'
 
@@ -131,9 +132,9 @@ export function useReferrals(options: UseReferralsOptions = {}): UseReferralsRet
     : absentQuery<ReferralsView | null>()
   const referrals = computed(() => counts.data.value ?? undefined)
 
+  const origin = usePageOrigin()
   const link = computed(() => {
     if (!code.value) return null
-    const origin = typeof window === 'undefined' ? '' : window.location.origin
     return linkFor(origin, landing.value ?? '/r/:code', code.value)
   })
 

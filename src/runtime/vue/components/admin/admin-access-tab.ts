@@ -7,6 +7,7 @@ import { useBackendPagePath } from '../../composables/use-backend-page-path'
 import type { BackendLabels, LabelKey } from '../../composables/use-labels'
 import { useAdminChanges } from '../../utils/admin-changes'
 import type { ConfirmFn } from '../../utils/confirmation'
+import { usePageOrigin } from '../../utils/page-origin'
 
 // The Access tab's state and actions, headless: `AdminAccess.vue` and its
 // parts (the phase, the codes and links, the invitations by address) render
@@ -41,6 +42,7 @@ export function useAccessTab(confirm?: () => ConfirmFn | undefined) {
   const access = useAccessAdmin()
   const { t, errorMessage, locale, message, running, confirmation, confirmed, change, busy } = useAdminChanges(confirm)
   const invitePath = useBackendPagePath('invite')
+  const origin = usePageOrigin()
   const id = useId()
 
   const phaseName = (phase: AccessPhase) => t(PHASE_KEYS[phase])
@@ -60,7 +62,6 @@ export function useAccessTab(confirm?: () => ConfirmFn | undefined) {
     const expiresAt = form.expires.value ? new Date(`${form.expires.value}T23:59:59`).getTime() : undefined
     const made = await change('create', () => access.createInvite({ kind, label: form.label.value, maxUses: Number(form.maxUses.value), ...(expiresAt ? { expiresAt } : {}) }))
     if (!made) return
-    const origin = typeof window === 'undefined' ? '' : window.location.origin
     shown.value = { kind, text: kind === 'link' ? `${origin}${invitePath.value}#${made.code}` : made.code }
     copied.value = false
     form.label.value = ''
