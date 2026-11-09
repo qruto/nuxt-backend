@@ -1,5 +1,5 @@
 import { computed, getCurrentInstance, getCurrentScope, onMounted, onScopeDispose, ref, useId, watch, type ComputedRef, type Ref } from 'vue'
-import { AUTOFILL_FIELD, AUTOFILL_RENEW_MS } from '../passkey-client'
+import { AUTOFILL_FIELD, AUTOFILL_RENEW_MS } from '../passkey-ceremony'
 import { quietly } from '../utils/action-state'
 import { checkEmail, invalidInput, stepRunner } from '../utils/auth-steps'
 import { useActiveLocale } from '../utils/active-locale'

@@ -4,7 +4,8 @@ import { emailOTPClient } from 'better-auth/client/plugins'
 import { passkey } from '@better-auth/passkey'
 import { authFlow, browserFetch, ORIGIN } from '../helpers/auth-flow'
 
-// The package's passkey client plugin (src/runtime/vue/passkey-client.ts)
+// The package's passkey client plugin (src/runtime/vue/passkey-client.ts, its
+// ceremony loader in passkey-ceremony.ts)
 // against real Better Auth on a memory database. The plugin is registered
 // with the client, which every page loads; the ceremony —
 // `@better-auth/passkey/client` and the `@simplewebauthn/browser` it imports
@@ -17,7 +18,7 @@ import { authFlow, browserFetch, ORIGIN } from '../helpers/auth-flow'
 /** How often the ceremony module was evaluated in this test, and whether the next load fails as a dropped chunk does. */
 const ceremony = { loads: 0, failNext: false }
 
-type Lazy = typeof import('../../src/runtime/vue/passkey-client')
+type Lazy = typeof import('../../src/runtime/vue/passkey-client') & typeof import('../../src/runtime/vue/passkey-ceremony')
 let lazy: Lazy
 
 beforeEach(async () => {
@@ -33,7 +34,8 @@ beforeEach(async () => {
     }
     return importOriginal()
   })
-  lazy = await import('../../src/runtime/vue/passkey-client')
+  // The plugin and the ceremony's loader (passkey-ceremony.ts), one fresh copy of each.
+  lazy = { ...await import('../../src/runtime/vue/passkey-client'), ...await import('../../src/runtime/vue/passkey-ceremony') }
 })
 
 const ADA = 'ada@example.com'

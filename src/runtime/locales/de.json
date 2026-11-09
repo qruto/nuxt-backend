@@ -2122,7 +2122,8 @@
       "claiming": "{name} wird geprüft…",
       "done": "{name} hinzugefügt.",
       "cancel": "Upload abbrechen",
-      "canceled": "Upload abgebrochen."
+      "canceled": "Upload abgebrochen.",
+      "retry": "Erneut versuchen"
     },
     "notifications": {
       "bellName": "Benachrichtigungen",

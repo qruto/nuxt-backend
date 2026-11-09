@@ -57,6 +57,8 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const LAZY_AUTH = 'The Better Auth client loads on first use, and a failed server call names its function'
+const UPLOAD_RETRY = 'The upload field retries a failure, and prepares a file before it uploads'
 const LABELS = 'Emails and notifications read the labels app config sets'
 const SHARED_CATEGORIES = 'Moderation verdicts name shared categories'
 const LAUNCH = 'A production checkout waits for billing to launch, and welcome credits come from the catalog'
@@ -72,6 +74,13 @@ const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from token
  * `const` per section heading above the list, and its entries in it.
  */
 export const RENAMES: readonly Rename[] = [
+  // 0.3: nuxt-convex-module 0.14 loads the Better Auth client on first use, and names a failed server call.
+  { from: 'nuxt-convex-module', to: 'nuxt-convex-module@^0.14.0', change: 'reshaped', section: LAZY_AUTH, note: 'the dependency\'s range; an app that lists the base module itself moves with it' },
+  { from: 'useBetterAuth().client.$store', to: '(await loadAuthClient()).$store', change: 'reshaped', section: LAZY_AUTH, note: 'a forwarding client until the auth client loads: calls ($fetch included) and use* hooks work as before; read $store.atoms or a plugin atom on the loaded client' },
+  { from: 'fetchQuery', to: 'fetchQuery', change: 'reshaped', section: LAZY_AUTH, note: 'a failure\'s message starts with [CONVEX Q(module:fn)], as fetchMutation\'s and fetchAction\'s do; read getBackendError(error) rather than compare the message' },
+  // 0.3: the upload field runs on the upload queue, retries a failure and prepares a file.
+  { from: 'useUploadField', to: 'useUploadField({ claim, prepare })', change: 'reshaped', section: UPLOAD_RETRY, note: 'returns retry and bind.retry; a failure ends in error with Try again, a refusal in refused, and the error slot adds refused and retry' },
+
   // 0.3: app config's labels reach the backend as labels.generated.ts.
   { from: 'setupEmail({ paths, brand })', to: 'setupEmail({ paths, brand, labels })', change: 'reshaped', section: LABELS, note: 'import `labels` from `./labels.generated`, which `upgrade` writes; drop the copy `messages` repeated from app config' },
 

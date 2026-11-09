@@ -4,7 +4,7 @@ import { getFunctionName, makeFunctionReference, type FunctionReference } from '
 import { computed, getCurrentInstance, watch, type App } from 'vue'
 import { clearNuxtState, tryUseNuxtApp } from '#app'
 import { ConvexAuthStateKey, ConvexClientKey } from '#backend-test-utils/base-client'
-import { __resetUseBetterAuthForTests } from '#backend-test-utils/base-use-better-auth'
+import { resetBetterAuthState } from 'nuxt-convex-module/testing'
 import { LAST_SIGN_IN_STATE } from '../vue/utils/last-sign-in.js'
 import { BackendApiKey, beforeApiRead } from '../vue/utils/namespace.js'
 import { activeBackendMock, callFunction, readQuery, registry } from './mock.js'
@@ -154,7 +154,16 @@ function provideOnNuxtApp(): void {
 registry.activated.add(provideOnNuxtApp)
 // This package reads its function tree under its own key, not through a base composable.
 beforeApiRead.add(provideMockOnCurrentApp)
-registry.reset.add(__resetUseBetterAuthForTests)
+registry.reset.add(resetBetterAuthState)
 registry.reset.add(forgetLastSignIn)
 // A mock made before this module loaded is provided now.
 if (registry.active.value) provideOnNuxtApp()
+
+// The base module loads its Better Auth client (under the aliases, the
+// mock's ./auth-client.ts) on first use, a dynamic import later, and the
+// session follows the client once it has loaded. Start that load here, as
+// the app starts, so a test's first session read follows the mock at once,
+// as every later one does: a loaded client stays loaded for the run, and
+// resetBetterAuthState() keeps it. Imported dynamically: the entry re-exports
+// `#convex/auth-client`, which imports this file.
+void import('nuxt-convex-module/better-auth/client').then(({ loadAuthClient }) => loadAuthClient()).catch(() => {})

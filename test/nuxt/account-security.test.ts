@@ -48,6 +48,8 @@ vi.mock('nuxt-convex-module/client', async original => ({
 }))
 
 vi.mock('nuxt-convex-module/better-auth/client', () => ({
+  // What a passkey form loads before the tap (utils/passkey-prompt.ts).
+  loadAuthClient: async () => client,
   useBetterAuth: () => ({
     isLoading: computed(() => false),
     isAuthenticated: computed(() => user.value !== null),

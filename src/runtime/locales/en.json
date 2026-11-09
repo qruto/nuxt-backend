@@ -2122,7 +2122,8 @@
       "claiming": "Checking {name}…",
       "done": "{name} added.",
       "cancel": "Cancel upload",
-      "canceled": "Upload canceled."
+      "canceled": "Upload canceled.",
+      "retry": "Try again"
     },
     "notifications": {
       "bellName": "Notifications",

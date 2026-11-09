@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, nextTick, onScopeDispose, ref } from 'vue'
+import { nextTick, onScopeDispose, ref } from 'vue'
 import type { RouteLocationNormalized } from 'vue-router'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { useNuxtApp, useRuntimeConfig } from '#imports'
@@ -15,19 +15,17 @@ import { useNuxtApp, useRuntimeConfig } from '#imports'
 /** The session the auth client holds, and the calls the guard makes on it. */
 const session = ref<{ data: unknown, isPending: boolean }>({ data: null, isPending: false })
 const getActiveMember = vi.fn(async (): Promise<{ data: unknown }> => ({ data: { role: 'member' } }))
-const authClient = { organization: { getActiveMember } }
 /** The session store's subscriptions still open: Better Auth's `useSession` drops one when its scope stops. */
 let sessionListeners = 0
-const useBetterAuth = vi.fn(() => {
+const useSession = vi.fn(() => {
   sessionListeners++
   onScopeDispose(() => sessionListeners--)
-  return {
-    session,
-    user: computed(() => (session.value.data as { user?: unknown } | null)?.user ?? null),
-    client: authClient,
-  }
+  return session
 })
-vi.mock('nuxt-convex-module/better-auth/client', () => ({ authClient, useBetterAuth }))
+const authClient = { organization: { getActiveMember }, useSession }
+// The base module loads the client on first use; the guard asks the loaded client.
+const loadAuthClient = vi.fn(async () => authClient)
+vi.mock('nuxt-convex-module/better-auth/client', () => ({ loadAuthClient }))
 
 // The server's token for the request: what `backendAuth(event).getToken()` answers.
 const getToken = vi.fn(async (): Promise<string | null> => null)
@@ -276,7 +274,22 @@ describe('the signed-in person on a server render', () => {
 describe('the page guard in the browser', () => {
   it('passes a page without rules without touching the session', async () => {
     expect(await guard(route('/about', {}))).toBeUndefined()
-    expect(useBetterAuth).not.toHaveBeenCalled()
+    expect(loadAuthClient).not.toHaveBeenCalled()
+    expect(useSession).not.toHaveBeenCalled()
+  })
+
+  it('loads the auth client and decides on the session it answers, not one settled without it', async () => {
+    signedIn('admin')
+    expect(await guard(route('/admin', { auth: { role: 'admin' } }))).toBeUndefined()
+    expect(loadAuthClient).toHaveBeenCalledTimes(1)
+    expect(useSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks for the client once more when its chunk did not load', async () => {
+    signedIn('admin')
+    loadAuthClient.mockRejectedValueOnce(new Error('Failed to fetch dynamically imported module'))
+    expect(await guard(route('/admin', { auth: { role: 'admin' } }))).toBeUndefined()
+    expect(loadAuthClient).toHaveBeenCalledTimes(2)
   })
 
   it('sends a signed-out visitor to sign in, with the way back and no one-time code', async () => {
@@ -354,7 +367,7 @@ describe('the page guard in the browser', () => {
     nuxtApp.payload.path = '/admin/?tab=users'
     try {
       expect(await guard(route('/admin?tab=users', { auth: { role: 'admin' } }))).toBeUndefined()
-      expect(useBetterAuth).not.toHaveBeenCalled()
+      expect(loadAuthClient).not.toHaveBeenCalled()
     }
     finally {
       nuxtApp.isHydrating = false
@@ -393,7 +406,7 @@ describe('the page guard in the browser', () => {
     await vi.waitFor(() => expect(sessionListeners).toBe(1))
     signedIn('admin')
     await deciding
-    expect(useBetterAuth).toHaveBeenCalledTimes(4)
+    expect(useSession).toHaveBeenCalledTimes(4)
     expect(sessionListeners).toBe(0)
   })
 })

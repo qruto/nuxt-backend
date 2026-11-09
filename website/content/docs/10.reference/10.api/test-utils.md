@@ -266,14 +266,16 @@ composables and components and the base module's own. Three imports are
 swapped:
 
 - `#convex/auth-client`, the Better Auth client the session layer is built
-  on (`useAuth`, `useBetterAuth`, the page guard), for one that
-  answers from the mock;
+  on (`useAuth`, `useBetterAuth`, the page guard), which the base module
+  loads on first use, for one that answers from the mock;
 - `nuxt-convex-module/client` and `nuxt-convex-module/vue`, for the base
   module's own entry with every export kept, whose composables also
   provide the mock where a plain `mount()` needs it.
 
-Two private names reach the base module's real files for those stand-ins.
-With the aliases in a Vitest project, a test needs no `vi.mock`.
+One private name reaches the base module's real entry for that stand-in;
+the session state the base module keeps between tests is reset through its
+public `nuxt-convex-module/testing`. With the aliases in a Vitest project,
+a test needs no `vi.mock`.
 
 Use them in a project with `@nuxt/test-utils`' `nuxt` environment
 (`defineVitestProject`, or `defineVitestConfig` for a single project): it

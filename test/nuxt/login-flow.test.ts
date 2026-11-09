@@ -26,6 +26,8 @@ const client = {
 }
 
 vi.mock('nuxt-convex-module/better-auth/client', () => ({
+  // What a passkey form loads before the tap (utils/passkey-prompt.ts).
+  loadAuthClient: async () => client,
   useBetterAuth: () => ({
     isLoading: computed(() => false),
     isAuthenticated: computed(() => user.value !== null),
@@ -50,7 +52,7 @@ type UseLoginFlowReturn = import('../../src/runtime/vue/composables/use-login-fl
 const { registerComponents } = await import('../helpers/register-components')
 await registerComponents('AuthForm')
 const { default: AuthForm } = await import('../../src/runtime/vue/components/auth/AuthForm.vue')
-const { AUTOFILL_RENEW_MS } = await import('../../src/runtime/vue/passkey-client')
+const { AUTOFILL_RENEW_MS } = await import('../../src/runtime/vue/passkey-ceremony')
 
 function inSetup<T>(runner: () => T): T {
   let result: T
