@@ -1,4 +1,4 @@
-import { computed, onMounted, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, onMounted, ref, type ComputedRef, type Ref } from 'vue'
 import { navigateTo, useRoute, useRouter, useState } from '#imports'
 import type { PricedGiftLength, PricedPack, PricedPlan } from '../../../convex/integrations/billing/types/records.js'
 import { useAuthSession } from '../utils/auth-session'
@@ -151,11 +151,29 @@ export function useGiftForm(options: UseGiftFormOptions = {}): UseGiftFormReturn
   const plans = computed(() => (pricing.plans.value ?? []).filter(plan => !plan.free && !plan.retired && (plan.gift?.lengths.length ?? 0) > 0))
   const kinds = computed<GiftKind[]>(() => [...(packs.value.length > 0 ? ['pack' as const] : []), ...(plans.value.length > 0 ? ['pass' as const] : [])])
 
-  const kind = ref<GiftKind>(query('plan') ? 'pass' : 'pack')
-  const pack = ref(query('pack') ?? '')
-  const plan = ref(query('plan') ?? '')
+  // What the person (or the address) picked; what the form holds is that
+  // when it is on sale, else the first that is. Derived, never written by a
+  // watcher: a server render that read the pricing after setup and the
+  // browser's hydration then hold the same choice.
   const asked = Number(query('months'))
-  const months = ref(Number.isInteger(asked) && asked > 0 ? asked : 0)
+  const picked = {
+    kind: ref<GiftKind>(query('plan') ? 'pass' : 'pack'),
+    pack: ref(query('pack') ?? ''),
+    plan: ref(query('plan') ?? ''),
+    months: ref(Number.isInteger(asked) && asked > 0 ? asked : 0),
+  }
+  const kind = computed<GiftKind>({
+    get: () => (kinds.value.length === 0 || kinds.value.includes(picked.kind.value) ? picked.kind.value : kinds.value[0]!),
+    set: (value) => { picked.kind.value = value },
+  })
+  const pack = computed({
+    get: () => (packs.value.some(entry => entry.key === picked.pack.value) ? picked.pack.value : packs.value[0]?.key ?? ''),
+    set: (value) => { picked.pack.value = value },
+  })
+  const plan = computed({
+    get: () => (plans.value.some(entry => entry.key === picked.plan.value) ? picked.plan.value : plans.value[0]?.key ?? ''),
+    set: (value) => { picked.plan.value = value },
+  })
   const recipientEmail = ref('')
   const message = ref('')
   const deliverOn = ref('')
@@ -165,16 +183,10 @@ export function useGiftForm(options: UseGiftFormOptions = {}): UseGiftFormReturn
 
   const chosenPlan = computed(() => plans.value.find(entry => entry.key === plan.value))
   const lengths = computed(() => chosenPlan.value?.gift?.lengths ?? [])
-
-  // What is on sale picks for the person: a kind with nothing to give, a key
-  // the catalog does not have, or a length the plan is not gifted for moves
-  // to the first one there is.
-  watch([kinds, packs, plans, lengths], () => {
-    if (kinds.value.length > 0 && !kinds.value.includes(kind.value)) kind.value = kinds.value[0]!
-    if (!packs.value.some(entry => entry.key === pack.value) && packs.value[0]) pack.value = packs.value[0].key
-    if (!plans.value.some(entry => entry.key === plan.value) && plans.value[0]) plan.value = plans.value[0].key
-    if (!lengths.value.some(length => length.months === months.value) && lengths.value[0]) months.value = lengths.value[0].months
-  }, { immediate: true })
+  const months = computed({
+    get: () => (lengths.value.some(length => length.months === picked.months.value) ? picked.months.value : lengths.value[0]?.months ?? 0),
+    set: (value) => { picked.months.value = value },
+  })
 
   const choice = computed<GiftChoice | null>(() => {
     if (kind.value === 'pack') {

@@ -8,6 +8,7 @@ import type { PricedPlan, Pricing } from '../../src/convex/integrations/billing/
 import { createBackendMock, resetBackendMock, type BackendMock } from '../../src/runtime/test-utils'
 import { useGiftForm, type UseGiftFormReturn } from '../../src/runtime/vue/composables/use-gift-form'
 import { registerComponents } from '../helpers/register-components'
+import { serverRender } from '../helpers/server-render'
 
 // Where the provider's page opens: nowhere, here.
 vi.mock('../../src/runtime/vue/utils/open-url', () => ({ openProviderUrl: vi.fn() }))
@@ -147,6 +148,29 @@ describe('useGiftForm', () => {
     const gift = await form('/gifts?sent=1')
     expect(gift.sent.value).toBe(true)
     await vi.waitFor(() => expect(useRouter().currentRoute.value.query.sent).toBeUndefined())
+  })
+
+  it('holds the same choice on a server render, whose pricing arrives after setup, as in the browser', async () => {
+    const mock = backend()
+    const choiceText = (gift: UseGiftFormReturn) => {
+      const chosen = gift.choice.value
+      return chosen ? `${chosen.kind} ${chosen.key} ${chosen.price}` : 'none'
+    }
+    // A server render: setup runs before the pricing arrives, watchers never
+    // fire after it, and the page renders once the pricing is there.
+    delete mock.state.queries['billing:getPricing']
+    const server = await serverRender(defineComponent({
+      async setup() {
+        const gift = useGiftForm()
+        mock.state.queries['billing:getPricing'] = PRICING
+        await vi.waitFor(() => expect(gift.isLoading.value).toBe(false))
+        return () => h('p', choiceText(gift))
+      },
+    }))
+    // The browser hydrates with the pricing already in hand.
+    const browser = await form()
+    expect(server).toBe(`<p>${choiceText(browser)}</p>`)
+    expect(server).toBe('<p>pack credits100 $5</p>')
   })
 
   it('bounds the delivery day from today to a year ahead', async () => {
