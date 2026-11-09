@@ -23,7 +23,8 @@ import { hideBaseBrandNames, registerBackendApi, registerBaseComponentAliases, r
 import { imageDependency } from './nuxt/image'
 import { registerStyles } from './nuxt/styles'
 import { registerProtection } from './nuxt/protection'
-import { registerSecurityRules, securityDefaults, securityDisabled } from './nuxt/security'
+import { registerSecurityRules, securityDefaults, securityDevOverrides, securityDisabled } from './nuxt/security'
+import { keepDevModulesUncached } from './nuxt/development'
 
 // The module definition; the helpers setup calls live in nuxt/, one file
 // per concern.
@@ -190,8 +191,11 @@ export default defineNuxtModule<ModuleOptions>({
       // set up before the base module looks for it. `security: false` in
       // nuxt.config still disables it outright (nuxt-security's own switch).
       // Its defaults add the nonce and, in a production build, Trusted Types; in
-      // development they turn off what breaks a local server (src/nuxt/security.ts).
-      ...(securityDisabled(nuxt) ? {} : { 'nuxt-security': { version: dependencyRange('nuxt-security'), defaults: securityDefaults(nuxt.options.dev) } }),
+      // development its overrides keep off what breaks a local server, unless the
+      // app turns one on under `$development` (src/nuxt/security.ts).
+      ...(securityDisabled(nuxt)
+        ? {}
+        : { 'nuxt-security': { version: dependencyRange('nuxt-security'), defaults: securityDefaults(nuxt.options.dev), ...(nuxt.options.dev ? { overrides: securityDevOverrides(nuxt) } : {}) } }),
       // <NuxtImg provider="backend"> once the app adds @nuxt/image: the
       // provider and the deployment's file hosts as its defaults.
       ...imageDependency(resolver, [backend.url ?? process.env.NUXT_PUBLIC_BACKEND_URL ?? derived?.url, resolveSiteUrl({ url: backend.url, env: process.env, derived })]),
@@ -253,6 +257,9 @@ export default defineNuxtModule<ModuleOptions>({
     // folder (same targets as the base module's `#convex/*`).
     registerBackendAliases(nuxt, resolver.resolve('./runtime'))
     registerBackendApi(resolver, nuxt)
+    // In development, no module of the dev server stays in the browser's
+    // cache, where Safari mixed old copies of Vue with new ones.
+    keepDevModulesUncached(nuxt)
 
     // The content layer: `appConfig.backend` (plan catalog, labels, brand).
     // defu keeps user `app.config.ts` values winning and HMR-reactive. Cast:

@@ -77,12 +77,15 @@ export default defineNuxtConfig({
 })
 ```
 
-On `nuxt dev`, the package also turns off `nuxt-security`'s rate limiter, `upgrade-insecure-requests` and HSTS. Every reload and DevTools probe counts against the limiter, and its `429` looks like a broken page. On a plain-http dev port, Safari obeys the other two for `localhost`, so every asset goes to `https://` and fails. A production build keeps all three. A value of your own under the `security` key wins in development too, so a `rateLimiter` you tune for production belongs under `$production` if you want it off locally:
+On `nuxt dev`, the package also turns off `nuxt-security`'s rate limiter, `upgrade-insecure-requests` and HSTS. Every reload and DevTools probe counts against the limiter, and its `429` looks like a broken page. On a plain-http dev port, Safari obeys the other two for `localhost`, so every asset goes to `https://` and fails. A production build keeps all three. A value of your own under the `security` key is for production: it reaches `nuxt dev` for the other options, never for these three, so a `rateLimiter` you tune for production stays off locally. To turn one on in development, set it under `$development`:
 
 ```ts [nuxt.config.ts]
 export default defineNuxtConfig({
-  $production: {
-    security: { rateLimiter: { tokensPerInterval: 2000, interval: 300_000 } },
+  // Production's: development keeps the limiter off.
+  security: { rateLimiter: { tokensPerInterval: 2000, interval: 300_000 } },
+  // Development's own, when you want to try the limiter locally.
+  $development: {
+    security: { rateLimiter: { tokensPerInterval: 50, interval: 60_000 } },
   },
 })
 ```

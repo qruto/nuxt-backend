@@ -282,7 +282,7 @@ async function resolveMiddleware(nuxt: Nuxt): Promise<RegisteredMiddleware> {
  * listing is unchanged and the scaffold sentinel (`convex.json`, which the
  * scaffolder writes whenever the functions dir is not `convex/`) is absent.
  */
-function useBoot(overrides: Record<string, unknown> = {}, options: { dev?: boolean } = {}): () => Nuxt {
+function useBoot(overrides: Record<string, unknown> = {}, options: { dev?: boolean, envName?: string } = {}): () => Nuxt {
   let nuxt: Nuxt
   let before: string[]
 
@@ -291,6 +291,8 @@ function useBoot(overrides: Record<string, unknown> = {}, options: { dev?: boole
     nuxt = await loadNuxt({
       cwd: fixtureDir,
       dev: options.dev ?? false,
+      // The `$<env>` config block that applies; under the test runner, `$test`'s.
+      ...(options.envName ? { envName: options.envName } : {}),
       ready: true,
       overrides: { telemetry: false, ...overrides } as Overrides,
     })
@@ -694,6 +696,13 @@ describe('module registration (defaults)', () => {
 
   it('puts the chunk-load recovery in a production build\'s pages', () => {
     expect(nitroPlugins(getNuxt()).filter(plugin => /[\\/]runtime[\\/]server[\\/]chunk-recovery(?:\.ts)?$/.test(plugin))).toHaveLength(1)
+  })
+
+  it('leaves development\'s defaults to development', () => {
+    const nuxt = getNuxt()
+    expect(nuxt.options.app.buildAssetsDir).toBe('/_nuxt/')
+    expect(Object.keys(nuxt.options.vite.server?.headers ?? {}).map(name => name.toLowerCase())).not.toContain('cache-control')
+    expect((nuxt.options.security as { rateLimiter?: unknown }).rateLimiter).not.toBe(false)
   })
 
   // The DevTools bridge is dev-only; the session-ended watch and the
@@ -1155,6 +1164,57 @@ describe('dev boot under a test runner (test: true), DevTools left on', () => {
     expect(await rendersFallback('backend/_generated/api.d.ts', { filename: 'nuxt-backend-provide-api.mjs' })).toBe(true)
     expect(await rendersFallback('backend\\_generated\\api.d.ts')).toBe(true)
     expect(await rendersFallback('backend/todos.ts')).toBe(false)
+  })
+})
+
+describe('development defaults', () => {
+  // The module logs through consola, which writes to the process streams.
+  const written: string[] = []
+  const streams: Array<{ mockRestore: () => void }> = []
+  beforeAll(() => {
+    for (const stream of [process.stdout, process.stderr]) {
+      streams.push(vi.spyOn(stream, 'write').mockImplementation((chunk: string | Uint8Array) => {
+        written.push(String(chunk))
+        return true
+      }))
+    }
+  })
+  const getNuxt = useBoot({ test: true }, { dev: true })
+  afterAll(() => {
+    for (const stream of streams) stream.mockRestore()
+  })
+
+  it('serves the dev modules from /_dev/, never cached', () => {
+    const nuxt = getNuxt()
+    expect(nuxt.options.app.buildAssetsDir).toBe('/_dev/')
+    expect((nuxt.options.runtimeConfig.app as { buildAssetsDir?: string }).buildAssetsDir).toBe('/_dev/')
+    expect(nuxt.options.vite.server?.headers).toMatchObject({ 'Cache-Control': 'no-store' })
+    // Never in a page served by the dev server: the recovery is a production build's.
+    expect(nitroPlugins(nuxt).filter(plugin => plugin.includes('chunk-recovery'))).toEqual([])
+  })
+
+  it('names an app page that makes a private page\'s path public, once', async () => {
+    const nuxt = getNuxt()
+    const shop: NuxtPage = { name: 'gifts', path: '/gifts', file: join(fixtureDir, 'app/pages/gifts.vue') }
+    for (let pass = 0; pass < 2; pass++) await nuxt.callHook('pages:resolved', await extendPages(nuxt, [shop]))
+    const warnings = written.join('').split('\n').filter(line => line.includes('replaces the ready-made gifts page'))
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('The app page at `/gifts`')
+    expect(written.join('')).toContain('definePageMeta({ auth: true })')
+  })
+})
+
+describe('development defaults the app sets itself', () => {
+  const getNuxt = useBoot({
+    test: true,
+    $development: { app: { buildAssetsDir: '/_assets/' } },
+    vite: { server: { headers: { 'cache-control': 'max-age=5' } } },
+  }, { dev: true, envName: 'development' })
+
+  it('keeps the app\'s own module cache settings, the one under $development included', () => {
+    const nuxt = getNuxt()
+    expect(nuxt.options.app.buildAssetsDir).toBe('/_assets/')
+    expect(nuxt.options.vite.server?.headers).toEqual({ 'cache-control': 'max-age=5' })
   })
 })
 
