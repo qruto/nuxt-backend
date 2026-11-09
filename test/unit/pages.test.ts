@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { registryText } from '../../scripts/pages-registry.mjs'
 import { DEFAULT_PAGE_PATHS } from '../../src/runtime/vue/composables/use-backend-page-path'
-import { BACKEND_PAGE_DEFS, collectExistingPagePaths, normalizePagePath, pageRouteRules, privatePagePaths, resolvePagePath, resolvedBackendPages } from '../../src/pages'
+import { BACKEND_PAGE_DEFS, collectExistingPagePaths, normalizePagePath, pagePathShape, pageRouteRules, privatePagePaths, resolvePagePath, resolvedBackendPages } from '../../src/pages'
 
 describe('resolvePagePath', () => {
   it('returns default paths when nothing is configured', () => {
@@ -150,6 +150,33 @@ describe('collectExistingPagePaths', () => {
     expect(paths.has('/settings')).toBe(true)
     expect(paths.has('/settings/billing')).toBe(true)
     expect(paths.has('/settings/security')).toBe(true)
+  })
+
+  // Nuxt writes `app/pages/r/[code].vue` as `/r/:code()`: the same page as the referral page's `/r/:code`.
+  it('reads a page file with a parameter as the path it replaces', () => {
+    const paths = collectExistingPagePaths([{ path: '/r/:code()' }, { path: '/gifts' }])
+    expect(paths.has(pagePathShape('/r/:code'))).toBe(true)
+    expect(paths.has(pagePathShape('/gifts'))).toBe(true)
+  })
+})
+
+describe('pagePathShape', () => {
+  it('writes every whole parameter alike, whatever its name and however Nuxt spelled it', () => {
+    const referral = pagePathShape('/r/:code')
+    // [code].vue, a parameter of another name, [[code]].vue and [...slug].vue answer every address /r/:code does.
+    for (const path of ['/r/:code()', '/r/:id', '/r/:code?', '/r/:code()?', '/r/:slug(.*)*', '/r/:code+', '/r/:code/']) {
+      expect(pagePathShape(path), path).toBe(referral)
+    }
+  })
+
+  it('keeps what tells two paths apart: static segments, their count, and a parameter\'s own pattern', () => {
+    const referral = pagePathShape('/r/:code')
+    for (const path of ['/r', '/r/code', '/r/:code/claim', '/:slug(.*)*', '/R/:code', '/r/:id(\\d+)']) {
+      expect(pagePathShape(path), path).not.toBe(referral)
+    }
+    expect(pagePathShape('/login/')).toBe('/login')
+    // A partial segment keeps its name; only the empty pattern goes.
+    expect(pagePathShape('/posts/:id()-draft')).toBe('/posts/:id-draft')
   })
 })
 

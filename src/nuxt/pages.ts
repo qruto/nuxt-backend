@@ -2,7 +2,7 @@ import { extendPages, extendRouteRules, hasNuxtModule, type Resolver } from '@nu
 import type { Nuxt, NuxtPage } from '@nuxt/schema'
 import { defu } from 'defu'
 import { DEFAULT_AUTH_ROUTE } from '../convex/constants'
-import { adoptChildPages, BACKEND_PAGE_DEFS, cachingRulesOver, collectExistingPagePaths, isPageOff, pageRouteRules, privatePagePaths, publishedBackendPages, resolvedBackendPages, type BackendPageDef } from '../pages'
+import { adoptChildPages, BACKEND_PAGE_DEFS, cachingRulesOver, collectExistingPagePaths, isPageOff, pagePathShape, pageRouteRules, privatePagePaths, publishedBackendPages, resolvedBackendPages, type BackendPageDef } from '../pages'
 import { computeDevtoolsPages } from '../devtools/info'
 import type { DevtoolsPageInfo } from '../devtools/rpc-types'
 import type { ModuleOptions } from '../module'
@@ -166,7 +166,7 @@ export function protectGuardedPages(nuxt: Nuxt): void {
  */
 function localizedCopies(pages: NuxtPage[], files: Map<string, BackendPageDef>, mounted: Set<string>): Array<{ path: string, def: BackendPageDef }> {
   return flattenRoutes(pages).flatMap((route) => {
-    const def = route.file ? files.get(route.file.replace(/\.(?:vue|[cm]?[jt]s)$/, '')) : undefined
+    const def = readyMadePage(files, route)
     if (!def || mounted.has(route.path)) return []
     if (route.path.includes(':')) {
       logger.warn(`The ${def.key} page answers at \`${route.path}\`, a pattern route rules cannot follow: give that path its page's rules (${CACHES_DOCS_URL}).`)
@@ -203,6 +203,90 @@ function tabbedRoutes(pages: NuxtPage[], parent = ''): Array<{ path: string, met
     const meta = tab && typeof tab === 'object' ? tab : {}
     return [...(tab === undefined ? [] : [{ path, meta }]), ...tabbedRoutes(page.children ?? [], path)]
   })
+}
+
+/** The ready-made page a route mounts, by its file; `undefined` for a page of the app's. */
+function readyMadePage(files: Map<string, BackendPageDef>, route: { file?: string }): BackendPageDef | undefined {
+  return route.file ? files.get(route.file.replace(/\.(?:vue|[cm]?[jt]s)$/, '')) : undefined
+}
+
+/** Where the docs say what the path of a private page an app page replaces keeps. */
+const REPLACED_DOCS_URL = 'https://nuxt-backend.dev/docs/build/ui/pages#search-engines'
+
+/** The route rule keys that keep a page out of search: what a private page's path gives up to a public page of the app's. */
+const INDEX_KEYS = ['robots', 'sitemap'] as const
+
+/** A private ready-made page's path: where its rules went (`ruleKey`), and the index keys the app set there itself. */
+interface PrivatePagePath {
+  def: BackendPageDef
+  path: string
+  ruleKey: string
+  own: ReadonlySet<string>
+}
+
+/** The index keys an app's own rule for this path sets, read before the module adds its own. */
+function ownIndexKeys(nuxt: Nuxt, ruleKey: string): ReadonlySet<string> {
+  const rule = nuxt.options.routeRules?.[ruleKey] as Record<string, unknown> | undefined
+  return new Set(INDEX_KEYS.filter(key => rule && key in rule))
+}
+
+/**
+ * A private ready-made page's rules follow its path (pageRouteRules), so an
+ * app page that replaces it there would carry them whatever it is: a public
+ * shop at `/gifts` kept out of search indexes and sitemaps. The app's page
+ * decides instead, once the pages resolve with their meta. One with `auth`
+ * rules of its own or a parent's (`definePageMeta({ auth: true })`) keeps
+ * every private rule, as protectGuardedPages would give it. A public one
+ * is indexable again (`robots` and `sitemap` off its path), and development
+ * names the path; it keeps the cache exemption (`cache-control: private,
+ * no-store`), since its render for a signed-in visitor still carries the
+ * session's token. A key the app set for the path itself is never touched.
+ * Decided again each time the pages resolve, so a page that gains or loses
+ * its `auth` rules in development takes its path's rules with it.
+ */
+function decideReplacedPrivatePages(nuxt: Nuxt, files: Map<string, BackendPageDef>, paths: readonly PrivatePagePath[]): void {
+  if (paths.length === 0) return
+  let nitro: { options: { routeRules: Record<string, unknown> } } | undefined
+  nuxt.hook('nitro:init', (instance) => {
+    nitro = instance as unknown as typeof nitro
+  })
+  const warned = new Set<string>()
+  nuxt.hook('pages:resolved', (pages) => {
+    const routes = flattenRoutes(pages)
+    const guarded = new Set(guardedPaths(pages).map(pagePathShape))
+    // The app's table, and Nitro's, which copied it when Nitro started, before the pages resolved.
+    const tables = [nuxt.options.routeRules, nitro?.options.routeRules] as Array<Record<string, unknown> | undefined>
+    for (const entry of paths) {
+      const shape = pagePathShape(entry.path)
+      const here = routes.filter(route => pagePathShape(route.path) === shape)
+      // The ready-made page itself, nothing at all, or a page of the app's with `auth` rules: the private rules stand.
+      const isPublic = here.length > 0 && !here.some(route => readyMadePage(files, route) === entry.def) && !guarded.has(shape)
+      for (const table of tables) {
+        if (table) setIndexRules(table, entry, isPublic)
+      }
+      if (isPublic && nuxt.options.dev && !warned.has(entry.path)) {
+        warned.add(entry.path)
+        logger.warn(`The app page at \`${entry.path}\` replaces the ready-made ${entry.def.key} page, which asks for a sign-in, and has no \`auth\` rules: it is public, so search engines may index it and sitemaps list it, and it stays out of caches (\`cache-control: private, no-store\`).`
+          + `\n  ↳ If only signed-in people may open it, add \`definePageMeta({ auth: true })\`, and the path keeps the private page's rules: ${REPLACED_DOCS_URL}`)
+      }
+    }
+  })
+}
+
+/**
+ * Take the private page's index rules off one rule table's entry for its
+ * path, or give them back: the app's own keys stay as they are either way,
+ * and a value that is not the module's (`false`) is the app's too.
+ */
+function setIndexRules(table: Record<string, unknown>, entry: PrivatePagePath, indexable: boolean): void {
+  const rule = table[entry.ruleKey] as Record<string, unknown> | undefined
+  if (!indexable) {
+    table[entry.ruleKey] = defu(rule, rulesFor(entry.def))
+    return
+  }
+  if (!rule) return
+  const released = (key: string) => (INDEX_KEYS as readonly string[]).includes(key) && !entry.own.has(key) && rule[key] === false
+  table[entry.ruleKey] = Object.fromEntries(Object.entries(rule).filter(([key]) => !released(key)))
 }
 
 /** The SEO modules whose presence turns on the pricing page's Open Graph tags and structured data. */
@@ -247,22 +331,27 @@ export function registerModulePages(options: ModuleOptions, resolver: Resolver, 
   // exact path, which is why an app-wide cache rule is worth a warning.
   // A page turned off (`pages.<key>: false`) mounts nothing and carries no rules.
   const mounting = BACKEND_PAGE_DEFS.filter(def => !isPageOff(options.pages, def.key))
+  const privatePaths: PrivatePagePath[] = []
   for (const def of mounting) {
     // A page with a parameter in its path (`/r/:code`) carries its rules as a pattern.
-    extendRouteRules(rulePattern(resolved[def.key]) ?? resolved[def.key], rulesFor(def) as Parameters<typeof extendRouteRules>[1])
+    const ruleKey = rulePattern(resolved[def.key]) ?? resolved[def.key]
+    if (def.auth) privatePaths.push({ def, path: resolved[def.key], ruleKey, own: ownIndexKeys(nuxt, ruleKey) })
+    extendRouteRules(ruleKey, rulesFor(def) as Parameters<typeof extendRouteRules>[1])
   }
   warnOnCachedPrivatePages(nuxt, privatePagePaths(options.pages))
   watchAdminTabs(nuxt, resolved.admin)
   // The same rules wherever a router module mounts the pages again.
   const files = new Map(mounting.map(def => [resolver.resolve(`./runtime/vue/pages/${def.file}`), def as BackendPageDef]))
   followLocalizedPages(nuxt, files, new Set(mounting.map(def => resolved[def.key])))
+  // A private page's path follows the app's page that replaces it.
+  decideReplacedPrivatePages(nuxt, files, privatePaths)
 
   extendPages((pages) => {
     const taken = collectExistingPagePaths(pages)
     info.list = computeDevtoolsPages(resolved, taken)
     for (const def of mounting) {
       const path = resolved[def.key]
-      if (taken.has(path)) {
+      if (taken.has(pagePathShape(path))) {
         logger.info(`App page at \`${path}\` overrides the built-in ${def.key} page`)
         continue
       }

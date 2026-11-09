@@ -661,6 +661,37 @@ describe('module registration (defaults)', () => {
     expect(pages).toHaveLength(DEFAULT_PAGES.length)
   })
 
+  // Nuxt registers `app/pages/r/[code].vue` as `/r/:code()`, the referral page's `/r/:code` by another spelling.
+  it('skips a page the app serves at a path with a parameter, however Nuxt spelled it', async () => {
+    for (const path of ['/r/:code()', '/r/:id()', '/r/:slug(.*)*']) {
+      const appReferral: NuxtPage = { name: 'r-code', path, file: join(fixtureDir, 'app/pages/r/[code].vue') }
+      const pages = await extendPages(getNuxt(), [appReferral])
+      expect(pages.map(page => page.name), path).not.toContain('backend-referral')
+      expect(pages.filter(page => page.path.startsWith('/r/')), path).toEqual([appReferral])
+    }
+  })
+
+  // An app's public shop at /gifts, where the packaged gifts page asks for a sign-in.
+  it('lets an app page without `auth` rules at a private page\'s path be indexed, and keeps it out of caches', async () => {
+    const nuxt = getNuxt()
+    const rulesAtGifts = () => [nuxt.options.routeRules?.['/gifts'], nitroRouteRules(nuxt)['/gifts']]
+    const shop: NuxtPage = { name: 'gifts', path: '/gifts', file: join(fixtureDir, 'app/pages/gifts.vue') }
+    const resolve = async (page?: NuxtPage) => nuxt.callHook('pages:resolved', await extendPages(nuxt, page ? [page] : []))
+
+    await resolve(shop)
+    for (const rule of rulesAtGifts()) {
+      expect(rule).not.toHaveProperty('robots')
+      expect(rule).not.toHaveProperty('sitemap')
+      expect(rule).toMatchObject({ prerender: false, cache: false, swr: false, isr: false, headers: { 'cache-control': 'private, no-store' } })
+    }
+
+    // The same page asking for a sign-in keeps every private rule, and so does the packaged page once it is back.
+    for (const page of [{ ...shop, meta: { auth: true } }, undefined]) {
+      await resolve(page)
+      for (const rule of rulesAtGifts()) expect(rule).toMatchObject({ robots: false, sitemap: false, cache: false, headers: { 'cache-control': 'private, no-store' } })
+    }
+  })
+
   // The DevTools bridge is dev-only; the session-ended watch and the
   // passkey ceremony's idle load are always on.
   it('wires no error-reporting SDK without a DSN, installed or not: nothing imports it', () => {
