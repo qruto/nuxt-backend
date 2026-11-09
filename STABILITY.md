@@ -493,11 +493,16 @@ The backend component's maintenance is part of this surface by its windows: what
   - `ai-components`
   - `ai-gateway-budget`
   - `ai-moderation-images`
+  - `ai-moderation-providers`
   - `ai-spend-limit`
   - `ai-stream-route`
   - `deployment-ai-gateway-api-key`
+  - `deployment-content-safety-endpoint`
+  - `deployment-content-safety-key`
+  - `deployment-known-abuse-key`
   - `deployment-provenance-certificate`
   - `deployment-provenance-private-key`
+  - `deployment-second-opinion-key`
 - `auth`:
   - `admin-bootstrap`
   - `auth-secret`
@@ -610,12 +615,15 @@ The environment variables the package reads, by name: the keys of `backendEnv` (
 - `BACKEND_ENVIRONMENT`
 - `BILLING_ACCESS_TOKEN`
 - `BILLING_WEBHOOK_SECRET`
+- `CONTENT_SAFETY_ENDPOINT`
+- `CONTENT_SAFETY_KEY`
 - `EMAIL_API_KEY`
 - `EMAIL_DEV_INBOX`
 - `EMAIL_FROM`
 - `EMAIL_MARKETING_FROM`
 - `EMAIL_REGION`
 - `EMAIL_WEBHOOK_SECRET`
+- `KNOWN_ABUSE_KEY`
 - `MONITORING_DSN`
 - `NUXT_PUBLIC_BACKEND_CHALLENGE_SITE_KEY`
 - `NUXT_PUBLIC_BACKEND_URL`
@@ -625,6 +633,7 @@ The environment variables the package reads, by name: the keys of `backendEnv` (
 - `PROVENANCE_PRIVATE_KEY`
 - `PUSH_PRIVATE_KEY`
 - `PUSH_PUBLIC_KEY`
+- `SECOND_OPINION_KEY`
 - `SITE_URL`
 
 The CLI's command contracts are a surface too: each command's flags, the shape of its `--json` output, its exit codes, and the side effects it declares (`--help` ends with them; the [CLI page](https://nuxt-backend.dev/docs/reference/cli) lists them). A command never gains a side effect in a patch release. `nuxt-backend upgrade --json` is one of them: its shape and the values of `data.state` are kept, and it rewrites none of the app's code. The package's data migrations it runs are named in its report, and their names and descriptions are wording.
@@ -636,13 +645,13 @@ The package ships its agent guidance under `skills/`: the core skill, `skills/nu
 Tagged `@experimental` in the source and in the API reference. These may change shape in a minor release of the 0.x line without the deprecation cycle; from `1.0` they either graduate into the promise or keep the tag:
 
 - `nuxt-backend/monitoring` — `reportError`, `reportingErrors`, `checkIn` and `checkingIn`: error reports and cron check-ins from an app's own actions. Their options follow the monitoring service's cron monitors, which may still move. The tags a report carries and the health routes are stable (above).
-- `nuxt-backend/ai` — `setupAi`: the reserve → run → settle metering model over provider meter events, and the models it calls: `provider/model` ids through the AI gateways in the order `setupAi({ gateway })` names, the cost each call reports (`ReportedCost`), `ctx.model()` and `modelStatus`, and `getCosts` from `ai.api`, what each person's AI calls cost. A model call is refused, saying why, where no route answers it. `defineJobQueue`: the generation queue, its tiers, model limits and credit hold, a kind charged by output (`charge: 'output'`, `job.charge`) and a free job (`{ free: true }`), the functions `jobs.api` exports, `jobs.get` and `jobs.cancel` for the app's own functions, and `onJobEnd` with the args it receives (`vJobEnd`). Image models in job steps (`ctx.image()`), a step's `timeout` and `callSettings`, `retryable`, and per-model gateway `routes`. The moderation policy (`moderation: { block, escalate, log }`), `blocked` and `escalate` on a verdict, and `listModerationFlags`. `ai.chat` and `ai.knowledge`: chat threads and knowledge search on the Agent and RAG components (both pre-1.0), the functions each exports, and the EU inference pin (`inferenceRegion`).
+- `nuxt-backend/ai` — `setupAi`: the reserve → run → settle metering model over provider meter events, and the models it calls: `provider/model` ids through the AI gateways in the order `setupAi({ gateway })` names, the cost each call reports (`ReportedCost`), `ctx.model()` and `modelStatus`, and `getCosts` from `ai.api`, what each person's AI calls cost. A model call is refused, saying why, where no route answers it. `defineJobQueue`: the generation queue, its tiers, model limits and credit hold, a kind charged by output (`charge: 'output'`, `job.charge`) and a free job (`{ free: true }`), the functions `jobs.api` exports, `jobs.get` and `jobs.cancel` for the app's own functions, and `onJobEnd` with the args it receives (`vJobEnd`). Image models in job steps (`ctx.image()`), a step's `timeout` and `callSettings`, `retryable`, and per-model gateway `routes`. The moderation policy (`moderation: { block, escalate, log }`), `blocked` and `escalate` on a verdict, and `listModerationFlags`. `ai.chat` and `ai.knowledge`: chat threads and knowledge search on the Agent and RAG components (both pre-1.0), the functions each exports, and the EU inference pin (`inferenceRegion`). Content safety's providers (`azureContentSafety`, `openaiModeration` and `arachnidShield`), the shared categories (`MODERATION_CATEGORIES`, `DEFAULT_THRESHOLDS`), and `getModerationStatement` from `ai.api`.
 - `useAiStream` — paired with `nuxt-backend/ai`.
 - `useJob` — paired with `defineJobQueue`.
 - `useInboxAdmin` — paired with the support inbox (`setupEmail({ inbound: { support } })`), which follows the email provider's Inboxes, new in October 2026; with `getInboxConsole`, `replyToInbox` and `syncInbound` of `setupEmail(…).api`, and the admin console's Inbox tab.
 - `useChat` — paired with `ai.chat`, which follows the Agent component's pre-1.0 shapes.
 - `useWorkflowStatus` — tracks the upstream workflow component's pre-1.0 status shape.
-- `defineBackendTestApp`, `asUser` and `seedWorkspace` from `nuxt-backend/test` — the test app and its signed-in callers (`asUser`'s `signedInAt` sets when a caller's session signed in); the claims they carry follow the auth flows, which may still move. With them `upload` (also `t.upload()`), `drain`, `stubStorageFetch`, `seedBilling` and `seedCredits`, `defineBackendTestApp`'s `mounts` and the deployment variables it sets, the fixtures `TEST_PNG` and `TEST_STORAGE_URL`, and their types (`ComponentTestKit`, `BackendTestAppOptions`, `BackendTestApp`, `TestFile`, `TestUploadOptions`, `StubStorageFetchOptions`, `TestTimers`, `TestBilling`): they follow convex-test's scheduler and storage, and the billing cache's shape, which may still move.
+- `defineBackendTestApp`, `asUser` and `seedWorkspace` from `nuxt-backend/test` — the test app and its signed-in callers (`asUser`'s `signedInAt` sets when a caller's session signed in); the claims they carry follow the auth flows, which may still move. With them `upload` (also `t.upload()`), `drain`, `stubStorageFetch`, `seedBilling` and `seedCredits`, `defineBackendTestApp`'s `mounts` and the deployment variables it sets, the fixtures `TEST_PNG` and `TEST_STORAGE_URL`, the moderation markers `TEST_UNSAFE`, `TEST_FAINT` and `TEST_KNOWN_ABUSE`, and their types (`ComponentTestKit`, `BackendTestAppOptions`, `BackendTestApp`, `TestFile`, `TestUploadOptions`, `StubStorageFetchOptions`, `TestTimers`, `TestBilling`): they follow convex-test's scheduler and storage, and the billing cache's shape, which may still move.
 - `nuxt-backend/test-utils` — `createBackendMock`, `resetBackendMock`, `backendMockProvides`, `backendTestAliases` and `renderEmail` (which renders an email as `setupEmail` with the same options would): the mock answers the way the auth and billing flows (and Better Auth) answer today, and its built-in answers, its state and the modules it aliases follow them as they move. It reaches two internals of `nuxt-convex-module` (`#convex/auth-client` and its session-token reset), held by a test until a supported seam lands.
 - `setupEmail(…).devtools` — `previewEmails` and `sendEmailPreview`, the internal functions the DevTools Email tab runs with the Convex CLI on a dev deployment; `previews`, the sample set they render, and its entries (`EmailPreview`); and `forceColorScheme` from `nuxt-backend/email`, which shows a preview light or dark by rewriting the layout's media query, so it follows the layout's markup: the samples, the entries and what a preview carries may still change.
 - `useSandboxInbox` — the dev inbox for demos, previews and e2e runs, which reads the mail a test address received back from the email provider's own log of sent email, together with the `setupEmail(…).api.getSandboxInbox` action behind it and the `nuxt-backend inbox` command that reads it on dev deployments; how far back it reads, how many bodies it fetches and the code it extracts may still change.

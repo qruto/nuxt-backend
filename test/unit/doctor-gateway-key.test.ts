@@ -453,3 +453,48 @@ describe('the ai capability and its models', () => {
     expect(CAPABILITIES.ai.detect({ ...keyed, deployment: 'local' as const }).state).toBe('live')
   })
 })
+
+describe('doctor\'s moderation providers', () => {
+  const providersFinding = async () => (await runDoctorChecks(rootDir, { prod: false, only: ['ai'] })).find(found => found.id === 'ai-moderation-providers')!
+  const withProviders = (moderation: string, extra = '') => ({
+    'ai.ts': `export const ai = setupAi(components, { billing${extra}, moderation: ${moderation} })\n`,
+    'uploads.ts': `export const check = action({ handler: async (ctx, { id }) => ai.requireSafe(ctx, { images: [id] }) })\n`,
+  })
+
+  it('passes a backend that names no provider', async () => {
+    app({ deployment: 'dev:happy-otter-123', backend: NAMES_A_MODEL })
+    expect(await providersFinding()).toMatchObject({ status: 'pass', message: expect.stringContaining('names no moderation provider') })
+  })
+
+  it('warns for each key a named provider lacks on the deployment, and status counts those alone', async () => {
+    deployed.names = 'AUTH_SECRET\nSITE_URL\nKNOWN_ABUSE_KEY\n'
+    app({ deployment: 'dev:happy-otter-123', backend: withProviders(`{ images: [azureContentSafety({ region: 'francecentral' })], knownAbuse: arachnidShield() }`) })
+    const findings = await runDoctorChecks(rootDir, { prod: false, only: ['ai'] })
+    const keyFinding = (name: string) => findings.find(found => found.id === `deployment-${name.toLowerCase().replaceAll('_', '-')}`)!
+    for (const name of ['CONTENT_SAFETY_ENDPOINT', 'CONTENT_SAFETY_KEY']) {
+      expect(keyFinding(name), name).toMatchObject({ status: 'warn', message: expect.stringContaining(`azure-content-safety, but ${name} is not set on the deployment`), fixHint: expect.stringContaining('npx nuxt-backend env push') })
+    }
+    expect(keyFinding('KNOWN_ABUSE_KEY').status).toBe('pass')
+    expect(keyFinding('SECOND_OPINION_KEY')).toMatchObject({ status: 'pass', message: expect.stringContaining('is not needed') })
+    const context = { env: {}, deployed: new Set(['BILLING_ACCESS_TOKEN', 'KNOWN_ABUSE_KEY']), deployment: 'cloud-dev' as const, findings }
+    expect(capabilityStatus('ai', context).missingEnv).toEqual(expect.arrayContaining(['CONTENT_SAFETY_ENDPOINT', 'CONTENT_SAFETY_KEY']))
+    expect(capabilityStatus('ai', context).missingEnv).not.toContain('SECOND_OPINION_KEY')
+    expect(await providersFinding()).toMatchObject({ status: 'pass', message: expect.stringContaining('a known-abuse match first') })
+    // No image provider judges minors in an image: doctor says where new material is caught.
+    expect((await providersFinding()).message).toContain('caught as `S4` by a classifier that reads images (Llama Guard 4), and otherwise only as `sexual`')
+  })
+
+  it('warns when the backend checks images with no known-abuse match', async () => {
+    deployed.names = 'AUTH_SECRET\nSITE_URL\nCONTENT_SAFETY_ENDPOINT\nCONTENT_SAFETY_KEY\n'
+    app({ deployment: 'dev:happy-otter-123', backend: withProviders(`{ images: [azureContentSafety({ region: 'francecentral' })] }`) })
+    expect(await providersFinding()).toMatchObject({ status: 'warn', message: expect.stringContaining('no known-abuse match'), fixHint: expect.stringContaining('arachnidShield()') })
+  })
+
+  it('warns when an app that pins its processing to the EU checks images outside it', async () => {
+    deployed.names = 'AUTH_SECRET\nSITE_URL\nCONTENT_SAFETY_ENDPOINT\nCONTENT_SAFETY_KEY\nKNOWN_ABUSE_KEY\n'
+    app({ deployment: 'dev:happy-otter-123', backend: withProviders(`{ images: [azureContentSafety({ region: 'eastus' })], knownAbuse: arachnidShield() }`, `, inferenceRegion: 'eu'`) })
+    expect(await providersFinding()).toMatchObject({ status: 'warn', message: expect.stringContaining('\'eastus\', which is no EU region') })
+    app({ deployment: 'dev:happy-otter-123', backend: withProviders(`{ images: [azureContentSafety({ region: 'francecentral' })], knownAbuse: arachnidShield() }`, `, inferenceRegion: 'eu'`) })
+    expect((await providersFinding()).status).toBe('pass')
+  })
+})

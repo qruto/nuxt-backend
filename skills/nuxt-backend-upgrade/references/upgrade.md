@@ -23,6 +23,12 @@ agent files and skills.
 |---|---|---|---|
 | `setupEmail({ paths, brand })` | `setupEmail({ paths, brand, labels })` | reshaped | import `labels` from `./labels.generated`, which `upgrade` writes; drop the copy `messages` repeated from app config |
 
+## [Moderation verdicts name shared categories](https://nuxt-backend.dev/docs/ship/releases/upgrade#moderation-verdicts-name-shared-categories)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `ai.moderate` | `ai.moderate` | reshaped | `categories` names shared categories (`sexual`, `hate`); the classifier's codes (`S12`) moved to `codes`, beside `scores` and `providers`; `block` and `escalate` take either |
+
 ## [A production checkout waits for billing to launch, and welcome credits come from the catalog](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-production-checkout-waits-for-billing-to-launch-and-welcome-credits-come-from-the-catalog)
 
 | Was | Now | Change | Note |

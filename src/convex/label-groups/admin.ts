@@ -66,6 +66,7 @@ const ADMIN_LABELS = {
     blocked: 'Blocked',
     passed: 'Let through',
     escalatedMark: 'Escalated',
+    knownAbuseMark: 'Known abuse: follow the CSAM playbook',
     nobody: 'Nobody signed in',
     newer: 'Newer',
     older: 'Older',
