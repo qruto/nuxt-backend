@@ -94,3 +94,18 @@ agent files and skills.
 | Was | Now | Change | Note |
 |---|---|---|---|
 | `[data-auth='form'], [data-pricing='table'], [data-admin]` | `[data-backend]` | reshaped | the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root |
+
+## [Passkeys check the person, and a ban says when it ends](https://nuxt-backend.dev/docs/ship/releases/upgrade#passkeys-check-the-person-and-a-ban-says-when-it-ends)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `passkey(...)` | `authenticatorSelection: { userVerification: 'required' }` | reshaped | keep it in a passkey plugin of your own; the package's requires it, and refuses a passkey a security key with no PIN saved under 0.2 |
+| `customResolveMethod: resolveSignInMethod` | — | removed | deprecated, still exported until a later minor release: Better Auth 1.7 names a code sign-in `email-otp` itself |
+| `admin.bannedUserMessage` | `errors.forbidden_banned_until` | reshaped | the refusal carries `until`; word it with the `errors.forbidden_banned` and `errors.forbidden_banned_until` labels, since a message of your own drops `until` |
+
+## [Better Auth 1.7, and a deploy for the backend's schema](https://nuxt-backend.dev/docs/ship/releases/upgrade#better-auth-17-and-a-deploy-for-the-backends-schema)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `getIp` | `getIP` | reshaped | Better Auth's own rename in `better-auth/api`, not a name of this package |
+| `authOptions` | `better-auth@>=1.7.16 <1.8.0` | reshaped | a Better Auth plugin added through it must support 1.7; deploy the backend for the new schema, then `nuxt-backend upgrade` |

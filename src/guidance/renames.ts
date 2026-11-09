@@ -69,6 +69,8 @@ const COLD_BALANCE = 'A job joins on a balance never read'
 const REPORTS_LEGAL = 'Report forms send notices, and the legal pages fill your own'
 const TUNNEL = 'Browser error reports go through a tunnel on the app\'s own origin'
 const UI_TOKENS = 'The packaged UI reads its faces, lines and shadows from tokens'
+const PASSKEY_UV = 'Passkeys check the person, and a ban says when it ends'
+const BETTER_AUTH_17 = 'Better Auth 1.7, and a deploy for the backend\'s schema'
 
 /**
  * Every rename, newest section first, as the Upgrade page orders them: one
@@ -112,4 +114,13 @@ export const RENAMES: readonly Rename[] = [
   { from: '@sentry/nuxt', to: '@sentry/nuxt@^11.10.0', change: 'reshaped', section: TUNNEL, note: 'the peer range; an older SDK still reports, straight to the ingest, and the build and `doctor` warn' },
   // One attribute marks every packaged component, in place of a list of families.
   { from: '[data-auth=\'form\'], [data-pricing=\'table\'], [data-admin]', to: '[data-backend]', change: 'reshaped', section: UI_TOKENS, note: 'the outermost element of every packaged component and page; `<AppShell>` marks its own controls, not its root' },
+
+  // 0.3: passkeys require user verification, and a ban names its end.
+  { from: 'passkey(...)', to: 'authenticatorSelection: { userVerification: \'required\' }', change: 'reshaped', section: PASSKEY_UV, note: 'keep it in a passkey plugin of your own; the package\'s requires it, and refuses a passkey a security key with no PIN saved under 0.2' },
+  { from: 'customResolveMethod: resolveSignInMethod', to: null, change: 'removed', section: PASSKEY_UV, note: 'deprecated, still exported until a later minor release: Better Auth 1.7 names a code sign-in `email-otp` itself' },
+  { from: 'admin.bannedUserMessage', to: 'errors.forbidden_banned_until', change: 'reshaped', section: PASSKEY_UV, note: 'the refusal carries `until`; word it with the `errors.forbidden_banned` and `errors.forbidden_banned_until` labels, since a message of your own drops `until`' },
+
+  // 0.3: Better Auth 1.7.
+  { from: 'getIp', to: 'getIP', change: 'reshaped', section: BETTER_AUTH_17, note: 'Better Auth\'s own rename in `better-auth/api`, not a name of this package' },
+  { from: 'authOptions', to: 'better-auth@>=1.7.16 <1.8.0', change: 'reshaped', section: BETTER_AUTH_17, note: 'a Better Auth plugin added through it must support 1.7; deploy the backend for the new schema, then `nuxt-backend upgrade`' },
 ]
