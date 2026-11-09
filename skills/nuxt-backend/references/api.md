@@ -47,7 +47,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useWaitlist()` | Join the waitlist, and read a place in it, on markup of your own: the steps `<WaitlistForm>` runs. |
 | `useWaitlistAdmin()` | The admin console's Waitlist tab, as data: the waiting people (the oldest first, narrowed by a filter) with a count per status, and the changes an administrator makes, through `backend/waitlist.ts`. |
 | `useShareLink()` | One row's share link: whether it has a live one and since when, read live, and the actions that turn it on (or mint a new one) and off, through `getShareLink`, `enableShareLink` and `revokeShareLink` of `backend/storage.ts`. |
-| `useUploadField()` | The upload field without its markup: pick a file (by the button or by dropping it), upload it with the base module's `useUpload` through the upload URL `setupStorage` mints, then hand the storage id to your `claim`, where the deployment checks it. |
+| `useUploadField()` | The upload field without its markup: pick a file (by the button or by dropping it), run your `prepare` on it, upload it with the base module's `useUploadQueue` through the upload URL `setupStorage` mints, then hand the storage id to your `claim`, where the deployment checks it. |
 | `useNotifications()` | The signed-in account's in-app notifications, live: newest first, paged with `loadMore`, with the unread count and the actions that mark them read. |
 | `useNotificationInbox()` | `<NotificationInbox>` without its markup: the notifications, where the inbox is, the button's name with the unread count in it, and the bindings for a button and a list that open on the browser's own popover. |
 | `useEmailPreferences()` | The email topics the signed-in person receives and their notification channels, kind by kind, live, and the actions that change them: the same choices as the profile's Email section, the unsubscribe page and the provider's own page, which all stay in step. |
@@ -76,7 +76,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useChat()` | A chat with a model, live: the person's threads, the open thread's messages with the reply streaming into them, and sending. |
 | `useHumanCheck()` | Proof that a person makes a call: the client half of `verifyHuman`, for the calls that reach the deployment over the live connection and never pass through the app's server (a waitlist join, a contact form, a referral claim). |
 
-The base module's, auto-imported under neutral names: `useQuery`, `useQuery_experimental`, `useQueries`, `useMutation`, `useAction`, `useUpload`, `uploadFile`, `useUploadQueue`, `useStorageUrl`, `usePreloadedQuery`, `useAsyncQuery`, `usePaginatedQuery`, `usePaginatedQuery_experimental`, `useAsyncPaginatedQuery`, `usePreloadedAuthQuery`, `resolveAuthRedirect`. Its
+The base module's, auto-imported under neutral names: `useQuery`, `useQuery_experimental`, `useQueries`, `useMutation`, `useAction`, `useUpload`, `uploadFile`, `useUploadQueue`, `useStorageUrl`, `usePreloadedQuery`, `useAsyncQuery`, `usePaginatedQuery`, `usePaginatedQuery_experimental`, `useAsyncPaginatedQuery`, `loadAuthClient`, `usePreloadedAuthQuery`, `resolveAuthRedirect`. Its
 types, auto-imported too: `AsyncQueryData`, `AsyncQueryOptions`, `AsyncQueryReturn`, `AsyncQueryStatus`, `AsyncPaginatedQueryData`, `AsyncPaginatedQueryOptions`, `AsyncPaginatedQueryReturn`.
 
 ## Components

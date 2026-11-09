@@ -66,12 +66,6 @@
       "fallback": "The site loads the client behind its own lazy plugin"
     },
     {
-      "ask": "A lazy-client option: import the Better Auth client when auth is first used, not with every page",
-      "owner": "qruto/nuxt-convex-module",
-      "blocks": "PERF (the auth client out of the starter's entry chunk)",
-      "fallback": "The client stays eager with every plugin registered; the passkey ceremony loads on first use through the package's own passkey plugin, and the starter budget holds the rest"
-    },
-    {
       "ask": "Read the connection state without opening the connection: a useConvexConnectionState (or a client.started signal) that waits for the client's first query, mutation or sign-in instead of creating the socket",
       "owner": "qruto/nuxt-convex-module",
       "blocks": "A15 (<ConnectionStatus> on every ready-made page, the sign-in page for a signed-out visitor included)",
@@ -94,12 +88,6 @@
       "owner": "nuxt-content/docus",
       "blocks": "DMCP",
       "fallback": "website/server/docs-mcp/tools.ts imports them by file path (`docus/server/mcp/tools/*`) and names them; scripts/check-website-agents.mjs calls both against every build"
-    },
-    {
-      "ask": "A supported testing seam, nuxt-convex-module/testing: the reset of the session token useBetterAuth caches, and the auth-client alias a test can swap",
-      "owner": "qruto/nuxt-convex-module",
-      "blocks": "F2b (nuxt-backend/test-utils on a public API)",
-      "fallback": "backendTestAliases() reaches use-better-auth.js by path and swaps #convex/auth-client; test/unit/test-utils-aliases.test.ts fails when either moves"
     },
     {
       "ask": "A locale-aware login path in the auth middleware",
@@ -268,12 +256,6 @@
       "owner": "benjamincanac/nuxt-agent-discovery",
       "blocks": "D7a",
       "fallback": "nuxt.config.ts lists each tab section's links itself, from readDocsPages and llmsSections (website/shared/agent-surfaces.ts)"
-    },
-    {
-      "ask": "Name the function a server fetcher failed in (fetchQuery, fetchMutation, fetchAction, preloadQuery), as the browser client does with its `[CONVEX X(path)]` prefix, or call a hook with the reference and the error",
-      "owner": "qruto/nuxt-convex-module",
-      "blocks": "MON (the backend.function tag on a failed plain fetchQuery, fetchMutation or fetchAction made from a server route)",
-      "fallback": "backendAuth(event)'s calls are wrapped at their call site; a plain fetcher's failure reaches the error-reporting SDK through Nitro's error handler, tagged with its code but not its function"
     },
     {
       "ask": "Tell a function a component lacks from a deployment that did not answer: `convex function-spec --component <path>`, or a distinct exit code or JSON error from `convex run --component` for a missing function",

@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref, useId, watch } from 'vue'
 import { useLabels, type BackendLabels, type LabelOverrides } from '../../composables/use-labels'
 import { useLoginFlow, type LoginStep, type UseLoginFlowReturn } from '../../composables/use-login-flow'
-import { preloadPasskeyCeremony } from '../../passkey-client'
+import { preparePasskeyPrompt } from '../../utils/passkey-prompt'
 import { loginBindings } from '../../utils/login-bindings'
 import { provideAuthFormView, useAuthTitle, type AuthFormSlots } from './auth-form'
 
@@ -60,8 +60,8 @@ const flow = useLoginFlow({
 const passkeys = ref<boolean | null>(null)
 onMounted(() => {
   passkeys.value = typeof window.PublicKeyCredential === 'function'
-  // Loaded before the tap, which then opens the prompt in its own task.
-  preloadPasskeyCeremony()
+  // The ceremony and the auth client, loaded before the tap, which then opens the prompt in its own task.
+  preparePasskeyPrompt()
 })
 watch([flow.step, passkeys], ([step, supported]) => {
   if (step === 'passkey-offer' && supported === false) void flow.skipPasskey()

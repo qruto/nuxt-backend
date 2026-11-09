@@ -1,6 +1,6 @@
 import { computed, type ComputedRef } from 'vue'
 import { useBetterAuth as useBaseAuth, type BetterAuthUser, type UseBetterAuthReturn } from 'nuxt-convex-module/better-auth/client'
-import { AUTOFILL_FIELD, canAutofillPasskeys } from '../passkey-client'
+import { AUTOFILL_FIELD, canAutofillPasskeys } from '../passkey-ceremony'
 import { unwrapAuth } from './auth-result'
 import { signInMethod, useLastSignInState } from './last-sign-in'
 import { markLocalSignOut, sessionKey } from './local-sign-out'

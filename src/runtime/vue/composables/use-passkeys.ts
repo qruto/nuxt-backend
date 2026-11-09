@@ -1,7 +1,7 @@
 import { computed, getCurrentInstance, onMounted, ref, type ComputedRef } from 'vue'
 import { type Passkey, type RegisterPasskeyOptions, useAuthSession } from '../utils/auth-session'
 import { unwrapAuth } from '../utils/auth-result'
-import { preloadPasskeyCeremony } from '../passkey-client'
+import { preparePasskeyPrompt } from '../utils/passkey-prompt'
 import { useActionState } from '../utils/action-state'
 import { type BackendError, failureOf } from '../utils/backend-error'
 import { clientCapabilities, type PasskeyCapabilities, signalAcceptedCredentials } from '../utils/passkey-signals'
@@ -111,7 +111,7 @@ export function usePasskeys(options: UsePasskeysOptions = {}): UsePasskeysReturn
 
   if (getCurrentInstance()) {
     // Loaded before `add` is tapped, which then opens the prompt in its own task.
-    onMounted(preloadPasskeyCeremony)
+    onMounted(preparePasskeyPrompt)
     onMounted(async () => {
       capabilities.value = await clientCapabilities()
     })

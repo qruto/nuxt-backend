@@ -18,6 +18,38 @@
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#billing-sync-prices-every-product-in-the-organizations-currency-and-attaches-the-benefits-a-product-lacks"
     },
     {
+      "from": "nuxt-convex-module",
+      "to": "nuxt-convex-module@^0.14.0",
+      "change": "reshaped",
+      "section": "The Better Auth client loads on first use, and a failed server call names its function",
+      "note": "the dependency's range; an app that lists the base module itself moves with it",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#the-better-auth-client-loads-on-first-use-and-a-failed-server-call-names-its-function"
+    },
+    {
+      "from": "useBetterAuth().client.$store",
+      "to": "(await loadAuthClient()).$store",
+      "change": "reshaped",
+      "section": "The Better Auth client loads on first use, and a failed server call names its function",
+      "note": "a forwarding client until the auth client loads: calls ($fetch included) and use* hooks work as before; read $store.atoms or a plugin atom on the loaded client",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#the-better-auth-client-loads-on-first-use-and-a-failed-server-call-names-its-function"
+    },
+    {
+      "from": "fetchQuery",
+      "to": "fetchQuery",
+      "change": "reshaped",
+      "section": "The Better Auth client loads on first use, and a failed server call names its function",
+      "note": "a failure's message starts with [CONVEX Q(module:fn)], as fetchMutation's and fetchAction's do; read getBackendError(error) rather than compare the message",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#the-better-auth-client-loads-on-first-use-and-a-failed-server-call-names-its-function"
+    },
+    {
+      "from": "useUploadField",
+      "to": "useUploadField({ claim, prepare })",
+      "change": "reshaped",
+      "section": "The upload field retries a failure, and prepares a file before it uploads",
+      "note": "returns retry and bind.retry; a failure ends in error with Try again, a refusal in refused, and the error slot adds refused and retry",
+      "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#the-upload-field-retries-a-failure-and-prepares-a-file-before-it-uploads"
+    },
+    {
       "from": "setupEmail({ paths, brand })",
       "to": "setupEmail({ paths, brand, labels })",
       "change": "reshaped",

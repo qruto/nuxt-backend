@@ -16,7 +16,11 @@ export default defineAppConfig({
   backend: {
     // <BackendNotices> in the shell offers more credits below this balance.
     billing: { lowCreditsThreshold: 30 },
-    // A notification's words are labels, so they read in each person's language.
+    // A notification's words are labels: the inbox reads them here, its email and its
+    // push from labels.generated.ts, which the module writes from this file. App
+    // config is one language's copy, and Panels speaks one. A multi-language app
+    // gives its words per language in its i18n messages instead:
+    // https://nuxt-backend.dev/docs/build/ui/customize/labels#one-language-or-many
     labels: {
       notifications: {
         strip_ready: { title: 'Your strip is ready', body: 'Open it to read and share it.' },

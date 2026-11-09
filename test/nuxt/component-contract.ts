@@ -298,7 +298,7 @@ export const COMPONENT_CONTRACT = {
     slots: ['default', 'file', 'error'],
     emits: ['update:modelValue', 'error'],
     states: ['ready', 'uploading', 'claiming', 'done', 'refused', 'error'],
-    a11y: 'The field is named by its visible label; the picker is a button that opens the browser\'s own file dialog, so the keyboard path needs no drop; while a file uploads it shows a labelled progress bar and a Cancel button, and the field is `aria-busy`; each step (uploading, checking, done, canceled) is said in a polite status, and a refusal is an alert the input is described by.',
+    a11y: 'The field is named by its visible label; the picker is a button that opens the browser\'s own file dialog, so the keyboard path needs no drop; while a file uploads it shows a labelled progress bar and a Cancel button, and the field is `aria-busy`; each step (uploading, checking, done, canceled) is said in a polite status, and a refusal or a failure is an alert the input is described by; a failure adds a Try again button the alert describes.',
   },
   NotificationInbox: {
     file: 'shell/NotificationInbox',

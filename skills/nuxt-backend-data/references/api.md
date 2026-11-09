@@ -17,7 +17,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `useSearch()` | Reactive, debounced full-text search. |
 | `useWorkflowStatus()` | Reactively track a durable Workflow's status. |
 | `useShareLink()` | One row's share link: whether it has a live one and since when, read live, and the actions that turn it on (or mint a new one) and off, through `getShareLink`, `enableShareLink` and `revokeShareLink` of `backend/storage.ts`. |
-| `useUploadField()` | The upload field without its markup: pick a file (by the button or by dropping it), upload it with the base module's `useUpload` through the upload URL `setupStorage` mints, then hand the storage id to your `claim`, where the deployment checks it. |
+| `useUploadField()` | The upload field without its markup: pick a file (by the button or by dropping it), run your `prepare` on it, upload it with the base module's `useUploadQueue` through the upload URL `setupStorage` mints, then hand the storage id to your `claim`, where the deployment checks it. |
 
 ## Components
 

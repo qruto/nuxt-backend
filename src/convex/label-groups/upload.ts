@@ -16,6 +16,8 @@ const UPLOAD_LABELS = {
   done: '{name} added.',
   cancel: 'Cancel upload',
   canceled: 'Upload canceled.',
+  // A failure on the way, never a refusal: the same file would be turned away again.
+  retry: 'Try again',
 } satisfies LabelTree
 
 export default UPLOAD_LABELS

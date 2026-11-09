@@ -2123,7 +2123,8 @@
       "claiming": "Comprobando {name}…",
       "done": "{name} añadido.",
       "cancel": "Cancelar subida",
-      "canceled": "Subida cancelada."
+      "canceled": "Subida cancelada.",
+      "retry": "Volver a intentarlo"
     },
     "notifications": {
       "bellName": "Notificaciones",

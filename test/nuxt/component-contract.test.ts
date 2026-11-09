@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, h, nextTick, reactive, ref, watch, type Component } from 'vue'
 import { config as testUtils, flushPromises, mount, RouterLinkStub, type VueWrapper } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
+import type { StorageId, UploadQueueItem, UseUploadQueueOptions } from 'nuxt-convex-module/client'
 import type { PricedPack, PricedPlan, PricedPromotion } from '../../src/convex/integrations/billing/types/records'
 import { COMPONENT_CONTRACT, type ContractState, type ContractedComponent } from './component-contract'
 import { backendError } from '../../src/convex/errors'
@@ -541,19 +542,48 @@ const config = {
 }
 const checkoutLink = vi.fn(never)
 const portalSession = vi.fn(never)
-// The base module's upload, as <UploadField> drives it: the outcome the world says.
-const uploader = {
-  progress: ref(0.4),
-  error: ref<Error | null>(null),
-  cancel: vi.fn(),
-  upload: vi.fn(async (): Promise<string | null> => {
-    if (world.uploadOutcome.value === 'hang') return never()
-    if (world.uploadOutcome.value === 'fail') {
-      uploader.error.value = new Error('The upload failed.')
-      return null
+/**
+ * The base module's upload queue, as <UploadField> drives it, one file at a
+ * time: the transfer goes as the world says, then the field's claim runs as
+ * the queue's `after` step, and the item ends as the queue's would.
+ */
+function uploadQueue(_generateUploadUrl: unknown, options: UseUploadQueueOptions = {}) {
+  const items = ref<UploadQueueItem[]>([])
+  const run = async (item: UploadQueueItem) => {
+    item.status = 'uploading'
+    item.stage = 'upload'
+    item.progress = 0.4
+    try {
+      if (world.uploadOutcome.value === 'hang') await never()
+      if (world.uploadOutcome.value === 'fail') throw new Error('The upload failed.')
+      const stored = 'kg2upload' as StorageId
+      item.storageId = stored
+      item.stage = 'after'
+      await options.after?.(stored, item, new AbortController().signal)
+      item.stage = null
+      item.status = 'success'
+      await options.onItemSuccess?.(stored, item)
     }
-    return 'kg2upload'
-  }),
+    catch (caught) {
+      const error = caught as Error
+      item.refused = options.isRefusal?.(error, item) ?? false
+      item.stage = null
+      item.error = error
+      item.status = 'error'
+      options.onItemError?.(error, item)
+    }
+  }
+  return {
+    items,
+    enqueue: (file: Blob) => {
+      items.value.push({ id: `upload-${items.value.length + 1}`, file, status: 'pending', progress: 0, storageId: null, error: null, refused: false, stage: null, prepared: null })
+      void run(items.value.at(-1)!)
+    },
+    remove: (id: string) => {
+      items.value = items.value.filter(item => item.id !== id)
+    },
+    retry: vi.fn(),
+  }
 }
 /** The app's claim of an uploaded file, as the world says it goes. */
 const claimFile = async (): Promise<void> => {
@@ -688,6 +718,8 @@ vi.mock('../../src/runtime/vue/composables/use-pricing', () => ({ usePricing: ()
 // The pricing table's sign-in link and campaign read the address.
 mockNuxtImport('useRoute', () => () => ({ fullPath: '/pricing', query: {} }))
 vi.mock('../../src/runtime/vue/utils/auth-session', () => ({ useAuthSession: () => auth }))
+// The auth client a passkey form loads before the tap: nothing to load here.
+vi.mock('../../src/runtime/vue/utils/passkey-prompt', () => ({ preparePasskeyPrompt: () => {} }))
 vi.mock('../../src/runtime/vue/composables/use-workspace', () => ({ useWorkspace: () => organization }))
 vi.mock('../../src/runtime/vue/composables/use-orders', () => ({ useOrders: () => orders }))
 vi.mock('../../src/runtime/vue/composables/use-usage', () => ({ useUsage: () => usage }))
@@ -774,7 +806,7 @@ vi.mock('nuxt-convex-module/client', async importOriginal => ({
   ...await importOriginal<Record<string, unknown>>(),
   useAction: (reference: unknown) => (reference === contactRef ? submitContact : portalSession),
   useMutation: (reference: unknown) => (reference === completeRef ? completeOnboarding : dismissActivation),
-  useUpload: () => uploader,
+  useUploadQueue: uploadQueue,
 }))
 
 // Imported after the mocks above, so the components see them; registered by

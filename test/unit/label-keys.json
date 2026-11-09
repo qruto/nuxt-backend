@@ -675,6 +675,7 @@
   "upload.done": ["name"],
   "upload.cancel": [],
   "upload.canceled": [],
+  "upload.retry": [],
   "ai.label": [],
   "ai.details": [],
   "ai.models": ["models"],

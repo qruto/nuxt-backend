@@ -32,10 +32,13 @@ type Named = [(typeof plugins)[number]] extends [BackendAuthPlugin] ? [BackendAu
  * `nuxt-convex-module` as its `betterAuth.authClient`, so the package's auth session
  * is typed with exactly these plugins.
  *
- * Every plugin is registered here, at construction, and the base module
- * imports this client on every page. The passkey plugin is the package's
- * own (`./passkey-client`): Better Auth's, with the WebAuthn ceremony loaded
- * apart from the page, once it is idle. So are the admin and organization
+ * Every plugin is registered here, at construction. The base module loads
+ * this module on first use, not with every page: a signed-in visitor gets it
+ * at startup, beside the page, and a page a signed-out visitor never signs
+ * in on never downloads it. So it creates the client and does nothing else
+ * as it loads. The passkey plugin is the package's own
+ * (`./passkey-client`): Better Auth's, with the WebAuthn ceremony loaded
+ * apart from the client. So are the admin and organization
  * plugins (`./admin-client`, `./organization-client`): Better Auth's,
  * without the error-code tables a client never reads at runtime. The
  * protection plugin answers the bot check's challenge on the requests that
@@ -49,7 +52,7 @@ type Named = [(typeof plugins)[number]] extends [BackendAuthPlugin] ? [BackendAu
  * Auth's there — `passkeyClient()` from `@better-auth/passkey/client`,
  * `adminClient()` and `organizationClient()` from
  * `better-auth/client/plugins` — which work the same and load more with
- * every page (the passkey ceremony alone is about 12 kB).
+ * the client (the passkey ceremony alone is about 12 kB).
  */
 export const authClient: VueAuthClient<{ plugins: BackendAuthPlugin[] }> = createAuthClient({ plugins: plugins satisfies Named[] })
 

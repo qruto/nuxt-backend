@@ -2123,7 +2123,8 @@
       "claiming": "Vérification de {name}…",
       "done": "{name} ajouté.",
       "cancel": "Annuler l’envoi",
-      "canceled": "Envoi annulé."
+      "canceled": "Envoi annulé.",
+      "retry": "Réessayer"
     },
     "notifications": {
       "bellName": "Notifications",

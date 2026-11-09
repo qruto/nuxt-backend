@@ -14,9 +14,12 @@ import { useShareLink } from '../../src/runtime/vue/composables/use-share-link'
 
 let backend: BackendMock
 
-/** A browser upload request that answers with a storage id, or never answers until aborted. */
+/** A browser upload request that answers with a storage id, never answers until aborted, or drops the next `failNext` sends. */
 class FakeUpload {
   static hang = false
+  static failNext = 0
+  /** Every body sent, in order. */
+  static sent: unknown[] = []
   status = 0
   responseText = ''
   upload: { onprogress?: (event: { lengthComputable: boolean, loaded: number, total: number }) => void } = {}
@@ -29,8 +32,14 @@ class FakeUpload {
     this.onabort?.()
   }
 
-  send() {
+  send(body: unknown) {
+    FakeUpload.sent.push(body)
     if (FakeUpload.hang) return
+    if (FakeUpload.failNext > 0) {
+      FakeUpload.failNext--
+      queueMicrotask(() => this.onerror?.())
+      return
+    }
     queueMicrotask(() => {
       this.upload.onprogress?.({ lengthComputable: true, loaded: 5, total: 10 })
       this.status = 200
@@ -52,6 +61,8 @@ async function choose(wrapper: Awaited<ReturnType<typeof mountSuspended>>, file:
 
 beforeEach(() => {
   FakeUpload.hang = false
+  FakeUpload.failNext = 0
+  FakeUpload.sent = []
   vi.stubGlobal('XMLHttpRequest', FakeUpload)
   backend = createBackendMock({ user: {} })
   backend.stub('storage:generateUploadUrl', () => 'https://happy-otter-123.convex.cloud/api/storage/upload?token=t')
@@ -92,6 +103,92 @@ describe('<UploadField>, on the backend mock', () => {
     expect(field.find('button[data-upload="choose"]').attributes('aria-describedby')).toContain(field.find('[role="alert"]').attributes('id'))
     expect(update).not.toHaveBeenCalled()
     expect(errors.mock.calls[0]![0]).toMatchObject({ code: 'invalid_input', data: { reason: 'unsupported_type' } })
+  })
+
+  it('offers no Try again for a refusal, and retry() sends nothing: the same file would be turned away again', async () => {
+    const claim = vi.fn(async () => {
+      throw backendError('quota_exceeded', { quota: 'storage', limit: 100, used: 100, amount: 1, plans: ['pro'] })
+    })
+    let scope: { refused: boolean, retry: () => Promise<string | null> } | undefined
+    const field = await mountSuspended(UploadField, {
+      props: { claim },
+      slots: {
+        error: (props: NonNullable<typeof scope>) => {
+          scope = props
+          return 'Refused.'
+        },
+      },
+    })
+    await choose(field, photo())
+    expect(field.find('[data-upload="field"]').attributes('data-state')).toBe('refused')
+    expect(field.find('button[data-upload="retry"]').exists()).toBe(false)
+    expect(field.find('button[data-upload="choose"]').text()).toBe('Choose another file')
+    expect(scope?.refused).toBe(true)
+    expect(await scope!.retry()).toBeNull()
+    await flushPromises()
+    expect(claim).toHaveBeenCalledTimes(1)
+    expect(FakeUpload.sent).toHaveLength(1)
+    expect(field.find('[data-upload="field"]').attributes('data-state')).toBe('refused')
+  })
+
+  it('says a claim that failed on the way failed, and Try again claims the stored file again without a second upload', async () => {
+    let failures = 1
+    const claim = vi.fn(async () => {
+      if (failures-- > 0) throw new Error('fetch failed')
+      return null
+    })
+    const value = ref<string | null>(null)
+    const field = await mountSuspended(UploadField, { props: { 'claim': claim, 'onUpdate:modelValue': (id: string | null) => (value.value = id) } })
+    await choose(field, photo())
+    expect(field.find('[data-upload="field"]').attributes('data-state')).toBe('error')
+    expect(field.find('[role="alert"]').exists()).toBe(true)
+    const retry = field.find('button[data-upload="retry"]')
+    expect(retry.text()).toBe('Try again')
+    expect(retry.attributes('aria-describedby')).toBe(field.find('[role="alert"]').attributes('id'))
+    expect(value.value).toBeNull()
+    await retry.trigger('click')
+    await flushPromises()
+    expect(field.find('[data-upload="field"]').attributes('data-state')).toBe('done')
+    expect(claim).toHaveBeenCalledTimes(2)
+    expect(FakeUpload.sent).toHaveLength(1)
+    expect(value.value).toBe('kg2upload')
+    expect(field.find('[role="alert"]').exists()).toBe(false)
+  })
+
+  it('sends the file again when the transfer itself failed', async () => {
+    FakeUpload.failNext = 1
+    const claim = vi.fn(async () => null)
+    const field = await mountSuspended(UploadField, { props: { claim } })
+    await choose(field, photo())
+    expect(field.find('[data-upload="field"]').attributes('data-state')).toBe('error')
+    expect(claim).not.toHaveBeenCalled()
+    await field.find('button[data-upload="retry"]').trigger('click')
+    await flushPromises()
+    expect(FakeUpload.sent).toHaveLength(2)
+    expect(claim).toHaveBeenCalledWith('kg2upload')
+    expect(field.find('[data-upload="field"]').attributes('data-state')).toBe('done')
+  })
+
+  it('sends what prepare made of the file, once, and ties a refusal it throws to the field', async () => {
+    const shrunk = new Blob([new Uint8Array([1])], { type: 'image/webp' })
+    const prepare = vi.fn(async () => shrunk)
+    const claim = vi.fn(async () => null)
+    const field = await mountSuspended(UploadField, { props: { claim, prepare } })
+    await choose(field, photo())
+    expect(prepare).toHaveBeenCalledTimes(1)
+    expect((prepare.mock.calls[0] as unknown[])[0]).toBeInstanceOf(File)
+    expect(FakeUpload.sent).toEqual([shrunk])
+    expect(field.find('[data-upload="field"]').attributes('data-state')).toBe('done')
+
+    const refusing = await mountSuspended(UploadField, {
+      props: { claim, prepare: async () => {
+        throw backendError('invalid_input', { field: 'file', reason: 'unsupported_type' })
+      } },
+    })
+    await choose(refusing, photo())
+    expect(refusing.find('[data-upload="field"]').attributes('data-state')).toBe('refused')
+    expect(refusing.find('[role="alert"]').text()).toBe('That type of file isn\'t accepted. Pick another one.')
+    expect(backend.callsTo('storage:generateUploadUrl')).toHaveLength(1)
   })
 
   it('cancels an upload in flight and says so', async () => {

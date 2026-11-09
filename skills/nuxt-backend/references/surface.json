@@ -1035,6 +1035,7 @@
     ],
     "baseModule": {
       "composables": [
+        "loadAuthClient",
         "resolveAuthRedirect",
         "uploadFile",
         "useAction",

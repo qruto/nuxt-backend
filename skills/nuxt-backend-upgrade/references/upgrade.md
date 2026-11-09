@@ -24,6 +24,20 @@ agent files and skills.
 | `catalog priced in its pinned `currency` alone` | `prices: { usd: { month: 1200 }, eur: { month: 1100 } }` | reshaped | every paid plan and pack carries a price in the organization's default currency, or `billing sync` refuses the catalog before it creates anything; `doctor` names them (`billing-currency`) |
 | `benefit attached to an existing product by hand` | `billing sync` | reshaped | the sync attaches a credit grant or a feature a plan's product lacks, and the provider grants it to its current subscribers; a second credit grant on one meter, and a pack's missing credits, are reported as drift instead |
 
+## [The Better Auth client loads on first use, and a failed server call names its function](https://nuxt-backend.dev/docs/ship/releases/upgrade#the-better-auth-client-loads-on-first-use-and-a-failed-server-call-names-its-function)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `nuxt-convex-module` | `nuxt-convex-module@^0.14.0` | reshaped | the dependency's range; an app that lists the base module itself moves with it |
+| `useBetterAuth().client.$store` | `(await loadAuthClient()).$store` | reshaped | a forwarding client until the auth client loads: calls ($fetch included) and use* hooks work as before; read $store.atoms or a plugin atom on the loaded client |
+| `fetchQuery` | `fetchQuery` | reshaped | a failure's message starts with [CONVEX Q(module:fn)], as fetchMutation's and fetchAction's do; read getBackendError(error) rather than compare the message |
+
+## [The upload field retries a failure, and prepares a file before it uploads](https://nuxt-backend.dev/docs/ship/releases/upgrade#the-upload-field-retries-a-failure-and-prepares-a-file-before-it-uploads)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `useUploadField` | `useUploadField({ claim, prepare })` | reshaped | returns retry and bind.retry; a failure ends in error with Try again, a refusal in refused, and the error slot adds refused and retry |
+
 ## [Emails and notifications read the labels app config sets](https://nuxt-backend.dev/docs/ship/releases/upgrade#emails-and-notifications-read-the-labels-app-config-sets)
 
 | Was | Now | Change | Note |

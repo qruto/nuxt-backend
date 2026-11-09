@@ -18,6 +18,8 @@ const terms = ref<ConsentTerms | undefined>(undefined)
 const purposes = ref<string[]>([])
 
 vi.mock('nuxt-convex-module/better-auth/client', () => ({
+  // What a passkey form loads before the tap (utils/passkey-prompt.ts).
+  loadAuthClient: async () => {},
   useBetterAuth: () => ({
     isLoading: computed(() => false),
     isAuthenticated: computed(() => authenticated.value),

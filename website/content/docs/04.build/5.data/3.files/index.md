@@ -8,7 +8,7 @@ navigation:
   icon: i-lucide-folder-up
 ---
 
-People upload photos, covers and attachments; your app keeps them, shows them and shares some of them. Convex file storage holds the bytes, mints upload URLs and serves file URLs. `setupStorage` adds the backend half in one call: the checks, the owner records, access, share links and cleanup. The base module's `useUpload`, and `<UploadField>` around it, do the browser half.
+People upload photos, covers and attachments; your app keeps them, shows them and shares some of them. Convex file storage holds the bytes, mints upload URLs and serves file URLs. `setupStorage` adds the backend half in one call: the checks, the owner records, access, share links and cleanup. The base module's `useUpload` and `useUploadQueue`, and `<UploadField>` around the queue, do the browser half.
 
 ## How it works
 

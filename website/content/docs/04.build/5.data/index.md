@@ -40,7 +40,7 @@ backend/crons.ts       your jobs and retention rules; the component runs its own
 | Database | Tables, indexes, transactions, realtime subscriptions | The `backend` component's own tables, which it migrates and prunes itself | `backend/schema.ts` and every table in it |
 | Functions | Queries, mutations, actions and HTTP routes | Access tiers (`createFunctions`), typed refusals (`backendError`), the server helpers in Nitro | Every function in `backend/` |
 | Search and counts | Search indexes; the aggregate and sharded counter components | `defineSearch`, `useSearch` | The indexes and aggregates you declare |
-| Files | File storage, upload URLs, `ctx.storage` in mutations | `setupStorage`: sniffed types, EXIF stripping, file and byte quotas, owner records, expiring URLs, share links, the orphan sweep; `<UploadField>`, over the base module's `useUpload` | What each file is attached to, and who may share what |
+| Files | File storage, upload URLs, `ctx.storage` in mutations | `setupStorage`: sniffed types, EXIF stripping, file and byte quotas, owner records, expiring URLs, share links, the orphan sweep; `<UploadField>`, over the base module's `useUploadQueue` | What each file is attached to, and who may share what |
 | Retention | The scheduler and crons | `defineRetention`, and the hourly maintenance of the component's own tables | How long each of your tables keeps its rows |
 | Background work | The scheduler, crons, and the workflow, workpool, action cache and migrations components | `setupWorkflows`, `useWorkflowStatus` | Your jobs |
 
