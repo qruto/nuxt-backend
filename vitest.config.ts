@@ -76,6 +76,9 @@ export default defineConfig({
           name: 'unit',
           include: ['test/unit/**/*.{test,spec}.ts'],
           environment: 'node',
+          // nuxt-security's Nitro plugins through Vite, so a test can run one
+          // with its `nitropack/runtime` mocked (the real one needs a built server).
+          server: { deps: { inline: ['nuxt-security'] } },
         },
       },
       {

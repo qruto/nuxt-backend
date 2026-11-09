@@ -698,6 +698,14 @@ describe('module registration (defaults)', () => {
     expect(nitroPlugins(getNuxt()).filter(plugin => /[\\/]runtime[\\/]server[\\/]chunk-recovery(?:\.ts)?$/.test(plugin))).toHaveLength(1)
   })
 
+  it('runs the recovery\'s render hook before nuxt-security\'s nonce pass, which puts the request\'s nonce on its tag', () => {
+    const plugins = nitroPlugins(getNuxt())
+    const recovery = plugins.findIndex(plugin => /[\\/]runtime[\\/]server[\\/]chunk-recovery(?:\.ts)?$/.test(plugin))
+    const nonce = plugins.findIndex(plugin => /[\\/]nuxt-security[\\/].*[\\/]40-cspSsrNonce(?:\.js)?$/.test(plugin))
+    expect(recovery).toBeGreaterThanOrEqual(0)
+    expect(nonce).toBeGreaterThan(recovery)
+  })
+
   it('leaves development\'s defaults to development', () => {
     const nuxt = getNuxt()
     expect(nuxt.options.app.buildAssetsDir).toBe('/_nuxt/')

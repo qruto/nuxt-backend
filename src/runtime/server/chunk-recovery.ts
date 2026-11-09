@@ -71,26 +71,29 @@ export function headWithScript(head: string[], tag: string): string[] {
   return [...head.slice(0, index), `${chunk.slice(0, end)}${tag}${chunk.slice(end)}`, ...head.slice(index + 1)]
 }
 
-/** The part of the Nitro app the plugin uses: the render's HTML hook, with the event nuxt-security puts the request's nonce on. */
+/** The part of the Nitro app the plugin uses: the render's HTML hook. */
 interface RenderNitroApp {
-  hooks: { hook: (name: 'render:html', run: (html: { head: string[] }, context: { event: { context: { security?: { nonce?: string } } } }) => void) => unknown }
+  hooks: { hook: (name: 'render:html', run: (html: { head: string[] }) => void) => unknown }
 }
 
 /**
  * Puts the recovery script first in every server-rendered page of a
  * production build (the module leaves it out of development, and out
- * altogether with `backend.chunkRecovery: false`). Inline, so it carries
- * the request's nonce, which the package's `script-src` trusts; nuxt-security
- * adds the nonce to the head's scripts too, in whichever order the two run.
- * A prerendered page has no nonce, and nuxt-security hashes its inline
+ * altogether with `backend.chunkRecovery: false`). Inline, and written
+ * with no nonce of its own: nuxt-security's `render:html` pass puts the
+ * request's nonce on every `<script>` in the head, without looking for one
+ * already there, and it always runs after this one (nuxt-security sorts its
+ * Nitro plugins last), so the tag carries the nonce the package's
+ * `script-src` trusts exactly once. Where nuxt-security sends no
+ * `Content-Security-Policy`, it adds none, and none is needed. A
+ * prerendered page has no nonce, and nuxt-security hashes its inline
  * scripts instead. Written on the server alone, never through the head
  * manager, so hydrating never writes it again. `nuxt/server` is its only
  * server import, so the same file runs on Nitro 2 and Nitro 3.
  */
 export default function chunkRecoveryPlugin(nitroApp: RenderNitroApp): void {
   const script = chunkRecoveryScript((useRuntimeConfig() as { app?: { buildAssetsDir?: string } }).app?.buildAssetsDir || '/_nuxt/')
-  nitroApp.hooks.hook('render:html', (html, { event }) => {
-    const nonce = event.context.security?.nonce
-    html.head = headWithScript(html.head, `<script${nonce ? ` nonce="${nonce}"` : ''}>${script}</script>`)
+  nitroApp.hooks.hook('render:html', (html) => {
+    html.head = headWithScript(html.head, `<script>${script}</script>`)
   })
 }

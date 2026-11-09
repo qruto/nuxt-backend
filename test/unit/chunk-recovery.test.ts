@@ -1,3 +1,6 @@
+import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 
 // The inline script a production build puts first in the head: one reload
@@ -6,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest'
 // stubs, and the Nitro plugin over a render's HTML.
 
 const runtimeConfig = vi.hoisted(() => ({ app: { buildAssetsDir: '/_nuxt/' } }))
-vi.mock('nitropack/runtime', () => ({ useRuntimeConfig: () => runtimeConfig }))
+vi.mock('nitropack/runtime', () => ({ defineNitroPlugin: (plugin: unknown) => plugin, useRuntimeConfig: () => runtimeConfig }))
 
 const { chunkRecoveryScript, default: chunkRecoveryPlugin, headWithScript, RELOAD_GUARD_MS } = await import('../../src/runtime/server/chunk-recovery')
 
@@ -134,29 +137,41 @@ describe('the inline recovery', () => {
   })
 })
 
-/** The plugin over one render: the head it leaves, given the nonce nuxt-security put on the request. */
-function render(head: string[], nonce?: string): string[] {
-  let run: ((html: { head: string[] }, context: { event: { context: { security?: { nonce?: string } } } }) => void) | undefined
-  chunkRecoveryPlugin({ hooks: { hook: (_name, fn) => (run = fn) } })
-  const html = { head }
-  run!(html, { event: { context: nonce ? { security: { nonce } } : {} } })
+/** nuxt-security's own nonce pass, the Nitro plugin that puts the request's nonce on the tags a render writes. */
+const nonceThePage = pathToFileURL(join(dirname(createRequire(import.meta.url).resolve('nuxt-security')), 'runtime/nitro/plugins/40-cspSsrNonce.js')).href
+
+/** A render's HTML hooks, in the order Nitro runs them. */
+type RenderHook = (html: { head: string[], body: string[], bodyAppend: string[], bodyPrepend: string[] }, context: { event: { path: string, context: { security?: Record<string, unknown> } } }) => void
+
+/** The plugin over one render: the head it leaves, then nuxt-security's nonce pass over it when `nonce` is given (a server render under the package's CSP). */
+async function render(head: string[], nonce?: string): Promise<string[]> {
+  const hooks: RenderHook[] = []
+  const nitroApp = { hooks: { hook: (name: string, run: RenderHook) => void (name === 'render:html' && hooks.push(run)) } }
+  chunkRecoveryPlugin(nitroApp as unknown as Parameters<typeof chunkRecoveryPlugin>[0])
+  // nuxt-security sorts its Nitro plugins after every other one, so its pass runs last.
+  if (nonce) (await import(nonceThePage)).default(nitroApp)
+  const html = { head, body: [], bodyAppend: [], bodyPrepend: [] }
+  const security = { nonce, rules: { enabled: true, nonce: true, headers: { contentSecurityPolicy: { 'script-src': ['\'strict-dynamic\'', '\'nonce-{{nonce}}\''] } } } }
+  for (const run of hooks) run(html, { event: { path: '/', context: nonce ? { security } : {} } })
   return html.head
 }
 
 describe('the recovery in the rendered head', () => {
-  it('goes first, right after the charset, with the request\'s nonce', () => {
-    const [head] = render(['<meta charset="utf-8">\n<meta name="viewport" content="width=device-width"><script type="module" src="/_nuxt/entry.js"></script>'], 'n0nce')
+  it('goes first, right after the charset, with the request\'s nonce once', async () => {
+    const [head] = await render(['<meta charset="utf-8">\n<meta name="viewport" content="width=device-width"><script type="module" src="/_nuxt/entry.js"></script>'], 'n0nce')
     expect(head!.startsWith('<meta charset="utf-8"><script nonce="n0nce">(function(){')).toBe(true)
     expect(head!.indexOf('nonce="n0nce"')).toBeLessThan(head!.indexOf('/_nuxt/entry.js"'))
+    const recovery = head!.match(/<script\b[^>]*>\(function\(\)\{/)![0]
+    expect(recovery.match(/\bnonce=/g)).toHaveLength(1)
   })
 
-  it('carries no nonce where nuxt-security set none, a prerendered page\'s', () => {
-    expect(render(['<title>Panels</title>'])[0]).toMatch(/^<script>\(function\(\)\{/)
+  it('leaves the nonce to nuxt-security, which puts one on every script in the head', async () => {
+    expect((await render(['<meta charset="utf-8">']))[0]).toMatch(/^<meta charset="utf-8"><script>\(function\(\)\{/)
   })
 
-  it('reads the build assets directory from the runtime config', () => {
+  it('reads the build assets directory from the runtime config', async () => {
     runtimeConfig.app.buildAssetsDir = '/_assets/'
-    expect(render(['<meta charset="utf-8">']).join('')).toContain('var dir="/_assets/"')
+    expect((await render(['<meta charset="utf-8">'])).join('')).toContain('var dir="/_assets/"')
     runtimeConfig.app.buildAssetsDir = '/_nuxt/'
   })
 
