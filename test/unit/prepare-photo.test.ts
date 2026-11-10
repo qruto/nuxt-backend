@@ -98,6 +98,25 @@ describe('preparePhoto', () => {
     ])
   })
 
+  it('sends a JPEG where the browser has no WebP encoder, never the PNG its canvas answers instead', async () => {
+    // Safari's canvas: asked for WebP, it writes a PNG.
+    vi.stubGlobal('OffscreenCanvas', class extends FakeOffscreenCanvas {
+      override async convertToBlob(options: { type?: string, quality?: number }) {
+        const blob = await super.convertToBlob(options)
+        return options.type === 'image/webp' ? new Blob([blob], { type: 'image/png' }) : blob
+      }
+    })
+    const decoded = bitmap(800, 1200)
+    vi.mocked(createImageBitmap).mockResolvedValueOnce(decoded as never)
+    const blob = await preparePhoto(jpeg(), { type: 'image/webp', quality: 0.7 })
+    expect(blob.type).toBe('image/jpeg')
+    expect(canvases).toEqual([
+      { width: 800, height: 1200, fill: null, drew: decoded, encoded: { type: 'image/webp', quality: 0.7 } },
+      { width: 800, height: 1200, fill: '#fff', drew: decoded, encoded: { type: 'image/jpeg', quality: 0.7 } },
+    ])
+    expect(decoded.close).toHaveBeenCalledOnce()
+  })
+
   it('refuses a file that is no picture as the catalog\'s invalid_input, a ConvexError the upload queues read as refused', async () => {
     const error = await preparePhoto(new File(['%PDF-1.7'], 'menu.pdf', { type: 'application/pdf' })).catch((failure: unknown) => failure)
     expect(error).toBeInstanceOf(PhotoPrepError)

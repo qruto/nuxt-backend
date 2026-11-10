@@ -22,7 +22,13 @@ export type PreparedPhotoType = 'image/jpeg' | 'image/webp' | 'image/png'
 export interface PreparePhotoOptions {
   /** The longest side the photo is sent at, in pixels: a larger photo is scaled down to it, a smaller one keeps its size. Default 2048. */
   longEdge?: number
-  /** The type it is re-encoded as. Default `'image/jpeg'`, which every model and browser reads; a transparent area turns white. */
+  /**
+   * The type it is re-encoded as. Default `'image/jpeg'`, which every model
+   * and browser reads; a transparent area turns white. A browser with no
+   * encoder for the type asked for (Safari has none for WebP) sends a JPEG
+   * instead, never the PNG its canvas falls back to, which is several times
+   * larger.
+   */
   type?: PreparedPhotoType
   /** The encoder's quality for JPEG and WebP, from 0 to 1. Default 0.85. PNG ignores it. */
   quality?: number
@@ -180,8 +186,19 @@ function draw(context: Context2D, source: Drawable, width: number, height: numbe
   context.drawImage(source, 0, 0, width, height)
 }
 
-/** The pixels, encoded: on an `OffscreenCanvas` where there is one, else on a `<canvas>`. */
+/**
+ * The pixels, encoded as `type`, or as a JPEG where this browser has no
+ * encoder for it: a canvas asked for a type it can't write answers a PNG
+ * instead (Safari does so for WebP), several times larger and likely over
+ * the deployment's `maxSize`.
+ */
 async function encode(source: Drawable, width: number, height: number, type: PreparedPhotoType, quality: number): Promise<Blob> {
+  const blob = await encodeAs(source, width, height, type, quality)
+  return blob.type === type || type === 'image/jpeg' ? blob : await encodeAs(source, width, height, 'image/jpeg', quality)
+}
+
+/** The pixels, encoded: on an `OffscreenCanvas` where there is one, else on a `<canvas>`. */
+async function encodeAs(source: Drawable, width: number, height: number, type: PreparedPhotoType, quality: number): Promise<Blob> {
   if (typeof OffscreenCanvas === 'function') {
     const canvas = new OffscreenCanvas(width, height)
     const context = canvas.getContext('2d')
