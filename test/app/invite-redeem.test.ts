@@ -141,6 +141,20 @@ describe('the invite page', () => {
     expect(state(reloaded)).toBe('valid')
   })
 
+  it('moves focus on to the way in when a typed code checks and its form goes', async () => {
+    backendWith({ valid: ['7KQ2M-XW9PA'] })
+    const wrapper = await mountSuspended(InviteRedeem, { route: false, attachTo: document.body })
+    await flushPromises()
+    await part(wrapper, 'input-invite-code').setValue('7KQ2M-XW9PA')
+    const check = part(wrapper, 'invite-check').element as HTMLButtonElement
+    check.focus()
+    expect(document.activeElement).toBe(check)
+    await part(wrapper, 'invite-form').trigger('submit')
+    await flushPromises()
+    expect(state(wrapper)).toBe('valid')
+    expect(document.activeElement).toBe(part(wrapper, 'invite-continue').element)
+  })
+
   it('sends a visitor the referral page sent here back to it once signed in, where they claim it themselves', async () => {
     backendWith()
     // A code as a person might retype it: folded the way the referral page reads it.

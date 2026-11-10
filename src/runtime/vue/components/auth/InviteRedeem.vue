@@ -16,7 +16,7 @@
  *
  * @internal
  */
-import { computed, inject, onMounted, ref, useId, watch } from 'vue'
+import { computed, inject, nextTick, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import { ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { useAccessPhase, useInvite } from '../../composables/use-access'
 import { useBackendPagePath } from '../../composables/use-backend-page-path'
@@ -36,6 +36,7 @@ const code = ref('')
 const checked = ref(false)
 // Whether a ticket was asked about at all: a link brought one, the tab kept one, or a code was typed.
 const asked = ref(false)
+const continueLink = useTemplateRef<HTMLAnchorElement>('continueLink')
 
 onMounted(() => {
   // The link's token leaves the address at once, kept for the tab, so a reload while the session settles still has it.
@@ -62,6 +63,10 @@ async function redeem() {
   if (invite.isPending.value || !typed) return
   asked.value = true
   await invite.check(typed)
+  // The form goes once the code checks: focus moves on to the way in, never back to the page's start.
+  if (state.value !== 'valid') return
+  await nextTick()
+  continueLink.value?.focus()
 }
 
 /** The `data-state` of the panel: what the person reads now. */
@@ -104,6 +109,7 @@ const typing = computed(() => checked.value && state.value !== 'member' && state
     </p>
     <a
       v-if="state === 'valid'"
+      ref="continueLink"
       data-auth="invite-continue"
       :href="invite.signInTo.value ?? undefined"
     >
