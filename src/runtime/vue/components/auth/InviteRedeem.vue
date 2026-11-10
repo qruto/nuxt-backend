@@ -6,9 +6,9 @@
  * stays in the tab, and the sign-in hands it over with the code. A code a
  * friend read out is typed instead, whenever no link brought one that
  * works. A visitor who is signed in already has nothing to redeem: nothing
- * is checked or kept, and the link stays theirs to pass on. A member's
- * ticket that carries their referral code (`?ref=`) signs the friend in
- * through the referral page, which claims it once they are signed up.
+ * is checked or kept, and the link stays theirs to pass on. A visitor the
+ * referral page sent here (`?ref=`) goes back to it once signed in, to
+ * claim it there.
  *
  * Internal: the page's body, built on `useInvite`.
  *

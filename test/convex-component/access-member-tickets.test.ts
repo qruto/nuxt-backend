@@ -6,7 +6,10 @@ import { asUser, defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { getBackendError } from '../../src/convex/errors'
 import { setupAudit } from '../../src/convex/integrations/audit'
-import { type AccessConsole, type MemberTicket, setupAccess } from '../../src/convex/integrations/launch'
+import { setupBilling, setupReferrals } from '../../src/convex/integrations/billing'
+import { setupEmail } from '../../src/convex/integrations/email'
+import { type AccessConsole, type MemberTicket, type MemberTicketsOptions, setupAccess } from '../../src/convex/integrations/launch'
+import type { ReferralCodeView, ReferralsView } from '../../src/convex/integrations/referrals'
 import { formatAuthSecret } from '../../src/convex/auth-secrets'
 import { inviteHash, memberTicketToken } from '../../src/convex/access-tickets'
 
@@ -18,6 +21,8 @@ import { inviteHash, memberTicketToken } from '../../src/convex/access-tickets'
 // checks it against its member and the program; it is off while the app is
 // public or the app's own switch says so, nobody else's to read, revoked by
 // an administrator from the Access tab, and gone with its member's erasure.
+// With the app's referral program, each friend it admits is the member's
+// referral from the moment their account is made.
 
 const SECRET = 'a-test-secret-that-is-long-enough-1234'
 const NEXT_SECRET = 'the-secret-a-rotation-writes-9876543210abcd'
@@ -25,9 +30,11 @@ const DAY = 24 * 60 * 60 * 1000
 const components = componentsGeneric() as unknown as { backend: ComponentApi<'backend'> }
 const audit = setupAudit(components as never)
 const program = { on: true }
+/** The app's referral program, attributing sign-ups: what a member's ticket claims its friends under. */
+const referrals = setupReferrals(components as never, { billing: setupBilling(components as never, { email: setupEmail(components as never), catalog: {} }) })
 
 /** An app whose access runs member tickets, its gate re-exported for the tests. */
-function memberApp(options: { chain?: boolean, referral?: boolean } = {}) {
+function memberApp(options: Pick<MemberTicketsOptions, 'chain' | 'referrals'> = {}) {
   const access = setupAccess(components as never, { phases: ['early-access', 'invite-only', 'public'], audit })
   const memberTickets = access.memberTickets({ uses: 3, lifetime: 60 * DAY, enabled: () => program.on, ...options })
   const admission = queryGeneric({
@@ -46,6 +53,7 @@ function memberApp(options: { chain?: boolean, referral?: boolean } = {}) {
     './_generated/api.js': () => Promise.resolve({}),
     './access.js': () => Promise.resolve({ ...access.api, ...memberTickets.api, admission, redeem, attach }),
     './audit.js': () => Promise.resolve(audit.api),
+    './referrals.js': () => Promise.resolve(referrals.api),
   })
 }
 const testApp = memberApp()
@@ -61,8 +69,9 @@ const admissionRef = makeFunctionReference<'query', { email: string, code?: stri
 const redeemRef = makeFunctionReference<'mutation', { email: string, code?: string, ticket: string }, { ticket: string, label?: string } | { refused: string }>('access:redeem')
 const attachRef = makeFunctionReference<'mutation', { email: string, userId: string }, { ticket: string, label?: string } | null>('access:attach')
 const listActivity = makeFunctionReference<'query', { paginationOpts: { numItems: number, cursor: string | null } }, { page: Array<{ type: string, data: Record<string, unknown> }> } | null>('audit:listActivity')
-const peekCode = components.backend.referrals.peekCode as unknown as FunctionReference<'query', 'public', { userId: string }, { code: string } | null>
-const codeFor = components.backend.referrals.codeFor as unknown as FunctionReference<'mutation', 'public', { userId: string }, { code: string }>
+const getReferralCode = makeFunctionReference<'mutation', Record<string, never>, ReferralCodeView>('referrals:getReferralCode')
+const getReferrals = makeFunctionReference<'query', Record<string, never>, ReferralsView | null>('referrals:getReferrals')
+const claimReferral = makeFunctionReference<'mutation', { code: string }, { claimed: boolean, reason?: string }>('referrals:claimReferral')
 const ticketOf = components.backend.access.ticketOf as unknown as FunctionReference<'query', 'public', { userId: string }, { kind: string, label?: string } | null>
 
 let t: App
@@ -291,21 +300,41 @@ describe('a member\'s ticket', () => {
     expect(await chained.mutation(redeemRef, { email: 'friend-of-friend@example.org', code: guestToken, ticket: 'access-link' })).toMatchObject({ ticket: 'member-ticket' })
   })
 
-  test('carries its member\'s referral code with `referral`, the same code their referral link has, and none without', async () => {
+  test('claims each friend it admits as its member\'s referral with `referrals`, as the account is made, whatever code a link carries', async () => {
+    const referring = memberApp({ referrals })()
+    const ada = await asUser(referring, { email: 'ada@panels.example' })
+    const mallory = await asUser(referring, { email: 'mallory@elsewhere.example' })
+    const token = tokenOf(await ada.mutation(issueMemberTicket, {}))
+    // The ticket carries no code: who let the friend in decides, never the link.
+    expect(await ada.query(getMemberTicket, {})).not.toHaveProperty('referral')
+    // The friend signs up through it from anywhere: nothing of their own claims anything.
+    const { friend } = await signUp(referring, 'friend@example.org', token)
+    expect(await ada.query(getReferrals, {})).toMatchObject({ claimed: 1 })
+    // Another code put on the link (`?ref=`) or claimed after takes nothing from the member.
+    const theirs = (await mallory.mutation(getReferralCode, {})).code
+    expect(await friend.mutation(claimReferral, { code: theirs })).toEqual({ claimed: false, reason: 'already_claimed' })
+    expect(await mallory.query(getReferrals, {})).toMatchObject({ claimed: 0 })
+    // The claim's own checks hold: an address that is the member's own claims nothing, and still signs up.
+    const { taken } = await signUp(referring, 'ada+2@panels.example', token)
+    expect(taken).toEqual({ ticket: 'member-ticket', label: 'member' })
+    expect(await ada.query(getReferrals, {})).toMatchObject({ claimed: 1 })
+  })
+
+  test('claims nobody without `referrals`, and a program that fails never fails the sign-up', async () => {
     const ada = await asUser(t, { email: 'ada@panels.example' })
-    expect(await ada.mutation(issueMemberTicket, {})).not.toHaveProperty('referral')
-    const referring = memberApp({ referral: true })()
-    const host = await asUser(referring, { email: 'ada@panels.example' })
-    // Nothing is made for a member who has not asked for the ticket.
-    expect(await host.query(getMemberTicket, {})).toEqual({ state: 'none', uses: 3 })
-    expect(await referring.query(peekCode, { userId: host.userId })).toBeNull()
-    const issued = await host.mutation(issueMemberTicket, {})
-    const code = (await referring.query(peekCode, { userId: host.userId }))!.code
-    expect(issued).toMatchObject({ state: 'issued', referral: code })
-    expect(await host.query(getMemberTicket, {})).toEqual(issued)
-    expect(await host.mutation(issueMemberTicket, {})).toEqual(issued)
-    // The code is the member's own referral code: what their referral link carries.
-    expect(await referring.mutation(codeFor, { userId: host.userId })).toMatchObject({ code })
+    const { friend } = await signUp(t, 'friend@example.org', tokenOf(await ada.mutation(issueMemberTicket, {})))
+    expect(await ada.query(getReferrals, {})).toMatchObject({ claimed: 0 })
+    // Not claimed, so the friend may still claim a referral of their choosing.
+    const theirs = (await (await asUser(t, { email: 'grace@panels.example' })).mutation(getReferralCode, {})).code
+    expect(await friend.mutation(claimReferral, { code: theirs })).toEqual({ claimed: true })
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const failing = memberApp({ referrals: { claimFor: () => Promise.reject(new Error('down')) } })()
+    const host = await asUser(failing, { email: 'ada@panels.example' })
+    const { taken } = await signUp(failing, 'friend@example.org', tokenOf(await host.mutation(issueMemberTicket, {})))
+    expect(taken).toEqual({ ticket: 'member-ticket', label: 'member' })
+    expect(warn.mock.calls.flat().join(' ')).toContain('access.referral_unclaimed')
+    warn.mockRestore()
   })
 
   test('admits nobody through an app that declares no program', async () => {
@@ -328,6 +357,7 @@ describe('a member\'s ticket', () => {
     expect(() => fresh().memberTickets({ uses: 0 })).toThrow(/uses/)
     expect(() => fresh().memberTickets({ uses: 1.5 })).toThrow(/uses/)
     expect(() => fresh().memberTickets({ lifetime: 400 * DAY })).toThrow(/lifetime/)
+    expect(() => fresh().memberTickets({ referrals: true as never })).toThrow(/`referrals` is not a setupReferrals instance/)
     const access = fresh()
     expect(access.memberTickets()).toMatchObject({ uses: 3, lifetime: 60 * DAY })
     expect(() => access.memberTickets()).toThrow(/once/)

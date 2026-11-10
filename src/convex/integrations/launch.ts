@@ -27,6 +27,7 @@ import { readEnv } from '../delivery.js'
 import { authSecrets, liveSecrets } from '../auth-secrets.js'
 import { backendError } from '../errors.js'
 import type { Audit } from './audit.js'
+import type { Referrals } from './referrals.js'
 import type { EmailMessage, EmailRenderContext } from '../email-templates.js'
 import { logBackend } from '../log.js'
 import { type BackendPaths, resolveBackendPaths } from '../paths.js'
@@ -164,15 +165,13 @@ export interface AccessApi {
  *   asking gives it a new link);
  * - `issued`: the member's access link token, for `/invite#<token>`, how many
  *   new addresses it admits in all, how many it still admits, and when it
- *   stops; with `memberTickets({ referral: true })`, the member's referral
- *   code too, for `/invite?ref=<code>#<token>` (once the member has one).
- *   Asking again answers the same ticket until it expires, used up or not.
+ *   stops. Asking again answers the same ticket until it expires, used up or not.
  */
 export type MemberTicket
   = | { state: 'open' }
     | { state: 'off' }
     | { state: 'none', uses: number }
-    | { state: 'issued', token: string, uses: number, left: number, expiresAt: number, referral?: string }
+    | { state: 'issued', token: string, uses: number, left: number, expiresAt: number }
 
 /** Options for {@link Access.memberTickets}. */
 export interface MemberTicketsOptions {
@@ -202,18 +201,18 @@ export interface MemberTicketsOptions {
    */
   chain?: boolean
   /**
-   * Carry the member's referral code on their ticket (default `false`),
-   * for an app that runs the referral program (`setupReferrals`): an
-   * issued ticket answers `referral`, the member's code, made when they
-   * ask for the ticket, and `useMemberTicket().link` puts it in the link as
-   * `?ref=<code>`. The `/invite` page then sends the friend it admits
-   * through the referral page's sign-in, which claims the referral for them
-   * once they are signed up: the friend counts for the member who let them
-   * in. Off by default, as access cannot tell whether the app runs the
-   * program; the code is carried whatever the member chose for their share
-   * pages (`setReferralSharing`), as a ticket is one they hand out themselves.
+   * The app's referral program (`setupReferrals`), so each friend a
+   * member's ticket admits counts as the member's referral: it is claimed
+   * for the member as the friend's account is made, whichever page, browser
+   * or link the friend signed up from. The ticket decides, never the
+   * address: the link carries nothing for it. The claim's own checks hold
+   * (the first referral claimed wins, an address that is the member's is
+   * refused), and the member's reward waits for the friend's first paid
+   * order and the hold, as for any referral. A claim that cannot be made
+   * never fails the sign-up. Default: none, and a member's ticket claims
+   * nothing.
    */
-  referral?: boolean
+  referrals?: Pick<Referrals, 'claimFor'>
 }
 
 /** The functions `backend/access.ts` re-exports for member tickets. */
@@ -262,7 +261,9 @@ export interface Access {
    * and is checked against its member then: a banned member's link, or one
    * while the program is off, admits nobody. Declare it once, in
    * `backend/access.ts`, and re-export its `api` there for `useMemberTicket`.
-   * Recorded as `access.invite_created` (label `member`) on each mint.
+   * Recorded as `access.invite_created` (label `member`) on each mint. With
+   * `referrals`, each friend a ticket admits is claimed as its member's
+   * referral when their account is made.
    *
    * @example
    * ```ts [backend/access.ts]
@@ -390,10 +391,6 @@ interface AccessRefs {
     verify: FunctionReference<'mutation', 'internal', { email: string, join?: string, locale?: string, boost: { cap: number, days: number } }, { id: string, created: boolean, source: string, referred: boolean, news: boolean }>
     place: FunctionReference<'query', 'internal', { id: string }, { position: number | null, total: number, shareCode: string } | null>
   }
-  referrals: {
-    codeFor: FunctionReference<'mutation', 'internal', { userId: string }, { code: string, sharePages: boolean }>
-    peekCode: FunctionReference<'query', 'internal', { userId: string }, { code: string, sharePages: boolean } | null>
-  }
   adapter: { findOne: AdapterFindOne }
   email: { send: FunctionReference<'mutation', 'internal', Record<string, unknown>, string | null> }
 }
@@ -437,6 +434,13 @@ const asTicket = (kind: string): AccessTicket => (TICKETS.includes(kind as Acces
 
 /** The cohort a member's ticket signs up under, on the activity trail and in the funnels. */
 const MEMBER_COHORT = 'member'
+
+/** The label a member's ticket keeps, and the ledger with it: `member:<userId>`, its member, until they are erased. */
+const memberLabel = (holder: string) => `${MEMBER_COHORT}:${holder}`
+
+/** The member whose ticket a ledger row took, from its label; `null` for any other ticket. */
+const holderOf = (row: { ticket: string, label?: string }): string | null =>
+  (row.ticket === 'member-ticket' && row.label?.startsWith(memberLabel('')) ? row.label.slice(memberLabel('').length) || null : null)
 
 /**
  * A ticket taken, as the sign-up's hooks record it (the activity trail and
@@ -499,7 +503,7 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
   const requireAdministrator = (ctx: AccessCtx, what: string) => requireAdministratorInPerson(ctx, reads, administrators, what)
 
   /** The member-ticket program, once `memberTickets` declared it: what a sign-up through a member's link is checked against. */
-  let program: { enabled: MemberTicketsOptions['enabled'], chain: boolean } | null = null
+  let program: { enabled: MemberTicketsOptions['enabled'], chain: boolean, referrals?: MemberTicketsOptions['referrals'] } | null = null
   /**
    * The program as a code's check and a sign-up meet it now, for the
    * component to check a member's ticket against: none while it is off or
@@ -510,6 +514,22 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
     if (!tokenHash) return {}
     if (!program || (program.enabled && !await program.enabled(ctx as AccessCtx))) return { tokenHash }
     return { tokenHash, members: { chain: program.chain } }
+  }
+
+  /**
+   * A friend a member's ticket admitted, claimed as the member's referral
+   * with `memberTickets({ referrals })`: the ledger row names the member, so
+   * no address can name another. Logged, never thrown: the account exists.
+   */
+  const claimForMember = async (ctx: Pick<AccessWriteCtx, 'runQuery' | 'runMutation'>, row: { ticket: string, label?: string }, userId: string): Promise<void> => {
+    const holder = holderOf(row)
+    if (!holder || !program?.referrals) return
+    try {
+      await program.referrals.claimFor(ctx, { referrerId: holder, userId })
+    }
+    catch (error) {
+      logBackend('warn', 'access.referral_unclaimed', 'A friend a member\'s ticket admitted was not claimed as the member\'s referral; the account was created.', error)
+    }
   }
 
   /** The hash a new code is stored by, or `null` for input that can be no ticket. */
@@ -655,7 +675,9 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
     },
     attach: async (ctx, { email, userId }) => {
       const row = await ctx.runMutation(refs.access.attachUser, { email: admissionEmail(email), userId })
-      return row ? usedTicket(row) : null
+      if (!row) return null
+      await claimForMember(ctx, row, userId)
+      return usedTicket(row)
     },
   }
 
@@ -745,16 +767,12 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
     if (!Number.isInteger(lifetime) || lifetime < 60_000 || lifetime > MEMBER_TICKET_LIFETIME_MAX_MS) throw new TypeError('[nuxt-backend] access.memberTickets: `lifetime` is a whole number of milliseconds, from a minute to a year.')
     // One program per access: a sign-up checks a member's link against it.
     if (program) throw new TypeError('[nuxt-backend] access.memberTickets: the program is declared once, in backend/access.ts.')
-    const chain = ticketOptions.chain === true
-    const withReferral = ticketOptions.referral === true
-    program = { enabled: ticketOptions.enabled, chain }
-
-    /** The member's referral code on an issued ticket, with `referral`: read in a query, made in a mutation. */
-    const referralOf = async (ctx: AccessCtx & Partial<Pick<AccessWriteCtx, 'runMutation'>>, holder: string, ticket: MemberTicket): Promise<MemberTicket> => {
-      if (!withReferral || ticket.state !== 'issued') return ticket
-      const found = ctx.runMutation ? await ctx.runMutation(refs.referrals.codeFor, { userId: holder }) : await ctx.runQuery(refs.referrals.peekCode, { userId: holder })
-      return found ? { ...ticket, referral: found.code } : ticket
+    const referrals = ticketOptions.referrals
+    if (referrals !== undefined && typeof (referrals as Partial<Referrals> | null)?.claimFor !== 'function') {
+      throw new TypeError('[nuxt-backend] access.memberTickets: `referrals` is not a setupReferrals instance. Pass the app\'s, from referrals.ts: `access.memberTickets({ referrals })`.')
     }
+    const chain = ticketOptions.chain === true
+    program = { enabled: ticketOptions.enabled, chain, ...(referrals ? { referrals } : {}) }
 
     /** The ticket's token, found again: derived under a live secret, checked against the hash its row keeps under any live one. */
     const tokenOf = async (holder: string, row: { tokenHash: string, expiresAt: number }): Promise<string | null> => {
@@ -798,7 +816,7 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
         // A banned account holds none: its link admits nobody, and asking is refused.
         const account = await reads.account(ctx, identity.subject)
         if (!account || account.banned) return null
-        return referralOf(ctx, identity.subject, (await standing(ctx, identity.subject)).ticket)
+        return (await standing(ctx, identity.subject)).ticket
       },
     })
 
@@ -810,20 +828,20 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
         if (!account) throw backendError('unauthenticated', {}, '[nuxt-backend] issueMemberTicket: this account no longer exists.')
         if (account.banned) throw backendError('forbidden', { reason: 'banned' }, '[nuxt-backend] issueMemberTicket: this account is banned.')
         const { ticket, stale } = await standing(ctx, holder)
-        if (ticket.state !== 'none') return referralOf(ctx, holder, ticket)
+        if (ticket.state !== 'none') return ticket
         if (stale) {
           // A retired secret: the same ticket under the current one. The old link stops; its uses left and its end stay.
           const token = await memberTicketToken(secret(), holder, stale.expiresAt)
           if (await ctx.runMutation(refs.access.rekeyInvite, { from: stale.tokenHash, to: (await hashOf(token))!, keyVersion: keyVersion() })) {
-            return referralOf(ctx, holder, { state: 'issued', token, uses: stale.maxUses, left: Math.max(0, stale.maxUses - stale.uses), expiresAt: stale.expiresAt })
+            return { state: 'issued', token, uses: stale.maxUses, left: Math.max(0, stale.maxUses - stale.uses), expiresAt: stale.expiresAt }
           }
         }
         const expiresAt = Date.now() + lifetime
         const token = await memberTicketToken(secret(), holder, expiresAt)
-        const id = await ctx.runMutation(refs.access.createInvite, { kind: 'link', tokenHash: (await hashOf(token))!, keyVersion: keyVersion(), label: `member:${holder}`, maxUses: uses, expiresAt, holder })
+        const id = await ctx.runMutation(refs.access.createInvite, { kind: 'link', tokenHash: (await hashOf(token))!, keyVersion: keyVersion(), label: memberLabel(holder), maxUses: uses, expiresAt, holder })
         // The member is the actor; the label names none, so their erasure leaves the row nobody's.
         await audit.recordBackendEvent(ctx, { type: 'access.invite_created', targetId: id, data: { kind: 'link', label: MEMBER_COHORT, maxUses: uses } })
-        return referralOf(ctx, holder, { state: 'issued', token, uses, left: uses, expiresAt })
+        return { state: 'issued', token, uses, left: uses, expiresAt }
       },
     })
 

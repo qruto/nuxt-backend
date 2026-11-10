@@ -18,8 +18,8 @@ const { default: InviteRedeem } = await import('../../src/runtime/vue/components
 
 // <InviteRedeem> over the backend mock, built on useInvite: a link's token
 // checked on arrival, a code typed by hand when no link brought one that
-// works, a signed-in visitor who has nothing to redeem, and a member's
-// ticket that carries their referral code into the sign-in.
+// works, a signed-in visitor who has nothing to redeem, and a visitor the
+// referral page sent here, who goes back to it once signed in.
 
 const TOKEN = '0123456789ABCDEFGHJKMNPQRS'
 
@@ -134,14 +134,15 @@ describe('the invite page', () => {
     expect(state(wrapper)).toBe('valid')
   })
 
-  it('signs the friend a member\'s ticket admits in through the referral page, which claims it once they are signed up', async () => {
+  it('sends a visitor the referral page sent here back to it once signed in, where they claim it themselves', async () => {
     backendWith()
     // A code as a person might retype it: folded the way the referral page reads it.
     route.query = { ref: 'ada2-3456' }
     window.history.replaceState(null, '', `/invite?ref=ada2-3456#${TOKEN}`)
     const wrapper = await page()
     expect(state(wrapper)).toBe('valid')
-    expect(part(wrapper, 'invite-continue').attributes('href')).toBe(`/login?redirect=${encodeURIComponent('/r/ADA23456?claim=1')}`)
+    // Back to the page, never to its claim: the address alone claims nothing.
+    expect(part(wrapper, 'invite-continue').attributes('href')).toBe(`/login?redirect=${encodeURIComponent('/r/ADA23456')}`)
     expect(window.location.search).toBe('?ref=ada2-3456')
     wrapper.unmount()
 

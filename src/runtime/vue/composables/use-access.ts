@@ -103,16 +103,19 @@ export interface UseInviteReturn {
   /** Drop the kept code or token. */
   forget: () => void
   /**
-   * The referral code the link carried (`/invite?ref=<code>#<token>`, a
-   * member ticket of `memberTickets({ referral: true })`), read from the
-   * address; `null` without one, or with no referral program to claim it.
+   * The referral code the address carries, `/invite?ref=<code>`: the
+   * referral page links here with it for a visitor who holds an invite
+   * while the app is closed. `null` without one, or with no referral page
+   * to go back to. It claims nothing by itself.
    */
   referral: ComputedRef<string | null>
   /**
    * Where the way on to sign in goes: the sign-in page, which hands the kept
-   * code over; with a `referral`, through the referral page, so the friend
-   * the ticket lets in claims the member's referral once signed up. `null`
-   * with the sign-in page turned off.
+   * code over; with a `referral`, returning to that referral page, where
+   * the person claims it with its button once signed in. A member's ticket
+   * of `memberTickets({ referrals })` has claimed the friend for its
+   * member by then, whatever the address says. `null` with the sign-in
+   * page turned off.
    */
   signInTo: ComputedRef<string | null>
 }
@@ -140,7 +143,7 @@ export function useInvite(options: UseInviteOptions = {}): UseInviteReturn {
   const route = useRoute()
   const loginPath = useBackendPagePath('login')
   const landing = useBackendPagePath('referral')
-  // A referral is only carried to a page that can claim it: the referral page, over the app's claim.
+  // A referral is only carried back to a page that can claim it: the referral page, over the app's claim.
   const claims = Boolean(landing.value && useApiNamespace<{ claimReferral?: unknown }>('referrals')?.claimReferral)
   const runCheck = api.checkInvite ? useMutation(api.checkInvite) : null
   const { isPending, failure, run } = useActionState()
@@ -193,8 +196,9 @@ export function useInvite(options: UseInviteOptions = {}): UseInviteReturn {
     signInTo: computed(() => {
       if (!loginPath.value) return null
       if (!referral.value || !landing.value) return loginPath.value
-      const claimAt = `${landing.value.replace(':code', encodeURIComponent(referral.value))}?claim=1`
-      return `${loginPath.value}?redirect=${encodeURIComponent(claimAt)}`
+      // Back to the page, never its claim: the address alone claims nothing, the person does, with the page's button.
+      const back = landing.value.replace(':code', encodeURIComponent(referral.value))
+      return `${loginPath.value}?redirect=${encodeURIComponent(back)}`
     }),
   }
 }
@@ -289,9 +293,7 @@ export interface UseMemberTicketReturn {
   /**
    * The link to share once issued, `<origin>/invite#<token>` on the page's
    * own origin, the same on the server and in the browser (the `invite`
-   * page's path), with `?ref=<code>` when the ticket
-   * carries the member's referral code (`memberTickets({ referral: true })`),
-   * else `null`.
+   * page's path), else `null`.
    */
   link: ComputedRef<string | null>
   /** Mint the member's ticket, or answer the one they hold. Rejects on failure, which `error` holds too. */
@@ -310,9 +312,8 @@ export interface UseMemberTicketReturn {
  * friends past the waitlist. `issue` mints it the first time and answers
  * the same one after, until it expires. The token rides in the link's
  * fragment, out of every server's logs, and the packaged `/invite` page
- * redeems it. With `memberTickets({ referral: true })` the link carries the
- * member's referral code in its query too, and the friend it admits claims
- * the member's referral once signed up.
+ * redeems it. With `memberTickets({ referrals })`, each friend it admits
+ * counts as the member's referral from the moment their account is made.
  *
  * @example
  * ```vue
@@ -348,8 +349,7 @@ export function useMemberTicket(options: UseMemberTicketOptions = {}): UseMember
     link: computed(() => {
       const current = ticket.value
       if (current?.state !== 'issued' || !invitePath.value) return null
-      const ref = current.referral ? `?ref=${encodeURIComponent(current.referral)}` : ''
-      return `${origin}${invitePath.value}${ref}#${current.token}`
+      return `${origin}${invitePath.value}#${current.token}`
     }),
     issue: () => run(async () => {
       if (!runIssue) throw new Error('[nuxt-backend] A member ticket needs `issueMemberTicket` re-exported from access.memberTickets(…).api in backend/access.ts, or pass `{ api }` to useMemberTicket().')

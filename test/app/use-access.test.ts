@@ -157,15 +157,16 @@ describe('useMemberTicket', () => {
     expect([ticket.isLoading.value, ticket.error.value]).toEqual([false, null])
   })
 
-  it('carries the member\'s referral code in the link\'s query, the token still in its fragment', async () => {
+  it('carries the token alone, never a referral code: the ticket says who let a friend in, not the link', async () => {
+    // A deployment from before answering a code with the ticket.
     createBackendMock({ user: { name: 'Ada' }, queries: { 'access:getMemberTicket': { ...issued, referral: 'ADA23456' } } })
     const ticket = await inPage(() => useMemberTicket())
     await flushPromises()
-    expect(ticket.link.value).toBe(`${window.location.origin}/invite?ref=ADA23456#0123456789ABCDEFGHJKMNPQRS`)
+    expect(ticket.link.value).toBe(`${window.location.origin}/invite#0123456789ABCDEFGHJKMNPQRS`)
   })
 
   it('builds the same link on the server as in the browser, so it hydrates unchanged', async () => {
-    createBackendMock({ user: { name: 'Ada' }, queries: { 'access:getMemberTicket': { ...issued, referral: 'ADA23456' } } })
+    createBackendMock({ user: { name: 'Ada' }, queries: { 'access:getMemberTicket': issued } })
     const linked = async (request: typeof serverRequest.current) => {
       serverRequest.current = request
       const ticket = await inPage(() => useMemberTicket())
@@ -175,10 +176,10 @@ describe('useMemberTicket', () => {
     }
     // The server behind a proxy, which forwards the host the browser asked for.
     const rendered = await linked({ path: '/invite', headers: { 'host': '127.0.0.1:3000', 'x-forwarded-host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })
-    expect(rendered).toBe(`${window.location.origin}/invite?ref=ADA23456#0123456789ABCDEFGHJKMNPQRS`)
+    expect(rendered).toBe(`${window.location.origin}/invite#0123456789ABCDEFGHJKMNPQRS`)
     expect(rendered).toBe(await linked(null))
     // An https site whose edge forwards to the server over http.
-    expect(await linked({ path: '/invite', headers: { 'host': 'internal:3000', 'x-forwarded-host': 'panels.app', 'x-forwarded-proto': 'https' } })).toBe('https://panels.app/invite?ref=ADA23456#0123456789ABCDEFGHJKMNPQRS')
+    expect(await linked({ path: '/invite', headers: { 'host': 'internal:3000', 'x-forwarded-host': 'panels.app', 'x-forwarded-proto': 'https' } })).toBe('https://panels.app/invite#0123456789ABCDEFGHJKMNPQRS')
   })
 
   it('mints one on issue, and shows it until the live read catches up', async () => {
