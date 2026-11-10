@@ -84,6 +84,8 @@ const GIFT_LABELS = {
   // Announced once a claim went through: a credit pack's credits land a moment later, a plan pass starts at once.
   claimed: 'Gift received. The {unit} arrive in a moment.',
   claimedPass: 'Gift received. Your plan starts now.',
+  // A pack whose $0 checkout asks for details: it opened in a new tab, and the gift lands once that is done.
+  claimOpened: 'One last step opened in a new tab. Finish there to receive the gift.',
   claimFailed: 'Could not receive the gift',
 } satisfies LabelTree
 

@@ -1647,6 +1647,7 @@
       "claiming": "Réception…",
       "claimed": "Cadeau reçu. Vos {unit} arrivent dans un instant.",
       "claimedPass": "Cadeau reçu. Votre forfait commence maintenant.",
+      "claimOpened": "Une dernière étape s’est ouverte dans un nouvel onglet. Terminez-la pour recevoir le cadeau.",
       "claimFailed": "Impossible de recevoir le cadeau"
     },
     "access": {

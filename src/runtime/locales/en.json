@@ -1647,6 +1647,7 @@
       "claiming": "Receiving…",
       "claimed": "Gift received. The {unit} arrive in a moment.",
       "claimedPass": "Gift received. Your plan starts now.",
+      "claimOpened": "One last step opened in a new tab. Finish there to receive the gift.",
       "claimFailed": "Could not receive the gift"
     },
     "access": {

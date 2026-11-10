@@ -1647,6 +1647,7 @@
       "claiming": "Recibiendo…",
       "claimed": "Regalo recibido. Tus {unit} llegarán en un momento.",
       "claimedPass": "Regalo recibido. Tu plan empieza ahora.",
+      "claimOpened": "Se abrió un último paso en una pestaña nueva. Termínalo allí para recibir el regalo.",
       "claimFailed": "No se pudo recibir el regalo"
     },
     "access": {

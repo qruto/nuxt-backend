@@ -1647,6 +1647,7 @@
       "claiming": "Wird empfangen…",
       "claimed": "Geschenk empfangen. Die {unit} kommen gleich an.",
       "claimedPass": "Geschenk empfangen. Ihr Tarif beginnt jetzt.",
+      "claimOpened": "Ein letzter Schritt wurde in einem neuen Tab geöffnet. Schließen Sie ihn dort ab, um das Geschenk zu empfangen.",
       "claimFailed": "Das Geschenk konnte nicht empfangen werden"
     },
     "access": {

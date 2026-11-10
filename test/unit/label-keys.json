@@ -687,6 +687,7 @@
   "gift.claiming": [],
   "gift.claimed": ["unit"],
   "gift.claimedPass": [],
+  "gift.claimOpened": [],
   "gift.claimFailed": [],
   "access.title": [],
   "access.message": [],

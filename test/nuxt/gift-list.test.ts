@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, ref } from 'vue'
+import { computed, defineComponent, h, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { ConvexError } from 'convex/values'
 
@@ -40,6 +40,20 @@ vi.mock('../../src/runtime/vue/composables/use-pricing', () => ({
 vi.mock('../../src/runtime/vue/composables/use-reauthentication', () => ({ useReauthentication: () => ({ withReauthentication }) }))
 
 const { default: GiftList } = await import('../../src/runtime/vue/components/billing/GiftList.vue')
+const { useGiftList } = await import('../../src/runtime/vue/composables/use-gift-list')
+type GiftList = ReturnType<typeof useGiftList>
+
+/** useGiftList itself, mounted in a probe. */
+function giftList(): GiftList {
+  let list!: GiftList
+  mount(defineComponent({
+    setup() {
+      list = useGiftList()
+      return () => h('div')
+    },
+  }))
+  return list
+}
 
 const waiting = { id: 'in-1', purchaserName: 'Grace', pack: 'credits500', productIds: ['p'], message: 'Enjoy!', status: 'paid', createdAt: 1, deliveredAt: Date.parse('2027-02-01T12:00:00Z') }
 const scheduled = { id: 'out-1', item: 'credits500', recipientEmail: 'friend@example.com', status: 'scheduled', createdAt: 1, deliverAt: Date.parse('2027-03-14T09:00:00Z') }
@@ -95,6 +109,17 @@ describe('<GiftList>', () => {
     await wrapper.find('[data-gift="entry-claim"]').trigger('click')
     await flushPromises()
     expect(gifts.claim).toHaveBeenCalledWith('in-1', { workspaceId: 'org-b' })
+    // A plan pass starts at once: no credits to wait for.
+    expect(wrapper.find('[data-gift="status"]').text()).toBe('Gift received. Your plan starts now.')
+  })
+
+  it('says the last step opened in a new tab when a pack\'s claim opened the provider\'s checkout', async () => {
+    received.value = [waiting]
+    gifts.claim.mockResolvedValueOnce(false)
+    const wrapper = mount(GiftList)
+    await wrapper.find('[data-gift="entry-claim"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-gift="status"]').text()).toBe('One last step opened in a new tab. Finish there to receive the gift.')
   })
 
   it('offers the purchaser only what each state allows', () => {
@@ -164,6 +189,20 @@ describe('<GiftList>', () => {
     await flushPromises()
     expect(wrapper.find('[data-gift="list-error"]').attributes('role')).toBe('alert')
     expect(wrapper.find('[data-gift="list-error"]').text()).not.toBe('')
+  })
+
+  it('resolves how a claim went: claimed, opened in a new tab, or null when refused', async () => {
+    received.value = [waiting]
+    const list = giftList()
+    await expect(list.claim('in-1')).resolves.toBe('claimed')
+    expect(list.announcement.value).toBe('Gift received. The credits arrive in a moment.')
+    gifts.claim.mockResolvedValueOnce(false)
+    await expect(list.claim('in-1')).resolves.toBe('opened')
+    expect(list.announcement.value).toBe('One last step opened in a new tab. Finish there to receive the gift.')
+    gifts.claim.mockRejectedValueOnce(new ConvexError({ code: 'forbidden', reason: 'gift_claimed' }))
+    await expect(list.claim('in-1')).resolves.toBeNull()
+    expect(list.announcement.value).toBe('')
+    expect(list.error.value).not.toBeNull()
   })
 
   it('names each button by the gift it acts on', () => {
