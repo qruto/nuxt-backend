@@ -62,7 +62,8 @@ export interface EmailSyncReport {
    * store) for the topics and the segment it found or made: one found by
    * name, or a topic whose words changed since its id was stored. A dry run
    * that finds everything at the provider may still have ids to store.
-   * Absent on a sync asked for the webhook alone.
+   * Absent when the sync did not reach them (no full-access key, or a sync
+   * of the webhook alone), and from a backend older than it.
    */
   ids?: Array<{ kind: 'topic' | 'segment', key: string }>
   webhook: {
