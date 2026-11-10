@@ -87,8 +87,8 @@ Defined in: [src/runtime/vue/composables/use-access.ts](https://github.com/qruto
 | <a id="error-1"></a> `error` | `ComputedRef`\< \| [`BackendError`](/docs/reference/api/functions#backenderror) \| `null`\> | Why the last check failed (a rate limit, say), else `null`. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="iskept"></a> `isKept` | `ComputedRef`\<`boolean`\> | Whether this tab keeps a valid code or token for its next sign-in. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="forget"></a> `forget` | () => `void` | Drop the kept code or token. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
-| <a id="referral"></a> `referral` | `ComputedRef`\<`string` \| `null`\> | The referral code the link carried (`/invite?ref=<code>#<token>`, a member ticket of `memberTickets({ referral: true })`), read from the address; `null` without one, or with no referral program to claim it. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
-| <a id="signinto"></a> `signInTo` | `ComputedRef`\<`string` \| `null`\> | Where the way on to sign in goes: the sign-in page, which hands the kept code over; with a `referral`, through the referral page, so the friend the ticket lets in claims the member's referral once signed up. `null` with the sign-in page turned off. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
+| <a id="referral"></a> `referral` | `ComputedRef`\<`string` \| `null`\> | The referral code the address carries, `/invite?ref=<code>`: the referral page links here with it for a visitor who holds an invite while the app is closed. `null` without one, or with no referral page to go back to. It claims nothing by itself. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
+| <a id="signinto"></a> `signInTo` | `ComputedRef`\<`string` \| `null`\> | Where the way on to sign in goes: the sign-in page, which hands the kept code over; with a `referral`, returning to that referral page, where the person claims it with its button once signed in. A member's ticket of `memberTickets({ referrals })` has claimed the friend for its member by then, whatever the address says. `null` with the sign-in page turned off. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 
 ***
 
@@ -145,7 +145,7 @@ Defined in: [src/runtime/vue/composables/use-access.ts](https://github.com/qruto
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="ticket"></a> `ticket` | `ComputedRef`\< \| [`MemberTicket`](/docs/reference/api/access#memberticket) \| `null` \| `undefined`\> | The signed-in member's ticket, live: `open` once the app is public, `off` while the program is, `none` until they ask for one, then `issued` with its token, its uses, the ones left and its end. `null` signed out, `undefined` while it is read. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
-| <a id="link"></a> `link` | `ComputedRef`\<`string` \| `null`\> | The link to share once issued, `<origin>/invite#<token>` on the page's own origin, the same on the server and in the browser (the `invite` page's path), with `?ref=<code>` when the ticket carries the member's referral code (`memberTickets({ referral: true })`), else `null`. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
+| <a id="link"></a> `link` | `ComputedRef`\<`string` \| `null`\> | The link to share once issued, `<origin>/invite#<token>` on the page's own origin (on the server, the request's own host, never a forwarded one) and the `invite` page's path, else `null`. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="issue"></a> `issue` | () => `Promise`\<[`MemberTicket`](/docs/reference/api/access#memberticket)\> | Mint the member's ticket, or answer the one they hold. Rejects on failure, which `error` holds too. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="isloading-2"></a> `isLoading` | `ComputedRef`\<`boolean`\> | `true` while the ticket is first read. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
 | <a id="ispending-2"></a> `isPending` | `ComputedRef`\<`boolean`\> | `true` while `issue` runs. | [src/runtime/vue/composables/use-access.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-access.ts) |
@@ -302,9 +302,8 @@ access link a member shares while the app is closed, admitting a few
 friends past the waitlist. `issue` mints it the first time and answers
 the same one after, until it expires. The token rides in the link's
 fragment, out of every server's logs, and the packaged `/invite` page
-redeems it. With `memberTickets({ referral: true })` the link carries the
-member's referral code in its query too, and the friend it admits claims
-the member's referral once signed up.
+redeems it. With `memberTickets({ referrals })`, each friend it admits
+counts as the member's referral from the moment their account is made.
 
 #### Parameters
 
