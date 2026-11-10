@@ -4,14 +4,17 @@ import { pathToFileURL } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 
 // The inline script a production build puts first in the head: one reload
-// for a page whose code failed to load before the app mounted, guarded by
-// Nuxt's own `nuxt:reload`. Each case runs the script itself in a page of
-// stubs, and the Nitro plugin over a render's HTML.
+// for a page whose code failed to load before the app mounted, under a guard
+// of its own. Each case runs the script itself in a page of stubs, with the
+// client plugin that tells it the app mounted, and the Nitro plugin over a
+// render's HTML.
 
 const runtimeConfig = vi.hoisted(() => ({ app: { buildAssetsDir: '/_nuxt/' } }))
 vi.mock('nitropack/runtime', () => ({ defineNitroPlugin: (plugin: unknown) => plugin, useRuntimeConfig: () => runtimeConfig }))
+vi.mock('#imports', () => ({ defineNuxtPlugin: (plugin: unknown) => plugin }))
 
-const { chunkRecoveryScript, default: chunkRecoveryPlugin, headWithScript, RELOAD_GUARD_MS } = await import('../../src/runtime/server/chunk-recovery')
+const { chunkRecoveryScript, default: chunkRecoveryPlugin, headWithScript, RELOAD_GUARD_KEY, RELOAD_GUARD_MS } = await import('../../src/runtime/server/chunk-recovery')
+const { default: mountedPlugin } = await import('../../src/runtime/vue/plugins/chunk-recovery.client')
 
 type Listener = (event: { target?: unknown }) => void
 
@@ -23,8 +26,8 @@ function page(options: { path?: string, readyState?: string, storage?: Partial<S
     setItem: (key: string, value: string) => void stored.set(key, value),
   }
   const location = { pathname: options.path ?? '/', reload: vi.fn() }
-  let mounted = false
-  const document = { readyState: options.readyState ?? 'interactive', querySelector: (selector: string) => (selector === '[data-v-app]' && mounted ? {} : null) }
+  // A server-rendered page, which Vue hydrates with `createSSRApp`: nothing in it ever reads `[data-v-app]`.
+  const document = { readyState: options.readyState ?? 'interactive', querySelector: () => null }
   const listeners: Record<string, Listener> = {}
   const addEventListener = (type: string, handler: Listener) => {
     listeners[type] = handler
@@ -34,7 +37,16 @@ function page(options: { path?: string, readyState?: string, storage?: Partial<S
   return {
     fail: (target: unknown) => listeners.error!({ target }),
     failImport: () => listeners['vite:preloadError']!({}),
-    mount: () => void (mounted = true),
+    // Nuxt's `app:mounted`, through the client plugin, on the same page.
+    mount: () => {
+      vi.stubGlobal('window', { dispatchEvent: (event: Event) => listeners[event.type]?.(event) })
+      try {
+        (mountedPlugin.hooks!['app:mounted'] as () => void)()
+      }
+      finally {
+        vi.unstubAllGlobals()
+      }
+    },
     location,
     stored,
   }
@@ -73,10 +85,15 @@ describe('the inline recovery', () => {
     vi.useRealTimers()
   })
 
-  it('writes the guard Nuxt reads, so Nuxt\'s own handling reloads no second time', () => {
-    const { fail, stored } = page({ path: '/waitlist' })
+  // Nuxt's `reloadNuxtApp` holds a path for ten seconds under `nuxt:reload`: a reload of the recovery's must not hold Nuxt's back for a minute.
+  it('keeps its guard apart from Nuxt\'s `nuxt:reload`, which stays Nuxt\'s', () => {
+    const { fail, location, stored } = page({ path: '/waitlist' })
+    const nuxts = JSON.stringify({ path: '/waitlist', expires: Date.now() + 10_000 })
+    stored.set('nuxt:reload', nuxts)
     fail(entry)
-    expect(JSON.parse(stored.get('nuxt:reload')!)).toMatchObject({ path: '/waitlist', expires: expect.any(Number) })
+    expect(location.reload).toHaveBeenCalledOnce()
+    expect(JSON.parse(stored.get(RELOAD_GUARD_KEY)!)).toMatchObject({ path: '/waitlist', expires: expect.any(Number) })
+    expect(stored.get('nuxt:reload')).toBe(nuxts)
   })
 
   it('stays put without sessionStorage, since nothing would stop a loop', () => {
@@ -123,9 +140,11 @@ describe('the inline recovery', () => {
     expect(location.reload).toHaveBeenCalledOnce()
   })
 
-  it('leaves a dynamic import that fails on a running app to Nuxt', () => {
+  // A lazy component's chunk on a flaky connection, or a navigation's, which Nuxt reloads to itself.
+  it('leaves a dynamic import that fails on a hydrated app to Nuxt', () => {
     const { failImport, mount, location } = page()
     mount()
+    failImport()
     failImport()
     expect(location.reload).not.toHaveBeenCalled()
   })

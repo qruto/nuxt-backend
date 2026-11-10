@@ -694,8 +694,10 @@ describe('module registration (defaults)', () => {
     }
   })
 
-  it('puts the chunk-load recovery in a production build\'s pages', () => {
-    expect(nitroPlugins(getNuxt()).filter(plugin => /[\\/]runtime[\\/]server[\\/]chunk-recovery(?:\.ts)?$/.test(plugin))).toHaveLength(1)
+  it('puts the chunk-load recovery in a production build\'s pages, with the client plugin that tells it the app mounted', () => {
+    const nuxt = getNuxt()
+    expect(nitroPlugins(nuxt).filter(plugin => /[\\/]runtime[\\/]server[\\/]chunk-recovery(?:\.ts)?$/.test(plugin))).toHaveLength(1)
+    expect(nuxt.options.plugins.filter(plugin => typeof plugin !== 'string' && /[\\/]plugins[\\/]chunk-recovery\.client(?:\.ts)?$/.test(plugin.src))).toEqual([expect.objectContaining({ mode: 'client' })])
   })
 
   it('runs the recovery\'s render hook before nuxt-security\'s nonce pass, which puts the request\'s nonce on its tag', () => {
@@ -1063,6 +1065,7 @@ describe('chunkRecovery: false', () => {
 
   it('adds no recovery script to the pages', () => {
     expect(nitroPlugins(getNuxt()).filter(plugin => plugin.includes('chunk-recovery'))).toEqual([])
+    expect(ourPlugins(getNuxt()).filter(src => src.includes('chunk-recovery'))).toEqual([])
   })
 })
 
@@ -1199,6 +1202,7 @@ describe('development defaults', () => {
     expect(nuxt.options.vite.server?.headers).toMatchObject({ 'Cache-Control': 'no-store' })
     // Never in a page served by the dev server: the recovery is a production build's.
     expect(nitroPlugins(nuxt).filter(plugin => plugin.includes('chunk-recovery'))).toEqual([])
+    expect(ourPlugins(nuxt).filter(src => src.includes('chunk-recovery'))).toEqual([])
   })
 
   it('names an app page that makes a private page\'s path public, once', async () => {

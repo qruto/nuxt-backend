@@ -1,4 +1,5 @@
 import { useRuntimeConfig } from 'nuxt/server'
+import { MOUNTED_EVENT } from '../chunk-recovery'
 
 // Recovery from code that fails to load while a page starts.
 //
@@ -14,32 +15,37 @@ import { useRuntimeConfig } from 'nuxt/server'
 // All of this runs inline in the head, because nothing of the app can see
 // it: a chunk the entry imports statically fails before any app code runs,
 // and one the first route imports fails inside Nuxt's router plugin, ahead of
-// every plugin. The guard is `nuxt:reload`, the key Nuxt's own
-// `reloadNuxtApp` reads, so a page reloads once however it failed.
+// every plugin. Its guard is a key of its own, so a page reloads once
+// however it failed, and Nuxt's `nuxt:reload` (ten seconds per path) is
+// left to Nuxt: a recovery never holds back the reload Nuxt makes when a
+// navigation's chunk fails.
 
 /** How long a reload of one path holds off the next, in milliseconds. */
 export const RELOAD_GUARD_MS = 60_000
+
+/** Where the guard lives in `sessionStorage`: the path last reloaded, and until when. */
+export const RELOAD_GUARD_KEY = 'nuxt-backend:reload'
 
 /**
  * The inline script: it reloads on a failed module script or stylesheet
  * served from `assetsDir` (the app's `app.buildAssetsDir`) before the page
  * has loaded, and on a failed dynamic import (`vite:preloadError`) before
- * the app has mounted (no `[data-v-app]` yet). Later failures keep Nuxt's
- * handling: a reload on navigation, nothing for a decoration. Without
- * `sessionStorage` it stays put, since nothing would stop a loop. It writes
- * no DOM sink, so Trusted Types has nothing to refuse.
+ * the app has mounted, which the client plugin tells it (MOUNTED_EVENT).
+ * Later failures keep Nuxt's handling: a reload on navigation, nothing for
+ * a decoration. Without `sessionStorage` it stays put, since nothing would
+ * stop a loop. It writes no DOM sink, so Trusted Types has nothing to refuse.
  */
 export function chunkRecoveryScript(assetsDir: string): string {
   // As a JavaScript string that cannot close the script element it sits in.
   const dir = JSON.stringify(assetsDir).replace(/</g, '\\u003c')
   return `(function(){
-var dir=${dir}
+var dir=${dir},key='${RELOAD_GUARD_KEY}',mounted=false
 function recover(){
 var now=Date.now(),path=location.pathname
 try{
-var last=JSON.parse(sessionStorage.getItem('nuxt:reload')||'{}')
+var last=JSON.parse(sessionStorage.getItem(key)||'{}')
 if(last.path===path&&last.expires>now)return
-sessionStorage.setItem('nuxt:reload',JSON.stringify({path:path,expires:now+${RELOAD_GUARD_MS}}))
+sessionStorage.setItem(key,JSON.stringify({path:path,expires:now+${RELOAD_GUARD_MS}}))
 }catch(error){return}
 location.reload()
 }
@@ -50,8 +56,9 @@ var module=el.tagName==='SCRIPT'&&el.type==='module'
 var style=el.tagName==='LINK'&&el.rel==='stylesheet'
 if((module||style)&&(el.src||el.href||'').indexOf(dir)>=0)recover()
 },true)
+addEventListener('${MOUNTED_EVENT}',function(){mounted=true})
 addEventListener('vite:preloadError',function(){
-if(!document.querySelector('[data-v-app]'))recover()
+if(!mounted)recover()
 })
 })()`
 }
