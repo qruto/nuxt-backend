@@ -15,6 +15,7 @@ vi.mock('#imports', () => ({ defineNuxtPlugin: (plugin: unknown) => plugin }))
 
 const { chunkRecoveryScript, default: chunkRecoveryPlugin, headWithScript, RELOAD_GUARD_KEY, RELOAD_GUARD_MS } = await import('../../src/runtime/server/chunk-recovery')
 const { default: startedPlugin } = await import('../../src/runtime/vue/plugins/chunk-recovery.client')
+const { BROWSER_STORAGE } = await import('../../src/convex/legal')
 
 type Listener = (event: { target?: unknown }) => void
 
@@ -98,6 +99,8 @@ describe('the inline recovery', () => {
     expect(location.reload).toHaveBeenCalledOnce()
     expect(JSON.parse(stored.get(RELOAD_GUARD_KEY)!)).toMatchObject({ path: '/waitlist', expires: expect.any(Number) })
     expect(stored.get('nuxt:reload')).toBe(nuxts)
+    // The privacy page names the key the script writes, on every build.
+    expect(BROWSER_STORAGE.chunkReload).toMatchObject({ name: RELOAD_GUARD_KEY, kind: 'sessionStorage', everyBuild: true })
   })
 
   it('stays put without sessionStorage, since nothing would stop a loop', () => {
