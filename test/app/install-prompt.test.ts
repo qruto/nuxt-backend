@@ -134,6 +134,10 @@ describe('useInstallPrompt', () => {
     displayMode('window-controls-overlay')
     expect((await mounted()).installed.value).toBe(true)
 
+    // A browser tab in fullscreen (F11) matches `fullscreen` too: it can still install.
+    displayMode('fullscreen')
+    expect((await mounted()).installed.value).toBe(false)
+
     displayMode()
     Object.defineProperty(navigator, 'standalone', { configurable: true, value: true })
     expect((await mounted()).installed.value).toBe(true)

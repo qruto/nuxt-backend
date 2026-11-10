@@ -23,7 +23,12 @@ export interface UseInstallPromptReturn {
    * from the app's button or the browser's own banner.
    */
   canInstall: ComputedRef<boolean>
-  /** The app runs as an installed app (its own window, or the Home Screen on iOS), or was installed from this page. `false` on the server and while the page hydrates. */
+  /**
+   * The app runs as an installed app (its own window, or the Home Screen on
+   * iOS), or was installed from this page. `false` on the server, while the
+   * page hydrates, and in an app installed with `display: 'fullscreen'`,
+   * which a browser tab in fullscreen can't be told from.
+   */
   installed: ComputedRef<boolean>
   /**
    * Open the browser's install dialog. Call it from a click: the browser
