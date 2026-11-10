@@ -10,7 +10,7 @@
     align-items: center;
     gap: 0.4rem 0.9rem;
     padding: 0.6rem 0.9rem;
-    border: var(--bk-border-width) solid color-mix(in srgb, var(--bk-accent) 40%, transparent);
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid color-mix(in srgb, var(--bk-accent) 40%, transparent);
     box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
     background: color-mix(in srgb, var(--bk-accent) 10%, transparent);

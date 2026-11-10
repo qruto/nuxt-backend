@@ -74,6 +74,7 @@ const COMPOSABLE_NAMES = [
   'useCredits',
   'usePricing',
   'usePushSubscription',
+  'useInstallPrompt',
   'useCampaign',
   'useOrders',
   'useUsage',
@@ -124,6 +125,7 @@ const COMPOSABLE_NAMES = [
   'useAnnouncementsAdmin',
   'useContactForm',
   'useReportForm',
+  'useReportAppeal',
   'useInboxAdmin',
   'useOnboarding',
   'useActivation',
@@ -737,10 +739,10 @@ describe('module registration (defaults)', () => {
     expect(nitroPlugins(nuxt).filter(plugin => plugin.includes('monitoring'))).toEqual([])
   })
 
-  it('adds the noindex plugin and the client-side session-ended, onboarding-redirect, checkout-return, first-touch, email-presence, passkey-ceremony, protection, trusted-types and chunk-recovery plugins outside dev', () => {
+  it('adds the noindex plugin and the client-side session-ended, onboarding-redirect, checkout-return, first-touch, email-presence, install-prompt, passkey-ceremony, protection, trusted-types and chunk-recovery plugins outside dev', () => {
     const plugins = getNuxt().options.plugins.filter(entry => typeof entry !== 'string' && entry.src.startsWith(runtimeDir)) as Array<{ src: string, mode?: string }>
-    expect(ourPlugins(getNuxt())).toHaveLength(10)
-    expect(plugins.map(plugin => plugin.src.replace(/^.*[\\/]vue[\\/]plugins[\\/]/, '').replace(/\.ts$/, '')).sort()).toEqual(['checkout-return', 'chunk-recovery.client', 'email-presence', 'first-touch', 'noindex', 'onboarding-redirect', 'passkey-ceremony', 'protection.client', 'session-ended', 'trusted-types.client'])
+    expect(ourPlugins(getNuxt())).toHaveLength(11)
+    expect(plugins.map(plugin => plugin.src.replace(/^.*[\\/]vue[\\/]plugins[\\/]/, '').replace(/\.ts$/, '')).sort()).toEqual(['checkout-return', 'chunk-recovery.client', 'email-presence', 'first-touch', 'install-prompt.client', 'noindex', 'onboarding-redirect', 'passkey-ceremony', 'protection.client', 'session-ended', 'trusted-types.client'])
 
     for (const plugin of plugins) {
       // The noindex meta tag is on the server's render too; everything else is the browser's.
@@ -1127,6 +1129,17 @@ describe('devtools: false', () => {
 
   it('registers no DevTools bridge plugin (nor does the default outside dev)', () => {
     expect(devtoolsPlugins(getNuxt())).toEqual([])
+  })
+})
+
+// Chrome's own install banner shows unless the app asks otherwise: then a
+// client plugin cancels `beforeinstallprompt` as it fires (the defaults add none).
+describe('installable.browserBanner: false', () => {
+  const getNuxt = useBoot({ backend: { installable: { browserBanner: false } } })
+
+  it('adds the client plugin that stops the browser\'s install banner, beside the one that keeps the event', () => {
+    const names = ourPlugins(getNuxt()).filter(src => src.includes('install-')).map(src => src.replace(/^.*[\\/]vue[\\/]plugins[\\/]/, '').replace(/\.ts$/, '')).sort()
+    expect(names).toEqual(['install-banner.client', 'install-prompt.client'])
   })
 })
 

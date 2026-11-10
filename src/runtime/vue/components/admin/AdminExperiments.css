@@ -17,7 +17,7 @@
     flex-direction: column;
     gap: 0.5rem;
     padding: 1rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
     box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
     background: var(--bk-surface);

@@ -14,7 +14,7 @@
   [data-pricing='header'] {
     margin: 0;
     font-size: 1.6rem;
-    letter-spacing: -0.02em;
+    letter-spacing: var(--bk-tracking-heading, -0.02em);
   }
 
   [data-pricing='plans'] {
@@ -28,7 +28,7 @@
   [data-pricing='plan-action'][data-intent='uncancel'],
   [data-pricing='plan-action'][data-intent='sign-in'] {
     background: var(--bk-accent);
-    border: var(--bk-border-width) solid var(--bk-accent);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-accent);
     border-radius: var(--bk-radius-control);
     padding: 0.55rem 0.9rem;
     font-weight: 600;

@@ -40,7 +40,7 @@ Every `nuxt-backend/<subpath>` in the package `exports` map, and every value and
 - `nuxt-backend/test` — the convex-test registration helper (`register`); the test app and its callers are experimental, see below
 - `nuxt-backend/test-utils` — the backend mock for an app's component and page tests (`createBackendMock`, `resetBackendMock`, `backendMockProvides`, `backendTestAliases`) and `renderEmail`; experimental, see below
 - `nuxt-backend/eslint` — the ESLint preset (`backendEslint`, `BACKEND_ESLINT_RULES`); its rule list and levels follow the upstream recommended set, so an upstream change to that set lands here in a minor release
-- the `data-*` hooks the neutral stylesheet styles, and the `--bk-*` tokens it reads (the module adds the stylesheet itself): the colours, the two radii, the three faces (`--bk-font`, `--bk-font-heading`, `--bk-font-control`), the outline width (`--bk-border-width`) and the three shadows (`--bk-shadow`, `--bk-shadow-control`, `--bk-shadow-overlay`); and `data-backend`, which the outermost element of every packaged component and the `<main>` of every packaged page carry (`<AppShell>`, which frames the app's own pages, carries it on its own controls instead). A minor release may add a token or let a token reach another element, never rename or drop one, and never take `data-backend` off a component
+- the `data-*` hooks the neutral stylesheet styles, and the `--bk-*` tokens it reads (the module adds the stylesheet itself): the colours, the two radii, the three faces (`--bk-font`, `--bk-font-heading`, `--bk-font-control`), the three trackings (`--bk-tracking-heading`, `--bk-tracking-control`, `--bk-tracking-label`), the outline widths (`--bk-border-width`, and `--bk-border-width-surface` and `--bk-border-width-control`, which fall back to it), the three shadows (`--bk-shadow`, `--bk-shadow-control`, `--bk-shadow-overlay`) and the press (`--bk-shadow-control-hover`, `--bk-shadow-control-active`, `--bk-offset-control-hover`, `--bk-offset-control-active`, `--bk-transition-control`), each new token unset by default, which leaves the components as they were; and `data-backend`, which the outermost element of every packaged component and the `<main>` of every packaged page carry (`<AppShell>`, which frames the app's own pages, carries it on its own controls instead). A minor release may add a token or let a token reach another element, never rename or drop one, and never take `data-backend` off a component
 
 Anything tagged `@internal` in the source is stripped from the published declarations and is not part of this surface; the surface test (`test/nuxt/public-surface.test.ts`) keeps the tag off everything an entry re-exports and freezes each entry's export list.
 
@@ -91,7 +91,7 @@ Every name on this surface is brand-neutral: no export, value or type, and no re
   - `chunkRecovery`
   - `css`
   - `devtools`
-  - `installable`, and its keys `themeColor`, `backgroundColor`, `description`, `icons` and `maskable`
+  - `installable`, and its keys `themeColor`, `backgroundColor`, `description`, `id`, `lang`, `orientation`, `icons`, `maskable` and `browserBanner`
   - `pages`
   - `redirects`
   - `url`
@@ -233,6 +233,7 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `useGifts`
   - `useHumanCheck` — a token for one call that `verifyHuman` checks on the deployment: a challenge answer, or a proof the app's server signs once its bot check passed
   - `useInboxAdmin` — the admin console's Inbox tab as data: the contact messages and inbound mail, and the replies an administrator sends to the support inbox
+  - `useInstallPrompt` — the install of the app from a button of its own: whether the browser handed over its install dialog, whether the app is installed, and opening the dialog
   - `useInvite` — check an invite code or an access link before signing up, and keep it for the tab's next sign-in
   - `useJob` — one queued job, live: its place in line, its progress, its result or the reason it failed, and `cancel()`
   - `useLabels` — a label group, resolved through the component prop, `appConfig.backend.labels`, `@nuxtjs/i18n` and English
@@ -249,6 +250,7 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `useReferralAdmin` — the admin console's Referrals tab as data: the totals, the top referrers, the flagged queue, and the decision an administrator makes on a flagged referral
   - `useReferralInvite` — the page a referral link opens, headless: what the link offers, read on the server too, the sign-in that returns to it, and the claim
   - `useReferrals` — a person's referral code and link, the share text that discloses the reward, the referrals it earned by state, copy and share, and the choice to carry the code on share pages
+  - `useReportAppeal` — the appeal of a content decision without its markup: the decision the `#appeal=<token>` link names, the appeal's state, and sending it once through `appealDecision`
   - `useReportForm` — a report about content without its markup: by default a notice (DSA Art. 16) through `sendNotice`, with the page's address, the reason, why, the reporter, the good-faith statement, the honeypot and the deployment's refusals; or, with `mode: 'quick'`, a signed-in person's one-click report through `reportContent`
   - `useReturnPath` — where the person goes once a page that interrupted them is done: the `?redirect=` kept to this site, else the sign-in landing
   - `useSandboxInbox`

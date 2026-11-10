@@ -155,10 +155,21 @@ function defined<T extends Record<string, unknown>>(fields: T): T {
  * wait, the balance) is used only when every number is there, so a
  * placeholder never reaches a person; a reason with a sentence of its own
  * (`errors.<code>_<reason>`) gets that one, and so does a refused field
- * (`errors.invalid_input_<field>`).
+ * (`errors.invalid_input_<field>`); a service that is down, with a reason
+ * of no sentence of its own, gets its service's (`errors.unavailable_<service>`).
+ *
+ * `own` are the reader's own sources, in order: each is walked whole, from
+ * the most specific key to the code's own, before the next and before `t`.
+ * So an app's sentence for the code wins over the package's for the reason,
+ * the field or the service, and a locale's generic sentence over the
+ * package's English for the reason.
  */
-function labelFor(code: BackendErrorCode, data: Record<string, unknown>, t: Translate = translate, own?: Translate): string {
-  return (own && sentenceFor(code, data, own)) ?? sentenceFor(code, data, t) ?? code
+function labelFor(code: BackendErrorCode, data: Record<string, unknown>, t: Translate = translate, own: readonly Translate[] = []): string {
+  for (const source of own) {
+    const text = sentenceFor(code, data, source)
+    if (text !== undefined) return text
+  }
+  return sentenceFor(code, data, t) ?? code
 }
 
 /** A label through `t`, or `undefined` when `t` has none by that name. */
@@ -173,7 +184,8 @@ function sentenceFor(code: BackendErrorCode, data: Record<string, unknown>, t: T
   }
   const byReason = typeof data.reason === 'string' ? label(`${code}_${data.reason}`) : undefined
   const byField = code === 'invalid_input' && typeof data.field === 'string' ? label(`${code}_${data.field}`) : undefined
-  return sentenceWithNumbers(code, data, label) ?? byReason ?? byField ?? label(code)
+  const byService = code === 'unavailable' && typeof data.service === 'string' ? label(`${code}_${data.service}`) : undefined
+  return sentenceWithNumbers(code, data, label) ?? byReason ?? byField ?? byService ?? label(code)
 }
 
 /** The sentence of a refusal that names a number (a wait, an amount, a date), when every number it needs is there. */
@@ -235,12 +247,14 @@ function banEnd(message: unknown): number | undefined {
  * labels the way the reader's app translates them. A sentence the throw site
  * wrote for the person (`data.message`), or one a composable kept from an
  * app's own error, is not the catalog's, so it stays as written. `own`, when
- * given, resolves only what the app supplies itself (its overrides and its
- * locale's messages): the chain runs through it first, so a locale that words
- * only the generic `errors.forbidden` shows that rather than the package's
- * English sentence for the reason.
+ * given, are the sources that resolve only what the app supplies itself, in
+ * order (its overrides, then its locale's messages): the chain runs through
+ * each whole first, so an app's `errors.forbidden` wins over the package's
+ * sentence for the reason, and a locale that words only the generic
+ * `errors.forbidden` shows that rather than the package's English sentence
+ * for the reason.
  */
-export function translateBackendError(error: Pick<BackendError, 'code' | 'data' | 'message'>, t: Translate, own?: Translate): string {
+export function translateBackendError(error: Pick<BackendError, 'code' | 'data' | 'message'>, t: Translate, ...own: Translate[]): string {
   const data = error.data as Record<string, unknown>
   if (!isCode(error.code) || error.message !== labelFor(error.code, data)) return error.message
   return labelFor(error.code, data, t, own)

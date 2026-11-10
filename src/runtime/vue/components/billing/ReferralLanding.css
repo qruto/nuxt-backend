@@ -10,7 +10,7 @@
     max-width: 28rem;
     margin-inline: auto;
     padding: 1rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
     box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
     color: var(--bk-ink);
@@ -32,13 +32,15 @@
   [data-referral='landing-continue'] {
     justify-self: start;
     padding: 0.5rem 1rem;
-    border: var(--bk-border-width) solid var(--bk-accent);
-    box-shadow: var(--bk-shadow-control);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-accent);
+    box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control));
+    translate: var(--_bk-press-offset);
     border-radius: var(--bk-radius-control);
     background: var(--bk-accent);
     color: var(--bk-on-accent);
     font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
+    letter-spacing: var(--bk-tracking-control, revert-layer);
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;

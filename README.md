@@ -147,6 +147,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useGifts` — gifts, from both sides
 - `useHumanCheck` — proof that a person makes a call: the client half of `verifyHuman`, for the calls that reach the deployment over the live connection and never pass through the app's server (a waitlist join, a contact form, a referral claim)
 - `useInboxAdmin` — the admin console's Inbox tab, as data: what people sent through the contact form and by email (reply addresses, workspace addresses, the support inbox), newest first, and the replies an administrator sends to the support inbox's threads, through `backend/email.ts` (experimental)
+- `useInstallPrompt` — offer the install of the app from a button of its own: whether the browser handed over its install dialog, whether the app is installed, and the action that opens the dialog
 - `useInvite` — redeem an invite code or an access link on a page of your own: check it before anyone signs in, and keep it for the tab so the sign-in hands it over with the code
 - `useJob` — one queued job, live: its status, what holds it and its place in line while it waits, its progress while it runs, and its result or the reason it failed (experimental)
 - `useLabels` — the labels of one packaged component's group, resolved for the person reading them
@@ -163,6 +164,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useReferralAdmin` — the admin console's Referrals tab, as data: the program's totals, the top referrers, the flagged queue and one referrer's history, through `backend/referrals.ts`, and the decision an administrator makes on a flagged referral
 - `useReferralInvite` — the state of the page a referral link (`/r/<code>`) opens, headless: what the link offers, the sign-in that returns to the page, and the claim
 - `useReferrals` — a person's referral code, link and rewards: the data behind `<ReferralCard>`, for a page of your own
+- `useReportAppeal` — the appeal of a content decision, without its markup: the decision a `#appeal=<token>` link names, the appeal's state, and sending it once
 - `useReportForm` — a report about content of the app's, without its markup
 - `useReturnPath` — where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere, and never to the sign-in page, which would ask them to sign in again), else where sign-in lands (`redirects.afterSignIn`, `/` without it)
 - `useSandboxInbox` — the mail a test address received within the last hour, refreshed while the page is open — so a demo, a preview deployment or an e2e run can finish an email-code sign-in without a real mailbox (experimental)

@@ -26,7 +26,7 @@
 
   :where([data-contact='form']) :where(input, textarea) {
     padding: 0.5rem 0.65rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     background: var(--bk-surface);
     color: var(--bk-ink);
@@ -65,12 +65,14 @@
     align-self: flex-start;
     padding: 0.5rem 0.9rem;
     border: 0;
-    box-shadow: var(--bk-shadow-control);
+    box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control));
+    translate: var(--_bk-press-offset);
     border-radius: var(--bk-radius-control);
     background: var(--bk-accent);
     color: var(--bk-on-accent);
     font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
+    letter-spacing: var(--bk-tracking-control, revert-layer);
     font-weight: 600;
     cursor: pointer;
   }

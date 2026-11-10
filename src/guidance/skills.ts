@@ -95,7 +95,7 @@ export const TASK_SKILLS = [
     covers: 'transactional email, templates, delivery tracking, the dev inbox and notifications',
     docs: ['/docs/build/email', '/docs/develop/dev-inbox'],
     entrypoints: ['nuxt-backend/email', 'nuxt-backend/notifications'],
-    composables: ['useEmailStatus', 'useSandboxInbox', 'useNotifications', 'useNotificationInbox', 'useEmailPreferences', 'useEmailLink', 'usePushSubscription', 'useAnnouncements', 'useAnnouncementsAdmin', 'useContactForm', 'useInboxAdmin'],
+    composables: ['useEmailStatus', 'useSandboxInbox', 'useNotifications', 'useNotificationInbox', 'useEmailPreferences', 'useEmailLink', 'usePushSubscription', 'useInstallPrompt', 'useAnnouncements', 'useAnnouncementsAdmin', 'useContactForm', 'useInboxAdmin'],
     components: ['NotificationInbox', 'ContactForm'],
     commands: ['inbox', 'email sync'],
 
@@ -132,7 +132,7 @@ export const TASK_SKILLS = [
     covers: 'provider setup, tests, deploying, production checks, monitoring, flags and kill switches, webhooks and rate limits',
     docs: ['/docs/services', '/docs/develop/testing', '/docs/ship'],
     entrypoints: ['nuxt-backend/http', 'nuxt-backend/rate-limit', 'nuxt-backend/monitoring', 'nuxt-backend/flags', 'nuxt-backend/test', 'nuxt-backend/test-utils', 'nuxt-backend/eslint'],
-    composables: ['useFlag', 'useFlagAdmin', 'useReportForm'],
+    composables: ['useFlag', 'useFlagAdmin', 'useReportForm', 'useReportAppeal'],
     components: ['LegalProcessors', 'LegalStorage', 'LegalDetail', 'LegalVersion', 'LegalContactPoints', 'LegalModeration'],
     commands: ['doctor', 'status', 'env push', 'env rotate', 'deploy', 'analyze', 'mcp'],
     findings: ['monitoring', 'site'],

@@ -13,6 +13,6 @@
   [data-auth='title'] {
     margin: 0;
     font-size: 1.6rem;
-    letter-spacing: -0.02em;
+    letter-spacing: var(--bk-tracking-heading, -0.02em);
   }
 }

@@ -16,7 +16,7 @@
     color: var(--bk-muted);
     font-size: 0.8rem;
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--bk-tracking-label, 0.04em);
     text-transform: uppercase;
   }
 
@@ -98,7 +98,7 @@
 
   [data-shell='create-input'] {
     padding: 0.45rem 0.7rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
@@ -109,9 +109,11 @@
     align-self: flex-start;
     padding: 0.45rem 0.9rem;
     border: 0;
-    box-shadow: var(--bk-shadow-control);
+    box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control));
+    translate: var(--_bk-press-offset);
     font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
+    letter-spacing: var(--bk-tracking-control, revert-layer);
     border-radius: var(--bk-radius-control);
     background: var(--bk-accent);
     color: var(--bk-on-accent);
