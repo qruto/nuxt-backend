@@ -490,8 +490,6 @@ export interface TestTimers {
  * that stores a file never runs while another commits. Needs fake timers:
  * pass `vi` after `vi.useFakeTimers()`.
  *
- * @experimental
- *
  * With `until`, it stops as soon as the condition holds, checked after
  * each step: a test that changes something midway (a provider that comes
  * back, a cancel while a job runs) drains to that point, acts, and drains

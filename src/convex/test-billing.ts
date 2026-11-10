@@ -129,7 +129,7 @@ function takesRefusal(refusals: Refusals, events: readonly TestUsageEvent[]): bo
  * test('a refused charge stays owed, then lands', async () => {
  *   provider.refuse('charges', 1)
  *   // …run the job with drain(t, vi)…
- *   expect(provider.charges).toEqual([expect.objectContaining({ value: 3, metadata: expect.objectContaining({ comicId }) })])
+ *   expect(provider.charges).toEqual([expect.objectContaining({ value: 3, metadata: expect.objectContaining({ stripId }) })])
  * })
  * ```
  */
