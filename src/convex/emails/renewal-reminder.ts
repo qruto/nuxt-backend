@@ -19,7 +19,11 @@ export function renewalReminder({ email, plan, amount, currency, interval, inter
   const { t } = context
   const date = new Intl.DateTimeFormat(context.locale, { dateStyle: 'long', timeZone: 'UTC' }).format(renewsAt)
   const code = currency.toUpperCase() || 'USD'
-  const price = new Intl.NumberFormat(context.locale, { style: 'currency', currency: code }).format(amount / 10 ** minorUnitDigits(code))
+  // As the pages write a price: no decimals for a whole amount, else every digit the currency's
+  // smallest unit has. Both bounds set, never the runtime's CLDR defaults, which differ between ICU versions.
+  const digits = minorUnitDigits(code)
+  const shown = amount % 10 ** digits === 0 ? 0 : digits
+  const price = new Intl.NumberFormat(context.locale, { style: 'currency', currency: code, minimumFractionDigits: shown, maximumFractionDigits: shown }).format(amount / 10 ** digits)
   const every = t(`email.renewalReminder.every.${interval === 'day' || interval === 'week' ? interval : 'month'}`, { count: intervalCount })
   const intro = t('email.renewalReminder.intro', { plan, price, every, date })
   const cancel = t('email.renewalReminder.cancel')

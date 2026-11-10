@@ -46,6 +46,8 @@ unparseable = "unparseable"
 # `fils` — the Kuwaiti dinar's thousandth (the money formatter's notes), and
 # French for threads (the fr locale).
 fils = "fils"
+# `JOD` — the Jordanian dinar's ISO 4217 code (the money formatter's three-decimal currencies).
+jod = "jod"
 # `activePendings` — the plural of the `pendingSpends` entries, not "pending".
 Pendings = "Pendings"
 # `COSE` — CBOR Object Signing and Encryption (RFC 9052), the signature format

@@ -39,6 +39,9 @@ export function formatBillingAmount(amount: number, currency?: string | null, lo
       return inLocale(locale, tag => new Intl.NumberFormat(tag, {
         style: 'currency',
         currency,
+        // Both bounds set: the default ones come from the runtime's CLDR data, which writes HUF
+        // with two decimals in one ICU and none in the next, so a server render and the browser would differ.
+        minimumFractionDigits: whole ? 0 : digits,
         maximumFractionDigits: whole ? 0 : digits,
       }).format(value))
     }

@@ -66,7 +66,7 @@ describe('formatBillingAmount', () => {
   it('formats HUF and ISK from hundredths: a 5 000 Ft plan is never 500 000 Ft', () => {
     expect(formatBillingAmount(500000, 'huf', 'en-US')).toBe('HUF\u00A05,000')
     expect(formatBillingAmount(500000, 'huf', 'hu-HU')).toBe('5000\u00A0Ft')
-    expect(formatBillingAmount(500050, 'huf', 'en-US')).toBe('HUF\u00A05,000.5')
+    expect(formatBillingAmount(500050, 'huf', 'en-US')).toBe('HUF\u00A05,000.50')
     expect(formatBillingAmount(70000, 'isk', 'en-US')).toBe('ISK\u00A0700')
   })
 
@@ -119,7 +119,7 @@ describe('the renewal reminder\'s price', () => {
   const data = (amount: number, currency: string) => ({ email: 'a@example.com', plan: 'Pro', amount, currency, interval: 'year', intervalCount: 1, renewsAt: Date.UTC(2027, 0, 1), manageUrl: 'https://example.com/settings' })
 
   it('states USD from cents and JPY from the yen', () => {
-    expect(renewalReminder(data(9900, 'usd') as never, context).text).toContain('"price":"$99.00"')
+    expect(renewalReminder(data(9900, 'usd') as never, context).text).toContain('"price":"$99"')
     expect(renewalReminder(data(9900, 'jpy') as never, context).text).toContain('"price":"¥9,900"')
   })
 
@@ -137,7 +137,9 @@ describe('the renewal reminder\'s price', () => {
     const codes = [...new Set([...Object.values(PresentmentCurrency), 'bhd', 'jod', 'kwd', 'omr', 'tnd', ...Intl.supportedValuesOf('currency').map(code => code.toLowerCase())])]
     expect(codes).toEqual(expect.arrayContaining(['usd', 'huf', 'isk', 'jpy', 'ugx', 'bif', 'xpf']))
     for (const code of codes) {
-      const expected = new Intl.NumberFormat('en-US', { style: 'currency', currency: code.toUpperCase() }).format(toMajorUnits(123400, code))
+      // Whole here (123400 in every table), so written with no decimals, from money.ts's digits.
+      const shown = 123400 % 10 ** minorUnitDigits(code) === 0 ? 0 : minorUnitDigits(code)
+      const expected = new Intl.NumberFormat('en-US', { style: 'currency', currency: code.toUpperCase(), minimumFractionDigits: shown, maximumFractionDigits: shown }).format(toMajorUnits(123400, code))
       expect(renewalReminder(data(123400, code) as never, context).text, code).toContain(`"price":"${expected}"`)
     }
   })
