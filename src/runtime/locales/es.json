@@ -278,6 +278,7 @@
       "changeTrial": "{price} desde ahora. El cambio es inmediato y tu prueba continúa: no se cobra nada hasta que termine.",
       "changeTrialEnds": "{price} desde ahora. El cambio es inmediato y termina tu prueba, así que el primer pago se cobra ahora.",
       "changeTrialLater": "{price} cuando termine tu prueba: el cambio ocurre entonces.",
+      "changeGifted": "{price} desde el pago. Tu plan regalado termina en cuanto completes el pago, y el tiempo que le queda no se conserva.",
       "confirmChange": "Confirmar el cambio",
       "switchingPlan": "Cambiando el plan…",
       "keepCurrent": "Ahora no"

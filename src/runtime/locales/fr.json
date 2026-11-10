@@ -278,6 +278,7 @@
       "changeTrial": "{price} dès maintenant. Le changement est immédiat et votre essai continue : rien n’est facturé avant sa fin.",
       "changeTrialEnds": "{price} dès maintenant. Le changement est immédiat et met fin à votre essai : le premier paiement est donc facturé maintenant.",
       "changeTrialLater": "{price} une fois votre essai terminé : le changement a lieu à ce moment-là.",
+      "changeGifted": "{price} à partir du paiement. Votre forfait offert s’arrête dès que vous finalisez le paiement, et le temps restant n’est pas conservé.",
       "confirmChange": "Confirmer le changement",
       "switchingPlan": "Changement du forfait…",
       "keepCurrent": "Pas maintenant"

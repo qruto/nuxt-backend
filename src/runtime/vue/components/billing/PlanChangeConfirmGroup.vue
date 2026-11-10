@@ -6,7 +6,8 @@ import type { PlanChangeConfirm } from '../../utils/plan-change-confirm'
 
 /**
  * A plan change's confirmation, while it is open: the price the plan moves
- * to, when the switch happens and how the period's difference is settled,
+ * to, when the switch happens and how the period's difference is settled
+ * (for a gifted plan, that the switch is a checkout that ends the gift),
  * then the one button that switches and one that leaves it. Escape closes
  * it and gives focus back to the button that opened it.
  *
@@ -20,12 +21,12 @@ const { hook, busy, keydown } = confirmGroup(() => options.value, () => props.co
 
 <template>
   <div
-    v-if="confirm.target.value && confirm.preview.value"
+    v-if="confirm.target.value && confirm.shows.value"
     :id="options.partId('confirm')"
     v-bind="hook('change-confirm')"
     role="group"
     data-state="open"
-    :data-applies="confirm.preview.value.applies"
+    :data-applies="confirm.preview.value?.applies ?? 'checkout'"
     :aria-labelledby="options.partId('title')"
     @keydown="keydown"
   >

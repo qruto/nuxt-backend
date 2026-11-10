@@ -41,7 +41,8 @@ import { providePricingView, type PlanAction, type PlanTrial, type PricingSlotCo
  * left for a monthly one waits for the paid year's end) and how the
  * period's difference is settled (`useBilling().changeOf`), then switches
  * settling it at once (`proration: 'invoice'`), whatever the provider's
- * default. The address
+ * default. A gifted plan's holder is asked too: their switch is a
+ * checkout of the new plan, which ends the gift in its place. The address
  * picks what shows: `?interval=year` the yearly prices, `?plan=<key>`
  * the card it marks and scrolls into view. A promotion runs by the
  * server's clock while the page hydrates, so its window reads the same in
@@ -341,6 +342,11 @@ const subscribe = (key: string) => run(key, () => t('checkingOut'), async () => 
   const url = await withCampaign(Boolean(plan.promotion), options => billing.checkout(plan.priceAt.productId, { redirect: props.redirect, ...payIn(plan.priceAt.currency), ...optOut(), ...returnTo('plan', key), ...options }))
   if (!props.redirect && url) emit('checkout', url)
 })
+/** A gifted plan's holder moves to another plan by checking it out: the checkout replaces the pass in place. */
+async function checkOutFromPass(key: string): Promise<void> {
+  await subscribe(key)
+  if (error.value === null) change.settle()
+}
 const switchTo = (key: string) => run(key, () => t('changing'), async () => {
   const plan = planByKey(key)
   if (!plan) return
@@ -378,15 +384,17 @@ const confirm = createCancelConfirm({
 })
 // A subscriber's switch takes one step too: the price it moves to, when,
 // and how the period's difference is settled, then the button that switches.
+// A gifted plan's holder reads that theirs is a checkout that ends the gift.
 const change = createPlanChangeConfirm({
   family: 'pricing',
   titleTag: 'p',
   partId: part => `${uid}-change-${part}`,
   isBusy: () => pending.value !== null && pending.value === change.target.value?.key,
   preview: productId => billing.changeOf(productId),
-  confirm: target => switchTo(target.key),
+  confirm: target => (billing.pass.value === null ? switchTo(target.key) : checkOutFromPass(target.key)),
   t,
   date: value => formatBillingDate(value, { dateStyle: 'medium' }, locale.value) || null,
+  gifted: target => (billing.pass.value === null ? null : t('changeGifted', { price: target.price })),
 })
 function cancelPlan(key: string): Promise<void> {
   return run(key, () => t('canceling'), async () => {
@@ -434,7 +442,8 @@ const table: UsePricingReturn = {
     act: (plan) => {
       const resolved = planByKey(plan.key)
       if (!resolved) return
-      return billing.isSubscribed.value ? switchTo(resolved.key) : subscribe(resolved.key)
+      // A gifted plan is no subscription the provider switches: its holder checks the plan out.
+      return billing.isSubscribed.value && billing.pass.value === null ? switchTo(resolved.key) : subscribe(resolved.key)
     },
     planLabel: plan => planByKey(plan.key)?.name ?? plan.name,
   }),
@@ -490,9 +499,10 @@ function planAction(plan: ResolvedPlan): PlanAction {
   if (plan.scheduledFor) return { kind: 'note', hook: 'plan-scheduled', text: t('scheduled', { date: formatBillingDate(plan.scheduledFor, { dateStyle: 'medium' }, locale.value) }) }
   if (billing.isSubscribed.value) {
     // Their own plan at the other interval is a switch of billing period; a
-    // retired one is never switched to. A switch the preview can describe
-    // asks first; one it cannot (a gifted pass) goes at once.
-    const asks = billing.changeOf(plan.priceAt.productId) !== null
+    // retired one is never switched to. A switch asks first: a subscriber's
+    // what `changeOf` previews, a gifted plan's holder's that it is a
+    // checkout; one the preview cannot describe goes at once.
+    const asks = billing.pass.value !== null || billing.changeOf(plan.priceAt.productId) !== null
     const switching = (intent: string, idle: string): PlanAction => asks
       ? { kind: 'change', intent, idle, busy: t('changing'), target: changeTarget(plan) }
       : { kind: 'button', intent, idle, busy: t('changing'), run: () => switchTo(plan.key) }

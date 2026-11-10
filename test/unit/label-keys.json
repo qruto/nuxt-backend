@@ -213,6 +213,7 @@
   "pricing.changeTrial": ["price"],
   "pricing.changeTrialEnds": ["price"],
   "pricing.changeTrialLater": ["price"],
+  "pricing.changeGifted": ["price"],
   "pricing.confirmChange": [],
   "pricing.switchingPlan": [],
   "pricing.keepCurrent": [],

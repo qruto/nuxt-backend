@@ -203,6 +203,32 @@ describe('<PricingTable>\'s switch confirmation', () => {
     expect(part(ends, 'pricing', 'change-when').text()).toBe('$29/mo from now on. The switch happens at once and ends your trial, so the first payment is charged now.')
   })
 
+  it('asks a gifted plan\'s holder too, saying the switch is a checkout that ends the gift, then checks the plan out', async () => {
+    const backend = createBackendMock({
+      user: {},
+      queries: {
+        'billing:getConfiguredProducts': PRODUCTS,
+        'billing:getBillingAccess': { canManage: true },
+        'billing:getCurrentSubscription': { id: 'sub_pass', status: 'active', productId: 'prod_pass', currentPeriodEnd: PERIOD_END, cancelAtPeriodEnd: false, pendingChange: null, resumesAt: null, pass: { plan: 'pro', months: 3, startedAt: Date.parse('2099-01-15T00:00:00.000Z'), endsAt: Date.parse('2099-04-15T00:00:00.000Z') } },
+        'billing:getFeatures': { plans: ['prod_pass'], benefits: [] },
+        'billing:getPricing': PRICING,
+      },
+    })
+    backend.stub('billing:generateCheckoutLink', () => ({ url: 'https://checkout.example.com/team' }))
+    const wrapper = await mountSuspended(PricingTable, { attachTo: document.body, props: { redirect: false } })
+    await flushPromises()
+    await card(wrapper, 'Team').find('[data-pricing="plan-action"]').trigger('click')
+    expect(part(wrapper, 'pricing', 'change-confirm').attributes('data-applies')).toBe('checkout')
+    expect(part(wrapper, 'pricing', 'change-when').text()).toBe('$29/mo from checkout on. Your gifted plan stops once you check out, and the time left on it does not carry over.')
+    // The provider switches no pass (the server refuses it, a free product): its checkout replaces it in place.
+    await part(wrapper, 'pricing', 'confirm-change').trigger('click')
+    await flushPromises()
+    expect(backend.callsTo('billing:updateSubscription')).toEqual([])
+    expect(backend.callsTo('billing:generateCheckoutLink')).toEqual([expect.objectContaining({ productIds: ['prod_team'] })])
+    expect(wrapper.emitted('checkout')).toEqual([['https://checkout.example.com/team']])
+    expect(part(wrapper, 'pricing', 'change-confirm').exists()).toBe(false)
+  })
+
   it('names the billing period on the plan\'s own card, and closes on "Not now" or Escape with focus back on its button', async () => {
     const backend = subscribedTo('prod_pro')
     const wrapper = await mountSuspended(PricingTable, { attachTo: document.body, props: { interval: 'year' } })

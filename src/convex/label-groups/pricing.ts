@@ -111,6 +111,8 @@ const PRICING_LABELS = {
   changeTrial: '{price} from now on. The switch happens at once and your trial carries over: nothing is charged until it ends.',
   changeTrialEnds: '{price} from now on. The switch happens at once and ends your trial, so the first payment is charged now.',
   changeTrialLater: '{price} once your trial ends: the switch happens then.',
+  // A gifted plan's holder switches by checking the new plan out, which ends the gift in its place.
+  changeGifted: '{price} from checkout on. Your gifted plan stops once you check out, and the time left on it does not carry over.',
   confirmChange: 'Confirm switch',
   switchingPlan: 'Switching the plan…',
   keepCurrent: 'Not now',

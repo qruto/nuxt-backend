@@ -278,6 +278,7 @@
       "changeTrial": "{price} ab sofort. Der Wechsel erfolgt sofort, und Ihre Testphase läuft weiter: Bis zu ihrem Ende wird nichts berechnet.",
       "changeTrialEnds": "{price} ab sofort. Der Wechsel erfolgt sofort und beendet Ihre Testphase, daher wird die erste Zahlung jetzt berechnet.",
       "changeTrialLater": "{price}, sobald Ihre Testphase endet: Der Wechsel erfolgt dann.",
+      "changeGifted": "{price} ab der Kasse. Ihr geschenkter Tarif endet, sobald Sie die Kasse abschließen, und die verbleibende Zeit wird nicht übernommen.",
       "confirmChange": "Wechsel bestätigen",
       "switchingPlan": "Tarif wird gewechselt…",
       "keepCurrent": "Nicht jetzt"

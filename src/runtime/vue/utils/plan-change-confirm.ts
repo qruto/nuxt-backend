@@ -54,6 +54,14 @@ export interface PlanChangeConfirmOptions {
   t: ChangeTranslate
   /** A date in the reader's words, or `null`. */
   date: (value: Date) => string | null
+  /**
+   * What the group says for a gifted plan's holder, whose switch is a
+   * checkout of the new plan that ends the gift and which `preview` has
+   * nothing to say about (`changeOf` is `null` for a pass); `null` for
+   * anyone else. Without it the group opens only for a switch `preview`
+   * describes.
+   */
+  gifted?: (target: PlanChangeTarget) => string | null
 }
 
 /** The plan change confirmation of one component. */
@@ -64,6 +72,8 @@ export interface PlanChangeConfirm {
   target: Ref<PlanChangeTarget | null>
   /** What switching to it would do; `null` while closed, or for a change there is none to make. */
   preview: ComputedRef<PlanChangePreview | null>
+  /** `true` while the group is open for a switch it can describe: one `preview` knows, or a gifted plan's checkout. */
+  shows: ComputedRef<boolean>
   /** When the switch happens and how it settles, in the reader's words. */
   when: ComputedRef<string>
   /** What the button that opens and closes the group for `target` carries, over its own props. */
@@ -81,7 +91,9 @@ export function createPlanChangeConfirm(options: PlanChangeConfirmOptions): Plan
   const target = ref<PlanChangeTarget | null>(null)
   const opener = ref<HTMLElement | null>(null)
   const preview = computed(() => (target.value ? options.preview(target.value.productId) : null))
+  const gifted = computed(() => (target.value && options.gifted ? options.gifted(target.value) : null))
   const when = computed(() => {
+    if (gifted.value !== null) return gifted.value
     const change = preview.value
     const price = target.value?.price ?? ''
     if (!change) return ''
@@ -112,5 +124,7 @@ export function createPlanChangeConfirm(options: PlanChangeConfirmOptions): Plan
     }
   }
 
-  return { options, target, preview, when, toggleProps, open, close, settle: () => (target.value = null) }
+  const shows = computed(() => target.value !== null && (gifted.value !== null || preview.value !== null))
+
+  return { options, target, preview, shows, when, toggleProps, open, close, settle: () => (target.value = null) }
 }
