@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { backendEnvironment as appEnvironment } from '../../src/convex/app'
-import { backendEnvironment, logsOtp, undeliverableReason } from '../../src/convex/delivery'
+import { backendEnvironment, contactMailbox, logsOtp, undeliverableReason } from '../../src/convex/delivery'
 import { BACKEND_ENVIRONMENTS, billingEnvironment, isLive, logsSignInCodes, parseBackendEnvironment, publishesDevInbox, trustsLocalOrigins } from '../../src/convex/environment'
 import { devInboxFinding, type ProductionPosture } from '../../src/cli/posture'
 
@@ -81,6 +81,43 @@ describe('the deployment reading it', () => {
     }
     vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
     expect(undeliverableReason('ada@example.com')).toBeNull()
+  })
+
+  // `setupEmail({ contact: { to } })`: one setting for every deployment.
+  it('copies a contact message to the sandbox inbox on development, and to the team\'s mailbox anywhere else', () => {
+    for (const value of BACKEND_ENVIRONMENTS) {
+      vi.stubEnv('BACKEND_ENVIRONMENT', value)
+      // A test address of the provider's is kept, and no mailbox means no copy.
+      expect(contactMailbox('bounced@resend.dev'), value).toBe('bounced@resend.dev')
+      expect(contactMailbox(undefined), value).toBeUndefined()
+      expect(contactMailbox('  '), value).toBeUndefined()
+    }
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
+    expect(contactMailbox(' Support@Acme.dev ')).toBe('delivered@resend.dev')
+    // A sandbox's dev inbox is a public page: a visitor's message never goes where anyone may read it.
+    for (const value of ['production', 'preview', 'sandbox', '']) {
+      vi.stubEnv('BACKEND_ENVIRONMENT', value)
+      expect(contactMailbox(' Support@Acme.dev '), value).toBe('support@acme.dev')
+    }
+  })
+
+  // `contact: { to: 'delivered@resend.dev' }`, as the docs once suggested, on a public demo (`deploy --sandbox` sets the flag).
+  it('sends no copy to a test address the deployment\'s public dev inbox would show to anyone', () => {
+    vi.stubEnv('EMAIL_DEV_INBOX', '1')
+    for (const value of ['sandbox', 'preview']) {
+      vi.stubEnv('BACKEND_ENVIRONMENT', value)
+      expect(contactMailbox('delivered@resend.dev'), value).toBeUndefined()
+      expect(contactMailbox('Delivered+Team@resend.dev'), value).toBeUndefined()
+      expect(contactMailbox('team@acme.dev'), value).toBe('team@acme.dev')
+    }
+    // Development's own inbox is where its copies go; production publishes none.
+    for (const value of ['development', 'production']) {
+      vi.stubEnv('BACKEND_ENVIRONMENT', value)
+      expect(contactMailbox('delivered@resend.dev'), value).toBe('delivered@resend.dev')
+    }
+    vi.stubEnv('EMAIL_DEV_INBOX', '')
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'sandbox')
+    expect(contactMailbox('delivered@resend.dev')).toBe('delivered@resend.dev')
   })
 })
 

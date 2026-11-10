@@ -111,4 +111,10 @@ describe('the stored items in use', () => {
     expect(browserStorageInUse(capability => capability !== 'monitoring')).not.toContain('replay')
     expect(browserStorageInUse()).toEqual(Object.keys(BROWSER_STORAGE))
   })
+
+  // A production build of the app writes it on a dev backend too, whose health says hosting is missing.
+  it('keep the chunk-load recovery\'s guard listed whatever the backend reports', () => {
+    expect(browserStorageInUse(() => false)).toContain('chunkReload')
+    expect(browserStorageInUse(capability => capability !== 'hosting')).toContain('chunkReload')
+  })
 })

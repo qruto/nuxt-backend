@@ -9,7 +9,7 @@
     align-items: center;
     gap: 0.6rem;
     font-size: 0.7rem;
-    letter-spacing: 0.08em;
+    letter-spacing: var(--bk-tracking-label, 0.08em);
     text-transform: uppercase;
     color: var(--auth-muted);
   }
@@ -28,6 +28,7 @@
     border: 0;
     background: none;
     box-shadow: none;
+    translate: none;
     font-weight: 500;
     font-size: 0.85rem;
     color: var(--auth-muted);

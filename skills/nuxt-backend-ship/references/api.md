@@ -14,6 +14,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `useFlag()` | Whether a feature flag is on for whoever is looking: their account, their active workspace and their plan, as `backend/flags.ts` declares the flag and the admin console overrides it. |
 | `useFlagAdmin()` | The admin console's Flags tab, as data: every flag with its default and its override, and the change an administrator makes, through `listFlags` and `setFlag` of `backend/flags.ts`. |
 | `useReportForm()` | A report about content of the app's, without its markup. |
+| `useReportAppeal()` | The appeal of a content decision, without its markup: the decision a `#appeal=<token>` link names, the appeal's state, and sending it once. |
 
 ## Components
 
@@ -84,6 +85,7 @@ Types: `FlagValues`, `ExperimentVariantResult`, `ExperimentResult`, `AdminFlag`,
 | `defineBackendTestApp()` | Your app under test: a fresh convex-test instance per call, with the `backend` component and every component the scaffolded `convex.config.ts` mounts (the action cache, aggregate, migrations, persistent text streaming, the billing provider, the rate limiter, the sharded counter, workflows and the workpool) registered under the names it mounts them by, and the Agent and RAG components (`agent`, `rag`) when the app installs them. |
 | `TEST_PNG` | A valid 2 × 2 PNG: what the storage check sniffs, strips and serves. |
 | `upload()` | Send a file into the `backend` component's storage, claimed by nobody, as the browser leaves it after posting to an upload URL, and return its storage id. |
+| `fileExists()` | Whether a file is in the `backend` component's storage, by its storage id: what a test of a deletion, a sweep or an erasure checks. |
 | `TEST_STORAGE_URL` | Where convex-test's `ctx.storage.getUrl` points: a deployment that does not exist. |
 | `stubStorageFetch()` | Answer `fetch` for the files your functions stored, with their bytes and type, as the deployment's storage would: a model handed a photo by URL, or a signed URL's route reading the file, gets the real file under test. |
 | `drain()` | Run every scheduled function to the end, one at a time: storage checks, the job queue and its steps, workflows, deliveries and retries. |
@@ -94,9 +96,11 @@ Types: `FlagValues`, `ExperimentVariantResult`, `ExperimentResult`, `AdminFlag`,
 | `TEST_FAINT()` | The marker that finds a category faintly, just under its threshold. |
 | `TEST_KNOWN_ABUSE` | The marker the known-abuse fake matches. |
 | `TEST_UNSAFE()` | The marker that finds a category at full strength. |
+| `TEST_UNSAFE_CODE()` | The marker that has the mock safety classifier answer chosen Llama Guard codes: `TEST_UNSAFE_CODE('S7')` is `[[unsafe:S7]]`, answered `unsafe\nS7`; several codes join with a comma (`'S1,S10'`). |
+| `stubBillingProvider()` | Answer the billing provider's usage-event ingest in `fetch`, as its API would: every charge, refund and cost report the package's billing sends is taken and kept once by its idempotency key, and reported back in `events`, `charges` and `refunds`. |
 | `default` | The default export. |
 
-Types: `ComponentTestKit`, `BackendTestAppOptions`, `TestFile`, `TestUploadOptions`, `BackendTestApp`, `StubStorageFetchOptions`, `TestTimers`, `TestBilling`, `TestUserOptions`, `TestUser`.
+Types: `ComponentTestKit`, `BackendTestAppOptions`, `TestFile`, `TestUploadOptions`, `BackendTestApp`, `StubStorageFetchOptions`, `TestTimers`, `DrainOptions`, `TestBilling`, `TestUserOptions`, `TestUser`, `StubBillingProviderOptions`, `TestBillingProvider`, `TestUsageEvent`.
 
 ### `nuxt-backend/test-utils`
 
@@ -115,7 +119,7 @@ Types: `RenderEmailOptions`, `BackendMock`, `BackendMockCall`, `BackendMockInit`
 | Export | What it is |
 |---|---|
 | `BACKEND_ESLINT_RULES` | The rules the preset turns on, at the levels of the plugin's own recommended config. |
-| `backendEslint()` | Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to the functions directory (tests excluded), and `nuxt-backend:generated` ignores every `_generated` folder in it. |
+| `backendEslint()` | Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to the functions directory (tests excluded), and `nuxt-backend:generated` ignores every `_generated` folder in it and the files the module generates there (brand, paths, labels and the billing id map). |
 
 Types: `BackendEslintOptions`.
 
@@ -127,8 +131,8 @@ Check the project + deployment configuration.
 
 - `--cwd`: Project directory
 - `--json`: Machine-readable output
-- `--fix`: Repair what doctor can: restore missing scaffold files, add missing mounts and routes, push env (`env push`), at a terminal make the first administrator, and apply the provider settings the billing findings recommend and turn a webhook endpoint back on, each after you confirm it
-- `--yes`: With --fix: apply the provider changes without asking (for a script or CI)
+- `--fix`: Repair what doctor can: restore missing scaffold files, add missing mounts and routes, push env (`env push`), at a terminal make the first administrator, then, each after you confirm it, run `email sync`, apply the provider settings the billing findings recommend and turn a webhook endpoint back on
+- `--yes`: With --fix: run `email sync` and apply the provider changes without asking (for a script or CI; without it and without a terminal, they are listed and skipped)
 - `--prod`: Check the production deployment: missing email/billing config becomes a failure, its switches and email are read, and its live site is probed
 - `--only`: Check only these capabilities, comma-separated: auth, data, jobs, billing, email, notifications, ai, protection, monitoring, flags, analytics, hosting
 
@@ -174,7 +178,7 @@ Rotate AUTH_SECRET, EMAIL_WEBHOOK_SECRET or BILLING_WEBHOOK_SECRET with no downt
 
 ### `npx nuxt-backend deploy`
 
-Take production from nothing to a passing doctor --prod: link or create the production deployment, push its env, push the backend, sync the billing catalog, register both webhooks, write the app's env into the Vercel project, then run doctor --prod. Safe to run again.
+Take production from nothing to a passing doctor --prod: link or create the production deployment, push its env, push the backend, sync the billing catalog, run the package's data migrations, register both webhooks, write the app's env into the Vercel project, then run doctor --prod. Safe to run again.
 
 - `--cwd`: Project directory
 - `--dry-run`: Print every step it would take, and change nothing

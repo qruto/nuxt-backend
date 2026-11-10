@@ -98,6 +98,10 @@
           "to": "/docs/reference/cli/diagnostics#agent-files"
         },
         {
+          "name": "env-example",
+          "to": "/docs/reference/cli/diagnostics#env-example"
+        },
+        {
           "name": "name-collisions",
           "to": "/docs/reference/cli/diagnostics#name-collisions"
         },
@@ -818,6 +822,10 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "useInstallPrompt",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useAnnouncements",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -1132,6 +1140,18 @@
         },
         {
           "name": "useUploadField",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "preparePhoto",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "isPhotoFile",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "PhotoPrepError",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
@@ -1506,6 +1526,10 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "useReportAppeal",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useExperiment",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         }
@@ -1583,9 +1607,9 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "67 in all",
+          "name": "72 in all",
           "to": "/docs/reference/nuxt/composables",
-          "label": "67 composables in all"
+          "label": "72 composables in all"
         }
       ]
     },
@@ -1633,9 +1657,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "108 in all",
+          "name": "109 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "108 findings in all"
+          "label": "109 findings in all"
         }
       ]
     }
@@ -2005,6 +2029,18 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "preparePhoto",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "isPhotoFile",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "PhotoPrepError",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useNotifications",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -2025,6 +2061,10 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "useInstallPrompt",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useAnnouncements",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -2038,6 +2078,10 @@
         },
         {
           "name": "useReportForm",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useReportAppeal",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {

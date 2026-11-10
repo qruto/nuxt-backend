@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { generateText, simulateReadableStream, streamText } from 'ai'
+import { generateImage, generateText, simulateReadableStream, streamText } from 'ai'
 import { MockLanguageModelV4 } from 'ai/test'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setupAi, type AiComponents } from '../../src/convex/integrations/ai'
@@ -11,7 +11,8 @@ import { embeddingReachable } from '../../src/convex/integrations/ai/embeddings'
 import { createModeration, DEFAULT_MODERATION_MODEL, VERCEL_MODERATION_MODEL } from '../../src/convex/integrations/ai/moderation'
 import { meteredImageModel, routeImage } from '../../src/convex/integrations/ai/images'
 import { priceModelCalls } from '../../src/convex/integrations/ai/pricing'
-import { TEST_IMAGE_PNG, TEST_MODEL_USD, TEST_UNSAFE_MARKER, testModel } from '../../src/convex/test-models'
+import { TEST_IMAGE_PNG, TEST_MODEL_USD, TEST_UNSAFE_CODE, TEST_UNSAFE_MARKER, testModel } from '../../src/convex/test-models'
+import { classifyStepError } from '../../src/convex/integrations/ai/job-errors'
 import { getBackendError } from '../../src/convex/errors'
 
 // Models by id, through the AI Gateway: where an id goes on each kind of
@@ -784,6 +785,22 @@ describe('the model nuxt-backend/test gives every id', () => {
     expect(await ask('openai/gpt-5-mini', TEST_UNSAFE_MARKER)).toBe(`Test reply to: ${TEST_UNSAFE_MARKER}`)
   })
 
+  it('answers the codes a marker chooses, in text or in an image\'s bytes', async () => {
+    const guard = testModel('meta-llama/llama-guard-4-12b')
+    const ask = async (content: unknown) => (await guard.doGenerate({ prompt: [{ role: 'user', content }] } as never)).content.find(part => part.type === 'text')
+    expect(TEST_UNSAFE_CODE('S7')).toBe('[[unsafe:S7]]')
+    expect(await ask([{ type: 'text', text: `My address is ${TEST_UNSAFE_CODE('S7')}` }])).toMatchObject({ text: 'unsafe\nS7' })
+    expect(await ask([{ type: 'text', text: TEST_UNSAFE_CODE('S1,S10') }])).toMatchObject({ text: 'unsafe\nS1,S10' })
+    // A marker after a valid PNG's bytes, as raw bytes and as base64.
+    const marked = new Uint8Array([...TEST_IMAGE_PNG, ...new TextEncoder().encode(TEST_UNSAFE_CODE('S12'))])
+    expect(await ask([{ type: 'text', text: 'Is this safe?' }, { type: 'file', mediaType: 'image/png', data: { type: 'data', data: marked } }])).toMatchObject({ text: 'unsafe\nS12' })
+    expect(await ask([{ type: 'file', mediaType: 'image/png', data: { type: 'data', data: Buffer.from(marked).toString('base64') } }])).toMatchObject({ text: 'unsafe\nS12' })
+    expect(await ask([{ type: 'file', mediaType: 'image/png', data: { type: 'data', data: TEST_IMAGE_PNG } }])).toMatchObject({ text: 'safe' })
+    // The bare marker still answers S1, and a provider's category marker is no classifier's.
+    expect(await ask([{ type: 'file', mediaType: 'image/png', data: { type: 'data', data: new TextEncoder().encode(TEST_UNSAFE_MARKER) } }])).toMatchObject({ text: 'unsafe\nS1' })
+    expect(await ask('[[unsafe:sexual]]')).toMatchObject({ text: 'safe' })
+  })
+
   it('draws for an image model\'s id: a PNG file beside the text, and none for a text model', async () => {
     const drawn = await generateText({ model: testModel('google/gemini-2.5-flash-image'), prompt: 'Draw one comic panel' })
     expect(drawn.files.map(file => file.mediaType)).toEqual(['image/png'])
@@ -1236,6 +1253,47 @@ describe('a gateway order for some models (setupAi({ routes }))', () => {
   it('refuses a pinned region when a route leaves out the Vercel AI Gateway, and narrows every route to it otherwise', () => {
     expect(() => setupAi(components, { billing: makeBilling(), inferenceRegion: 'eu', routes: { 'google/*': 'convex' } })).toThrow(/the route for 'google\/\*' does not name 'vercel'/)
     expect(routingOf({ inferenceRegion: 'eu', routes: { 'google/*': ['convex', 'vercel'] } })).toEqual({ gateways: ['vercel'], region: 'eu' })
+  })
+})
+
+describe('an image call the provider refuses', () => {
+  /** An image model of the app's own that answers as a provider: with an error, or with no image. */
+  const imageModel = (doGenerate: () => Promise<unknown>) => ({ specificationVersion: 'v4', provider: 'openai', modelId: 'openai/gpt-image-1', maxImagesPerCall: 1, doGenerate }) as never
+  const call = { prompt: 'A fox', n: 1, size: undefined, aspectRatio: undefined, seed: undefined, providerOptions: {} } as never
+
+  it('records a refusal of the content with a content-filter reason, so the job fails as content_blocked', async () => {
+    const refusal = Object.assign(new Error('Your request was rejected by the safety system. safety_violations=[sexual]'), { name: 'AI_APICallError', statusCode: 400, isRetryable: false, code: 'moderation_blocked' })
+    const calls: ModelCall[] = []
+    await expect(meteredImageModel(imageModel(async () => {
+      throw refusal
+    }), calls, { routing: routingOf({}) }).doGenerate(call)).rejects.toBe(refusal)
+    expect(calls).toEqual([expect.objectContaining({ state: 'refused', finishReason: 'content-filter' })])
+    expect(classifyStepError(refusal, calls)).toEqual({ kind: 'blocked' })
+  })
+
+  it('reads an answer with no image as an empty one, tried once more', async () => {
+    const calls: ModelCall[] = []
+    const model = meteredImageModel(imageModel(async () => ({ images: [], warnings: [], response: { timestamp: new Date(0), modelId: 'openai/gpt-image-1', headers: undefined } })), calls, { routing: routingOf({}) })
+    const error = await generateImage({ model, prompt: 'A fox', maxRetries: 0 }).then(() => null, (thrown: unknown) => thrown)
+    expect((error as Error).name).toBe('AI_NoImageGeneratedError')
+    expect(calls).toEqual([expect.objectContaining({ state: 'finished', finishReason: 'no-image' })])
+    expect(classifyStepError(error, calls)).toEqual({ kind: 'empty' })
+    // A provider whose own model throws it: recorded refused, with no image, and tried again.
+    const thrown = Object.assign(new Error('No image generated.'), { name: 'AI_NoImageGeneratedError' })
+    const refused: ModelCall[] = []
+    await expect(meteredImageModel(imageModel(async () => {
+      throw thrown
+    }), refused, { routing: routingOf({}) }).doGenerate(call)).rejects.toBe(thrown)
+    expect(refused).toEqual([expect.objectContaining({ state: 'refused', finishReason: 'no-image' })])
+    expect(classifyStepError(thrown, refused)).toEqual({ kind: 'empty' })
+  })
+
+  it('reads an answer with no image and a finish reason for safety as a refusal of the content', async () => {
+    const calls: ModelCall[] = []
+    const model = meteredImageModel(imageModel(async () => ({ images: [], warnings: [], providerMetadata: { google: { images: [], finishReason: 'IMAGE_SAFETY' } }, response: { timestamp: new Date(0), modelId: 'openai/gpt-image-1', headers: undefined } })), calls, { routing: routingOf({}) })
+    const error = await generateImage({ model, prompt: 'A fox', maxRetries: 0 }).then(() => null, (thrown: unknown) => thrown)
+    expect(calls).toEqual([expect.objectContaining({ state: 'finished', finishReason: 'content-filter' })])
+    expect(classifyStepError(error, calls)).toEqual({ kind: 'blocked' })
   })
 })
 

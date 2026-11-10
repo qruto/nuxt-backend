@@ -521,7 +521,8 @@
         "job": {
           "queue_changed": "{actor}: Job-Warteschlange geändert",
           "canceled": "{actor}: einen Job abgebrochen",
-          "retried": "{actor}: einen fehlgeschlagenen Job wieder eingereiht"
+          "retried": "{actor}: einen fehlgeschlagenen Job wieder eingereiht",
+          "charge_retried": "{actor}: die ausstehende Abbuchung eines Jobs erneut versucht"
         },
         "ai": {
           "spend_limit_reached": "{actor}: KI pausiert – das heutige Ausgabenlimit ist erreicht"
@@ -884,7 +885,10 @@
           "cancel": "Abbrechen",
           "cancelRefund": "Abbrechen und erstatten",
           "retry": "Wiederholen",
-          "discard": "Verwerfen"
+          "discard": "Verwerfen",
+          "retryCharge": "Abbuchung wiederholen",
+          "owed": "{status}, {credits} Credits ausstehend",
+          "owedGivenUp": "{status}, {credits} Credits nie abgebucht"
         },
         "status": {
           "queued": "Wartet",
@@ -2126,6 +2130,10 @@
           "why": "Hält den Hinweis für die von der App festgelegte Zeit ausgeblendet. Ohne erlaubte Präferenzen gilt das nur für den Tab.",
           "lasts": "Die Sperrfrist der App, höchstens ein Jahr."
         },
+        "chunkReload": {
+          "why": "Verhindert, dass die Seite innerhalb einer Minute erneut neu lädt, damit ein anhaltender Fehler nie zu einer Schleife wird.",
+          "lasts": "Bis der Tab geschlossen wird."
+        },
         "pushSubscription": {
           "why": "Über das Push-Abonnement kann die App diesem Gerät Benachrichtigungen senden. Der Service Worker, wo der Browser einen braucht, zeigt sie an und öffnet die App bei einem Klick; er speichert nichts im Cache.",
           "lasts": "Bis die Person Benachrichtigungen auf dem Gerät ausschaltet oder der Website die Berechtigung entzieht."
@@ -2633,6 +2641,7 @@
       "invalid_input_unsupported_type": "Dieser Dateityp wird nicht akzeptiert. Wählen Sie eine andere Datei.",
       "invalid_input_upload_gone": "Dieser Upload ist nicht mehr vorhanden. Laden Sie die Datei erneut hoch.",
       "invalid_input_upload_claimed": "Dieser Upload wurde bereits verwendet. Laden Sie die Datei erneut hoch.",
+      "invalid_input_unreadable": "Dieses Foto lässt sich hier nicht öffnen. Versuchen Sie ein JPEG oder PNG.",
       "invalid_input_appeal_expired": "Gegen diese Entscheidung kann kein Einspruch mehr eingelegt werden.",
       "invalid_input_appealed_already": "Gegen diese Entscheidung wurde bereits Einspruch eingelegt.",
       "invalid_input_removed_copy": "Diese Datei wurde aus der App entfernt und kann nicht erneut hochgeladen werden.",
@@ -2655,6 +2664,14 @@
       "unavailable_stalled": "Dieser Job reagiert nicht mehr. Ihre Credits wurden erstattet.",
       "unavailable_job_failed": "Dieser Job ist fehlgeschlagen. Ihre Credits wurden erstattet.",
       "unavailable_unexpected": "Etwas ist schiefgelaufen.",
+      "unavailable_ai": "KI-Funktionen sind gerade nicht verfügbar. Versuchen Sie es in Kürze erneut.",
+      "unavailable_billing": "Die Abrechnung ist gerade nicht verfügbar. Versuchen Sie es in Kürze erneut.",
+      "unavailable_checkout": "Käufe sind gerade nicht möglich. Versuchen Sie es in Kürze erneut.",
+      "unavailable_email": "E-Mail ist gerade nicht verfügbar. Versuchen Sie es in Kürze erneut.",
+      "unavailable_protection": "Die Sicherheitsprüfung ist gerade nicht verfügbar. Versuchen Sie es in Kürze erneut.",
+      "unavailable_push": "Benachrichtigungen auf diesem Gerät sind gerade nicht verfügbar. Versuchen Sie es in Kürze erneut.",
+      "unavailable_referrals": "Einladungen an Freunde sind gerade nicht verfügbar. Versuchen Sie es in Kürze erneut.",
+      "unavailable_signups": "Registrierungen sind gerade nicht möglich. Versuchen Sie es in Kürze erneut.",
       "invalid_input_reason": "Geben Sie einen Grund an.",
       "invalid_input_goodFaith": "Bestätigen Sie, dass Ihre Meldung zutreffend ist und in gutem Glauben erfolgt."
     },

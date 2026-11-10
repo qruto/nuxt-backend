@@ -1,5 +1,6 @@
 import type { ImageModel } from 'ai'
 import { backendError } from '../../errors.js'
+import { CONTENT_REFUSAL, emptiedForSafety, NO_IMAGE } from './job-errors.js'
 import {
   checkRegion,
   type GatewayLoaders,
@@ -54,8 +55,19 @@ const IMAGE_LOADERS: GatewayLoaders<ImageModelObject> = {
   vercel: (gateway, id) => gateway.image(id) as ImageModelObject,
 }
 
-/** A call that never answered, as the run records it. */
-const refusedCall = (id: string, error: unknown): ModelCall => ({ model: id, kind: 'image', state: 'refused', usage: { model: id, input: 0, output: 0 }, error })
+/**
+ * A call that never answered, as the run records it: one the provider
+ * refused for its content (`moderation_blocked`, its safety system) with a
+ * `content-filter` reason, so the job fails as `content_blocked` at once;
+ * one that answered no image (`NoImageGeneratedError`) with `no-image`,
+ * an empty answer one more attempt may fill.
+ */
+const refusedCall = (id: string, error: unknown): ModelCall => {
+  const code = (error as { code?: unknown } | null)?.code
+  const text = error instanceof Error ? `${error.name} ${error.message} ${typeof code === 'string' ? code : ''}` : String(error)
+  const finishReason = CONTENT_REFUSAL.test(text) ? 'content-filter' : NO_IMAGE.test(text) ? 'no-image' : undefined
+  return { model: id, kind: 'image', state: 'refused', usage: { model: id, input: 0, output: 0 }, error, ...(finishReason ? { finishReason } : {}) }
+}
 
 /**
  * Where an image edit goes: a call with input images (`files`) or a
@@ -71,12 +83,14 @@ function loadEdit(id: string, routing: ModelRouting): Promise<{ model: ImageMode
 }
 
 /**
- * Why a call drew no image: refused by the provider's content filter only
- * when its answer says no other try would draw one (`isRetryable: false`,
- * as the Vercel AI Gateway marks it); else an empty answer another attempt
- * may fill, as `retryable()` asks.
+ * Why a call drew no image: refused by the provider's content filter when
+ * its answer says no other try would draw one (`isRetryable: false`, as
+ * the Vercel AI Gateway marks it), or gives a finish reason for safety
+ * ({@link emptiedForSafety}); else an empty answer one more attempt may
+ * fill.
  */
-const emptyReason = (result: { isRetryable?: boolean }): string => result.isRetryable === false ? 'content-filter' : 'no-image'
+const emptyReason = (result: { isRetryable?: boolean, providerMetadata?: unknown, warnings?: readonly unknown[] }): string =>
+  result.isRetryable === false || emptiedForSafety(result) ? 'content-filter' : 'no-image'
 
 /**
  * The image model a job step calls (`ctx.image()`): handed over at once and
@@ -128,7 +142,7 @@ export function meteredImageModel(model: AiImageModel, calls: ModelCall[], optio
           state: 'finished',
           usd: reportedUsd(result.providerMetadata),
           usage: { model: id, input: result.usage?.inputTokens ?? 0, output: result.usage?.outputTokens ?? 0 },
-          finishReason: result.images.length === 0 ? emptyReason(result as { isRetryable?: boolean }) : 'stop',
+          finishReason: result.images.length === 0 ? emptyReason(result) : 'stop',
         })
         return result
       }

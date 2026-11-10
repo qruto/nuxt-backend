@@ -36,9 +36,10 @@ with the edit to make, and you make it.
 5. **Run the app's type check.** Each error on a package name is a rename: look it up in
    [references/upgrade.md](references/upgrade.md).
 6. **Tell the user** what changed in their code, and anything left for them: a provider setting,
-   a production env push, a redeploy, and production's data migrations, which run after its
-   deploy with `npx nuxt-backend upgrade --prod --yes`. That command writes production: run it
-   only when the user says so.
+   a production env push, a redeploy, and production's data migrations: `npx nuxt-backend deploy`
+   and `deploy --build` run them after their push, any other deploy needs
+   `npx nuxt-backend upgrade --prod --yes` after it. Both write production: run them only when the
+   user says so.
 
 ## Applying the Upgrade page
 

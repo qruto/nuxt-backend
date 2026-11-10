@@ -112,14 +112,22 @@ const render = jobs.define({
   },
 })
 
-/** How the cover step goes: drawn, past its deadline, with no image to give, or refused by the provider's filter. */
-const cover = { mode: 'draw' as 'draw' | 'hang' | 'empty' | 'filtered' }
+/**
+ * How the cover step goes: drawn, past its deadline, with no image to give
+ * (the step's own `retryable`, or the AI SDK's error left to the queue),
+ * refused by the provider's filter, or emptied with a finish reason for safety.
+ */
+const cover = { mode: 'draw' as 'draw' | 'hang' | 'empty' | 'blank' | 'filtered' | 'unsafe' }
 
-/** A model that answers with no image: `isRetryable: false` says its filter refused the prompt, as the Vercel AI Gateway marks it. */
-const blankModel = (isRetryable?: boolean) => new MockImageModelV4({
+/**
+ * A model that answers with no image: `isRetryable: false` says its filter
+ * refused the prompt, as the Vercel AI Gateway marks it; `providerMetadata`
+ * may give the reason, as Google's image models do.
+ */
+const blankModel = (isRetryable?: boolean, providerMetadata?: Record<string, Record<string, unknown>>) => new MockImageModelV4({
   provider: 'test',
   modelId: 'test/blank-image',
-  doGenerate: async () => ({ images: [], warnings: [], ...(isRetryable === undefined ? {} : { isRetryable }), response: { timestamp: new Date(), modelId: 'test/blank-image', headers: {} } }) as never,
+  doGenerate: async () => ({ images: [], warnings: [], ...(isRetryable === undefined ? {} : { isRetryable }), ...(providerMetadata ? { providerMetadata } : {}), response: { timestamp: new Date(), modelId: 'test/blank-image', headers: {} } }) as never,
 })
 
 /** A model that answers only when its call is aborted: the step's deadline is what ends it. */
@@ -137,6 +145,9 @@ const drawCover = jobs.step({
   handler: async (ctx, { idea }) => {
     // A filtered answer is let through: the call says no other try would draw one.
     if (cover.mode === 'filtered') await generateImage({ model: ctx.image(blankModel(false)), prompt: `A cover for ${idea}`, ...ctx.callSettings })
+    // An empty answer whose metadata gives a finish reason for safety, and one that says nothing: the AI SDK's error, left to the queue.
+    if (cover.mode === 'unsafe') await generateImage({ model: ctx.image(blankModel(undefined, { google: { images: [], finishReason: 'IMAGE_SAFETY' } })), prompt: `A cover for ${idea}`, ...ctx.callSettings })
+    if (cover.mode === 'blank') await generateImage({ model: ctx.image(blankModel()), prompt: `A cover for ${idea}`, ...ctx.callSettings })
     if (cover.mode === 'empty') {
       // The AI SDK throws on an answer with no image; the step decides another try may draw one.
       const drawn = await generateImage({ model: ctx.image(blankModel()), prompt: `A cover for ${idea}`, ...ctx.callSettings }).catch(() => null)
@@ -933,6 +944,26 @@ describe('an image step', () => {
     const { jobId } = await ada.mutation(ref.start, { kind: 'covered', args: { idea: 'Blank' } })
     await drain(t)
     expect(await row(t, jobId)).toMatchObject({ status: 'failed', attempts: 4, lastError: expect.stringContaining('no image') })
+  })
+
+  test('with no image and nothing more said is tried once more, not four times, then fails provider_refused', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    cover.mode = 'blank'
+    const { jobId } = await ada.mutation(ref.start, { kind: 'covered', args: { idea: 'Blank twice' } })
+    await drain(t)
+    expect(await row(t, jobId)).toMatchObject({ status: 'failed', attempts: 2, error: { code: 'unavailable', reason: 'provider_refused' }, lastError: expect.stringContaining('No image generated') })
+  })
+
+  test('with no image and a finish reason for safety fails at once as content_blocked', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    cover.mode = 'unsafe'
+    const { jobId } = await ada.mutation(ref.start, { kind: 'covered', args: { idea: 'Unsafe' } })
+    await drain(t)
+    expect(await row(t, jobId)).toMatchObject({ status: 'failed', attempts: 1, error: { code: 'invalid_input', reason: 'content_blocked' } })
   })
 
   test('fails at once when the provider says its filter refused the prompt', async () => {

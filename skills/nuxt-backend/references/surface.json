@@ -606,7 +606,8 @@
         "priceTokens",
         "retryable",
         "setupAi",
-        "vJobEnd"
+        "vJobEnd",
+        "vOwedCharge"
       ],
       "types": [
         "AdminJobView",
@@ -640,10 +641,12 @@
         "GuestJobs",
         "ImageStoreContext",
         "InferenceRegion",
+        "JobChargeOptions",
         "JobContext",
         "JobDefinition",
         "JobEnd",
         "JobModelLimit",
+        "JobOwed",
         "JobProgress",
         "JobProvenance",
         "JobQueue",
@@ -682,6 +685,8 @@
         "ModerationSubject",
         "ModerationVerdict",
         "OnJobEnd",
+        "OnOwedCharge",
+        "OwedCharge",
         "PersonCost",
         "ProvenanceConfig",
         "ProviderEnv",
@@ -690,6 +695,7 @@
         "QueueChange",
         "ReportedCost",
         "SetupAiConfig",
+        "StepJob",
         "StepResult",
         "StoreImageOptions",
         "TokenPriceTable",
@@ -707,6 +713,7 @@
         "stripImageMetadata"
       ],
       "types": [
+        "AcceptUploadOptions",
         "EnabledShareLink",
         "FileOwner",
         "MintedShareLink",
@@ -722,7 +729,8 @@
         "StorageQuota",
         "StorageReadCtx",
         "StorageWriteCtx",
-        "StoredFile"
+        "StoredFile",
+        "UploadSafety"
       ]
     },
     "nuxt-backend/notifications": {
@@ -805,14 +813,17 @@
         "TEST_PNG",
         "TEST_STORAGE_URL",
         "TEST_UNSAFE",
+        "TEST_UNSAFE_CODE",
         "asUser",
         "default",
         "defineBackendTestApp",
         "drain",
+        "fileExists",
         "register",
         "seedBilling",
         "seedCredits",
         "seedWorkspace",
+        "stubBillingProvider",
         "stubStorageFetch",
         "upload"
       ],
@@ -820,11 +831,15 @@
         "BackendTestApp",
         "BackendTestAppOptions",
         "ComponentTestKit",
+        "DrainOptions",
+        "StubBillingProviderOptions",
         "StubStorageFetchOptions",
         "TestBilling",
+        "TestBillingProvider",
         "TestFile",
         "TestTimers",
         "TestUploadOptions",
+        "TestUsageEvent",
         "TestUser",
         "TestUserOptions"
       ]
@@ -861,8 +876,11 @@
   },
   "autoImports": {
     "composables": [
+      "PhotoPrepError",
       "formatBillingAmount",
       "getBackendError",
+      "isPhotoFile",
+      "preparePhoto",
       "useAccessAdmin",
       "useAccessPhase",
       "useAccount",
@@ -898,6 +916,7 @@
       "useGifts",
       "useHumanCheck",
       "useInboxAdmin",
+      "useInstallPrompt",
       "useInvite",
       "useJob",
       "useLabels",
@@ -914,6 +933,7 @@
       "useReferralAdmin",
       "useReferralInvite",
       "useReferrals",
+      "useReportAppeal",
       "useReportForm",
       "useReturnPath",
       "useSandboxInbox",
@@ -1271,6 +1291,7 @@
     "convex-config": "data",
     "function-contract": "data",
     "agent-files": "data",
+    "env-example": "data",
     "name-collisions": "data",
     "bundle-duplicates": "data",
     "billing-access": "billing",

@@ -196,7 +196,7 @@ export interface ModelCall {
   usage: TokenUsage
   /** Why a `failed` or `refused` call ended. */
   error?: unknown
-  /** Why a finished call stopped, as the AI SDK reports it (`stop`, `content-filter`, …). */
+  /** Why a finished call stopped, as the AI SDK reports it (`stop`, `content-filter`, …), or why a refused image call drew nothing (`content-filter`, `no-image`). */
   finishReason?: string
 }
 

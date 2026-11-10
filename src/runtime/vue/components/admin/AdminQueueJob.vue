@@ -2,7 +2,8 @@
 // One job's row of the Queue tab: kind, owner, tier (Guest for a visitor's), status, attempts, when
 // it joined and the provider's last error, with what an administrator may
 // do to it: cancel one that waits or runs, refund one that runs, retry or
-// discard a dead letter.
+// discard a dead letter, and retry the charge a done job still owes once
+// its tries gave up. A charge it owes shows beside its status.
 //
 // Internal: a part of the admin console's Queue tab (AdminQueueJobs.vue).
 import { computed } from 'vue'
@@ -22,7 +23,9 @@ const cells = computed(() => {
   const { job } = props
   // A guest job ranks after every tier, also once a sign-up claimed it.
   const tier = job.guest ? tr('queue.guest') : (job.tier ?? tr('queue.none'))
-  return [job.owner, tier, tr(`queue.status.${job.status}`), String(job.attempts), new Date(job.joinedAt).toLocaleString(), job.lastError ?? '']
+  const status = tr(`queue.status.${job.status}`)
+  const owed = job.owed ? tr(job.owed.givenUp ? 'queue.jobs.owedGivenUp' : 'queue.jobs.owed', { status, credits: job.owed.credits }) : status
+  return [job.owner, tier, owed, String(job.attempts), new Date(job.joinedAt).toLocaleString(), job.lastError ?? '']
 })
 
 const actions = computed(() => {
@@ -32,6 +35,7 @@ const actions = computed(() => {
     ...(live ? [{ key: 'cancel', run: () => cancel(job.id) }] : []),
     ...(job.status === 'running' ? [{ key: 'cancelRefund', run: () => cancel(job.id, { refund: true }) }] : []),
     ...(job.deadLetter ? [{ key: 'retry', run: () => retry(job.id) }, { key: 'discard', run: () => discard(job.id) }] : []),
+    ...(job.owed?.givenUp ? [{ key: 'retryCharge', run: () => retry(job.id) }] : []),
   ]
 })
 </script>

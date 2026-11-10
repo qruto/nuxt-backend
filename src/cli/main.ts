@@ -8,9 +8,9 @@ import { formatNextSteps, nextCommands, setUpAgentFiles, setUpProject, type Proj
 import { doctorReport, formatPreflightSummary } from '../preflight'
 import { deployKeyType, devPushRefusal, nonProductionDeployKey, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { ENV_DEFAULT_TYPES, runEnvDefaults, type EnvDefaultType } from '../env-defaults'
-import { bootstrapAdmin } from './admin'
+import { firstAdministratorOnFix } from './admin'
 import { askOnTerminal } from './ask'
-import { changeConfirmation, fixProviderSettings } from './provider-fix'
+import { changeConfirmation, fixProviderSettings, syncEmailOnFix } from './provider-fix'
 import { envRotate } from './rotate'
 import { access } from './access'
 import { analyze } from './analyze'
@@ -19,7 +19,7 @@ import { progress, withContract } from './contract'
 import { deploy } from './deploy'
 import { dev } from './dev'
 import { forceRefusal, parseEnvPushArgs, parseForce } from './env-push-args'
-import { email, runEmailSyncCommand } from './email'
+import { email } from './email'
 import { repairProjectFiles } from './repair'
 import { inbox } from './inbox'
 import { mcp } from './mcp'
@@ -180,16 +180,19 @@ async function repairProject(rootDir: string, prod: boolean, print: (line: strin
   print(`[nuxt-backend] doctor --fix: env push → ${run.deployment ?? 'deployment'}`)
   reportEnvPush(run, { json: false, dryRun: false, print })
   // The first administrator, when the deployment has none: asked only of a
-  // person at a terminal, never of a script or CI.
-  if (interactive) await bootstrapAdmin(rootDir, { prod, ask: askOnTerminal, print })
-  // The email topics, the accounts' segment and the webhook's events, as `email sync` makes them; a deployment without it is skipped.
-  print('[nuxt-backend] doctor --fix: email sync')
-  await runEmailSyncCommand(rootDir, { prod }, print)
-  // The settings the billing findings recommend, and both providers' webhook endpoints: each change confirmed first.
+  // person at a terminal, never of a script or CI, which is told so.
+  await firstAdministratorOnFix(rootDir, { prod, interactive, ask: askOnTerminal, print })
+  const confirm = changeConfirmation({ yes, interactive, ask: askOnTerminal, print })
   const wanted = (capability: CapabilityName) => !only || only.length === 0 || only.includes(capability)
+  // The email topics, the accounts' segment and the webhook's events, as `email sync` makes them: planned, then made once confirmed.
+  if (wanted('email')) {
+    print('[nuxt-backend] doctor --fix: email sync')
+    if (await syncEmailOnFix(rootDir, { prod, confirm, print }) === 'failed') process.exitCode = 1
+  }
+  // The settings the billing findings recommend, and both providers' webhook endpoints: each change confirmed first.
   if (wanted('billing') || wanted('email')) {
     print('[nuxt-backend] doctor --fix: provider settings')
-    await fixProviderSettings(rootDir, { prod, confirm: changeConfirmation({ yes, interactive, ask: askOnTerminal, print }), print, billing: wanted('billing'), email: wanted('email') })
+    await fixProviderSettings(rootDir, { prod, confirm, print, billing: wanted('billing'), email: wanted('email') })
   }
   const set = run.results.filter(result => result.outcome === 'set').map(result => result.action.name)
   return [...new Set([...run.deployedNames, ...set])]
@@ -398,15 +401,15 @@ const doctor = withContract('doctor', {
   json: '`{ $schema, findings, summary }`, described by https://nuxt-backend.dev/schemas/doctor.json; with `--fix`, the repair\'s progress goes to stderr',
   exitCodes: {
     0: 'no finding failed (warnings allowed)',
-    1: 'a finding failed, or the flags were refused',
+    1: 'a finding failed, the flags were refused, or with `--fix`, `email sync` was refused or failed',
   },
 }, defineCommand({
   meta: { name: 'doctor', description: 'Check the project + deployment configuration' },
   args: {
     ...cwdArg,
     json: { type: 'boolean', description: 'Machine-readable output', default: false },
-    fix: { type: 'boolean', description: 'Repair what doctor can: restore missing scaffold files, add missing mounts and routes, push env (`env push`), at a terminal make the first administrator, and apply the provider settings the billing findings recommend and turn a webhook endpoint back on, each after you confirm it', default: false },
-    yes: { type: 'boolean', description: 'With --fix: apply the provider changes without asking (for a script or CI)', default: false },
+    fix: { type: 'boolean', description: 'Repair what doctor can: restore missing scaffold files, add missing mounts and routes, push env (`env push`), at a terminal make the first administrator, then, each after you confirm it, run `email sync`, apply the provider settings the billing findings recommend and turn a webhook endpoint back on', default: false },
+    yes: { type: 'boolean', description: 'With --fix: run `email sync` and apply the provider changes without asking (for a script or CI; without it and without a terminal, they are listed and skipped)', default: false },
     prod: { type: 'boolean', description: 'Check the production deployment: missing email/billing config becomes a failure, its switches and email are read, and its live site is probed', default: false },
     only: { type: 'string', description: `Check only these capabilities, comma-separated: ${CAPABILITY_NAMES.join(', ')}` },
   },

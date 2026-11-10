@@ -9,7 +9,7 @@
     flex-direction: column;
     gap: 0.6rem;
     padding: 1.1rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
     border-radius: calc(var(--bk-radius) * 1.5);
     background: var(--bk-surface);
     box-shadow: var(--bk-shadow);
@@ -18,7 +18,7 @@
   [data-pricing='plan'][data-current] {
     border-color: var(--bk-accent);
     /* A second line, drawn as an outline so the card keeps its --bk-shadow. */
-    outline: var(--bk-border-width) solid var(--bk-accent);
+    outline: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-accent);
   }
 
   [data-pricing='plan'][data-highlight] {
@@ -42,7 +42,7 @@
   [data-pricing='current-badge'] {
     font-size: 0.68rem;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--bk-tracking-label, 0.06em);
     text-transform: uppercase;
     padding: 0.15rem 0.5rem;
     border-radius: 999px;
@@ -65,7 +65,7 @@
 
   [data-pricing='plan'][data-canceling] {
     border-color: color-mix(in srgb, var(--bk-warn) 60%, transparent);
-    outline: var(--bk-border-width) solid color-mix(in srgb, var(--bk-warn) 60%, transparent);
+    outline: var(--bk-border-width-surface, var(--bk-border-width)) solid color-mix(in srgb, var(--bk-warn) 60%, transparent);
   }
 
   [data-pricing='plan-trial'] {

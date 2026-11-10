@@ -77,8 +77,10 @@ export type {
   GuestJobs,
   JobContext,
   JobDefinition,
+  JobChargeOptions,
   JobEnd,
   JobModelLimit,
+  JobOwed,
   JobProgress,
   JobRecord,
   JobQueue,
@@ -89,9 +91,12 @@ export type {
   JobTier,
   JobView,
   OnJobEnd,
+  OnOwedCharge,
+  OwedCharge,
   QueueChange,
+  StepJob,
   StepResult,
 } from './ai/jobs.js'
-export { defineJobQueue, vJobEnd } from './ai/jobs.js'
+export { defineJobQueue, vJobEnd, vOwedCharge } from './ai/jobs.js'
 export { retryable } from './ai/job-errors.js'
 export type { AiImageModel } from './ai/images.js'

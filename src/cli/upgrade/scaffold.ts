@@ -3,8 +3,9 @@
  * (src/cli/repair.ts), run as they are. For a dry run they run on a scratch
  * copy of what they read — the functions directory, `convex.json` and
  * `package.json`, with the app's `node_modules` linked so an installed
- * package reads as installed — and the copy is compared with the app, so the
- * dry run shows exactly what the real run writes.
+ * package reads as installed, and nuxt.config and app.config read from the
+ * app itself — and the copy is compared with the app, so the dry run shows
+ * exactly what the real run writes.
  */
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -80,7 +81,9 @@ export async function planRepairs(rootDir: string): Promise<RepairPlan> {
     const scratch = projectCopy(scratchDir, rootDir, functionsDir)
     if (!scratch) return { written: [], changes: [`${functionsDir}: on another drive, which the dry run cannot copy; \`npx nuxt-backend doctor\` names what the repairs would change`], files: [] }
     copyProject(rootDir, scratch, functionsDir)
-    const { written, changes } = await repairProjectFiles(scratch)
+    // The copy holds no nuxt.config or app.config: they are read from the app,
+    // or the paths, brand and labels files would be planned empty.
+    const { written, changes } = await repairProjectFiles(scratch, undefined, { configRoot: rootDir })
     const files = [...filesUnder(join(scratch, functionsDir), `${functionsDir}/`), 'convex.json', 'package.json'].flatMap((path) => {
       if (!existsSync(join(scratch, path))) return []
       const after = readFileSync(join(scratch, path), 'utf-8')

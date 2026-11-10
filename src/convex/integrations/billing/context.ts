@@ -6,6 +6,7 @@ import { BILLING_MANAGER_ROLES, RECENT_SIGN_IN_SECONDS } from '../../constants.j
 import { type AdapterFindOne, type CallerRule, callerRefusal, createAccessReads, hasAnyRole, refuseCaller, refuseStaleSignIn, sandboxAdminRefusal } from '../access.js'
 import { createBillingActivity, type RecordBillingEvent } from './activity.js'
 import { syncProviderProducts } from './provider-events.js'
+import { markPassing } from './provider-failure.js'
 import { markRateLimited } from './rate-limit.js'
 import type { ProviderCtx, RunQueryCtx, RunWriteCtx } from './types/base.js'
 import type { BillingCatalogIds, CreditMeterConfig, SpendCreditsEvent } from './types/records.js'
@@ -396,7 +397,9 @@ export function createBillingContext(components: BillingComponents, config: Setu
    * renders `orders.error` verbatim. A summary is logged instead (class,
    * status, provider code, refused fields — never the body, which echoes the
    * request), and the caller sees `unavailable` (reason `provider_refused`),
-   * the code a missing token produces with another reason.
+   * the code a missing token produces with another reason. Whether the
+   * failure may pass on a retry (no answer, a 408, 429 or 5xx) rides on the
+   * refusal too, server side, for code that tries again later.
    */
   const unwrapProvider = <T>(
     result: { ok: true, value: T } | { ok: false, error: unknown },
@@ -405,11 +408,11 @@ export function createBillingContext(components: BillingComponents, config: Setu
     if (result.ok) return result.value
     logBackend('error', 'billing.provider_failed', `Billing ${operation} failed at the provider.`, summarizeProviderError(result.error))
     // A rate limit's wait rides on the refusal, server side, for the code that paces its requests.
-    throw markRateLimited(backendError(
+    throw markPassing(markRateLimited(backendError(
       'unavailable',
       { service: 'billing', reason: 'provider_refused' },
       `[nuxt-backend] Billing is temporarily unavailable — the provider refused the ${operation}. Try again shortly.`,
-    ), result.error)
+    ), result.error), result.error)
   }
 
   /**

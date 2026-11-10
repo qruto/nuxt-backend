@@ -1,6 +1,6 @@
 ---
 title: "nuxt-backend/eslint"
-description: "The ESLint preset for a nuxt-backend app: the official Convex lint rules, scoped to the functions directory, with Convex's generated code ignored."
+description: "The ESLint preset for a nuxt-backend app: the official Convex lint rules, scoped to the functions directory, with Convex's generated code and the files the…"
 kind: reference
 navigation:
   title: "nuxt-backend/eslint"
@@ -11,7 +11,8 @@ navigation:
 # nuxt-backend/eslint
 
 The ESLint preset for a `nuxt-backend` app: the official Convex lint rules,
-scoped to the functions directory, with Convex's generated code ignored.
+scoped to the functions directory, with Convex's generated code and the
+files the module generates there ignored.
 
 Needs `@convex-dev/eslint-plugin` installed next to it (an optional peer).
 
@@ -67,7 +68,8 @@ Defined in: [src/eslint.ts](https://github.com/qruto/nuxt-backend/blob/main/src/
 
 Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to
 the functions directory (tests excluded), and `nuxt-backend:generated`
-ignores every `_generated` folder in it.
+ignores every `_generated` folder in it and the files the module generates
+there (brand, paths, labels and the billing id map).
 
 The rules parse TypeScript. Inside `withNuxt(…)` the parser is already set;
 a standalone config adds `typescript-eslint`'s parser for `.ts` files.

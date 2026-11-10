@@ -285,6 +285,10 @@ try {
     // aliases `botid/*` to src/runtime/protection/botid-absent when the app has not installed it, and
     // wires no bot check then, so the absence never reaches a consumer as ERR_MODULE_NOT_FOUND.
     ['botid', /(?:\bfrom|\bimport)\s*['"]botid(?:\/[^'"]*)?['"]/],
+    // The HEIC decoder, loaded by preparePhoto the first time a browser can't open a HEIC itself. The
+    // module aliases `heic-to` to src/runtime/vue/utils/heic-absent when the app has not installed it
+    // (src/nuxt/photos.ts), so its absence refuses the photo as unreadable, never ERR_MODULE_NOT_FOUND.
+    ['heic-to', /(?:\bfrom|\bimport)\s*['"]heic-to(?:\/[^'"]*)?['"]/],
     // Convex's Agent and RAG components, loaded on the first `ai.chat` or `ai.knowledge` call
     // (src/convex/integrations/ai/chat.ts, knowledge.ts), whose absence turns into a refusal that
     // says to install the component; the test kit loads their helpers the same way.

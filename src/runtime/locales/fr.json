@@ -521,7 +521,8 @@
         "job": {
           "queue_changed": "{actor} : modification de la file de tâches",
           "canceled": "{actor} : annulation d’une tâche",
-          "retried": "{actor} : remise en file d’une tâche échouée"
+          "retried": "{actor} : remise en file d’une tâche échouée",
+          "charge_retried": "{actor} : nouvel essai du débit en attente d’une tâche"
         },
         "ai": {
           "spend_limit_reached": "{actor} a mis l’IA en pause : la limite de dépenses du jour est atteinte"
@@ -884,7 +885,10 @@
           "cancel": "Annuler",
           "cancelRefund": "Annuler et rembourser",
           "retry": "Réessayer",
-          "discard": "Écarter"
+          "discard": "Écarter",
+          "retryCharge": "Relancer le débit",
+          "owed": "{status}, {credits} crédits dus",
+          "owedGivenUp": "{status}, {credits} crédits jamais débités"
         },
         "status": {
           "queued": "En attente",
@@ -2126,6 +2130,10 @@
           "why": "Garde le message masqué pendant la durée fixée par l’application. Si les préférences ne sont pas autorisées, il n’est conservé que pour l’onglet.",
           "lasts": "Le délai de l’application, un an au plus."
         },
+        "chunkReload": {
+          "why": "Empêche la page de se recharger à nouveau pendant une minute, pour qu’une panne qui persiste ne tourne jamais en boucle.",
+          "lasts": "Jusqu’à la fermeture de l’onglet."
+        },
         "pushSubscription": {
           "why": "L’abonnement push permet à l’application d’envoyer des notifications à cet appareil. Le service worker, lorsque le navigateur en a besoin, les affiche et ouvre l’application en cas de clic ; il ne met rien en cache.",
           "lasts": "Jusqu’à ce que la personne désactive les notifications sur l’appareil ou retire l’autorisation du site."
@@ -2633,6 +2641,7 @@
       "invalid_input_unsupported_type": "Ce type de fichier n’est pas accepté. Choisissez-en un autre.",
       "invalid_input_upload_gone": "Ce téléversement n’existe plus. Téléversez à nouveau le fichier.",
       "invalid_input_upload_claimed": "Ce téléversement a déjà été utilisé. Téléversez à nouveau le fichier.",
+      "invalid_input_unreadable": "Cette photo ne s’ouvre pas ici. Essayez un JPEG ou un PNG.",
       "invalid_input_appeal_expired": "Cette décision ne peut plus faire l’objet d’un recours.",
       "invalid_input_appealed_already": "Un recours a déjà été formé contre cette décision.",
       "invalid_input_removed_copy": "Ce fichier a été retiré de l’application et ne peut pas être téléversé à nouveau.",
@@ -2655,6 +2664,14 @@
       "unavailable_stalled": "Cette tâche a cessé de répondre. Vos crédits ont été remboursés.",
       "unavailable_job_failed": "Cette tâche a échoué. Vos crédits ont été remboursés.",
       "unavailable_unexpected": "Une erreur s’est produite.",
+      "unavailable_ai": "Les fonctionnalités d’IA ne sont pas disponibles pour le moment. Réessayez dans un instant.",
+      "unavailable_billing": "La facturation n’est pas disponible pour le moment. Réessayez dans un instant.",
+      "unavailable_checkout": "Les achats ne sont pas disponibles pour le moment. Réessayez dans un instant.",
+      "unavailable_email": "L’e-mail n’est pas disponible pour le moment. Réessayez dans un instant.",
+      "unavailable_protection": "La vérification de sécurité n’est pas disponible pour le moment. Réessayez dans un instant.",
+      "unavailable_push": "Les notifications sur cet appareil ne sont pas disponibles pour le moment. Réessayez dans un instant.",
+      "unavailable_referrals": "Les invitations d’amis ne sont pas disponibles pour le moment. Réessayez dans un instant.",
+      "unavailable_signups": "Les inscriptions ne sont pas disponibles pour le moment. Réessayez dans un instant.",
       "invalid_input_reason": "Indiquez un motif.",
       "invalid_input_goodFaith": "Confirmez que votre signalement est exact et fait de bonne foi."
     },

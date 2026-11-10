@@ -57,6 +57,7 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const JOB_BILLING = 'A job waits for billing to catch up, and owes a charge the provider refuses for now'
 const SYNC_ORGANIZATION = '`billing sync` prices every product in the organization\'s currency, and attaches the benefits a product lacks'
 const LAZY_AUTH = 'The Better Auth client loads on first use, and a failed server call names its function'
 const UPLOAD_RETRY = 'The upload field retries a failure, and prepares a file before it uploads'
@@ -77,6 +78,11 @@ const BETTER_AUTH_17 = 'Better Auth 1.7, and a deploy for the backend\'s schema'
  * `const` per section heading above the list, and its entries in it.
  */
 export const RENAMES: readonly Rename[] = [
+  // A job waits for billing to catch up, owes a charge by output, and tries an empty image answer once more.
+  { from: 'insufficient_credits', to: 'not_ready', change: 'reshaped', section: JOB_BILLING, note: 'a job whose first step finds no credit meter or no billing customer yet waits about five minutes, its hold taken, then fails `not_ready` (reason `not_synced` or `no_customer`); only a balance short of the credits fails `insufficient_credits`' },
+  { from: 'job.charge', to: 'onOwedCharge', change: 'reshaped', section: JOB_BILLING, note: 'a refusal that may pass (no answer, `408`, `429`, `5xx`, no customer yet) leaves the charge owed: the job ends `done` with `owed`, its credits held, and the queue tries it in the background; any other `4xx` gives it up at once, the job still `done` and its hold back' },
+  { from: 'NoImageGeneratedError', to: 'retryable(message)', change: 'reshaped', section: JOB_BILLING, note: 'an empty image answer is tried once more, then fails `provider_refused`; with a finish reason for safety it fails `content_blocked` at once; throw `retryable(message)` to keep four attempts' },
+
   // 0.3: billing sync against what the organization holds.
   { from: 'catalog priced in its pinned `currency` alone', to: 'prices: { usd: { month: 1200 }, eur: { month: 1100 } }', change: 'reshaped', section: SYNC_ORGANIZATION, note: 'every paid plan and pack carries a price in the organization\'s default currency, or `billing sync` refuses the catalog before it creates anything; `doctor` names them (`billing-currency`)' },
   { from: 'benefit attached to an existing product by hand', to: 'billing sync', change: 'reshaped', section: SYNC_ORGANIZATION, note: 'the sync attaches a credit grant or a feature a plan\'s product lacks, and the provider grants it to its current subscribers; a second credit grant on one meter, and a pack\'s missing credits, are reported as drift instead' },

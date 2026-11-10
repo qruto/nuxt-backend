@@ -68,7 +68,7 @@ describe('the login page', () => {
     await page.find('[data-auth="skip"]').trigger('click')
     await flushPromises()
     expect(navigateTo).toHaveBeenCalledOnce()
-    expect(navigateTo).toHaveBeenCalledWith('/app')
+    expect(navigateTo).toHaveBeenCalledWith('/app', { replace: true })
   })
 
   it('leaves once after a passkey sign-in, though the session and the form both report it', async () => {
@@ -78,7 +78,7 @@ describe('the login page', () => {
     await page.find('[data-auth="passkey-sign-in"]').trigger('click')
     await flushPromises()
     expect(navigateTo).toHaveBeenCalledOnce()
-    expect(navigateTo).toHaveBeenCalledWith('/app')
+    expect(navigateTo).toHaveBeenCalledWith('/app', { replace: true })
   })
 
   it('goes past the passkey offer where the browser has no WebAuthn', async () => {
@@ -89,7 +89,7 @@ describe('the login page', () => {
 
     await signInWithCode(page)
     expect(navigateTo).toHaveBeenCalledOnce()
-    expect(navigateTo).toHaveBeenCalledWith('/app')
+    expect(navigateTo).toHaveBeenCalledWith('/app', { replace: true })
     expect(backend.callsTo('passkey.addPasskey')).toEqual([])
   })
 
@@ -99,7 +99,7 @@ describe('the login page', () => {
     mount(LoginPage)
     await flushPromises()
     expect(navigateTo).toHaveBeenCalledOnce()
-    expect(navigateTo).toHaveBeenCalledWith('/')
+    expect(navigateTo).toHaveBeenCalledWith('/', { replace: true })
   })
 
   // Every way a ?redirect= can name another site: none of them is followed.
@@ -116,7 +116,31 @@ describe('the login page', () => {
     mount(LoginPage)
     await flushPromises()
     expect(navigateTo).toHaveBeenCalledOnce()
-    expect(navigateTo).toHaveBeenCalledWith('/dashboard')
+    expect(navigateTo).toHaveBeenCalledWith('/dashboard', { replace: true })
+  })
+
+  // A sign-in link followed from the sign-in page writes a redirect back to it.
+  it.each([
+    '/login',
+    '/login?redirect=%2Fapp',
+    '/LOGIN/',
+  ])('never sends a person who signed in back to sign in (?redirect=%s)', async (redirect) => {
+    setAfterSignIn('/dashboard')
+    backend.signIn()
+    route.query = { redirect }
+    mount(LoginPage)
+    await flushPromises()
+    expect(navigateTo).toHaveBeenCalledOnce()
+    expect(navigateTo).toHaveBeenCalledWith('/dashboard', { replace: true })
+  })
+
+  it('goes home when redirects.afterSignIn is the sign-in page itself', async () => {
+    setAfterSignIn('/login')
+    backend.signIn()
+    route.query = { redirect: '/login' }
+    mount(LoginPage)
+    await flushPromises()
+    expect(navigateTo).toHaveBeenCalledWith('/', { replace: true })
   })
 
   it('sends a visitor without a usable ?redirect= to redirects.afterSignIn', async () => {
@@ -127,7 +151,7 @@ describe('the login page', () => {
     await page.find('[data-auth="passkey-sign-in"]').trigger('click')
     await flushPromises()
     expect(navigateTo).toHaveBeenCalledOnce()
-    expect(navigateTo).toHaveBeenCalledWith('/dashboard')
+    expect(navigateTo).toHaveBeenCalledWith('/dashboard', { replace: true })
 
     navigateTo.mockClear()
     backend.signOut()
@@ -135,6 +159,6 @@ describe('the login page', () => {
     mount(LoginPage)
     backend.signIn()
     await flushPromises()
-    expect(navigateTo).toHaveBeenCalledWith('/dashboard')
+    expect(navigateTo).toHaveBeenCalledWith('/dashboard', { replace: true })
   })
 })

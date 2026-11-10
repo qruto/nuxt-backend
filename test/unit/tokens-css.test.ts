@@ -161,6 +161,106 @@ describe('component tokens', () => {
     }
   })
 
+  it('leaves the tracking, the split outline widths and the press states unset, so an app that sets none sees no change', () => {
+    for (const token of [
+      '--bk-tracking-heading',
+      '--bk-tracking-control',
+      '--bk-tracking-label',
+      '--bk-border-width-surface',
+      '--bk-border-width-control',
+      '--bk-shadow-control-hover',
+      '--bk-shadow-control-active',
+      '--bk-offset-control-hover',
+      '--bk-offset-control-active',
+      '--bk-transition-control',
+    ]) {
+      expect(defaults[token], token).toBe('inherit')
+    }
+  })
+
+  it('sets no tracking on a button or a link drawn as one while --bk-tracking-control is unset, so each keeps the page\'s, its reset\'s or the browser\'s', () => {
+    // `normal` would override Tailwind's `letter-spacing: inherit` on buttons
+    // (in `base`, below the package's layer) and a link's inherited tracking.
+    // `revert-layer` takes the layer's declaration back: what stood before it stands.
+    let reads = 0
+    for (const [name, css] of stylesheets) {
+      for (const [, fallback] of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/var\(--bk-tracking-control(?:, ([^)]*))?\)/g)) {
+        reads++
+        expect(fallback, name).toBe('revert-layer')
+      }
+    }
+    expect(reads).toBeGreaterThan(30)
+  })
+
+  it('tracks every uppercase label from --bk-tracking-label, apart from the headings, each keeping its own while unset', () => {
+    // A large title tightens (-0.02em) and a small uppercase label opens up
+    // (0.06em): a display face's heading tracking would squeeze the labels.
+    let labels = 0
+    for (const [name, css] of stylesheets) {
+      for (const [, selector, body] of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (!/text-transform: uppercase/.test(body!)) continue
+        labels++
+        expect(body, `${name} ${selector!.trim()}`).toMatch(/letter-spacing: var\(--bk-tracking-label, -?[\d.]+em\);/)
+        expect(body, `${name} ${selector!.trim()}`).not.toContain('--bk-tracking-heading')
+      }
+    }
+    expect(labels).toBeGreaterThanOrEqual(9)
+  })
+
+  it('draws every outline from the surface or the control width, falling back to --bk-border-width', () => {
+    for (const [name, css] of stylesheets) {
+      if (name === 'tokens.css') continue
+      const bare = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/var\(--bk-border-width-(surface|control), var\(--bk-border-width\)\)/g, '')
+      expect(bare, name).not.toContain('--bk-border-width')
+    }
+  })
+
+  it('lets every drawn button take the press and the control tracking, and keeps every text button still', () => {
+    let drawn = 0
+    for (const [name, css] of stylesheets) {
+      const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      for (const [, selector, body] of rules) {
+        // The resting shadow reads the press, never the token alone; the
+        // offset rides with it, and the tracking with the control face.
+        expect(body, `${name} ${selector!.trim()}`).not.toMatch(/box-shadow: var\(--bk-shadow-control\)/)
+        if (body!.includes('box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control));')) {
+          drawn++
+          expect(body, `${name} ${selector!.trim()}`).toContain('translate: var(--_bk-press-offset);')
+        }
+        if (body!.includes('font-family: var(--bk-font-control, var(--bk-font));'))
+          expect(body, `${name} ${selector!.trim()}`).toContain('letter-spacing: var(--bk-tracking-control, revert-layer);')
+        if (/box-shadow: none;/.test(body!))
+          expect(body, `${name} ${selector!.trim()}`).toContain('translate: none;')
+      }
+    }
+    expect(drawn).toBeGreaterThan(30)
+    // The states set the private properties on the elements that press, in the lowest layer.
+    const lowest = shared.match(/@layer nuxt-backend-tokens \{([\s\S]*?)\n\}/)![1]!
+    expect(lowest).toContain('--_bk-press-shadow: var(--bk-shadow-control-hover);')
+    expect(lowest).toContain('--_bk-press-shadow: var(--bk-shadow-control-active, var(--bk-shadow-control-hover));')
+    expect(lowest).toContain('--_bk-press-offset: var(--bk-offset-control-active, var(--bk-offset-control-hover));')
+    expect(lowest).toContain('transition: var(--bk-transition-control);')
+    expect(lowest).toContain('letter-spacing: var(--bk-tracking-heading);')
+  })
+
+  it('presses only the element in the state, hovers only under a pointer that hovers, and moves nothing for someone who asked for less motion', () => {
+    const lowest = shared.match(/@layer nuxt-backend-tokens \{([\s\S]*?)\n\}/)![1]!.replace(/\/\*[\s\S]*?\*\//g, '')
+    // Custom properties inherit: below a link, a label or a summary, each element starts from no state.
+    const reset = lowest.match(/:where\(\[data-backend\] :is\(button, a, label, summary\) \*\) \{\s*--_bk-press-shadow: initial;\s*--_bk-press-offset: initial;\s*\}/)
+    expect(reset).not.toBeNull()
+    // Before the states, so an element in one of its own sets it again.
+    expect(lowest.indexOf(reset![0])).toBeLessThan(lowest.indexOf(':hover'))
+    // A tap leaves `:hover` on a touch screen: the hover sets the state only under `(hover: hover)`.
+    const setsState = /:hover[^{]*\{[^}]*--_bk-press-/
+    const hover = lowest.match(/@media \(hover: hover\) \{([\s\S]*?)\n {2}\}/)
+    expect(hover?.[1]).toMatch(setsState)
+    expect(lowest.replace(hover![0], '')).not.toMatch(setsState)
+    // Last, over the hover and the press: no offset and no transition.
+    const reduce = lowest.match(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n {2}\}/)
+    expect(reduce?.[1]).toMatch(/:where\(\[data-backend\]\) :where\(button, a, label, summary\) \{\s*--_bk-press-offset: initial;\s*transition: none;\s*\}/)
+    expect(lowest.indexOf(reduce![0])).toBeGreaterThan(lowest.lastIndexOf(':active'))
+  })
+
   it('styles each component and part in a file named after it', () => {
     const named = stylesheets.map(([name]) => name).filter(name => name.includes('/'))
     expect(named.length).toBeGreaterThan(30)
