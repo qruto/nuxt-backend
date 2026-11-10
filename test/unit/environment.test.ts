@@ -100,6 +100,25 @@ describe('the deployment reading it', () => {
       expect(contactMailbox(' Support@Acme.dev '), value).toBe('support@acme.dev')
     }
   })
+
+  // `contact: { to: 'delivered@resend.dev' }`, as the docs once suggested, on a public demo (`deploy --sandbox` sets the flag).
+  it('sends no copy to a test address the deployment\'s public dev inbox would show to anyone', () => {
+    vi.stubEnv('EMAIL_DEV_INBOX', '1')
+    for (const value of ['sandbox', 'preview']) {
+      vi.stubEnv('BACKEND_ENVIRONMENT', value)
+      expect(contactMailbox('delivered@resend.dev'), value).toBeUndefined()
+      expect(contactMailbox('Delivered+Team@resend.dev'), value).toBeUndefined()
+      expect(contactMailbox('team@acme.dev'), value).toBe('team@acme.dev')
+    }
+    // Development's own inbox is where its copies go; production publishes none.
+    for (const value of ['development', 'production']) {
+      vi.stubEnv('BACKEND_ENVIRONMENT', value)
+      expect(contactMailbox('delivered@resend.dev'), value).toBe('delivered@resend.dev')
+    }
+    vi.stubEnv('EMAIL_DEV_INBOX', '')
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'sandbox')
+    expect(contactMailbox('delivered@resend.dev')).toBe('delivered@resend.dev')
+  })
 })
 
 describe('the dev inbox\'s page reader', () => {

@@ -109,7 +109,9 @@ export interface ContactOptions {
    * The team's mailbox: a contact message is copied there with the sender's
    * address as its reply-to, when there is no support inbox. On a
    * `development` deployment the copy goes to the provider's sandbox inbox
-   * (`delivered@resend.dev`) instead, which the dev inbox reads.
+   * (`delivered@resend.dev`) instead, which the dev inbox reads. A test
+   * address here gets no copy on a sandbox or a preview that publishes its
+   * dev inbox, where anyone could read it: give it a real address.
    */
   to?: string
 }
@@ -368,6 +370,9 @@ export function createInbound(deps: InboundDeps) {
       }
       const name = (account ? account.name?.trim() : input.name?.trim()) || undefined
       const locale = (account?.locale || input.locale?.trim())?.slice(0, 35)
+      // On a development deployment, the sandbox inbox; none where a public dev inbox would show it (contactMailbox).
+      const to = contactMailbox(contact?.to)
+      if (!support && contact?.to?.trim() && !to) logBackend('warn', 'email.contact_held', 'A contact message was stored and not sent to the team: its address is a test one, which this deployment\'s public dev inbox would show to anyone.')
       await ctx.runMutation(component().storeContact, defined({
         userId: accountId ?? undefined,
         name,
@@ -375,8 +380,7 @@ export function createInbound(deps: InboundDeps) {
         message: input.message.trim().slice(0, CONTACT_MESSAGE_MAX),
         locale,
         support,
-        // On a development deployment, the sandbox inbox (contactMailbox).
-        to: contactMailbox(contact?.to),
+        to,
       }) as never)
       return { sent: true }
     },
