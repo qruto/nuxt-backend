@@ -74,6 +74,21 @@ async function form(route = '/gifts'): Promise<UseGiftFormReturn> {
   return state
 }
 
+/** Run `run` at `iso`, with the runtime in time zone `zone`, as a purchaser's browser there is. */
+async function atTime(iso: string, zone: string, run: () => Promise<void>): Promise<void> {
+  const before = process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(Date.parse(iso))
+  process.env.TZ = zone
+  try {
+    await run()
+  }
+  finally {
+    process.env.TZ = before
+    vi.useRealTimers()
+  }
+}
+
 describe('useGiftForm', () => {
   it('offers the packs and the giftable plans, picking the first of each, with the plan\'s gift lengths at their prices', async () => {
     backend()
@@ -117,7 +132,8 @@ describe('useGiftForm', () => {
       months: 3,
       recipientEmail: 'friend@example.com',
       message: 'Happy reading!',
-      deliverAt: Date.parse('2099-12-24T09:00:00Z'),
+      // 09:00 on the day, in the purchaser's own time zone.
+      deliverAt: new Date(2099, 11, 24, 9).getTime(),
       currency: 'usd',
       successUrl: `${window.location.origin}/gifts?plan=pro&months=3&sent=1`,
     })])
@@ -184,10 +200,40 @@ describe('useGiftForm', () => {
   })
 
   it('bounds the delivery day from today to a year ahead', async () => {
-    backend()
-    const gift = await form()
-    expect(gift.firstDay.value).toBe(new Date().toISOString().slice(0, 10))
-    expect(Date.parse(gift.lastDay.value) - Date.parse(gift.firstDay.value)).toBe(365 * 24 * 60 * 60 * 1000)
+    await atTime('2099-01-15T12:00:00.000Z', 'UTC', async () => {
+      backend()
+      const gift = await form()
+      expect(gift.firstDay.value).toBe('2099-01-15')
+      expect(gift.lastDay.value).toBe('2100-01-15')
+    })
+  })
+
+  it('offers a purchaser east of UTC their own today, never a UTC day already over for them', async () => {
+    // 20:00 UTC on the 15th is 05:00 on the 16th in Tokyo: the 15th is over there.
+    await atTime('2099-01-15T20:00:00.000Z', 'Asia/Tokyo', async () => {
+      const mock = backend()
+      const gift = await form()
+      expect(gift.firstDay.value).toBe('2099-01-16')
+      expect(gift.lastDay.value).toBe('2100-01-16')
+      gift.recipientEmail.value = 'friend@example.com'
+      gift.deliverOn.value = '2099-01-16'
+      await gift.send()
+      // 09:00 in Tokyo, later that day.
+      expect(mock.callsTo('billing:giftCheckout')).toEqual([expect.objectContaining({ deliverAt: Date.parse('2099-01-16T00:00:00.000Z') })])
+    })
+  })
+
+  it('delivers on the morning of the day picked in the purchaser\'s time zone, far west of UTC too', async () => {
+    await atTime('2099-01-15T20:00:00.000Z', 'Pacific/Honolulu', async () => {
+      const mock = backend()
+      const gift = await form()
+      expect(gift.firstDay.value).toBe('2099-01-15')
+      gift.recipientEmail.value = 'friend@example.com'
+      gift.deliverOn.value = '2099-01-20'
+      await gift.send()
+      // 09:00 in Honolulu on the 20th, not 09:00 UTC, which is 23:00 there on the 19th.
+      expect(mock.callsTo('billing:giftCheckout')).toEqual([expect.objectContaining({ deliverAt: Date.parse('2099-01-20T19:00:00.000Z') })])
+    })
   })
 
   it('counts today from the day the page is entered, on a return without a reload too', async () => {

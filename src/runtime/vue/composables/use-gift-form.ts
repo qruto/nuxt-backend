@@ -1,5 +1,6 @@
 import { computed, onMounted, ref, type ComputedRef, type Ref } from 'vue'
-import { navigateTo, useRoute, useRouter } from '#imports'
+import { navigateTo, tryUseNuxtApp, useRoute, useRouter } from '#imports'
+import { DELIVER_AHEAD_DAYS, MESSAGE_LENGTH } from '../../../convex/integrations/billing/gift-rules.js'
 import type { PricedGiftLength, PricedPack, PricedPlan } from '../../../convex/integrations/billing/types/records.js'
 import { useAuthSession } from '../utils/auth-session'
 import { useActiveLocale } from '../utils/active-locale'
@@ -16,12 +17,12 @@ export type GiftKind = 'pack' | 'pass'
 /** The fields a refusal of a gift can name, as the form marks them. */
 export type GiftField = 'recipientEmail' | 'message' | 'deliverAt'
 
-/** The longest note a gift carries, as the server takes it. */
-export const GIFT_MESSAGE_MAX = 500
+/** The longest note a gift carries: the server's own limit. */
+export const GIFT_MESSAGE_MAX = MESSAGE_LENGTH
 
-/** How many days ahead a gift may be dated, as the server takes it (a year and a day, so a year ahead always fits). */
-const DELIVER_AHEAD_DAYS = 366
 const DAY_MS = 24 * 60 * 60 * 1000
+/** The hour of the day picked a dated gift goes out at, in the purchaser's time zone. */
+const DELIVERY_HOUR = 9
 
 /** Options for {@link useGiftForm}. */
 export interface UseGiftFormOptions {
@@ -74,11 +75,16 @@ export interface UseGiftFormReturn {
   recipientEmail: Ref<string>
   /** A plain-text note of at most {@link GIFT_MESSAGE_MAX} characters, no links, shown to them in the app. */
   message: Ref<string>
-  /** The day the notice goes out, `YYYY-MM-DD`; `''` sends it once paid. */
+  /** The day the notice goes out, `YYYY-MM-DD` in the purchaser's own calendar, at 09:00 their time; `''` sends it once paid. */
   deliverOn: Ref<string>
-  /** The first day the delivery date takes (today, by the server's clock while the page hydrates, then the browser's), `YYYY-MM-DD`: a date input's `min`. */
+  /**
+   * The first day the delivery date takes, `YYYY-MM-DD`: a date input's
+   * `min`. Today in the purchaser's own calendar once the page is on
+   * screen, so it is never a day already over for them; while the page
+   * hydrates, today in UTC by the server's clock, as the server rendered it.
+   */
   firstDay: ComputedRef<string>
-  /** The last day it takes, a year ahead: a date input's `max`. */
+  /** The last day it takes, a year after the first: a date input's `max`. */
   lastDay: ComputedRef<string>
   /** The gift as chosen, with its price; `null` until something on sale is chosen. */
   choice: ComputedRef<GiftChoice | null>
@@ -107,6 +113,19 @@ export interface UseGiftFormReturn {
 
 /** A day as an input of type `date` writes it, in UTC. */
 const isoDay = (at: number) => new Date(at).toISOString().slice(0, 10)
+
+/** The same, in the runtime's own time zone: the purchaser's, in their browser. */
+function localDay(at: number): string {
+  const date = new Date(at)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+/** The moment a dated gift goes out: `DELIVERY_HOUR` on `day` (`YYYY-MM-DD`), in the runtime's own time zone. */
+function deliveryTime(day: string): number {
+  const [year, month, date] = day.split('-').map(Number)
+  return new Date(year!, month! - 1, date!, DELIVERY_HOUR).getTime()
+}
 
 /**
  * The gift form without its markup: a credit pack or a plan pass with its
@@ -199,9 +218,18 @@ export function useGiftForm(options: UseGiftFormOptions = {}): UseGiftFormReturn
       : null
   })
 
-  // Today on the page's clock: the server's while hydrating, so the date input's bounds read the same on both, then the browser's.
+  // Today on the page's clock: while hydrating, the server's, in UTC, so
+  // the date input's bounds read as the server rendered them; once the page
+  // is the browser's (mounted, or entered by a client-side visit), the
+  // purchaser's own today, whose 09:00 is theirs too. A UTC day would be
+  // yesterday east of UTC, and its 09:00 the evening before far west of it.
   const clock = usePageClock()
-  const today = computed(() => isoDay(clock.value))
+  const ownCalendar = ref(import.meta.client && !tryUseNuxtApp()?.isHydrating)
+  onMounted(() => {
+    ownCalendar.value = true
+  })
+  const today = computed(() => (ownCalendar.value ? localDay(clock.value) : isoDay(clock.value)))
+  // A year after the first day still falls inside the server's DELIVER_AHEAD_DAYS (366) from now.
   const lastDay = computed(() => isoDay(Date.parse(today.value) + (DELIVER_AHEAD_DAYS - 1) * DAY_MS))
 
   // Back from a paid checkout: say so once, and take the flag off the address.
@@ -247,8 +275,8 @@ export function useGiftForm(options: UseGiftFormOptions = {}): UseGiftFormReturn
       await gifts.send(chosen.key, {
         recipientEmail: recipientEmail.value.trim(),
         ...(note ? { message: note } : {}),
-        // The morning of the day picked, in UTC: a day that is today sends it at once.
-        ...(deliverOn.value ? { deliverAt: Date.parse(`${deliverOn.value}T09:00:00Z`) } : {}),
+        // The morning of the day picked, in the purchaser's time zone: a morning already past sends it at once.
+        ...(deliverOn.value ? { deliverAt: deliveryTime(deliverOn.value) } : {}),
         ...(chosen.kind === 'pass' ? { months: chosen.months } : {}),
         ...(pricing.currency.value ? { currency: pricing.currency.value } : {}),
         ...(returnTo ? { successUrl: returnTo } : {}),
