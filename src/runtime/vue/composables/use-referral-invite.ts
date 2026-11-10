@@ -1,4 +1,5 @@
 import { computed, type ComputedRef, inject, ref, shallowRef, watch } from 'vue'
+import { useTimeout } from '@vueuse/core'
 import { useRoute } from '#imports'
 import { useAsyncQuery } from 'nuxt-convex-module/app'
 import { ConvexAuthStateKey, useMutation } from 'nuxt-convex-module/client'
@@ -10,6 +11,13 @@ import { useApiNamespace, useBackendNamespace } from '../utils/namespace'
 import { type AccessApiRefs, useAccessPhase } from './use-access'
 import { useBackendPagePath } from './use-backend-page-path'
 import type { ReferralsApiRefs } from './use-referrals'
+
+/**
+ * How long a page waits for the launch phase before it offers the sign-up
+ * anyway, as for a phase that could not be read: a connection that never
+ * opens leaves no visitor without a way in.
+ */
+const PHASE_WAIT_MS = 5000
 
 /** Where the page a referral link opens is: reading the link, ready to claim, claiming, or settled. */
 export type ReferralInviteState = 'checking' | 'invalid' | 'ready' | 'claimable' | 'claiming' | 'claimed' | 'ignored' | 'own'
@@ -42,7 +50,8 @@ export interface UseReferralInviteReturn {
    * and when the phase could not be read (the sign-up's own check still
    * holds a visitor without a ticket to the waitlist). `undefined` while
    * the phase loads, so a page offers neither the sign-up nor the ways to a
-   * ticket before it knows which one applies.
+   * ticket before it knows which one applies; a phase still unread after
+   * five seconds reads as `false`, as one that could not be read.
    */
   closed: ComputedRef<boolean | undefined>
   /** Claim the referral for the signed-in account: the explicit step. Never rejects: a code that cannot be used is `ignored`. */
@@ -90,6 +99,8 @@ export function useReferralInvite(options: UseReferralInviteOptions = {}): UseRe
   const landing = useBackendPagePath('referral')
   // An app without backend/access.ts is open, and lacks no file: its phase reads as public, with no warning.
   const { phase, isLoading: phaseLoading } = useAccessPhase({ api: useApiNamespace<AccessApiRefs>('access') ?? {} })
+  // In the browser only: the server renders the wait, and hydrates unchanged.
+  const phaseWaited = useTimeout(PHASE_WAIT_MS)
 
   const code = computed(() => {
     const value = route.params.code
@@ -153,7 +164,10 @@ export function useReferralInvite(options: UseReferralInviteOptions = {}): UseRe
     isLoading: computed(() => Boolean(api.previewReferral) && preview.value === undefined),
     isPending: computed(() => outcome.value === 'claiming'),
     signInTo,
-    closed: computed(() => (phaseLoading.value ? undefined : phase.value !== undefined && phase.value !== 'public')),
+    closed: computed(() => {
+      if (phaseLoading.value) return phaseWaited.value ? false : undefined
+      return phase.value !== undefined && phase.value !== 'public'
+    }),
     claim,
     error: computed(() => claimFailure.value ?? readFailure.value),
   }

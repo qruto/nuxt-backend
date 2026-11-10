@@ -32,7 +32,7 @@ const { phase } = useAccessPhase({ api: useApiNamespace<AccessApiRefs>('access')
 const inviteTo = computed(() => (invitePath.value ? `${invitePath.value}?ref=${encodeURIComponent(invite.code.value)}` : null))
 /** The visitor needs a ticket first: the app is not public, and nobody is signed in. */
 const needsTicket = computed(() => invite.state.value === 'ready' && invite.closed.value === true)
-/** A visitor's way in waits for the phase: neither the sign-up nor the ways to a ticket until it is read. */
+/** A visitor's way in waits for the phase: neither the sign-up nor the ways to a ticket until it is read, or a few seconds pass. */
 const phaseUnknown = computed(() => invite.state.value === 'ready' && invite.closed.value === undefined)
 
 const offer = computed(() => invite.preview.value?.program.referred ?? null)
@@ -75,7 +75,14 @@ const inviter = computed(() => invite.preview.value?.inviter ?? null)
           {{ t('landing.youGetNothing') }}
         </template>
       </p>
-      <template v-if="needsTicket">
+      <p
+        v-if="phaseUnknown"
+        data-referral="landing-status"
+        role="status"
+      >
+        {{ t('landing.checking') }}
+      </p>
+      <template v-else-if="needsTicket">
         <p data-referral="landing-closed">
           {{ t('landing.closed') }}
         </p>

@@ -128,13 +128,16 @@ describe('the referral link\'s page', () => {
     expect(part(wrapper, 'landing-closed').exists()).toBe(false)
   })
 
-  it('offers a visitor no way in while the phase loads, neither the sign-up nor a ticket', async () => {
+  it('offers a visitor no way in while the phase loads, neither the sign-up nor a ticket, and says it is checking', async () => {
     const backend = backendWith()
     delete backend.state.queries['access:getAccessPhase']
     const wrapper = await landing()
     expect(state(wrapper)).toBe('ready')
     expect(part(wrapper, 'landing-from').text()).toBe('Ada invited you.')
     expect(part(wrapper, 'landing').attributes('aria-busy')).toBe('true')
+    // Busy with words: a screen reader hears why there is no way in yet.
+    expect(part(wrapper, 'landing-status').attributes('role')).toBe('status')
+    expect(part(wrapper, 'landing-status').text()).toBe('Checking the link…')
     expect(part(wrapper, 'landing').attributes('data-closed')).toBeUndefined()
     for (const name of ['landing-sign-up', 'landing-closed', 'landing-invite', 'landing-waitlist', 'landing-sign-in']) expect(part(wrapper, name).exists()).toBe(false)
 
@@ -143,6 +146,27 @@ describe('the referral link\'s page', () => {
     expect(part(wrapper, 'landing').attributes('aria-busy')).toBeUndefined()
     expect(part(wrapper, 'landing-closed').exists()).toBe(true)
     expect(part(wrapper, 'landing-sign-up').exists()).toBe(false)
+    expect(part(wrapper, 'landing-status').exists()).toBe(false)
+  })
+
+  it('offers the sign-up once the phase is still unread after a few seconds, as when it could not be read', async () => {
+    // Time still runs for the page's own ticks; the wait is skipped ahead.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true })
+    try {
+      const backend = backendWith()
+      delete backend.state.queries['access:getAccessPhase']
+      const wrapper = await landing()
+      expect(part(wrapper, 'landing-sign-up').exists()).toBe(false)
+      // A connection that never opens leaves no visitor without a way in: the sign-up's own check still holds one without a ticket.
+      await vi.advanceTimersByTimeAsync(5000)
+      await flushPromises()
+      expect(part(wrapper, 'landing').attributes('aria-busy')).toBeUndefined()
+      expect(part(wrapper, 'landing-status').exists()).toBe(false)
+      expect(part(wrapper, 'landing-sign-up').exists()).toBe(true)
+    }
+    finally {
+      vi.useRealTimers()
+    }
   })
 
   it('says whether the app is closed, for a page of the app\'s own, and lets a signed-in person claim whatever the phase', async () => {
