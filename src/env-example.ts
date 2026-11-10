@@ -81,15 +81,27 @@ function drift(missing: readonly string[], unread: readonly string[]): string {
   ].join(' ')
 }
 
+/** The app's `.env.example`: its text, `undefined` when there is none, or why it could not be read. */
+function readEnvExample(rootDir: string): string | undefined | { unreadable: string } {
+  try {
+    return readTextIfPresent(join(rootDir, '.env.example'))
+  }
+  catch (error) {
+    return { unreadable: (error as NodeJS.ErrnoException).code ?? (error instanceof Error ? error.message : String(error)) }
+  }
+}
+
 /**
  * The app's `.env.example` against the package's: the names the package's
  * lists and the app's lacks, and the names the app's lists that neither the
  * package, the platform nor the app's own files read. No finding without a
- * `.env.example`.
+ * `.env.example`; one that cannot be read (a folder of that name, a file
+ * this user may not read) warns, and doctor's other checks still run.
  */
 export function envExampleFinding(rootDir: string): PreflightFinding[] {
-  const text = readTextIfPresent(join(rootDir, '.env.example'))
+  const text = readEnvExample(rootDir)
   if (text === undefined) return []
+  if (typeof text !== 'string') return [finding('env-example', 'warn', `Could not read .env.example (${text.unreadable}): its names were not checked.`, 'Make .env.example a file you can read, then run doctor again.')]
   const listed = listedEnvNames(text)
   const missing = listedEnvNames(renderEnvExample()).filter(name => !listed.includes(name))
   const others = listed.filter(name => !(name in BACKEND_ENV) && !READ_ELSEWHERE.test(name))

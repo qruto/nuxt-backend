@@ -34,6 +34,12 @@ describe('env-example', () => {
     expect(envExampleFinding(rootDir)).toEqual([expect.objectContaining({ id: 'env-example', status: 'pass' })])
   })
 
+  it('warns on a .env.example it cannot read, and throws nothing at doctor', () => {
+    // A folder of that name: the read fails as it does on a file this user may not read.
+    mkdirSync(join(rootDir, '.env.example'))
+    expect(envExampleFinding(rootDir)).toEqual([expect.objectContaining({ id: 'env-example', status: 'warn', message: 'Could not read .env.example (EISDIR): its names were not checked.' })])
+  })
+
   it('names what it lacks of the package\'s, and what it lists that nothing reads', () => {
     write('.env.example', renderEnvExample().replace('# EMAIL_MARKETING_FROM=\n', '').concat('OLD_SEGMENT_ID=\nCOMICS_PAGE_LIMIT=\nCONVEX_DEPLOY_KEY=\nNUXT_PUBLIC_ANALYTICS_ID=\nSENTRY_AUTH_TOKEN=\n'))
     // The app's own config reads one of its names; a dependency's mention is no read of the app's.
