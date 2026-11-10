@@ -218,7 +218,7 @@ const ref = {
   downloadUrl: makeFunctionReference<'query', { storageId: string, ttl?: number }, string | null>('strips:downloadUrl'),
   dropUpload: makeFunctionReference<'mutation', { fileId: string }, boolean>('strips:dropUpload'),
   dropUploadLater: makeFunctionReference<'action', { fileId: string }, boolean>('strips:dropUploadLater'),
-  acceptCover: makeFunctionReference<'action', { id: string, fileId: string, unchecked?: boolean, misconfigured?: boolean }, { fileId: string }>('strips:acceptCover'),
+  acceptCover: makeFunctionReference<'action', { id: string, fileId: string, unchecked?: boolean, misconfigured?: boolean, answer?: boolean }, { fileId: string }>('strips:acceptCover'),
   expirePhoto: makeFunctionReference<'mutation', { id: string, at: number | null }, boolean>('strips:expirePhoto'),
   expireFile: makeFunctionReference<'mutation', { fileId: string, at: number | null }, boolean>('strips:expireFile'),
   shareEvents: makeFunctionReference<'query', Record<string, never>, Array<{ stripId: string, by: string, rotated: boolean }>>('strips:shareEvents'),
