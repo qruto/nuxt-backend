@@ -1,4 +1,5 @@
 import { computed, nextTick, ref, type ComputedRef, type Ref } from 'vue'
+import { addMonths } from '../../../../convex/catalog.js'
 import { formatBillingDate, toBillingDate } from '../../composables/billing-format'
 import type { CancellationReason, EntitlementBenefit, UseBillingReturn } from '../../composables/use-billing'
 import type { UseFeaturesReturn } from '../../composables/use-features'
@@ -201,9 +202,10 @@ export function createBillingSection(context: BillingSectionContext): BillingSec
     })
   }
 
-  // Pausing: from the period's end, for one to three months.
+  // Pausing: from the period's end, for one to three months. The provider
+  // pauses only an active subscription, never one in its trial.
   const pausable = computed(() => billing.isSubscribed.value && billing.pass.value === null && !billing.cancelAtPeriodEnd.value
-    && !billing.isPaused.value && !billing.isPastDue.value && billing.resumesAt.value === null)
+    && !billing.isPaused.value && !billing.isPastDue.value && !billing.isTrialing.value && billing.resumesAt.value === null)
   const pauseOpen = ref(false)
   const pauseToggle = ref<HTMLElement | null>(null)
   const pauseMonths = ref<number>(PAUSE_MONTHS[0])
@@ -212,13 +214,10 @@ export function createBillingSection(context: BillingSectionContext): BillingSec
     pauseOpen.value = false
     void nextTick(() => returnFocus(pauseToggle.value))
   }
-  /** The period's end, moved on by whole months in UTC, so a pause resumes on the same day of the month. */
+  /** The period's end, moved on by whole months in UTC the way the provider counts them: the same day of the month, or its last. */
   const resumesAfter = (months: number): Date | null => {
     const end = toBillingDate(billing.subscription.value?.currentPeriodEnd)
-    if (!end) return null
-    const at = new Date(end.getTime())
-    at.setUTCMonth(at.getUTCMonth() + months)
-    return at
+    return end ? new Date(addMonths(end.getTime(), months)) : null
   }
   const pausePlan = (months: number) => {
     const resumesAt = resumesAfter(months)

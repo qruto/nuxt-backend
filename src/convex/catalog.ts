@@ -159,6 +159,23 @@ export type CatalogInterval = 'month' | 'year'
 export const CATALOG_INTERVALS = ['month', 'year'] as const satisfies readonly CatalogInterval[]
 
 /**
+ * The date `months` calendar months after `from` (epoch ms), in UTC, the
+ * way the provider adds a monthly period: the same day of the month, or
+ * the month's last day when it has fewer (Jan 31 + 1 month is Feb 28,
+ * not Mar 3). The server's plan passes and the plan section's pause
+ * both count months by it.
+ */
+export function addMonths(from: number, months: number): number {
+  const date = new Date(from)
+  const day = date.getUTCDate()
+  date.setUTCDate(1)
+  date.setUTCMonth(date.getUTCMonth() + months)
+  const last = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate()
+  date.setUTCDate(Math.min(day, last))
+  return date.getTime()
+}
+
+/**
  * A plan's prices in cents, one per billing interval it is sold at. Each
  * becomes a product of its own at the provider, tagged with the plan's key
  * and the interval, so a subscriber switches between them like between

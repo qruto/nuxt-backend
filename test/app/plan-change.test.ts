@@ -255,8 +255,18 @@ describe('the plan section\'s switch and pause', () => {
     expect(part(wrapper, 'settings', 'message').text()).toBe(`The plan pauses when this period ends and resumes ${date}.`)
   })
 
-  it('offers no pause with one scheduled already, or on a plan set to end', async () => {
-    for (const fields of [{ resumesAt: '2099-06-01T00:00:00.000Z' }, { cancelAtPeriodEnd: true }, { status: 'past_due' }]) {
+  it('resumes on the month\'s last day when it is shorter than the period\'s end day, as the provider counts months', async () => {
+    const backend = subscribedTo('prod_pro', { currentPeriodEnd: '2099-01-31T00:00:00.000Z' })
+    const wrapper = await section()
+    await part(wrapper, 'settings', 'pause').trigger('click')
+    await part(wrapper, 'settings', 'confirm-pause').trigger('click')
+    await flushPromises()
+    // Jan 31 and a month is Feb 28, never Mar 3.
+    expect(backend.callsTo('billing:pauseSubscription')).toEqual([{ subscriptionId: undefined, resumesAt: Date.parse('2099-02-28T00:00:00.000Z') }])
+  })
+
+  it('offers no pause with one scheduled already, on a plan set to end, past due, or in its trial', async () => {
+    for (const fields of [{ resumesAt: '2099-06-01T00:00:00.000Z' }, { cancelAtPeriodEnd: true }, { status: 'past_due' }, { status: 'trialing', trialEnd: PERIOD_END }]) {
       subscribedTo('prod_pro', fields)
       const wrapper = await section()
       expect(part(wrapper, 'settings', 'pause').exists(), JSON.stringify(fields)).toBe(false)

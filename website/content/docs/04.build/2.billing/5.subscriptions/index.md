@@ -38,7 +38,7 @@ The buttons follow the subscription, not only the line:
 - **Keep plan** shows on any plan set to cancel, a failed payment set to end included. Its line then says when the plan ends.
 - **Cancel the change** shows on a scheduled change, unless the plan is set to end.
 - **Change plan** shows on a running plan that is not set to end, paused, gifted or already changing. It opens a picker of every price on sale but the one the plan is on, then the [switch's confirmation](#a-switch-says-what-it-does-first).
-- **Pause plan** shows on a running plan with no pause scheduled, not set to end and not past due. It opens a group with what a pause does and its length, one to three months from the period's end, then **Confirm pause**.
+- **Pause plan** shows on a running plan with no pause scheduled, not set to end, not past due and not in its trial, since Polar pauses only an active subscription. It opens a group with what a pause does and its length, one to three months from the period's end, then **Confirm pause**.
 - **Cancel plan** shows unless the plan is set to end or paused, so no state offers a second cancellation the provider would refuse.
 - **Manage billing** opens the billing portal, for the payment method and the invoices, in every subscribed state. After a failed payment, **Update payment method** comes first.
 
@@ -210,7 +210,7 @@ await pause({ resumesAt: new Date('2027-03-01') })   // at the end of the curren
 await resume()                                       // now, starting a new, charged period
 ```
 
-The billing section's **Pause plan** offers one, two or three months, counted from the period's end on the same day of the month: a period ending on March 15 paused for two months resumes on May 15.
+The billing section's **Pause plan** offers one, two or three months, counted from the period's end on the same day of the month, or on the month's last day when it is shorter: a period ending on March 15 paused for two months resumes on May 15, and one ending on January 31 paused for a month resumes on February 28.
 
 The plan runs until the period ends, so `isPaused` is still `false` after `pause` returns, while `resumesAt` reads back at once. Polar never charges for a pause and never starts one mid-period. Once paused, the plan's benefits are revoked and no orders are made. Resuming starts a new period at once and charges it on the card on file, with no second checkout (checked on 2026-10-25). Without a date, the subscription stays paused until `resume()`. Customers pause from the portal only when the organization turns on **Enable subscription pause** in Polar's portal settings. The synced subscriptions table holds neither a scheduled change nor a resume date. The package keeps both from each `subscription.*` webhook and from the response of the change itself, newest first by the provider's `modifiedAt`. They read `null` once their date has passed or the subscription changed since.
 
