@@ -16,7 +16,7 @@ const { default: AdminAccess } = await import('../../src/runtime/vue/components/
 
 // The page's address, read on the server or in the browser (see the helper).
 const { requestURL, serverRequest } = await vi.hoisted(() => import('../helpers/request-url'))
-mockNuxtImport('useRequestURL', original => opts => requestURL(original, opts))
+mockNuxtImport('useRequestURL', original => (opts?: Parameters<typeof requestURL>[1]) => requestURL(original, opts))
 
 enableAutoUnmount(afterEach)
 afterEach(() => {

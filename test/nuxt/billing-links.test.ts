@@ -12,7 +12,7 @@ import { createGiftCheckout } from '../../src/runtime/vue/composables/billing-pr
 
 // The page's address, read on the server or in the browser (see the helper).
 const { requestURL, serverRequest } = await vi.hoisted(() => import('../helpers/request-url'))
-mockNuxtImport('useRequestURL', original => opts => requestURL(original, opts))
+mockNuxtImport('useRequestURL', original => (opts?: Parameters<typeof requestURL>[1]) => requestURL(original, opts))
 
 await registerComponents('BillingCheckoutLink', 'BillingPortalLink', 'PricingEmailOptOut')
 // After the registration, as the module registers them: the checkout link renders the soft opt-in part by name.

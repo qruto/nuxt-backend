@@ -60,7 +60,7 @@ mockNuxtImport('useRoute', () => () => route)
 
 // The page's address, read on the server or in the browser (see the helper).
 const { requestURL, serverRequest } = await vi.hoisted(() => import('../helpers/request-url'))
-mockNuxtImport('useRequestURL', original => opts => requestURL(original, opts))
+mockNuxtImport('useRequestURL', original => (opts?: Parameters<typeof requestURL>[1]) => requestURL(original, opts))
 
 // The launch phase the page reads (useAccessPhase's own tests hold the read).
 const launch = ref<string | undefined>('early-access')
