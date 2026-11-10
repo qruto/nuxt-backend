@@ -89,7 +89,8 @@ describe('applyProviderChanges', () => {
 })
 
 describe('fixProviderSettings', () => {
-  const disabled = { key: 'full', webhook: { url: 'https://happy-otter-123.convex.site/email/events', action: 'exists', missingEvents: [], enabled: false } } as unknown as EmailSyncReport
+  /** What the switch's own read answers: the webhook off, and nothing else read, so nothing logged. */
+  const disabled = { key: 'full', log: [], webhook: { url: 'https://happy-otter-123.convex.site/email/events', action: 'exists', missingEvents: [], enabled: false }, flows: { declared: ['welcome'], unsynced: ['welcome'] } } as unknown as EmailSyncReport
 
   it('turns the email webhook back on once its route answers the probe and the change is confirmed', async () => {
     const asked: unknown[] = []
@@ -103,6 +104,24 @@ describe('fixProviderSettings', () => {
     expect(asked).toEqual([{ prod: false, dryRun: true, enableWebhook: true }, { prod: false, enableWebhook: true }])
     expect(report).toEqual({ applied: ['email-webhook-enabled'], skipped: [], reenabled: ['email'] })
     expect(lines.join('\n')).toContain('replay')
+  })
+
+  it('names what an older backend\'s sync would make with the switch, which its read logs', async () => {
+    // A backend from before enableWebhook changed the switch alone runs the whole sync with it.
+    const older = { ...disabled, log: [{ action: 'exists', kind: 'segment', key: 'accounts' }, { action: 'would-create', kind: 'topic', key: 'tips' }], webhook: { ...disabled.webhook, action: 'would-update', missingEvents: ['email.clicked'] } } as unknown as EmailSyncReport
+    const asked: string[] = []
+    await fixProviderSettings('/nowhere', { prod: false, confirm: async (change) => {
+      asked.push(change.description)
+      return false
+    }, print: () => {}, billing: false }, { probe: async () => ({ state: 'mounted' }), emailSync: vi.fn(async () => older) })
+    expect(asked).toEqual([`Turn the email webhook ${disabled.webhook.url} back on: its route answers the probe now. The deployment runs an older backend, whose sync makes the rest with it: create the topic tips, give the webhook email.clicked, configure the flow welcome.`])
+    // The switch's own read logs nothing: the question is the switch's alone, whatever the flows.
+    asked.length = 0
+    await fixProviderSettings('/nowhere', { prod: false, confirm: async (change) => {
+      asked.push(change.description)
+      return false
+    }, print: () => {}, billing: false }, { probe: async () => ({ state: 'mounted' }), emailSync: vi.fn(async () => disabled) })
+    expect(asked).toEqual([`Turn the email webhook ${disabled.webhook.url} back on: its route answers the probe now.`])
   })
 
   it('leaves the webhook off while its route fails the probe, or when nobody confirms', async () => {

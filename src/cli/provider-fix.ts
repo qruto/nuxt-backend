@@ -95,7 +95,10 @@ async function fixBilling(rootDir: string, { prod, confirm, print, report, probe
  * The email half: the webhook back on, once its route answers the probe,
  * and nothing else. Its events and what `backend/email.ts` declares are
  * `email sync`'s, a step of `doctor --fix` confirmed on its own, so a sync
- * declined there is not made here.
+ * declined there is not made here. A deployment still on a backend from
+ * before that runs the whole sync with `enableWebhook`, its read logging
+ * every declared object where the switch alone logs none: the question
+ * then names what that sync would change too.
  */
 async function fixEmail(rootDir: string, { prod, confirm, print, report, probe, emailSync }: { prod: boolean, confirm: ConfirmChange, print: (line: string) => void, report: ProviderFixReport, probe: typeof probeWebhookRoute, emailSync: typeof runEmailSync }): Promise<void> {
   const read = await emailSync(rootDir, { prod, dryRun: true, enableWebhook: true }).catch(() => null)
@@ -105,7 +108,8 @@ async function fixEmail(rootDir: string, { prod, confirm, print, report, probe, 
     print('[nuxt-backend] doctor --fix: the email webhook stays off: its route does not answer the probe yet. Fix the route (doctor\'s email-webhook-route), then run doctor --fix again.')
     return
   }
-  const change = { description: `Turn the email webhook ${url} back on: its route answers the probe now.` }
+  const alongside = read.log.length > 0 ? emailSyncPlans(read) : []
+  const change = { description: `Turn the email webhook ${url} back on: its route answers the probe now.${alongside.length > 0 ? ` The deployment runs an older backend, whose sync makes the rest with it: ${alongside.join(', ')}.` : ''}` }
   if (!await confirm(change)) {
     report.skipped.push('email-webhook-enabled')
     return
