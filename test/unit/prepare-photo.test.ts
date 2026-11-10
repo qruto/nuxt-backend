@@ -1,8 +1,11 @@
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
+import type { Nuxt } from '@nuxt/schema'
 import { ConvexError } from 'convex/values'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getBackendError } from '../../src/convex/errors'
-import { heicDecoderInstalled } from '../../src/nuxt/photos'
+import { heicDecoderInstalled, registerPhotoDecoder } from '../../src/nuxt/photos'
 import { isPhotoFile, PhotoPrepError, preparePhoto } from '../../src/runtime/vue/composables/prepare-photo'
 
 // preparePhoto with the browser's image APIs stood in for: what it asks the
@@ -10,8 +13,13 @@ import { isPhotoFile, PhotoPrepError, preparePhoto } from '../../src/runtime/vue
 // photo it can't open is refused. Node has Blob, File and AbortSignal; the
 // canvas, the bitmap decoder and <img> are fakes that record their calls.
 
+// The build preparePhoto imports: a mock of `heic-to` itself would leave
+// these tests on the real decoder, which needs a browser.
 const heicTo = vi.hoisted(() => vi.fn())
-vi.mock('heic-to', () => ({ heicTo }))
+vi.mock('heic-to/csp', () => ({ heicTo }))
+
+const addNitroPlugin = vi.hoisted(() => vi.fn())
+vi.mock('@nuxt/kit', async importOriginal => ({ ...await importOriginal<Record<string, unknown>>(), addNitroPlugin }))
 
 interface Drawn { width: number, height: number, fill: string | null, drew: unknown, encoded: { type?: string, quality?: number } | null }
 
@@ -123,6 +131,41 @@ describe('preparePhoto', () => {
     expect((error as Error).cause).toEqual(new Error('heic-to is not installed'))
   })
 
+  it('stops a HEIC the decoder is still on when the upload is canceled, and lets go of a bitmap that comes late', async () => {
+    vi.mocked(createImageBitmap).mockRejectedValueOnce(new DOMException('no', 'InvalidStateError'))
+    let answer!: (bitmap: unknown) => void
+    heicTo.mockReturnValueOnce(new Promise((resolve) => {
+      answer = resolve
+    }))
+    const controller = new AbortController()
+    const preparing = preparePhoto(new File([new Uint8Array([0])], 'photo.heic', { type: 'image/heic' }), controller.signal)
+    await vi.waitFor(() => expect(heicTo).toHaveBeenCalled())
+    controller.abort(new DOMException('Canceled', 'AbortError'))
+    await expect(preparing).rejects.toMatchObject({ name: 'AbortError' })
+
+    const late = bitmap(3024, 4032)
+    answer(late)
+    await vi.waitFor(() => expect(late.close).toHaveBeenCalled())
+    expect(canvases).toEqual([])
+  })
+
+  it('refuses a HEIC as unreadable once the decoder has not answered for a minute, as one whose worker never started', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.mocked(createImageBitmap).mockRejectedValue(new DOMException('no', 'InvalidStateError'))
+      heicTo.mockReturnValue(new Promise(() => {}))
+      const preparing = preparePhoto(new File([new Uint8Array([0])], 'photo.heic', { type: 'image/heic' })).catch((failure: unknown) => failure)
+      await vi.waitFor(() => expect(heicTo).toHaveBeenCalled())
+      await vi.advanceTimersByTimeAsync(60_000)
+      const error = await preparing
+      expect(error).toBeInstanceOf(PhotoPrepError)
+      expect(error).toMatchObject({ reason: 'unreadable', cause: { name: 'TimeoutError' } })
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('falls back to an <img> where the bitmap decoder can\'t open a photo, and lets go of its URL', async () => {
     vi.mocked(createImageBitmap).mockRejectedValueOnce(new TypeError('imageOrientation is not supported'))
     const image = { naturalWidth: 3000, naturalHeight: 3000, decoding: '', src: '', decode: vi.fn(async () => {}) }
@@ -221,5 +264,44 @@ describe('the HEIC decoder, an optional peer', () => {
   it('is a stand-in that refuses when it is absent, which preparePhoto reads as unreadable', async () => {
     const absent = await import('../../src/runtime/vue/utils/heic-absent')
     await expect(absent.heicTo({})).rejects.toThrow(/npm install heic-to/)
+  })
+
+  it('is heic-to\'s CSP build, which compiles nothing at runtime and needs only a worker from a blob: URL', () => {
+    const require = createRequire(import.meta.url)
+    const csp = readFileSync(require.resolve('heic-to/csp'), 'utf8')
+    // No JavaScript from strings, which a script-src without 'unsafe-eval' refuses.
+    expect(csp).not.toMatch(/new Function|\beval\(/)
+    // And no WebAssembly, which would need 'wasm-unsafe-eval': libheif runs as JavaScript.
+    expect(csp).not.toMatch(/WebAssembly/)
+    expect(csp).toContain('isWasm2js:!0')
+    // Its one need beyond the package's policy: blob: in worker-src.
+    expect(csp).toContain('new Worker(URL.createObjectURL(')
+    // The default build is the one a policy refuses.
+    expect(readFileSync(require.resolve('heic-to'), 'utf8')).toMatch(/new Function/)
+  })
+
+  describe('registered with the app', () => {
+    const resolver = { resolve: (path: string) => path.replace(/^\.\//, '/module/') }
+    const app = (rootDir: string, security?: unknown) => ({ options: { rootDir, alias: {}, security } }) as unknown as Nuxt
+    beforeEach(() => addNitroPlugin.mockClear())
+
+    it('points the build at the stand-in where the app has not installed it, and touches no header', () => {
+      const nuxt = app(tmpdir())
+      registerPhotoDecoder(resolver as never, nuxt)
+      expect(nuxt.options.alias).toEqual({ 'heic-to/csp': '/module/runtime/vue/utils/heic-absent' })
+      expect(addNitroPlugin).not.toHaveBeenCalled()
+    })
+
+    it('lets its blob: worker through the security headers where the app installed it, unless the headers are off', () => {
+      const nuxt = app(process.cwd())
+      registerPhotoDecoder(resolver as never, nuxt)
+      expect(nuxt.options.alias).toEqual({})
+      const plugin = '/module/runtime/server/photo-decoder-csp'
+      expect(addNitroPlugin).toHaveBeenCalledExactlyOnceWith({ nitro2: plugin, nitro3: plugin })
+
+      addNitroPlugin.mockClear()
+      registerPhotoDecoder(resolver as never, app(process.cwd(), false))
+      expect(addNitroPlugin).not.toHaveBeenCalled()
+    })
   })
 })

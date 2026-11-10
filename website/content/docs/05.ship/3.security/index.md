@@ -51,7 +51,9 @@ With [Sentry](/docs/services/sentry) wired, the browser's error reports need not
 
 With [Nuxt Content](https://content.nuxt.com) installed, a plugin adds `'wasm-unsafe-eval'` to `script-src` (or a `script-src` of its own, from `default-src`). Content queries its collections in the browser through SQLite built to WebAssembly, and without that source a client-side navigation to a Content page finds nothing. It lets the page compile WebAssembly and nothing else: `eval()` of JavaScript stays refused.
 
-Every one of these additions goes into the app-wide policy, the `/**` rule. A route rule of yours that sets a directive of its own replaces that directive for its paths, since nuxt-security merges a route's source list over the app's by replacing it (`defuReplaceArray`). A `script-src` on a route of yours then loses `'wasm-unsafe-eval'` and the bot check's origin, and a `connect-src` the deployment's origins: list them in it yourself.
+With `heic-to` installed, the HEIC decoder [`preparePhoto`](/docs/build/data/files/checked-uploads#prepare-photos-in-the-browser) loads, a plugin adds `blob:` to `worker-src` (`child-src` when the policy falls back to it). The decoder runs in a worker it starts from a `blob:` URL, which `worker-src 'self'` refuses. The build the package loads, `heic-to/csp`, compiles no JavaScript and no WebAssembly at runtime, so `script-src` gains nothing.
+
+Every one of these additions goes into the app-wide policy, the `/**` rule. A route rule of yours that sets a directive of its own replaces that directive for its paths, since nuxt-security merges a route's source list over the app's by replacing it (`defuReplaceArray`). A `script-src` on a route of yours then loses `'wasm-unsafe-eval'` and the bot check's origin, a `worker-src` the decoder's `blob:`, and a `connect-src` the deployment's origins: list them in it yourself.
 
 The auth proxy (`/api/auth/**`) carries its own rules, merged over the global config, and your `routeRules` can override them in turn:
 

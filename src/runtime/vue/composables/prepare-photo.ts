@@ -72,11 +72,49 @@ export function isPhotoFile(file: Blob): boolean {
 
 type Drawable = ImageBitmap | HTMLImageElement
 
-/** The HEIC decoder, loaded the first time a HEIC arrives; never on the server, which prepares no photo. */
-async function decodeHeic(file: Blob): Promise<ImageBitmap> {
-  const decoder = import.meta.server ? null : await import('heic-to')
-  if (!decoder) throw new PhotoPrepError('unreadable')
-  return await decoder.heicTo({ blob: file, type: 'bitmap', options: { imageOrientation: 'from-image' } })
+/**
+ * How long a HEIC may take to open, in milliseconds, its decoder's first
+ * load included, before it is refused as `unreadable`. A decoder whose
+ * worker never started answers no call, and `heic-to` keeps that worker for
+ * every later one: without a limit, a photo would wait forever.
+ */
+const HEIC_DECODE_TIMEOUT = 60_000
+
+/**
+ * The HEIC decoder, loaded the first time a HEIC arrives; never on the
+ * server, which prepares no photo. `heic-to/csp` is the build that runs
+ * under a content security policy without `'unsafe-eval'`: libheif compiled
+ * to plain JavaScript, in a worker started from a `blob:` URL, which the
+ * module lets through `worker-src` (src/nuxt/photos.ts). It stops when
+ * `signal` aborts, with the signal's reason, and fails after
+ * {@link HEIC_DECODE_TIMEOUT}; a bitmap that arrives after either is let go.
+ */
+async function decodeHeic(file: Blob, signal: AbortSignal | undefined): Promise<ImageBitmap> {
+  const decoding = (async () => {
+    const decoder = import.meta.server ? null : await import('heic-to/csp')
+    if (!decoder) throw new PhotoPrepError('unreadable')
+    return await decoder.heicTo({ blob: file, type: 'bitmap', options: { imageOrientation: 'from-image' } })
+  })()
+  return await new Promise<ImageBitmap>((resolve, reject) => {
+    let settled = false
+    const settle = (done: () => void) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort)
+      done()
+    }
+    const onAbort = () => settle(() => reject(signal!.reason))
+    const timer = setTimeout(() => settle(() => reject(new DOMException('The HEIC decoder did not answer in time.', 'TimeoutError'))), HEIC_DECODE_TIMEOUT)
+    signal?.addEventListener('abort', onAbort, { once: true })
+    decoding.then(
+      (bitmap) => {
+        if (settled) bitmap.close()
+        else settle(() => resolve(bitmap))
+      },
+      (error: unknown) => settle(() => reject(error)),
+    )
+  })
 }
 
 /** The file as an `<img>`, for an engine whose `createImageBitmap` can't open it but whose images still honour EXIF. */
@@ -97,9 +135,10 @@ async function decodeImage(file: Blob): Promise<HTMLImageElement> {
 /**
  * Decode a file the way this browser can: `createImageBitmap` first, turned
  * upright (Safari opens HEIC so), then a HEIC through `heic-to`, an optional
- * peer loaded only when one arrives, then an `<img>`.
+ * peer loaded only when one arrives, then an `<img>`. An abort meanwhile
+ * throws the signal's reason, never a refusal.
  */
-async function decode(file: Blob): Promise<Drawable> {
+async function decode(file: Blob, signal: AbortSignal | undefined): Promise<Drawable> {
   try {
     if (typeof createImageBitmap === 'function') return await createImageBitmap(file, { imageOrientation: 'from-image' })
   }
@@ -107,11 +146,12 @@ async function decode(file: Blob): Promise<Drawable> {
     // The next decoder may open it.
   }
   try {
-    if (isHeic(file)) return await decodeHeic(file)
+    if (isHeic(file)) return await decodeHeic(file, signal)
     if (typeof Image !== 'function') throw new TypeError('No image decoder in this environment')
     return await decodeImage(file)
   }
   catch (cause) {
+    signal?.throwIfAborted()
     throw cause instanceof PhotoPrepError ? cause : new PhotoPrepError('unreadable', { cause })
   }
 }
@@ -207,7 +247,7 @@ export async function preparePhoto(file: Blob, options: PreparePhotoOptions | Ab
   const { longEdge, quality, type } = checked(rest)
   signal?.throwIfAborted()
   if (!isPhotoFile(file)) throw new PhotoPrepError('unsupported_type')
-  const source = await decode(file)
+  const source = await decode(file, signal)
   try {
     signal?.throwIfAborted()
     const { width, height } = fitLongEdge(sizeOf(source).width, sizeOf(source).height, longEdge)

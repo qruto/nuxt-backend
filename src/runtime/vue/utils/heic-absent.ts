@@ -1,4 +1,4 @@
-// What `heic-to` resolves to in an app that has not installed it, an
+// What `heic-to/csp` resolves to in an app that has not installed `heic-to`, an
 // optional peer (src/nuxt/photos.ts): `preparePhoto` then opens a HEIC only
 // where the browser does (Safari), and refuses it as `unreadable` elsewhere.
 
