@@ -724,10 +724,10 @@ describe('module registration (defaults)', () => {
     expect(nitroPlugins(nuxt).filter(plugin => plugin.includes('monitoring'))).toEqual([])
   })
 
-  it('adds the noindex plugin and the client-side session-ended, onboarding-redirect, checkout-return, first-touch, email-presence, passkey-ceremony, protection and trusted-types plugins outside dev', () => {
+  it('adds the noindex plugin and the client-side session-ended, onboarding-redirect, checkout-return, first-touch, email-presence, passkey-ceremony, protection, trusted-types and chunk-recovery plugins outside dev', () => {
     const plugins = getNuxt().options.plugins.filter(entry => typeof entry !== 'string' && entry.src.startsWith(runtimeDir)) as Array<{ src: string, mode?: string }>
-    expect(ourPlugins(getNuxt())).toHaveLength(9)
-    expect(plugins.map(plugin => plugin.src.replace(/^.*[\\/]vue[\\/]plugins[\\/]/, '').replace(/\.ts$/, '')).sort()).toEqual(['checkout-return', 'email-presence', 'first-touch', 'noindex', 'onboarding-redirect', 'passkey-ceremony', 'protection.client', 'session-ended', 'trusted-types.client'])
+    expect(ourPlugins(getNuxt())).toHaveLength(10)
+    expect(plugins.map(plugin => plugin.src.replace(/^.*[\\/]vue[\\/]plugins[\\/]/, '').replace(/\.ts$/, '')).sort()).toEqual(['checkout-return', 'chunk-recovery.client', 'email-presence', 'first-touch', 'noindex', 'onboarding-redirect', 'passkey-ceremony', 'protection.client', 'session-ended', 'trusted-types.client'])
 
     for (const plugin of plugins) {
       // The noindex meta tag is on the server's render too; everything else is the browser's.

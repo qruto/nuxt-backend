@@ -284,6 +284,16 @@ export const BROWSER_STORAGE = {
     lasts: 'The app\'s cool-down, a year at most.',
     consent: 'preferences',
   },
+  chunkReload: {
+    capability: 'hosting',
+    name: 'nuxt-backend:reload',
+    kind: 'sessionStorage',
+    httpOnly: false,
+    set: 'A page\'s code fails to load before the app starts, and the page reloads to fetch it again.',
+    why: 'Keeps that page from reloading again for a minute, so a failure that persists never turns into a loop.',
+    lasts: 'Until the tab closes.',
+    consent: 'necessary',
+  },
   pushSubscription: {
     capability: 'notifications',
     name: PUSH_WORKER_URL,

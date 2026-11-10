@@ -2053,6 +2053,10 @@
           "why": "Garde le message masqué pendant la durée fixée par l’application. Si les préférences ne sont pas autorisées, il n’est conservé que pour l’onglet.",
           "lasts": "Le délai de l’application, un an au plus."
         },
+        "chunkReload": {
+          "why": "Empêche la page de se recharger à nouveau pendant une minute, pour qu’une panne qui persiste ne tourne jamais en boucle.",
+          "lasts": "Jusqu’à la fermeture de l’onglet."
+        },
         "pushSubscription": {
           "why": "L’abonnement push permet à l’application d’envoyer des notifications à cet appareil. Le service worker, lorsque le navigateur en a besoin, les affiche et ouvre l’application en cas de clic ; il ne met rien en cache.",
           "lasts": "Jusqu’à ce que la personne désactive les notifications sur l’appareil ou retire l’autorisation du site."

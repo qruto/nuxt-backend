@@ -2053,6 +2053,10 @@
           "why": "Hält den Hinweis für die von der App festgelegte Zeit ausgeblendet. Ohne erlaubte Präferenzen gilt das nur für den Tab.",
           "lasts": "Die Sperrfrist der App, höchstens ein Jahr."
         },
+        "chunkReload": {
+          "why": "Verhindert, dass die Seite innerhalb einer Minute erneut neu lädt, damit ein anhaltender Fehler nie zu einer Schleife wird.",
+          "lasts": "Bis der Tab geschlossen wird."
+        },
         "pushSubscription": {
           "why": "Über das Push-Abonnement kann die App diesem Gerät Benachrichtigungen senden. Der Service Worker, wo der Browser einen braucht, zeigt sie an und öffnet die App bei einem Klick; er speichert nichts im Cache.",
           "lasts": "Bis die Person Benachrichtigungen auf dem Gerät ausschaltet oder der Website die Berechtigung entzieht."
