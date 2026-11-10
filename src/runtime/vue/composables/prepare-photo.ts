@@ -220,7 +220,7 @@ async function decodeHeic(file: Blob, signal: AbortSignal | undefined): Promise<
     const onAbort = () => settle(() => reject(signal!.reason))
     const timer = setTimeout(() => {
       heicDecoderStalled = true
-      settle(() => reject(new DOMException('The HEIC decoder did not answer in time.', 'TimeoutError')))
+      settle(() => reject(new DOMException('[nuxt-backend] The HEIC decoder did not answer in time.', 'TimeoutError')))
     }, HEIC_DECODE_TIMEOUT)
     signal?.addEventListener('abort', onAbort, { once: true })
     decoding.then(
