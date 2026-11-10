@@ -195,7 +195,7 @@ export interface AcceptUploadOptions<Kept> {
    * - Runs: in the action that calls `acceptUpload`, through the `ctx` your callback closed over (an internal query of yours, a rate limit)
    * - Delivery: once per `acceptUpload`; a person's retry calls `acceptUpload` again, and with it this
    * - Order: first, before the content check and `keep`
-   * - When it throws: `acceptUpload` throws its error, and neither the content check nor `keep` runs; an `invalid_input` or `quota_exceeded` refusal discards the upload, any other error keeps it for a retry. A check that returns `false` is refused as `invalid_input` on `file`, so the upload is discarded
+   * - When it throws: `acceptUpload` throws its error, and neither the content check nor `keep` runs; an `invalid_input` on `file` or `images`, or a `quota_exceeded`, discards the upload, any other error keeps it for a retry. A check that returns `false` is refused as `invalid_input` on `file`, so the upload is discarded
    * - Idempotency: a check: it may run again for the same upload, so it should write nothing a second run would trip over
    */
   check?: () => boolean | null | void | Promise<boolean | null | void> // eslint-disable-line @typescript-eslint/no-invalid-void-type -- a check that returns nothing passes; `() => void` alone would admit any return, a rate limit's `{ ok: false }` included
@@ -212,7 +212,7 @@ export interface AcceptUploadOptions<Kept> {
    * - Runs: in the action that calls `acceptUpload`, through the `ctx` your callback closed over (`ctx.runMutation` of your mutation)
    * - Delivery: once per `acceptUpload` whose check and content check passed
    * - Order: last, after `check` and the content check passed
-   * - When it throws: `acceptUpload` throws its error; your mutation rolled back, the claim with it, so an `invalid_input` or `quota_exceeded` refusal (the claim's own, the type or the size, the quota) discards the upload, and any other error keeps it for a retry
+   * - When it throws: `acceptUpload` throws its error; your mutation rolled back, the claim with it, so a refusal of the file (the claim's own `invalid_input` on `file`, the type or the size, or the quota's `quota_exceeded`) discards the upload, and any other error, an `invalid_input` on a field of yours among them, keeps it for a retry
    * - Idempotency: your mutation's transaction: its claim and your row commit together or not at all, and a second keep of a claimed upload is refused `upload_claimed`
    */
   keep: () => Kept | Promise<Kept>
@@ -280,11 +280,11 @@ export interface Storage<DM extends GenericDataModel = GenericDataModel> {
    * Accept an upload sent to an upload URL, in an action of yours: your
    * `check`, then the content check (`safety`, your `ai`), then your `keep`,
    * the mutation that claims it. A refusal of the upload itself
-   * (`invalid_input`, the classifier's `content_blocked` among them, or
-   * `quota_exceeded`) discards it at once and throws, though a file kept
-   * already stays as it is; any other failure (a provider down, another
-   * workspace's row) keeps it, so the same id can be sent again. Returns
-   * what `keep` returned.
+   * (`invalid_input` on `file` or `images`, the classifier's
+   * `content_blocked` among them, or `quota_exceeded`) discards it at once
+   * and throws, though a file kept already stays as it is; any other failure
+   * (a provider down, another workspace's row, a caption `keep` refused)
+   * keeps it, so the same id can be sent again. Returns what `keep` returned.
    *
    * @example
    * ```ts [backend/strips.ts]
@@ -370,10 +370,20 @@ interface StorageRefs {
 /** How long a preview card's URL works: seven days, minted again on each read. */
 const PREVIEW_TTL_MS = SIGNED_URL_TTL_MAX_MS
 
-/** A refusal of an upload itself, which the same file would meet again: `invalid_input` (the classifier's `content_blocked` among them) or `quota_exceeded`. */
+/** The fields an `invalid_input` names when it refuses the upload itself: the claim's and your check's `file`, the content check's `images`. */
+const UPLOAD_FIELDS: ReadonlySet<unknown> = new Set(['file', 'images'])
+
+/**
+ * A refusal of an upload itself, which the same file would meet again:
+ * `invalid_input` on the file (the claim's `too_large`, the classifier's
+ * `content_blocked`) or `quota_exceeded`. An `invalid_input` on another
+ * field, a caption `keep` refused, says nothing about the file, so the
+ * upload stays for a retry with the field put right.
+ */
 const isUploadRefusal = (error: unknown): boolean => {
-  const code = getBackendError(error)?.code
-  return code === 'invalid_input' || code === 'quota_exceeded'
+  const refusal = getBackendError(error)
+  if (refusal?.code === 'quota_exceeded') return true
+  return refusal?.code === 'invalid_input' && UPLOAD_FIELDS.has(refusal.data.field)
 }
 
 /** A refusal of the file itself: `invalid_input` on `file`, with why. */

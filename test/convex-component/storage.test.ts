@@ -141,18 +141,21 @@ const checkCover = queryGeneric({
     if ((await ctx.db.get(id))?.workspaceId !== workspaceId) throw backendError('forbidden', { reason: 'other_workspace' })
   },
 })
+// `caption`: a field of the strip's own that keepCover refuses when it is
+// empty, after the claim, as an app's keep checks what came with the file.
 const keepCover = mutationGeneric({
-  args: { id: v.id('strips'), fileId: v.string(), userId: v.string(), workspaceId: v.string() },
-  handler: async (ctx, { id, fileId, userId, workspaceId }) => {
+  args: { id: v.id('strips'), fileId: v.string(), userId: v.string(), workspaceId: v.string(), caption: v.optional(v.string()) },
+  handler: async (ctx, { id, fileId, userId, workspaceId, caption }) => {
     await storage.claim(ctx, fileId, { userId, workspaceId })
+    if (caption === '') throw backendError('invalid_input', { field: 'caption', reason: 'empty' })
     await ctx.db.patch(id, { coverId: fileId })
     return { fileId }
   },
 })
 const acceptCover = actionGeneric({
   // `answer`: a check that returns it, in place of checkCover's throw.
-  args: { id: v.id('strips'), fileId: v.string(), unchecked: v.optional(v.boolean()), misconfigured: v.optional(v.boolean()), answer: v.optional(v.boolean()) },
-  handler: async (ctx, { id, fileId, unchecked, misconfigured, answer }) => {
+  args: { id: v.id('strips'), fileId: v.string(), unchecked: v.optional(v.boolean()), misconfigured: v.optional(v.boolean()), answer: v.optional(v.boolean()), caption: v.optional(v.string()) },
+  handler: async (ctx, { id, fileId, unchecked, misconfigured, answer, caption }) => {
     const owner = await caller(ctx)
     return storage.acceptUpload(ctx, fileId, {
       check: answer === undefined
@@ -160,7 +163,7 @@ const acceptCover = actionGeneric({
         : async () => answer,
       safety: misconfigured ? undefined as never : unchecked ? false : fakeAi,
       about: { subject: id },
-      keep: () => ctx.runMutation(makeFunctionReference<'mutation', Record<string, unknown>, { fileId: string }>('strips:keepCover'), { id, fileId, ...owner }),
+      keep: () => ctx.runMutation(makeFunctionReference<'mutation', Record<string, unknown>, { fileId: string }>('strips:keepCover'), { id, fileId, caption, ...owner }),
     })
   },
 })
@@ -218,7 +221,7 @@ const ref = {
   downloadUrl: makeFunctionReference<'query', { storageId: string, ttl?: number }, string | null>('strips:downloadUrl'),
   dropUpload: makeFunctionReference<'mutation', { fileId: string }, boolean>('strips:dropUpload'),
   dropUploadLater: makeFunctionReference<'action', { fileId: string }, boolean>('strips:dropUploadLater'),
-  acceptCover: makeFunctionReference<'action', { id: string, fileId: string, unchecked?: boolean, misconfigured?: boolean, answer?: boolean }, { fileId: string }>('strips:acceptCover'),
+  acceptCover: makeFunctionReference<'action', { id: string, fileId: string, unchecked?: boolean, misconfigured?: boolean, answer?: boolean, caption?: string }, { fileId: string }>('strips:acceptCover'),
   expirePhoto: makeFunctionReference<'mutation', { id: string, at: number | null }, boolean>('strips:expirePhoto'),
   expireFile: makeFunctionReference<'mutation', { fileId: string, at: number | null }, boolean>('strips:expireFile'),
   shareEvents: makeFunctionReference<'query', Record<string, never>, Array<{ stripId: string, by: string, rotated: boolean }>>('strips:shareEvents'),
@@ -617,6 +620,20 @@ describe('acceptUpload', () => {
 
     safety.verdict = 'safe'
     expect(await author.action(ref.acceptCover, { id, fileId })).toEqual({ fileId })
+    expect(await coverOf(t, id)).toBe(fileId)
+  })
+
+  test('keeps the upload for a retry when keep refuses a field of the row, not the file', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const id = await author.mutation(ref.create, { title: 'Monday' })
+    const fileId = await upload(t, png())
+    expect(await refusal(author.action(ref.acceptCover, { id, fileId, caption: '' }))).toMatchObject({ code: 'invalid_input', data: { field: 'caption', reason: 'empty' } })
+    expect(await exists(t, fileId)).toBe(true)
+    expect(await coverOf(t, id)).toBeUndefined()
+
+    // The caption put right, the same upload is kept.
+    expect(await author.action(ref.acceptCover, { id, fileId, caption: 'Monday morning' })).toEqual({ fileId })
     expect(await coverOf(t, id)).toBe(fileId)
   })
 
