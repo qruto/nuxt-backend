@@ -92,6 +92,33 @@ const misprint = jobs.define({
   },
 })
 
+/** A binding step whose binder is always busy: a `503` that asks for five minutes, so four tries of it take a quarter of an hour. */
+const bind = jobs.step({
+  args: { comicId: v.string() },
+  handler: async () => {
+    throw Object.assign(new Error('The binder is busy.'), { statusCode: 503, responseHeaders: { 'retry-after': '300' } })
+  },
+})
+
+/**
+ * A comic charged as soon as its pages are drawn, then bound for about two
+ * and a half hours, ten rounds of a busy binder, and never bound: its owed
+ * charge's tries give up while it still runs, and it fails after.
+ */
+const longPrint = jobs.define({
+  meter: 'credits',
+  charge: 'output',
+  cost: ({ pages }) => pages,
+  args: { comicId: v.string(), pages: v.number() },
+  handler: async (job, { comicId, pages }) => {
+    await job.charge(pages, { metadata: { comicId } })
+    for (let round = 0; round < 10; round++) {
+      await job.run(makeFunctionReference<'action'>('comics:bind') as unknown as FunctionReference<'action', 'internal'>, { comicId }).catch(() => null)
+    }
+    throw new Error('The comic could not be bound.')
+  },
+})
+
 /** A cover, charged its two credits as it starts. */
 const cover = jobs.define({
   meter: 'credits',
@@ -129,16 +156,17 @@ const testApp = defineBackendTestApp(appSchema, {
   './_generated/api.js': () => Promise.resolve({}),
   './ai.js': () => Promise.resolve(ai.api),
   './jobs.js': () => Promise.resolve(jobs.api),
-  './comics.js': () => Promise.resolve({ drawPage, print, misprint, cover, start, read, ended, owed, sawJob }),
+  './comics.js': () => Promise.resolve({ drawPage, bind, print, misprint, longPrint, cover, start, read, ended, owed, sawJob }),
 })
 type App = ReturnType<typeof testApp>
 
 const ref = {
-  start: makeFunctionReference<'mutation', { kind: 'print' | 'misprint' | 'cover', comicId: string, pages?: number }, string>('comics:start'),
+  start: makeFunctionReference<'mutation', { kind: 'print' | 'misprint' | 'longPrint' | 'cover', comicId: string, pages?: number }, string>('comics:start'),
   read: makeFunctionReference<'query', { jobId: string }, Record<string, unknown> | null>('comics:read'),
   getJob: makeFunctionReference<'query', { jobId: string }, Record<string, unknown> | null>('jobs:getJob'),
   cancelJob: makeFunctionReference<'mutation', { jobId: string, refund?: boolean }, null>('jobs:cancelJob'),
   retryJob: makeFunctionReference<'mutation', { jobId: string }, null>('jobs:retryJob'),
+  runQueue: makeFunctionReference<'mutation', Record<string, unknown>, null>('jobs:runQueue'),
   listJobs: makeFunctionReference<'query', { paginationOpts: { numItems: number, cursor: string | null } }, { page: Array<Record<string, unknown>> }>('jobs:listJobs'),
   listModerationFlags: makeFunctionReference<'query', { paginationOpts: { numItems: number, cursor: string | null } }, { page: Array<Record<string, unknown>> } | null>('ai:listModerationFlags'),
 }
@@ -152,6 +180,8 @@ const job = (t: App, jobId: string) => t.query(ref.read, { jobId })
 const rows = <Table extends 'ends' | 'owedCharges' | 'steps'>(t: App, table: Table) => t.run(ctx => ctx.db.query(table).collect())
 /** The job's row as the queue keeps it. */
 const row = async (t: App, jobId: string) => await t.query(backend.jobs.get as unknown as FunctionReference<'query'>, { jobId }) as Record<string, unknown> | null
+/** The kinds of the events the trail recorded, oldest first. */
+const trail = async (t: App) => ((await t.query(backend.audit.list as unknown as FunctionReference<'query'>, { view: { kind: 'all', viewerId: 'reader' }, paginationOpts: { numItems: 50, cursor: null } })) as { page: Array<{ type: string, data?: Record<string, unknown> }> }).page.map(event => event.type).reverse()
 
 let provider: TestBillingProvider
 
@@ -219,11 +249,85 @@ describe('a charge the provider refuses for now', () => {
     provider.accept()
     await admin.mutation(ref.retryJob, { jobId })
     expect(await job(t, jobId)).toMatchObject({ owed: { credits: 2, givenUp: false } })
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(8)
+    // A second click while the charge is tried again leaves it to its tries: no second hold, no second event.
+    await admin.mutation(ref.retryJob, { jobId })
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(8)
     await drain(t, vi)
     expect(provider.charges).toEqual([expect.objectContaining({ value: 2, metadata: expect.objectContaining({ comicId: 'comic-2' }) })])
     expect(await job(t, jobId)).toMatchObject({ status: 'done', charged: 2 })
     expect(await rows(t, 'owedCharges')).toEqual([expect.objectContaining({ status: 'given_up' }), expect.objectContaining({ status: 'charged', credits: 2 })])
     expect(await balanceOf(t, ada.workspaceId!)).toBe(8)
+    // The trail names a charge's retry as such, once, never as a job put back in line.
+    const kinds = await trail(t)
+    expect(kinds.filter(kind => kind === 'job.charge_retried')).toHaveLength(1)
+    expect(kinds).not.toContain('job.retried')
+  })
+
+  test('given up while the job still ran, is dropped as the job fails: its retry runs the job again, never charges and refunds it', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 10 } })
+    provider.refuse('charges')
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const jobId = await ada.mutation(ref.start, { kind: 'longPrint', comicId: 'comic-8', pages: 3 })
+    // Its charge's tries give up about two hours in, while it still binds.
+    await drain(t, vi, { until: async () => (await rows(t, 'owedCharges')).length > 0 })
+    expect(await job(t, jobId)).toMatchObject({ status: 'running', owed: { credits: 3, givenUp: true } })
+    await drain(t, vi)
+
+    // Failed: it made nothing it is charged for, so it owes nothing, and only Retry is offered.
+    expect(await job(t, jobId)).toMatchObject({ status: 'failed', charged: 0 })
+    expect(await job(t, jobId)).not.toHaveProperty('owed')
+    expect(await row(t, jobId)).not.toHaveProperty('chargeOwed')
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(10)
+
+    provider.accept()
+    const admin = await asUser(t, { role: 'admin' })
+    await admin.mutation(ref.retryJob, { jobId })
+    // Back in line under a fresh hold, as any dead letter: nothing charged, nothing refunded.
+    expect(await row(t, jobId)).toMatchObject({ status: 'queued', retries: 1 })
+    expect(provider.events).toEqual([])
+    expect(await trail(t)).toContain('job.retried')
+    expect(await trail(t)).not.toContain('job.charge_retried')
+    vi.restoreAllMocks()
+  })
+
+  test('that lands as the job fails is refunded: charged once, given back once, the balance as it was', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 10 } })
+    provider.refuse('charges', 1)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const jobId = await ada.mutation(ref.start, { kind: 'longPrint', comicId: 'comic-9', pages: 3 })
+    await drain(t, vi, { until: async () => (await row(t, jobId))?.chargeOwed === 'pending' })
+
+    // The background try reaches the provider while the job fails: the workflow's end, run from inside the request.
+    const fetched = globalThis.fetch
+    let failed = false
+    globalThis.fetch = async (input, init) => {
+      if (!failed) {
+        failed = true
+        await t.mutation(ref.runQueue as unknown as FunctionReference<'mutation', 'internal'>, { workflowId: 'wf', result: { kind: 'failed', error: 'The comic could not be bound.' }, context: { jobId } })
+      }
+      return fetched(input, init)
+    }
+    await drain(t, vi, { until: async () => provider.charges.length > 0 })
+    globalThis.fetch = fetched
+    await drain(t, vi)
+
+    expect(await job(t, jobId)).toMatchObject({ status: 'failed' })
+    expect(provider.charges).toEqual([expect.objectContaining({ value: 3 })])
+    expect(provider.refunds).toEqual([expect.objectContaining({ value: -3, externalId: `${provider.charges[0]!.externalId}-refund` })])
+    expect(await row(t, jobId)).toMatchObject({ charged: true, refunded: true })
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(10)
+    // The end dropped the charge before it landed: the app heard the job fail uncharged, and no owed charge end.
+    expect(await rows(t, 'ends')).toEqual([expect.objectContaining({ jobId, status: 'failed', charged: 0 })])
+    expect(await rows(t, 'owedCharges')).toEqual([])
+    vi.restoreAllMocks()
   })
 
   test('is dropped for a job that fails after it: nothing charged, nothing tried again, and its hold goes back', async () => {

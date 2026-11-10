@@ -472,7 +472,8 @@
         "job": {
           "queue_changed": "{actor} changed the job queue",
           "canceled": "{actor} canceled a job",
-          "retried": "{actor} put a failed job back in line"
+          "retried": "{actor} put a failed job back in line",
+          "charge_retried": "{actor} tried a job's owed charge again"
         },
         "ai": {
           "spend_limit_reached": "{actor} paused AI: today's spend limit was reached"

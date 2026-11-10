@@ -1805,19 +1805,22 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   })
 
   /**
-   * An administrator's retry of a done job whose charge gave up: the charge
-   * is owed again, its credits held again, and it is tried at once; the
-   * job's result stands. `false` for any other job.
+   * An administrator's retry of a job whose charge gave up, done, still
+   * running or canceled without a refund: the charge is owed again, its
+   * credits held again, and it is tried at once; the job's result stands.
+   * One already owed again (a second click) is left to its tries. `false`
+   * for any other job, a failed one included: its retry runs it again.
    */
   const retryOwedCharge = async (ctx: Ctx, job: JobRow | null, actor: string): Promise<boolean> => {
-    if (job?.chargeOwed !== 'given_up') return false
+    if (job?.chargeOwed === undefined || job.charged || job.status === 'failed' || (job.status === 'canceled' && job.cancel?.refund === true)) return false
+    if (job.chargeOwed === 'pending') return true
     const hold = reservationOf(job)
     const price = job.price ?? 0
     if (hold && await ctx.runMutation(queue.oweCharge, { jobId: job._id, price, at: Date.now(), again: true })) {
       await billing.reserveCredits(ctx as never, { userId: job.owner, meter: hold.meter, meterId: hold.meterId, value: price, externalId: hold.externalId, hold: HOLD_MS, allowOverage: true, allowRefresh: false }).catch(() => undefined)
       await scheduleOwed(ctx, job._id, 1, 0)
+      await billing.recordEvent(ctx as never, job.owner, { type: 'job.charge_retried', actor, data: { kind: job.kind, credits: price } } as never)
     }
-    await billing.recordEvent(ctx as never, job.owner, { type: 'job.retried', actor, data: { kind: job.kind } } as never)
     return true
   }
 

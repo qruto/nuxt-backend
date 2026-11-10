@@ -472,7 +472,8 @@
         "job": {
           "queue_changed": "{actor} cambió la cola de tareas",
           "canceled": "{actor} canceló una tarea",
-          "retried": "{actor} volvió a poner en cola una tarea fallida"
+          "retried": "{actor} volvió a poner en cola una tarea fallida",
+          "charge_retried": "{actor} volvió a intentar el cobro pendiente de una tarea"
         },
         "ai": {
           "spend_limit_reached": "{actor} pausó la IA: se alcanzó el límite de gasto de hoy"

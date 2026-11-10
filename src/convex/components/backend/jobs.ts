@@ -205,6 +205,9 @@ const pickWindow = (policy: QueuePolicy, tiers: readonly ResolvedTier[]): number
 const owesRefund = (job: Doc<'jobs'>, status: Doc<'jobs'>['status'], refund: boolean): boolean =>
   refund && job.charged && !job.refunded && (job.price ?? job.cost) > 0 && (status === 'failed' || status === 'canceled')
 
+/** Whether a job ended giving its credits back: failed, or canceled with a refund. It owes no charge. */
+const endedRefunded = (job: Doc<'jobs'>): boolean => job.status === 'failed' || (job.status === 'canceled' && job.cancel?.refund === true)
+
 /** A guest job: one a signed-out visitor started, claimed at sign-up or not. */
 const isGuest = (job: Doc<'jobs'>): boolean => job.visitor !== undefined
 
@@ -597,14 +600,19 @@ export const finish = mutation({
 
 /**
  * Drop a charge a job still owes as it ends refunded, failed or canceled
- * with a refund: it made nothing it is charged for. A done job, or one
- * canceled without a refund, keeps it. Answers whether one was dropped:
- * the app lets its hold go.
+ * with a refund: it made nothing it is charged for, whether the charge is
+ * still tried or its tries gave up while the job ran. A done job, or one
+ * canceled without a refund, keeps it. Answers whether a charge still
+ * tried was dropped: the app lets its hold go, and a try on its way may
+ * still land, to be refunded. A given-up one has no try left: its hold
+ * went back as it gave up, and its claim goes now, so a retry of the job
+ * need not wait for a charge that cannot land.
  */
 async function dropOwedCharge(ctx: MutationCtx, job: Doc<'jobs'>, refunded: boolean): Promise<boolean> {
-  if (!refunded || job.chargeOwed !== 'pending') return false
-  await ctx.db.patch('jobs', job._id, { chargeOwed: undefined, chargeAt: undefined })
-  return true
+  if (!refunded || job.chargeOwed === undefined) return false
+  const pending = job.chargeOwed === 'pending'
+  await ctx.db.patch('jobs', job._id, { chargeOwed: undefined, chargeAt: undefined, ...(pending ? {} : { charging: undefined }) })
+  return pending
 }
 
 /**
@@ -704,9 +712,10 @@ export const mark = mutation({
  * Owe a running job's charge, for a kind charged by output: the provider
  * refused `job.charge` for now, so the job runs on and its charge is tried
  * again in the background, the first try due at `at`. `again` owes once
- * more a charge whose tries gave up: an administrator's retry. Answers
- * whether it is owed now; `false` for a job charged already, or one that
- * ended before its charge was owed.
+ * more a charge whose tries gave up: an administrator's retry, for a job
+ * that runs, is done or was canceled without a refund. Answers whether it
+ * is owed now; `false` for a job charged already, one that ended before
+ * its charge was owed, or one that failed or was refunded since.
  */
 export const oweCharge = mutation({
   args: { jobId: v.string(), price: v.number(), at: v.number(), metadata: v.optional(v.record(v.string(), v.string())), again: v.optional(v.boolean()) },
@@ -714,7 +723,7 @@ export const oweCharge = mutation({
   handler: async (ctx, { jobId, price, at, metadata, again }) => {
     const job = await jobOf(ctx, jobId)
     if (!job || job.charged) return false
-    if (again ? job.chargeOwed !== 'given_up' : (job.chargeOwed !== undefined || job.status !== 'running')) return false
+    if (again ? job.chargeOwed !== 'given_up' || endedRefunded(job) : (job.chargeOwed !== undefined || job.status !== 'running')) return false
     await ctx.db.patch('jobs', job._id, { chargeOwed: 'pending', chargeAt: at, ...(again ? {} : { price, ...(metadata ? { chargeMetadata: metadata } : {}) }) })
     return true
   },

@@ -472,7 +472,8 @@
         "job": {
           "queue_changed": "{actor}: Job-Warteschlange geändert",
           "canceled": "{actor}: einen Job abgebrochen",
-          "retried": "{actor}: einen fehlgeschlagenen Job wieder eingereiht"
+          "retried": "{actor}: einen fehlgeschlagenen Job wieder eingereiht",
+          "charge_retried": "{actor}: die ausstehende Abbuchung eines Jobs erneut versucht"
         },
         "ai": {
           "spend_limit_reached": "{actor}: KI pausiert – das heutige Ausgabenlimit ist erreicht"

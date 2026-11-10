@@ -344,6 +344,7 @@
   "audit.events.job.queue_changed": ["actor"],
   "audit.events.job.canceled": ["actor"],
   "audit.events.job.retried": ["actor"],
+  "audit.events.job.charge_retried": ["actor"],
   "audit.events.ai.spend_limit_reached": ["actor"],
   "audit.events.billing.checkout_started": ["actor"],
   "audit.events.billing.plan_changed": ["actor"],
