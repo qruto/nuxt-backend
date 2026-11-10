@@ -129,11 +129,13 @@ describe('the renewal reminder\'s price', () => {
   })
 
   // The email restates money.ts's lists (an ejected copy imports only from
-  // nuxt-backend/email): for every currency the provider sells, and the
-  // three-decimal ones it may add, the two read an amount alike.
-  it('reads every currency the provider sells as money.ts does', () => {
-    const codes = [...Object.values(PresentmentCurrency), 'bhd', 'jod', 'kwd', 'omr', 'tnd']
-    expect(codes).toEqual(expect.arrayContaining(['usd', 'huf', 'isk', 'jpy', 'ugx']))
+  // nuxt-backend/email): for every currency the provider sells, the
+  // three-decimal ones it may add, and every other ISO code the runtime
+  // knows, so a code added to one list and not the other is caught, the
+  // two read an amount alike.
+  it('reads every currency as money.ts does', () => {
+    const codes = [...new Set([...Object.values(PresentmentCurrency), 'bhd', 'jod', 'kwd', 'omr', 'tnd', ...Intl.supportedValuesOf('currency').map(code => code.toLowerCase())])]
+    expect(codes).toEqual(expect.arrayContaining(['usd', 'huf', 'isk', 'jpy', 'ugx', 'bif', 'xpf']))
     for (const code of codes) {
       const expected = new Intl.NumberFormat('en-US', { style: 'currency', currency: code.toUpperCase() }).format(toMajorUnits(123400, code))
       expect(renewalReminder(data(123400, code) as never, context).text, code).toContain(`"price":"${expected}"`)
