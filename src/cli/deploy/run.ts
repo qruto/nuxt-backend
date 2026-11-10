@@ -370,14 +370,24 @@ const MIGRATE_BY_HAND = 'npx nuxt-backend upgrade --prod --yes'
 /**
  * What production's data migrations and workpool backfill came to, as a
  * step's outcome: `deploy`'s and `deploy --build`'s. Migrations that go on
- * on the deployment's scheduler are done for the deploy; one that failed, a
- * production that did not answer, or a pool that refused the backfill fails.
+ * on the deployment's scheduler are done for the deploy. Only a migration
+ * that reports it failed fails the step: it needs a person. A production
+ * that did not answer, or a pool that refused the backfill, skips it with
+ * the command that finishes it, since the backend was pushed already and
+ * failing would hold back nothing but the app (`deploy --build`'s build).
  */
 export function migrationsOutcome({ data, pools }: DeploymentMigrations, dryRun: boolean): Pick<DeployStep, 'outcome' | 'detail'> {
   if (dryRun) return { outcome: 'planned', detail: `${plannedMigrations(data)}, then start the workpool backfill on every pool` }
-  const failure = migrationsFailure({ data, pools })
-  if (failure) return { outcome: 'failed', detail: `${failure}: run ${MIGRATE_BY_HAND}` }
+  const failed = failedMigrations(data)
+  if (failed) return { outcome: 'failed', detail: `${failed}: fix it, then run ${MIGRATE_BY_HAND}` }
+  const unfinished = unfinishedMigrations({ data, pools })
+  if (unfinished) return migrationsUnanswered(unfinished)
   return { outcome: 'done', detail: `${migratedDetail(data)}; ${backfillDetail(pools)}` }
+}
+
+/** The step when production did not answer the migrations, or a pool refused the backfill: skipped, with what to run. */
+export function migrationsUnanswered(reason: string): Pick<DeployStep, 'outcome' | 'detail'> {
+  return { outcome: 'skipped', detail: `${reason}: the deploy goes on; run ${MIGRATE_BY_HAND} to finish them` }
 }
 
 /** The migrations still to run, by name. */
@@ -390,9 +400,16 @@ function plannedMigrations(data: DataReport): string {
   return 'would run the package\'s data migrations once the backend is pushed'
 }
 
-/** Why the migrations failed the deploy, or undefined. */
-function migrationsFailure({ data, pools }: DeploymentMigrations): string | undefined {
-  if (data.state === 'failed' || data.state === 'needs-push' || data.state === 'skipped') return data.reason ?? 'a data migration failed'
+/** The migrations that report they failed, each with why, or undefined. */
+function failedMigrations(data: DataReport): string | undefined {
+  const failed = data.migrations.filter(migration => migration.state === 'failed')
+  if (failed.length === 0) return undefined
+  return failed.map(migration => `${migration.name} failed${migration.error ? ` (${migration.error})` : ''}`).join(', ')
+}
+
+/** Why the migrations or the backfill did not finish though none failed, or undefined: production did not answer, or a pool refused. */
+function unfinishedMigrations({ data, pools }: DeploymentMigrations): string | undefined {
+  if (data.state === 'failed' || data.state === 'needs-push' || data.state === 'skipped') return data.reason ?? 'production did not answer the data migrations'
   if (pools.state === 'failed') return `the workpool backfill was refused by ${pools.failed.map(pool => `${pool.component} (${pool.reason})`).join(', ')}`
   return undefined
 }
@@ -426,7 +443,7 @@ async function migrationsStep(state: DeployState): Promise<void> {
     record(state, { ...base, ...migrationsOutcome(await state.deps.migrate({ dryRun: state.options.dryRun }), state.options.dryRun) })
   }
   catch (error) {
-    record(state, { ...base, outcome: 'failed', detail: `${error instanceof Error ? error.message : String(error)}: run ${MIGRATE_BY_HAND}` })
+    record(state, { ...base, ...migrationsUnanswered(error instanceof Error ? error.message : String(error)) })
   }
 }
 

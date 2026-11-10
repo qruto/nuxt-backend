@@ -1,7 +1,7 @@
 import { deployKeyType } from '../../env-push'
 import { execBinary, type PackageManager, runScript } from './package-manager'
 import type { DeploymentMigrations } from '../upgrade/data'
-import { generateSecret, migrationsOutcome, productionOrigin, type DeployBackend } from './run'
+import { generateSecret, migrationsOutcome, migrationsUnanswered, productionOrigin, type DeployBackend } from './run'
 
 // `nuxt-backend deploy --build`: the host's build command for an app that
 // starts on the host, such as the deploy template. The Convex Marketplace
@@ -12,7 +12,8 @@ import { generateSecret, migrationsOutcome, productionOrigin, type DeployBackend
 // A new preview deployment also loads the provider's products, so its
 // pricing renders before any product webhook reaches it; production runs the
 // package's data migrations and the workpool backfill on the backend it
-// pushed, as `upgrade --prod --yes` does.
+// pushed, as `upgrade --prod --yes` does, and fails the build only on a
+// migration that failed.
 
 /** What a new preview runs once its functions are pushed: the products table filled from the provider. */
 export const PREVIEW_PRODUCT_SYNC = 'billing:syncProducts'
@@ -100,8 +101,13 @@ export async function runBuild(deps: BuildDeps): Promise<number> {
 
 /**
  * Production's data migrations, after `convex deploy` pushed the backend
- * that runs them. A migration that failed fails the build, so the app built
- * against the new backend is not promoted over data it cannot read yet.
+ * that runs them and built the app against it. The new backend is live by
+ * now whatever they answer, so a failed build holds back only the app: the
+ * host keeps the previous one, against the new backend. A production that
+ * did not answer, or a pool that refused the backfill, is a warning, then:
+ * the build passes and `upgrade --prod --yes` finishes them. A migration
+ * that reports it failed still fails the build, as it needs a person, and a
+ * failed build is where the host shows one.
  */
 async function migrateProduction(migrate: () => Promise<DeploymentMigrations>, print: (line: string) => void): Promise<number> {
   let outcome: ReturnType<typeof migrationsOutcome>
@@ -109,8 +115,8 @@ async function migrateProduction(migrate: () => Promise<DeploymentMigrations>, p
     outcome = migrationsOutcome(await migrate(), false)
   }
   catch (error) {
-    outcome = { outcome: 'failed', detail: `${error instanceof Error ? error.message : String(error)}: run npx nuxt-backend upgrade --prod --yes` }
+    outcome = migrationsUnanswered(error instanceof Error ? error.message : String(error))
   }
-  print(`[nuxt-backend] deploy --build: the data migrations: ${outcome.detail}`)
+  print(`[nuxt-backend] deploy --build: the data migrations${outcome.outcome === 'skipped' ? ' (warning)' : ''}: ${outcome.detail}`)
   return outcome.outcome === 'failed' ? 1 : 0
 }
