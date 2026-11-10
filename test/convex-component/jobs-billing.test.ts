@@ -376,7 +376,7 @@ describe('a charge the provider refuses for now', () => {
 })
 
 describe('a charge the provider refuses for good', () => {
-  test('fails the job as a charge at start does: nothing owed, nothing tried in the background, its hold back', async () => {
+  test('a 401 on an output charge leaves the job done and the charge given up, with no retries scheduled', async () => {
     const t = testApp()
     const ada = await asUser(t)
     await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 10 } })
@@ -384,18 +384,79 @@ describe('a charge the provider refuses for good', () => {
     provider.restore()
     provider = stubBillingProvider({ status: 401 })
     provider.refuse('charges')
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const jobId = await ada.mutation(ref.start, { kind: 'print', comicId: 'comic-6', pages: 3 })
+    await drain(t, vi)
+
+    // Done with its result, uncharged, the charge given up at once and its hold back.
+    expect(await job(t, jobId)).toMatchObject({ status: 'done', result: { comicId: 'comic-6' }, charged: 0, owed: { credits: 3, givenUp: true } })
+    expect(await rows(t, 'ends')).toEqual([expect.objectContaining({ jobId, status: 'done', charged: 0 })])
+    expect(await rows(t, 'owedCharges')).toEqual([expect.objectContaining({ jobId, status: 'given_up', credits: 3 })])
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(10)
+    // The one try in the job, and none after it, however long the queue runs.
+    expect(provider.refused).toBe(1)
+    expect(await row(t, jobId)).toMatchObject({ chargeOwed: 'given_up' })
+    expect(await row(t, jobId)).not.toHaveProperty('chargeAt')
+    expect(logged.mock.calls.flat().map(String).join('\n')).toMatch(/ai\.job_charge_refused/)
+    logged.mockRestore()
+
+    // Once the token is fixed, Retry the charge charges it, its metadata kept.
+    provider.restore()
+    provider = stubBillingProvider()
+    const admin = await asUser(t, { role: 'admin' })
+    await admin.mutation(ref.retryJob, { jobId })
+    await drain(t, vi)
+    expect(provider.charges).toEqual([expect.objectContaining({ value: 3, metadata: expect.objectContaining({ comicId: 'comic-6' }) })])
+    expect(await job(t, jobId)).toMatchObject({ status: 'done', charged: 3 })
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(7)
+  })
+
+  test('a 401 on a charge at start fails the job: nothing owed, its hold back', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 10 } })
+    provider.restore()
+    provider = stubBillingProvider({ status: 401 })
+    provider.refuse('charges')
+
+    const jobId = await ada.mutation(ref.start, { kind: 'cover', comicId: 'cover-6' })
     await drain(t, vi)
 
     expect(await job(t, jobId)).toMatchObject({ status: 'failed', charged: 0, error: { code: 'unavailable', reason: 'provider_refused' } })
     expect(await job(t, jobId)).not.toHaveProperty('owed')
     expect(await rows(t, 'ends')).toEqual([{ _id: expect.anything(), _creationTime: expect.any(Number), jobId, status: 'failed', charged: 0 }])
     expect(await rows(t, 'owedCharges')).toEqual([])
-    // The job's own tries only: the queue tried none in the background.
+    // The charge step's own tries only: the queue tried none in the background.
     expect(provider.refused).toBe(3)
     expect(provider.charges).toEqual([])
     expect(await balanceOf(t, ada.workspaceId!)).toBe(10)
+  })
+
+  test('a background try that meets a 403 gives the owed charge up at once, its tries left unused', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 10 } })
+    // The provider is down for the job's own try: the charge is owed.
+    provider.refuse('charges', 1)
+    const jobId = await ada.mutation(ref.start, { kind: 'print', comicId: 'comic-10', pages: 2 })
+    await drain(t, vi, { until: async () => (await rows(t, 'ends')).length > 0 })
+    expect(await job(t, jobId)).toMatchObject({ status: 'done', owed: { credits: 2, givenUp: false } })
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(8)
+
+    // Then it answers 403, as for a meter it does not have.
+    provider.restore()
+    provider = stubBillingProvider({ status: 403 })
+    provider.refuse('charges')
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await drain(t, vi)
+
+    expect(provider.refused).toBe(1)
+    expect(await job(t, jobId)).toMatchObject({ status: 'done', charged: 0, owed: { credits: 2, givenUp: true } })
+    expect(await rows(t, 'owedCharges')).toEqual([expect.objectContaining({ jobId, status: 'given_up', credits: 2 })])
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(10)
+    expect(logged.mock.calls.flat().map(String).join('\n')).toMatch(/ai\.job_charge_refused/)
+    logged.mockRestore()
   })
 
   test('a rate limit is no such refusal: a charge refused 429 is owed, and lands', async () => {

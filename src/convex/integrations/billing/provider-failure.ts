@@ -35,5 +35,22 @@ export function markPassing<E extends Error>(refusal: E, providerError: unknown)
  * and for any error no provider answer marked.
  */
 export function providerFailurePasses(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && (error as { [PASSING]?: unknown })[PASSING] === true
+  return markOf(error) === true
+}
+
+/**
+ * Whether a thrown error is the package's refusal of a provider failure
+ * that no retry changes: the provider refused the request itself (a
+ * revoked access token's `401`, a product or meter it does not have), or
+ * the SDK refused to send it. `false` for one that may pass, and for any
+ * error no provider answer marked (a shortfall, a cache write that failed).
+ */
+export function providerRefusesForGood(error: unknown): boolean {
+  return markOf(error) === false
+}
+
+/** The mark a provider answer left on a thrown refusal: `true` may pass, `false` will not, `undefined` none. */
+function markOf(error: unknown): boolean | undefined {
+  const mark = typeof error === 'object' && error !== null ? (error as { [PASSING]?: unknown })[PASSING] : undefined
+  return typeof mark === 'boolean' ? mark : undefined
 }

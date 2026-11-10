@@ -80,7 +80,7 @@ const BETTER_AUTH_17 = 'Better Auth 1.7, and a deploy for the backend\'s schema'
 export const RENAMES: readonly Rename[] = [
   // A job waits for billing to catch up, owes a charge by output, and tries an empty image answer once more.
   { from: 'insufficient_credits', to: 'not_ready', change: 'reshaped', section: JOB_BILLING, note: 'a job whose first step finds no credit meter or no billing customer yet waits about five minutes, its hold taken, then fails `not_ready` (reason `not_synced` or `no_customer`); only a balance short of the credits fails `insufficient_credits`' },
-  { from: 'job.charge', to: 'onOwedCharge', change: 'reshaped', section: JOB_BILLING, note: 'a refusal that may pass (no answer, `408`, `429`, `5xx`, no customer yet) leaves the charge owed: the job ends `done` with `owed`, its credits held, and the queue tries it in the background; any other `4xx` still fails the job' },
+  { from: 'job.charge', to: 'onOwedCharge', change: 'reshaped', section: JOB_BILLING, note: 'a refusal that may pass (no answer, `408`, `429`, `5xx`, no customer yet) leaves the charge owed: the job ends `done` with `owed`, its credits held, and the queue tries it in the background; any other `4xx` gives it up at once, the job still `done` and its hold back' },
   { from: 'NoImageGeneratedError', to: 'retryable(message)', change: 'reshaped', section: JOB_BILLING, note: 'an empty image answer is tried once more, then fails `provider_refused`; with a finish reason for safety it fails `content_blocked` at once; throw `retryable(message)` to keep four attempts' },
 
   // 0.3: billing sync against what the organization holds.

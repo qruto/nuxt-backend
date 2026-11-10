@@ -22,7 +22,7 @@ agent files and skills.
 | Was | Now | Change | Note |
 |---|---|---|---|
 | `insufficient_credits` | `not_ready` | reshaped | a job whose first step finds no credit meter or no billing customer yet waits about five minutes, its hold taken, then fails `not_ready` (reason `not_synced` or `no_customer`); only a balance short of the credits fails `insufficient_credits` |
-| `job.charge` | `onOwedCharge` | reshaped | a refusal that may pass (no answer, `408`, `429`, `5xx`, no customer yet) leaves the charge owed: the job ends `done` with `owed`, its credits held, and the queue tries it in the background; any other `4xx` still fails the job |
+| `job.charge` | `onOwedCharge` | reshaped | a refusal that may pass (no answer, `408`, `429`, `5xx`, no customer yet) leaves the charge owed: the job ends `done` with `owed`, its credits held, and the queue tries it in the background; any other `4xx` gives it up at once, the job still `done` and its hold back |
 | `NoImageGeneratedError` | `retryable(message)` | reshaped | an empty image answer is tried once more, then fails `provider_refused`; with a finish reason for safety it fails `content_blocked` at once; throw `retryable(message)` to keep four attempts |
 
 ## [`billing sync` prices every product in the organization's currency, and attaches the benefits a product lacks](https://nuxt-backend.dev/docs/ship/releases/upgrade#billing-sync-prices-every-product-in-the-organizations-currency-and-attaches-the-benefits-a-product-lacks)

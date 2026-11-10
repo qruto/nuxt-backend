@@ -113,6 +113,7 @@ export const LOG_CODES = {
   'ai.job_charge_unheld': 'An owed charge\'s credits could not be held again (the balance could not be read): the charge is still tried, and the balance is taken as it lands.',
   'ai.job_charge_retry': 'An owed charge did not reach the billing provider; it is tried again, later each time.',
   'ai.job_charge_given_up': 'An owed charge failed every try: the job keeps its result uncharged, its hold went back, and an administrator\'s retry from the Queue tab tries the charge again.',
+  'ai.job_charge_refused': 'The billing provider refused a job\'s charge by output in a way no retry changes (a revoked access token, a product or meter it does not have): the charge was given up at once, the job keeps its result uncharged, its hold went back, and an administrator\'s retry from the Queue tab tries it again.',
   'ai.job_charge_unannounced': 'An owed charge ended, but defineJobQueue({ onOwedCharge }) could not be scheduled for it: the charge\'s outcome stands, and the app\'s rows about it were not told.',
   'ai.guest_claim_failed': 'A visitor\'s guest jobs were not moved to the account that signed up in their browser (no workspace a minute on, or the app\'s setupAi({ guest: { claim } }) mutation threw): the jobs still run, and the app\'s rows stay where they were.',
   'ai.job_cost_unreported': 'A finished job\'s cost could not be sent to the billing provider\'s cost insights; nothing was charged for it.',

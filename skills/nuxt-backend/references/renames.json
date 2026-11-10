@@ -14,7 +14,7 @@
       "to": "onOwedCharge",
       "change": "reshaped",
       "section": "A job waits for billing to catch up, and owes a charge the provider refuses for now",
-      "note": "a refusal that may pass (no answer, `408`, `429`, `5xx`, no customer yet) leaves the charge owed: the job ends `done` with `owed`, its credits held, and the queue tries it in the background; any other `4xx` still fails the job",
+      "note": "a refusal that may pass (no answer, `408`, `429`, `5xx`, no customer yet) leaves the charge owed: the job ends `done` with `owed`, its credits held, and the queue tries it in the background; any other `4xx` gives it up at once, the job still `done` and its hold back",
       "url": "https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-waits-for-billing-to-catch-up-and-owes-a-charge-the-provider-refuses-for-now"
     },
     {

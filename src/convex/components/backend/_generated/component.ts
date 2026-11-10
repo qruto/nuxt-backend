@@ -5044,6 +5044,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           again?: boolean;
           at: number;
+          givenUp?: boolean;
           jobId: string;
           metadata?: Record<string, string>;
           price: number;

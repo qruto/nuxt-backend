@@ -44,7 +44,7 @@ import { setupAudit } from '../audit.js'
 import type { CostReport, SpendReservation } from '../billing.js'
 import { BILLING_ACCESS, BILLING_METERS, BILLING_TO } from '../billing/context.js'
 import { requireCreditAmount } from '../billing/credits.js'
-import { providerFailurePasses } from '../billing/provider-failure.js'
+import { providerFailurePasses, providerRefusesForGood } from '../billing/provider-failure.js'
 import type { Ai, AiModel, MeteredModel } from './config.js'
 import { AI_CONTEXTS } from './context.js'
 import { usageOf } from './costs.js'
@@ -206,8 +206,10 @@ export const vOwedCharge = {
   /**
    * `charged`: the provider took the charge at last, under the same
    * idempotency key, so it is billed once. `given_up`: every try failed,
-   * the hold went back and the job stays uncharged, for an administrator's
-   * retry from the Queue tab (`retryJob`).
+   * or the provider refused it in a way no try changes (a revoked access
+   * token), so it was given up at once; the hold went back and the job
+   * stays uncharged, for an administrator's retry from the Queue tab
+   * (`retryJob`).
    */
   status: v.union(v.literal('charged'), v.literal('given_up')),
   /** The credits it owed: what `job.charge` charged. */
@@ -284,15 +286,16 @@ export interface DefineJobQueueOptions {
    * `job.charge` the provider refused for a passing reason ends `done`
    * with `owed` on its `onJobEnd`, and the queue tries the charge again
    * in the background. This hears it `charged` once it lands, or
-   * `given_up` after its last try, with the job's id, kind, args, run and
-   * the credits it owed. Your internal mutation or action, by its
+   * `given_up` after its last try, or at once when the provider refuses it
+   * in a way no try changes (a revoked access token), with the job's id,
+   * kind, args, run and the credits it owed. Your internal mutation or action, by its
    * reference, taking `vOwedCharge`: settle what your rows say about the
    * charge. Never move credits here.
    *
    * @guarantee
    * - Runs: as its own function, scheduled by the transaction that recorded how the charge ended, once it commits
    * - Delivery: once per owed charge that ends, `charged` or `given_up`; an administrator's retry of a given-up charge owes it again, and it ends again
-   * - Order: after `onJobEnd` was scheduled for the run that owed it, unless the charge landed while the job still ran, when it may run first; owed charges of different jobs end in no set order
+   * - Order: after `onJobEnd` was scheduled for the run that owed it, unless the charge landed or was given up while the job still ran, when it may run first; owed charges of different jobs end in no set order
    * - When it throws: the failure is the hook's own, in the deployment's logs; the charge's outcome stands
    * - Idempotency: a retried charge that lands after it gave up is heard `charged` after `given_up`: let the later one win
    */
@@ -340,12 +343,14 @@ export interface JobContext {
    * fails after it is refunded what it was charged. Throws in a kind that
    * charges at start; does nothing in a job put in line `{ free: true }`.
    *
-   * A balance short of the credits fails the job, and so does a billing
-   * provider that refuses the charge itself, such as a revoked access
-   * token. A refusal that may pass (the provider down or rate limiting, no
-   * billing customer yet) leaves the charge owed: the job runs on and ends
-   * `done`, its hold stays taken, and the queue tries the charge again in
-   * the background (`onOwedCharge`). `metadata` goes on the usage event
+   * A balance short of the credits fails the job. A refusal that may pass
+   * (the provider down or rate limiting, no billing customer yet) leaves
+   * the charge owed: the job runs on and ends `done`, its hold stays
+   * taken, and the queue tries the charge again in the background
+   * (`onOwedCharge`). A billing provider that refuses the charge itself,
+   * such as a revoked access token, gives it up at once: the job runs on
+   * and ends `done` uncharged, its hold back, `onOwedCharge` hears
+   * `given_up`, and `ai.job_charge_refused` is logged. `metadata` goes on the usage event
    * beside the queue's own, within the provider's limits
    * ({@link JobChargeOptions.metadata}): past them, `job.charge` throws.
    */
@@ -492,8 +497,9 @@ export interface JobView {
   free: boolean
   /**
    * A charge it still owes, for a kind charged by output whose
-   * `job.charge` the provider refused for now: the credits, and whether
-   * the queue gave up trying (`givenUp`) or still tries. `charged` reads
+   * `job.charge` the provider refused: the credits, and whether the queue
+   * gave up trying (`givenUp`, after its last try or at once for a refusal
+   * no try changes) or still tries. `charged` reads
    * `0` until it lands. Absent when nothing is owed.
    */
   owed?: JobOwed
@@ -1184,8 +1190,9 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
    * A refusal a charge by output waits out as an owed charge: billing not
    * synced yet, or a provider failure that may pass (no answer, a `408`,
    * `429` or `5xx`). A provider that refuses the request itself, such as a
-   * revoked access token (`401`), would refuse every try: that job fails as
-   * a charge at start does, its hold back.
+   * revoked access token (`401`), would refuse every try
+   * (`providerRefusesForGood`): that charge is given up at once, the job
+   * still `done`; charged at start, the job fails, its hold back.
    */
   const isPassingRefusal = (error: unknown): boolean => isUnsynced(error) || providerFailurePasses(error)
 
@@ -1308,11 +1315,12 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
 
   /**
    * An owed charge's step, in one transaction with what it schedules: owed
-   * (`owe`), its first try a minute on; tried and failed (`retry`), the
-   * next one due; given up, its hold back; or charged at last, refunded at
-   * once when the job ended needing its credits back. Each end is heard.
+   * (`owe`), its first try a minute on; refused in a way no try changes
+   * (`refused`), given up at once; tried and failed (`retry`), the next one
+   * due; given up, its hold back; or charged at last, refunded at once when
+   * the job ended needing its credits back. Each end is heard.
    */
-  type OwedStep = { jobId: string, outcome: 'owe' | 'retry' | 'given_up' | 'charged', attempt?: number, price?: number, metadata?: Record<string, string> }
+  type OwedStep = { jobId: string, outcome: 'owe' | 'refused' | 'retry' | 'given_up' | 'charged', attempt?: number, price?: number, metadata?: Record<string, string> }
 
   /** Let a job's hold go, when it holds one and was never charged. */
   const releaseHold = async (ctx: Ctx, job: JobRow): Promise<void> => {
@@ -1334,11 +1342,25 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
     else await releaseHold(ctx, job)
   }
 
+  /**
+   * A job's charge the provider refused in a way no try changes, for a kind
+   * charged by output: owed and given up at once, with no try in the
+   * background, its hold back, and heard `given_up`, for an administrator's
+   * retry once the cause is fixed. A job that ended meanwhile owes nothing,
+   * and its hold goes back all the same.
+   */
+  const refusedForGood = async (ctx: Ctx, job: JobRow, step: OwedStep): Promise<void> => {
+    const owed = await ctx.runMutation(queue.oweCharge, defined({ jobId: job._id, price: step.price ?? 0, at: Date.now(), metadata: step.metadata, givenUp: true }))
+    await releaseHold(ctx, job)
+    if (owed) await announceCharge(ctx, { ...job, price: step.price }, 'given_up')
+  }
+
   const recordOwed = async (ctx: Ctx, step: OwedStep): Promise<void> => {
     const { jobId, outcome } = step
     const job = await ctx.runQuery(queue.get, { jobId }) as JobRow | null
     if (!job) return
     if (outcome === 'owe' || outcome === 'retry') return await owedTry(ctx, job, step)
+    if (outcome === 'refused') return await refusedForGood(ctx, job, step)
     if (outcome === 'given_up') {
       if (!await ctx.runMutation(queue.chargeTried, { jobId, outcome: 'given_up' })) return
       await releaseHold(ctx, job)
@@ -1358,7 +1380,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
       attempt: v.optional(v.number()),
       progress: v.optional(v.object({ done: v.number(), total: v.number(), label: v.optional(v.string()) })),
       // An owed charge's step: how its try went, what it owes, and the usage event's metadata.
-      outcome: v.optional(v.union(v.literal('owe'), v.literal('retry'), v.literal('given_up'), v.literal('charged'))),
+      outcome: v.optional(v.union(v.literal('owe'), v.literal('refused'), v.literal('retry'), v.literal('given_up'), v.literal('charged'))),
       price: v.optional(v.number()),
       metadata: v.optional(v.record(v.string(), v.string())),
       // A workflow's end (the Workflow component's onComplete).
@@ -1453,6 +1475,21 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   }
 
   /**
+   * Give a job's charge up at once, for a kind charged by output whose
+   * `job.charge` the provider refused in a way no try changes (a revoked
+   * access token, a product or meter it does not have): the job runs on and
+   * keeps what it made, the charge is owed given up with no try in the
+   * background, its hold goes back, and the error is logged for the
+   * operator. An administrator's retry tries it once the cause is fixed.
+   */
+  const giveUpCharge = async (ctx: ActionCtx, job: JobRow, price: number, metadata: Record<string, string> | undefined, error: unknown): Promise<undefined> => {
+    await ctx.runMutation(queue.touch, { jobId: job._id, until: lease(), lastError: errorText(error) })
+    await ctx.runMutation(RUN_QUEUE, defined({ op: 'owed' as const, jobId: job._id, outcome: 'refused' as const, price, metadata }))
+    logBackend('error', 'ai.job_charge_refused', `Job ${job._id}: the billing provider refused its charge of ${price} credits in a way no retry changes. The job keeps its result uncharged, and its hold went back. Fix what the error names, then retry the charge from the Queue tab.`, error)
+    return undefined
+  }
+
+  /**
    * Charge a job's held credits, as its workflow's first step: only while
    * the job still runs and nobody canceled it. The hold is taken again under
    * the same id first, a no-op while it stands: after an attempt whose
@@ -1492,25 +1529,40 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   }
 
   /**
-   * A refused charge: owed, for a kind charged by output and a refusal
-   * that may pass; waited out with the hold the refused settle kept, for
-   * billing not synced yet, so no other spend takes its credits meanwhile;
-   * else its hold let go and the refusal recorded ({@link billingRefused}).
+   * A refused charge. Charged by output: owed for a refusal that may pass,
+   * given up at once for one the provider repeats on every try
+   * ({@link giveUpCharge}), the job `done` either way. Otherwise: waited out
+   * with the hold the refused settle kept, for billing not synced yet, so
+   * no other spend takes its credits meanwhile; else its hold let go and the
+   * refusal recorded, the job failed ({@link billingRefused}).
    */
   const chargeRefused = async (ctx: ActionCtx, job: JobRow, hold: SpendReservation, tried: { price?: number, metadata?: Record<string, string>, attempt: number }, error: unknown): Promise<BillOutcome | undefined> => {
     const { price, metadata, attempt } = tried
     if (price !== undefined && isPassingRefusal(error)) return await oweCharge(ctx, job, hold, price, metadata, error)
+    if (price !== undefined && providerRefusesForGood(error)) return await giveUpCharge(ctx, job, price, metadata, error)
     const kept = waitsForBilling(error, attempt) && await ctx.runMutation(queue.chargeWaits, { jobId: job._id })
     if (!kept) await billing.releaseSpend(ctx as never, released(hold))
     return await billingRefused(ctx, job, error, attempt)
   }
 
   /**
+   * Give an owed charge up, its hold back, after its last try, or after a
+   * try the provider refused in a way no later try changes: logged as such,
+   * so the operator sees which.
+   */
+  const giveUpOwed = async (ctx: ActionCtx, job: JobRow, price: number, tries: number, error: unknown): Promise<void> => {
+    await ctx.runMutation(RUN_QUEUE, { op: 'owed', jobId: job._id, outcome: 'given_up' })
+    if (providerRefusesForGood(error)) logBackend('error', 'ai.job_charge_refused', `Job ${job._id}: the billing provider refused its owed charge of ${price} credits in a way no retry changes, so it was given up at once: the job stays uncharged, and its hold went back. Fix what the error names, then retry the charge from the Queue tab.`, error)
+    else logBackend('error', 'ai.job_charge_given_up', `Job ${job._id}'s owed charge of ${price} credits failed ${tries} times: the job stays uncharged, and its hold went back. Retry it from the Queue tab to charge it.`, error)
+  }
+
+  /**
    * Try an owed charge again, in the background: under the job's hold id,
    * so the provider bills it once however many tries reach it. One that
    * fails is tried again a minute later, doubling, up to
-   * {@link OWED_ATTEMPTS} tries in all; after that it is given up, its hold
-   * goes back, and the job stays uncharged for an administrator's retry.
+   * {@link OWED_ATTEMPTS} tries in all; after that, or at once for a refusal
+   * the provider repeats on every try, it is given up, its hold goes back,
+   * and the job stays uncharged for an administrator's retry.
    * `onOwedCharge` hears either end.
    */
   const settleOwed = async (ctx: ActionCtx, job: JobRow, attempt: number): Promise<void> => {
@@ -1523,11 +1575,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
     }
     catch (error) {
       const next = attempt + 1
-      if (next >= OWED_ATTEMPTS) {
-        await ctx.runMutation(RUN_QUEUE, { op: 'owed', jobId: job._id, outcome: 'given_up' })
-        logBackend('error', 'ai.job_charge_given_up', `Job ${job._id}'s owed charge of ${price} credits failed ${OWED_ATTEMPTS} times: the job stays uncharged, and its hold went back. Retry it from the Queue tab to charge it.`, error)
-        return
-      }
+      if (next >= OWED_ATTEMPTS || providerRefusesForGood(error)) return await giveUpOwed(ctx, job, price, next, error)
       await holdOwed(ctx, job, hold, price)
       await ctx.runMutation(RUN_QUEUE, { op: 'owed', jobId: job._id, outcome: 'retry', attempt: next })
       logBackend('warn', 'ai.job_charge_retry', `Job ${job._id}'s owed charge failed; trying again in ${billBackoff(attempt) / 1000}s.`, error)

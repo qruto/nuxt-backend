@@ -711,20 +711,24 @@ export const mark = mutation({
 /**
  * Owe a running job's charge, for a kind charged by output: the provider
  * refused `job.charge` for now, so the job runs on and its charge is tried
- * again in the background, the first try due at `at`. `again` owes once
- * more a charge whose tries gave up: an administrator's retry, for a job
- * that runs, is done or was canceled without a refund. Answers whether it
- * is owed now; `false` for a job charged already, one that ended before
- * its charge was owed, or one that failed or was refunded since.
+ * again in the background, the first try due at `at`. `givenUp` owes it
+ * given up at once instead, with no try due: the provider refused it in a
+ * way no try changes (a revoked access token), and an administrator's
+ * retry tries it again. `again` owes once more a charge whose tries gave
+ * up: that retry, for a job that runs, is done or was canceled without a
+ * refund. Answers whether it is owed now; `false` for a job charged
+ * already, one that ended before its charge was owed, or one that failed
+ * or was refunded since.
  */
 export const oweCharge = mutation({
-  args: { jobId: v.string(), price: v.number(), at: v.number(), metadata: v.optional(v.record(v.string(), v.string())), again: v.optional(v.boolean()) },
+  args: { jobId: v.string(), price: v.number(), at: v.number(), metadata: v.optional(v.record(v.string(), v.string())), again: v.optional(v.boolean()), givenUp: v.optional(v.boolean()) },
   returns: v.boolean(),
-  handler: async (ctx, { jobId, price, at, metadata, again }) => {
+  handler: async (ctx, { jobId, price, at, metadata, again, givenUp }) => {
     const job = await jobOf(ctx, jobId)
     if (!job || job.charged) return false
     if (again ? job.chargeOwed !== 'given_up' || endedRefunded(job) : (job.chargeOwed !== undefined || job.status !== 'running')) return false
-    await ctx.db.patch('jobs', job._id, { chargeOwed: 'pending', chargeAt: at, ...(again ? {} : { price, ...(metadata ? { chargeMetadata: metadata } : {}) }) })
+    const owed = givenUp && !again ? { chargeOwed: 'given_up' as const, chargeAt: undefined } : { chargeOwed: 'pending' as const, chargeAt: at }
+    await ctx.db.patch('jobs', job._id, { ...owed, ...(again ? {} : { price, ...(metadata ? { chargeMetadata: metadata } : {}) }) })
     return true
   },
 })

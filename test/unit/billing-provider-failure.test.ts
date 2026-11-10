@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { backendError } from '../../src/convex/errors'
-import { markPassing, providerFailurePasses } from '../../src/convex/integrations/billing/provider-failure'
+import { markPassing, providerFailurePasses, providerRefusesForGood } from '../../src/convex/integrations/billing/provider-failure'
 
 // Whether a provider failure may pass on a retry, as the package's refusal
 // carries it: the provider having trouble (no answer, 408, 429, 5xx) passes;
@@ -24,6 +24,7 @@ describe('a provider failure', () => {
     ['an error with no status at all', 'socket hang up'],
   ])('may pass on a retry: %s', (_label, error) => {
     expect(providerFailurePasses(markPassing(refusal(), error))).toBe(true)
+    expect(providerRefusesForGood(markPassing(refusal(), error))).toBe(false)
   })
 
   it.each([
@@ -37,12 +38,17 @@ describe('a provider failure', () => {
     ['an invalid request', named('InvalidRequestError')],
   ])('is refused again on every try: %s', (_label, error) => {
     expect(providerFailurePasses(markPassing(refusal(), error))).toBe(false)
+    expect(providerRefusesForGood(markPassing(refusal(), error))).toBe(true)
   })
 
   it('is no passing failure when no provider answer marked it', () => {
     expect(providerFailurePasses(refusal())).toBe(false)
     expect(providerFailurePasses(status(503))).toBe(false)
     expect(providerFailurePasses(undefined)).toBe(false)
+    // Nor refused for good: a shortfall or a failed write was never the provider's answer.
+    expect(providerRefusesForGood(refusal())).toBe(false)
+    expect(providerRefusesForGood(status(401))).toBe(false)
+    expect(providerRefusesForGood(undefined)).toBe(false)
   })
 
   it('keeps the mark off the refusal\'s data and its own keys', () => {
