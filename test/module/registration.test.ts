@@ -1227,11 +1227,12 @@ describe('development defaults', () => {
     for (const stream of streams) stream.mockRestore()
   })
 
-  it('serves the dev modules from /_dev/, never cached', () => {
+  // `no-cache`, not `no-store`: the browser checks each module before it uses it, and an unchanged one costs a 304.
+  it('serves the dev modules from /_dev/, checked before each use', () => {
     const nuxt = getNuxt()
     expect(nuxt.options.app.buildAssetsDir).toBe('/_dev/')
     expect((nuxt.options.runtimeConfig.app as { buildAssetsDir?: string }).buildAssetsDir).toBe('/_dev/')
-    expect(nuxt.options.vite.server?.headers).toMatchObject({ 'Cache-Control': 'no-store' })
+    expect(nuxt.options.vite.server?.headers).toMatchObject({ 'Cache-Control': 'no-cache' })
     // Never in a page served by the dev server: the recovery is a production build's.
     expect(nitroPlugins(nuxt).filter(plugin => plugin.includes('chunk-recovery'))).toEqual([])
     expect(ourPlugins(nuxt).filter(src => src.includes('chunk-recovery'))).toEqual([])

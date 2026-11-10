@@ -40,6 +40,13 @@ const NUXT_BUILD_ASSETS_DIR = '/_nuxt/'
 /** Where a dev server serves the app's modules: away from `/_nuxt/`, whose old copies a browser may still hold. */
 export const DEV_BUILD_ASSETS_DIR = '/_dev/'
 
+/**
+ * What every dev module says: keep a copy, but ask before each use. Vite
+ * answers with a 304 while its ETag still holds, and with the module
+ * itself once it changed.
+ */
+const DEV_CACHE_CONTROL = 'no-cache'
+
 /** Whether the app chose where its build assets are served: a value other than Nuxt's, an env override, or the key in a config it wrote. */
 function ownsBuildAssetsDir(nuxt: Pick<Nuxt, 'options'>): boolean {
   if (nuxt.options.app.buildAssetsDir !== NUXT_BUILD_ASSETS_DIR || process.env.NUXT_APP_BUILD_ASSETS_DIR) return true
@@ -48,17 +55,24 @@ function ownsBuildAssetsDir(nuxt: Pick<Nuxt, 'options'>): boolean {
 }
 
 /**
- * Keep the dev server's modules out of the browser's cache. Vite serves a
- * pre-bundled dependency (`vue.js?v=…`) as immutable for a year, and Safari
- * keeps such a module across dev server restarts, while a re-optimized
- * dependency comes back under a new `?v=`: one page then runs two copies of
- * Vue, whose reactivity does not cross, and a signed-in page ends on a 500.
- * So in development:
+ * Keep the browser from using a dev module it did not check. Vite serves a
+ * module whose address carries a `?v=`, as a pre-bundled dependency's does
+ * (`vue.js?v=…`), as `max-age=31536000,immutable`, which a browser uses
+ * for a year without asking. Safari keeps such modules across dev
+ * server restarts, while a re-optimized dependency comes back under a new
+ * `?v=`: one page then runs two copies of Vue, whose reactivity does not
+ * cross, and a signed-in page ends on a 500. So in development:
  *
- * - every module the dev server sends says `Cache-Control: no-store`
- *   (`vite.server.headers`), so nothing is kept from now on;
- * - the modules move from `/_nuxt/` to `/_dev/` (`app.buildAssetsDir`), so
- *   none a browser kept from an earlier dev server is asked for again.
+ * - every module the dev server sends says `Cache-Control: no-cache`
+ *   (`vite.server.headers`, which Vite sets after its own), so nothing is
+ *   immutable from now on: the browser asks before each use, an unchanged
+ *   module costs a 304, and a changed one comes back whole. (`no-store`
+ *   cures it as well, but turns every reload into a full download.)
+ * - the modules move from `/_nuxt/` to `/_dev/` (`app.buildAssetsDir`).
+ *   That is what reaches the copies a browser stored as immutable before
+ *   this header, from an earlier dev server of this app or of another one
+ *   on the same origin: the browser never asks the server about them, so
+ *   no header can, and it asks for none of them again at a new path.
  *
  * Development only: a production build's assets are hashed and served for
  * a year, as they should be. A setting of the app's own wins in each case:
@@ -70,7 +84,7 @@ export function keepDevModulesUncached(nuxt: Nuxt): void {
   const vite = (nuxt.options.vite ??= {})
   const server = (vite.server ??= {})
   const headers = (server.headers ??= {}) as Record<string, unknown>
-  if (!Object.keys(headers).some(name => name.toLowerCase() === 'cache-control')) headers['Cache-Control'] = 'no-store'
+  if (!Object.keys(headers).some(name => name.toLowerCase() === 'cache-control')) headers['Cache-Control'] = DEV_CACHE_CONTROL
   if (ownsBuildAssetsDir(nuxt)) return
   nuxt.options.app.buildAssetsDir = DEV_BUILD_ASSETS_DIR
   // Resolved from it before any module ran: the server render and the bundler read these.
