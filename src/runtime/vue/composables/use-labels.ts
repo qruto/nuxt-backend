@@ -185,7 +185,15 @@ export function useLabels<G extends LabelGroup>(group: G, overrides?: MaybeRefOr
     return intlLocale(i18n.localeProperties?.value?.language) ?? intlLocale(code)
   })
 
-  /** One label of any group, through the four sources in order; without `englishFallback`, the key when only the package's English has it. */
+  // English is the active language without @nuxtjs/i18n, and with it on an English locale.
+  const englishActive = () => locale.value === undefined || /^en(?:-|$)/i.test(locale.value)
+
+  /**
+   * One label of any group, through the four sources in order; without
+   * `englishFallback`, the key when only the package's English has it and
+   * the active language is another: the label in the active language,
+   * the app's or the package's, or none.
+   */
   const resolve = (groupName: LabelGroup, key: string, params: LabelParams, own?: LabelTree, englishFallback = true): string => {
     const path = `${groupName}.${key}`
     const app = (config.labels as Record<string, LabelTree | undefined>)[groupName]
@@ -210,7 +218,7 @@ export function useLabels<G extends LabelGroup>(group: G, overrides?: MaybeRefOr
       const own = englishFallback || i18n.te(message, currentLocale()) || english === undefined || text !== formatLabel(english, params)
       if (own) return text
     }
-    return english === undefined || !englishFallback ? path : formatLabel(english, params)
+    return english === undefined || (!englishFallback && !englishActive()) ? path : formatLabel(english, params)
   }
 
   const t = (key: string, params: LabelParams = {}) =>

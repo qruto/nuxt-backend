@@ -221,6 +221,20 @@ describe('errors and dates', () => {
     expect(mount(Message, { props: { error: backendError('forbidden', { reason: 'not_member' }) } }).text()).toBe('Accès refusé.')
   })
 
+  it('goes by specificity across app config and the locale: an app\'s generic sentence never hides the locale\'s for the reason', () => {
+    config.labels = { errors: { forbidden: 'Not allowed (app).' } }
+    try {
+      expect(mount(Message, { props: { error: backendError('forbidden', { reason: 'role' }) } }).text()).toBe('Votre rôle ne le permet pas.')
+      // A reason the locale does not word reads the app's generic sentence before the package's English.
+      expect(mount(Message, { props: { error: backendError('forbidden', { reason: 'not_member' }) } }).text()).toBe('Not allowed (app).')
+      config.labels = { errors: { forbidden_role: 'Your role cannot (app).' } }
+      expect(mount(Message, { props: { error: backendError('forbidden', { reason: 'role' }) } }).text()).toBe('Your role cannot (app).')
+    }
+    finally {
+      config.labels = {}
+    }
+  })
+
   it('words the auth server\'s own refusals too, never its English sentence', () => {
     // As the auth client answers a wrong sign-in code.
     const answer = { data: null, error: { code: 'INVALID_OTP', message: 'Invalid OTP', status: 400, statusText: 'BAD_REQUEST' } }

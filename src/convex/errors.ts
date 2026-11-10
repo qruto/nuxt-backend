@@ -157,6 +157,14 @@ function defined<T extends Record<string, unknown>>(fields: T): T {
  * (`errors.<code>_<reason>`) gets that one, and so does a refused field
  * (`errors.invalid_input_<field>`); a service that is down, with a reason
  * of no sentence of its own, gets its service's (`errors.unavailable_<service>`).
+ *
+ * The keys go by specificity across every source: `t` (and `own`) answer
+ * each key from the app's override first, then the package's label, before
+ * the next, less specific key is tried. So an app's `invalid_input_<field>`
+ * or `unavailable_<service>` never hides the package's sentence for the
+ * reason, and an app's `<code>_<reason>` still wins over it. `own` is the
+ * active language alone: walked first, it lets a translated generic
+ * sentence win over a reason only the package's English words.
  */
 function labelFor(code: BackendErrorCode, data: Record<string, unknown>, t: Translate = translate, own?: Translate): string {
   return (own && sentenceFor(code, data, own)) ?? sentenceFor(code, data, t) ?? code
