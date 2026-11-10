@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { runEmailSyncCommand } from '../../src/cli/email'
+import { inboundSyncLines, runEmailSyncCommand, runInboundSync } from '../../src/cli/email'
 import { runConvex } from '../../src/convex-cli'
 import type { EmailSyncReport } from '../../src/convex/integrations/email-sync'
 import type { InboundSyncReport } from '../../src/convex/integrations/inbound'
@@ -72,6 +72,15 @@ describe('email sync', () => {
       `  todo          inbound   ${INBOUND.todo[0]}`,
     ]))
     expect(output?.inbound).toEqual(INBOUND)
+    // The sync itself passes no argument, which a backend from before the inbound dry run takes too.
+    expect(vi.mocked(runConvex).mock.calls[1]![1].at(-1)).toBe('{}')
+  })
+
+  it('asks the deployment for the support inbox\'s dry run when doctor --fix plans it', async () => {
+    deployment.functions['email:syncInbound'] = { ...INBOUND, inbox: 'would-create', webhook: { ...INBOUND.webhook, state: 'would-update' } }
+    const planned = await runInboundSync(rootDir, { dryRun: true })
+    expect(vi.mocked(runConvex).mock.calls.at(-1)![1].slice(-2)).toEqual(['email:syncInbound', '{"dryRun":true}'])
+    expect(inboundSyncLines(planned!)).toEqual(expect.arrayContaining(['  would-create  inbox     support@panels.example', '  would-update  webhook   inbound events — would add inbox.email.received']))
   })
 
   it('says in one line when the deployment has no email:syncInbound, and carries on', async () => {
