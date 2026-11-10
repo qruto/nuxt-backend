@@ -925,6 +925,7 @@ What `email sync` found and did. `webhook.secret` is the new endpoint's signing 
 | <a id="dryrun"></a> `dryRun` | `boolean` | - | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
 | <a id="key-3"></a> `key` | `"missing"` \| `"full"` \| `"restricted"` | The key's reach: `full` manages topics and contacts, `restricted` only sends, `missing` is no key. | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
 | <a id="log"></a> `log` | [`EmailSyncLogEntry`](#emailsynclogentry)[] | - | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
+| <a id="ids"></a> `ids?` | \{ `kind`: `"topic"` \| `"segment"`; `key`: `string`; \}[] | The provider ids the sync stores on the deployment (on a dry run, would store) for the topics and the segment it found or made: one found by name, or a topic whose words changed since its id was stored. A dry run that finds everything at the provider may still have ids to store. Absent when the sync did not reach them (no full-access key, or a sync of the webhook alone), and from a backend older than it. | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
 | <a id="webhook"></a> `webhook` | \{ `url`: `string` \| `null`; `action`: \| `"missing"` \| `"created"` \| `"skipped"` \| `"updated"` \| `"exists"` \| `"would-create"` \| `"would-update"`; `missingEvents`: `string`[]; `enabled?`: `boolean`; `changed?`: `"enabled"` \| `"would-enable"` \| `"secret-rotated"` \| `"would-rotate"`; `secret?`: `string`; \} | - | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
 | `webhook.url` | `string` \| `null` | - | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
 | `webhook.action` | \| `"missing"` \| `"created"` \| `"skipped"` \| `"updated"` \| `"exists"` \| `"would-create"` \| `"would-update"` | - | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
@@ -938,9 +939,10 @@ What `email sync` found and did. `webhook.secret` is the new endpoint's signing 
 | `region.actual` | `string` \| `null` | - | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
 | <a id="topics-1"></a> `topics` | `number` | How many topics `setupEmail` declares, and whether the brand has a postal address. | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
 | <a id="postaladdress-1"></a> `postalAddress` | `boolean` | - | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
-| <a id="flows"></a> `flows` | \{ `declared`: `string`[]; `unsynced`: `string`[]; \} | The lifecycle flows `setupEmail` turns on, and those the deployment does not run as the code declares them: `email sync` has not run since they changed. | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
+| <a id="flows"></a> `flows` | \{ `declared`: `string`[]; `unsynced`: `string`[]; `retired?`: `string`[]; \} | The lifecycle flows `setupEmail` turns on, those the deployment does not run as the code declares them, and those it still runs that the code no longer declares (`retired`): `email sync` has not run since they changed. `retired` is absent from a backend older than it. | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
 | `flows.declared` | `string`[] | - | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
 | `flows.unsynced` | `string`[] | - | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
+| `flows.retired?` | `string`[] | - | [src/convex/integrations/email-sync.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-sync.ts) |
 
 ***
 
@@ -1414,7 +1416,7 @@ What `setupEmail({ contact })` takes.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="to-6"></a> `to?` | `string` | The team's mailbox: a contact message is copied there with the sender's address as its reply-to, when there is no support inbox. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
+| <a id="to-6"></a> `to?` | `string` | The team's mailbox: a contact message is copied there with the sender's address as its reply-to, when there is no support inbox. On a `development` deployment the copy goes to the provider's sandbox inbox (`delivered@resend.dev`) instead, which the dev inbox reads. A test address here gets no copy on a sandbox or a preview that publishes its dev inbox, where anyone could read it: give it a real address. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
 
 ***
 
@@ -1464,17 +1466,17 @@ Everything the Inbox tab shows.
 
 Defined in: [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts)
 
-What `syncInbound` reports to `nuxt-backend email sync`.
+What `syncInbound` reports to `nuxt-backend email sync`, and to `doctor --fix`, which plans it with a dry run (`{ dryRun: true }`).
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="support-2"></a> `support` | `string` \| `null` | The support address, or `null` when `setupEmail` names none. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
-| <a id="inbox"></a> `inbox` | `"created"` \| `"found"` \| `null` | The inbox: found, made now, or `null` without a support address. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
+| <a id="inbox"></a> `inbox` | `"created"` \| `"would-create"` \| `"found"` \| `null` | The inbox: found, made now (`would-create` on a dry run), or `null` without a support address or a domain to make it on. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
 | <a id="domain-1"></a> `domain` | \| \{ `name`: `string`; `status`: `string`; `receiving`: `boolean`; \} \| `null` | The receiving domain's state at the provider, or `null` when the address names a domain the account does not hold. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
-| <a id="webhook-1"></a> `webhook` | \{ `state`: `"missing"` \| `"ok"` \| `"updated"`; `id`: `string` \| `null`; `added`: `string`[]; \} | The webhook that carries the events: found, its events completed, or missing (it needs the route's URL and secret, which only you can set). | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
-| `webhook.state` | `"missing"` \| `"ok"` \| `"updated"` | - | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
+| <a id="webhook-1"></a> `webhook` | \{ `state`: `"missing"` \| `"ok"` \| `"updated"` \| `"would-update"`; `id`: `string` \| `null`; `added`: `string`[]; \} | The webhook that carries the events: found, its events completed (`would-update` on a dry run, with the events it would add), or missing (it needs the route's URL and secret, which only you can set). | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
+| `webhook.state` | `"missing"` \| `"ok"` \| `"updated"` \| `"would-update"` | - | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
 | `webhook.id` | `string` \| `null` | - | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
 | `webhook.added` | `string`[] | - | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
 | <a id="todo"></a> `todo` | `string`[] | What is left to do by hand, in words. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |

@@ -37,6 +37,8 @@ The buttons follow the subscription, not only the line:
 
 - **Keep plan** shows on any plan set to cancel, a failed payment set to end included. Its line then says when the plan ends.
 - **Cancel the change** shows on a scheduled change, unless the plan is set to end.
+- **Change plan** shows on a running plan that is not set to end, paused, gifted or already changing. It opens a picker of every price on sale but the one the plan is on, in the subscription's own currency (Polar keeps it on a plan change, wherever the subscriber is), then the [switch's confirmation](#a-switch-says-what-it-does-first).
+- **Pause plan** shows on a running plan with no pause scheduled, not set to end, not past due and not in its trial, since Polar pauses only an active subscription. It opens a group with what a pause does and its length, one to three months from the period's end, then **Confirm pause**.
 - **Cancel plan** shows unless the plan is set to end or paused, so no state offers a second cancellation the provider would refuse.
 - **Manage billing** opens the billing portal, for the payment method and the invoices, in every subscribed state. After a failed payment, **Update payment method** comes first.
 
@@ -49,6 +51,17 @@ A member who manages none of the workspace's billing reads the same state, with 
 Escape, or "Cancel plan" again, closes the group and keeps focus on the button, except while the cancellation is on its way. Once it goes through, focus moves to the plan's new state and a status announces it. One action runs at a time: while one is on its way, another button starts nothing.
 
 The panel asks for no reason. The provider keeps a cancellation's reason (`too_expensive`, `missing_features`, `switched_service`, `unused`, `customer_service`, `low_quality`, `too_complex`, `other`) and the customer's own comment only with the cancellation itself. It takes one cancellation per period, so neither can be added afterwards. A flow of your own that gathers them passes them with the cancellation: `cancel({ reason, comment })` on `useBilling`, or `cancelPlan({ reason, comment })` from the `billing` slot. Both are optional, and "Keep plan" clears them.
+
+### A switch says what it does first
+
+"Change plan", and a subscriber's switch on a card of `<PricingTable>`, open one group before anything changes: the price the plan moves to, when the switch happens and how the period settles, then **Confirm switch** and **Not now**. The price is in the subscription's own currency, which Polar keeps on a switch, so a dollar subscriber reading the page in euros is told dollars. Polar switches only to a product priced in that currency, so neither offers a switch to one that is not.
+
+- A switch from a yearly price to a monthly one reads "$29/mo from Mar 15, 2027. The year you paid for runs out first: the switch happens when it ends." It is scheduled, and the plan's line then reads "Plan change scheduled".
+- Any other switch reads "$29/mo from now on. The switch happens at once, and the difference for this period is settled now." The confirmation switches with `proration: 'invoice'`, so the difference is charged or credited at once whatever the organization's default proration is.
+- A gifted [plan pass](/docs/build/growth/offers/plan-passes) is no subscription Polar switches: its holder's switch on a card of `<PricingTable>` is a checkout of the new plan, which replaces the pass in place. The group reads "$29/mo from checkout on. Your gifted plan stops once you check out, and the time left on it does not carry over.", and **Confirm switch** opens the checkout.
+- During a trial nothing is prorated. A switch to a plan with a trial of its own reads "$29/mo from now on. The switch happens at once and your trial carries over: nothing is charged until it ends." Polar counts the new plan's trial from the start of the current one, so a plan with no trial, or one already over, ends the trial instead: "$29/mo from now on. The switch happens at once and ends your trial, so the first payment is charged now." A switch from a yearly price to a monthly one reads "$29/mo once your trial ends: the switch happens then."
+
+Escape or **Not now** closes the group and gives focus back to the button that opened it. Once the switch goes through, focus moves to the plan's state, a status says what changed, and `<WorkspaceSettings>` emits `plan-changed` with the product. A pause emits `plan-paused` with the time it resumes. The `billing` slot gets both as `switchPlan(productId)` and `pausePlan(months)`, past their confirmation, for a section of your own.
 
 ### What the plan includes
 
@@ -119,6 +132,62 @@ While the [`pause_checkout`](/docs/ship/operate/flags#kill-switches) kill switch
 
 A switch from a yearly price to a monthly one never happens mid-year, since the year's credits were granted at its start. It waits for the paid year's end, whatever `proration` says, and reads back as `pendingChange` (`{ productId, appliesAt }`). So does a change the provider schedules for any other reason. `cancelPendingChange()` undoes it, and is refused as `invalid_input` (reason `no_change_scheduled`) when nothing is scheduled.
 
+### Preview a change
+
+`changeOf(productId)` says what `changePlan(productId, { proration: 'invoice' })` would do, by the same rule the server applies, so a confirmation of your own that switches the same way says it before it happens. Without `proration` the organization's default settles the switch, which may carry the difference to the next invoice or schedule the switch for the period's end, so pass it:
+
+```vue [app/components/SwitchPlan.vue]
+<script setup lang="ts">
+const props = defineProps<{ productId: string, price: string }>()
+const billing = useBilling()
+const change = computed(() => billing.changeOf(props.productId))
+// The app's language, not the visitor's, so the server's HTML and the browser's agree.
+const { locale } = useLabels('settings')
+const day = (date: Date) => new Intl.DateTimeFormat(locale.value ?? 'en', { dateStyle: 'medium' }).format(date)
+</script>
+
+<template>
+  <p v-if="change?.applies === 'period_end'">
+    {{ price }} from {{ change.appliesAt ? day(change.appliesAt) : 'the end of the period' }}, once the {{ change.trial ? 'trial' : 'year you paid for' }} runs out.
+  </p>
+  <p v-else-if="change?.trial">
+    {{ price }} from now on. {{ change.proration === 'none' ? 'Your trial carries over.' : 'Your trial ends, and the first payment is charged now.' }}
+  </p>
+  <p v-else-if="change">
+    {{ price }} from now on. The difference for this period is settled now.
+  </p>
+  <button v-if="change" type="button" @click="billing.changePlan(productId, { proration: 'invoice' })">Confirm switch</button>
+</template>
+```
+
+::field-group
+  :::field{name="applies" type="'now' | 'period_end'"}
+  `period_end` for a yearly price left for a monthly one, which is scheduled and reads back as `pendingChange`; `now` for any other change.
+  :::
+
+  :::field{name="appliesAt" type="Date | null"}
+  The current period's end for a scheduled change; `null` for one made at once, or while the period's end is not known.
+  :::
+
+  :::field{name="proration" type="'now' | 'none'"}
+  `now`: money changes hands at once. The period's difference is charged or credited, or, during a trial, the new plan's first period is charged, since a plan with no trial (or one already over) ends it. `none`: nothing is settled now. A scheduled change charges the new price from the renewal on, and during a trial the trial carries over to the new plan.
+  :::
+
+  :::field{name="trial" type="boolean"}
+  `true` while the subscription is in its trial: no difference is prorated, and `proration` says whether the trial carries over (`none`) or ends with a charge (`now`). A scheduled change applies when the trial ends.
+  :::
+
+  :::field{name="rule" type="'paid_year' | null"}
+  Why the change waits: `paid_year` for a yearly price left for a monthly one. `null` for a change made at once.
+  :::
+
+  :::field{name="plan / interval / fromInterval" type="string / 'month' | 'year'"}
+  The target's plan key and billing period, and the subscription's period now, when the catalog names them.
+  :::
+::
+
+`changeOf` answers `null` without a paid subscription to change: none, the free plan, a gifted [plan pass](/docs/build/growth/offers/plan-passes), still loading, and for the product the subscription is already on. It reads reactive state, so call it in a `computed` or the template.
+
 ## Cancel and keep
 
 `cancel` ends the plan at the end of the paid period by default, and `uncancel` takes that back:
@@ -140,7 +209,7 @@ The provider takes one cancellation per period. `cancel` on a subscription alrea
 
 Polar's customer portal always offers cancellation at the period's end, whatever else its settings allow. A customer who leaves through the portal skips your app's flow, which is how it should be: cancelling stays one step wherever they start.
 
-Where you turn save offers on (`setupBilling({ lifecycle: { saveOffers } })`), one optional step comes before the cancellation: a question, and one offer by reason, a pause, a cheaper plan or a win-back promotion. `cancel` then answers `{ offer }` instead of cancelling, `offer: false` cancels past it, and `<CancelFlow>` runs both steps. See [Handle cancellations and win people back](/docs/build/growth/engage/cancel-flow). An EU customer inside the withdrawal period gets a withdrawal button with a confirm step and an email receipt ([Follow subscription law](/docs/ship/compliance/subscriptions)).
+Where you turn save offers on (`setupBilling({ lifecycle: { saveOffers } })`), one optional step comes before the cancellation: a question, and one offer by reason, a pause, a cheaper plan or a win-back promotion. `cancel` then answers `{ offer }` instead of cancelling, `offer: false` cancels past it, and `<CancelFlow>` runs both steps. See [Handle cancellations and win people back](/docs/build/growth/engage/cancel-flow). An EU customer inside the withdrawal period gets a withdrawal button with a confirm step and an email receipt ([Follow subscription law](/docs/ship/compliance/subscriptions)); `useWithdrawal()` says whether that period is open and until when, for a section of your own around the button.
 
 ## Pause and resume
 
@@ -152,6 +221,8 @@ const { pause, resume, resumesAt } = useBilling()
 await pause({ resumesAt: new Date('2027-03-01') })   // at the end of the current period
 await resume()                                       // now, starting a new, charged period
 ```
+
+The billing section's **Pause plan** offers one, two or three months, counted from the period's end on the same day of the month, or on the month's last day when it is shorter: a period ending on March 15 paused for two months resumes on May 15, and one ending on January 31 paused for a month resumes on February 28.
 
 The plan runs until the period ends, so `isPaused` is still `false` after `pause` returns, while `resumesAt` reads back at once. Polar never charges for a pause and never starts one mid-period. Once paused, the plan's benefits are revoked and no orders are made. Resuming starts a new period at once and charges it on the card on file, with no second checkout (checked on 2026-10-25). Without a date, the subscription stays paused until `resume()`. Customers pause from the portal only when the organization turns on **Enable subscription pause** in Polar's portal settings. The synced subscriptions table holds neither a scheduled change nor a resume date. The package keeps both from each `subscription.*` webhook and from the response of the change itself, newest first by the provider's `modifiedAt`. They read `null` once their date has passed or the subscription changed since.
 
@@ -175,7 +246,7 @@ Each action takes an optional `subscriptionId`. You need it only with `setupBill
 
 ## From server code
 
-`setupBilling` returns the same operations as methods for your own actions: `billing.updateSubscription`, `cancelSubscription`, `uncancelSubscription`, `cancelPendingChange`, `pauseSubscription` and `resumeSubscription`. They check the caller the way the registered functions do, and accept the whole `proration` set: `invoice`, `prorate`, `next_period` and `reset`. A client gets only `invoice` or `prorate`, because `next_period` and `reset` hand over a new plan at once while deferring or waiving its charge.
+`setupBilling` returns the same operations as methods for your own actions: `billing.updateSubscription`, `cancelSubscription`, `uncancelSubscription`, `cancelPendingChange`, `pauseSubscription` and `resumeSubscription`. They check the caller the way the registered functions do, and accept the whole `proration` set: `invoice`, `prorate`, `next_period` and `reset`. A client gets only `invoice` or `prorate`, the two that switch at once and settle the difference (`invoice` now, `prorate` on the next invoice): `next_period` schedules the switch for the period's end, and `reset` charges the new plan in full and restarts the billing cycle.
 
 ## What happens when…
 

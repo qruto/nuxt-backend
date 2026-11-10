@@ -285,6 +285,7 @@
     "convex": ">=1.46.0 <2",
     "convex-test": ">=0.0.54",
     "eslint": "^9.0.0 || ^10.0.0",
+    "heic-to": "^1.6.7",
     "vue": "^3.5.41"
   },
   "devDependencies": {
@@ -325,6 +326,7 @@
     "fast-check": "^4.10.2",
     "h3": "^1.15.11",
     "happy-dom": "^21.0.4",
+    "heic-to": "^1.6.7",
     "installed-check": "^11.0.0",
     "lightningcss": "^1.33.0",
     "npm-run-all2": "^9.0.4",
@@ -386,6 +388,9 @@
       "optional": true
     },
     "@convex-dev/agent": {
+      "optional": true
+    },
+    "heic-to": {
       "optional": true
     }
   },

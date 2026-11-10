@@ -2,13 +2,18 @@
  * The rules every packaged component shares: buttons, a busy button, fields,
  * the focus ring, section titles, messages, and the frame of the packaged
  * pages. Inside `@layer nuxt-backend`, so any rule of the app's wins; the
- * two face rules sit in `@layer nuxt-backend-tokens`, below every layer.
+ * face and press rules sit in `@layer nuxt-backend-tokens`, below every layer.
  */
 /* ── The faces ──────────────────────────────────────────────────────────────
    `data-backend` marks the outermost element of every packaged component
-   and page. Its text reads `--bk-font`, its headings `--bk-font-heading`;
-   each component's button rule reads `--bk-font-control`. With a token
-   unset, `var()` leaves the face inherited: the page's. These two rules sit
+   and page. Its text reads `--bk-font`, its headings `--bk-font-heading`
+   and `--bk-tracking-heading` (an uppercase label reads
+   `--bk-tracking-label` in its own rule); each component's button rule reads
+   `--bk-font-control` and `--bk-tracking-control`. With a token
+   unset, `var()` leaves the face inherited: the page's. A button's
+   tracking falls back to `revert-layer`, so while the token is unset the
+   rule sets none, and a button or a link drawn as one keeps what the page,
+   its reset and the browser give it. These rules sit
    in `nuxt-backend-tokens`, the lowest layer, beside the tokens: a rule of
    the app's in any layer, such as a heading face in Tailwind's `base`, wins
    over them, token set or not. */
@@ -19,6 +24,52 @@
 
   :where([data-backend]) :where(h1, h2, h3, h4, h5, h6) {
     font-family: var(--bk-font-heading, var(--bk-font));
+    letter-spacing: var(--bk-tracking-heading);
+  }
+
+  /* ── The press ──────────────────────────────────────────────────────────────
+     A button drawn as a button reads its shadow and offset from two private
+     properties, `box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control))`
+     and `translate: var(--_bk-press-offset)`, which these rules set on hover
+     and press from the state tokens. A state token left unset leaves the
+     private one invalid, so the button keeps its resting shadow (an unset
+     press falls back to the hover) and no offset: no state token, no change.
+     A text button sets `box-shadow: none` and `translate: none` itself, so it
+     never presses. `--bk-transition-control` unset leaves no transition. */
+  :where([data-backend]) :where(button, a, label, summary) {
+    transition: var(--bk-transition-control);
+  }
+
+  /* The state belongs to the element in it: custom properties inherit, so
+     a drawn button inside a hovered link, label or summary would read the
+     hover too. Each element below one starts from none; one in a state of
+     its own sets it again in the rules after this. */
+  :where([data-backend] :is(button, a, label, summary) *) {
+    --_bk-press-shadow: initial;
+    --_bk-press-offset: initial;
+  }
+
+  /* Only a pointer that hovers: after a tap, a touch screen keeps `:hover`
+     on what it touched, and the button would stay lifted. */
+  @media (hover: hover) {
+    :where([data-backend]) :where(button, a, label, summary):where(:hover:not(:disabled, [aria-disabled='true'])) {
+      --_bk-press-shadow: var(--bk-shadow-control-hover);
+      --_bk-press-offset: var(--bk-offset-control-hover);
+    }
+  }
+
+  :where([data-backend]) :where(button, a, label, summary):where(:active:not(:disabled, [aria-disabled='true'])) {
+    --_bk-press-shadow: var(--bk-shadow-control-active, var(--bk-shadow-control-hover));
+    --_bk-press-offset: var(--bk-offset-control-active, var(--bk-offset-control-hover));
+  }
+
+  /* Someone who asked for less motion: the shadow still changes, but
+     nothing moves and nothing transitions, whatever the tokens say. */
+  @media (prefers-reduced-motion: reduce) {
+    :where([data-backend]) :where(button, a, label, summary) {
+      --_bk-press-offset: initial;
+      transition: none;
+    }
   }
 }
 
@@ -27,13 +78,15 @@
 
   :where([data-pricing='table'], [data-settings='root'], [data-profile='root'], [data-security='root'], [data-invitation], [data-gift='banner'], [data-history='root'], [data-usage='root'], [data-account='root'], [data-audit='root'], [data-admin='users'], [data-admin='workspaces'], [data-admin='system'], [data-admin='console'], [data-impersonation='banner'], [data-credits='banner'], [data-access='root']) :where(button) {
     padding: 0.55rem 0.9rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
-    box-shadow: var(--bk-shadow-control);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
+    box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control));
+    translate: var(--_bk-press-offset);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
     font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
+    letter-spacing: var(--bk-tracking-control, revert-layer);
     font-weight: 600;
     cursor: pointer;
   }
@@ -51,7 +104,7 @@
 
   :where([data-settings='root'], [data-profile='root'], [data-account='root'], [data-admin='users'], [data-admin='workspaces']) :where(input, select) {
     padding: 0.55rem 0.7rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
@@ -107,7 +160,7 @@
     margin: 0 0 0.6rem;
     font-size: 0.8rem;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--bk-tracking-label, 0.06em);
     text-transform: uppercase;
     color: var(--bk-muted);
   }
@@ -134,7 +187,7 @@
   :where([data-settings='title'], [data-profile='title'], [data-security='title'], [data-invitation='title'], [data-pricing='page'] [data-pricing='header']) {
     margin: 0 0 1.5rem;
     font-size: 1.6rem;
-    letter-spacing: -0.02em;
+    letter-spacing: var(--bk-tracking-heading, -0.02em);
   }
 
   /* ── Default page wrappers (module-mounted routes) ───────────────────────── */

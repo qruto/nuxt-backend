@@ -1,19 +1,23 @@
 <script setup lang="ts">
-import { computed, resolveComponent } from 'vue'
+import { computed, resolveComponent, type Ref } from 'vue'
 import { busyAttributes } from '../../a11y'
 import { valueLabel } from '../../composables/use-labels'
 import type { EntitlementBenefit } from '../../composables/use-billing'
 import type { WorkspaceBillingProps } from '../../parts'
 import CancelConfirmGroup from '../billing/CancelConfirmGroup.vue'
 import { IN_PORTAL, type PlanState } from './workspace-billing'
+import WorkspaceBillingPause from './WorkspaceBillingPause.vue'
+import WorkspaceBillingSwitch from './WorkspaceBillingSwitch.vue'
 import { useWorkspaceSettingsView } from './workspace-settings'
 
 /**
  * `<WorkspaceSettings>`'s plan: its name and state (a trial's end, a failed
  * payment to update in the portal, a pause to resume, a cancellation to keep
  * the plan from, a scheduled change to cancel), the one action each state
- * calls for, what it includes, and a cancellation that takes one step. Only
- * the workspace's billing managers get the buttons.
+ * calls for, what it includes, a switch to another plan or billing period
+ * that says when it applies and how the period settles before it does, a
+ * pause of one to three months from the period's end, and a cancellation
+ * that takes one step. Only the workspace's billing managers get the buttons.
  */
 defineOptions({ name: 'WorkspaceBilling' })
 const props = defineProps<WorkspaceBillingProps>()
@@ -80,6 +84,36 @@ const cancelling = computed(() => {
 })
 /** A scheduled plan change can be cancelled, unless the plan is set to end. */
 const changeCancellable = computed(() => props.billing.pendingChange.value !== null && !props.billing.cancelAtPeriodEnd.value)
+
+/** One button of the plan's row: its hook, what it carries and what it says, and where a group it opens gives focus back. */
+interface PlanButton { hook: string, attributes: Record<string, unknown>, text: string, element?: Ref<HTMLElement | null> }
+/** A button that opens and closes a group: the group's toggle, its element kept for the focus coming back. */
+const opens = (hook: string, text: string, toggle: Record<string, unknown>): PlanButton => {
+  const { ref: element, ...attributes } = toggle as { ref: Ref<HTMLElement | null> }
+  return { hook, attributes, text, element }
+}
+/** A button that runs one action: busy while it runs, saying so, and keeping focus. */
+const runs = (hook: string, key: string, idle: string, busy: string, action: () => unknown): PlanButton => ({
+  hook,
+  attributes: { ...busyAttributes(pending(key)), onClick: () => press(key, action) },
+  text: pending(key) ? busy : idle,
+})
+/**
+ * The plan's buttons, in order. What they offer follows the subscription,
+ * not only the state its line reads as: a plan set to cancel offers Keep
+ * plan, and one with a change scheduled offers to cancel the change,
+ * whatever else holds.
+ */
+const actions = computed<PlanButton[]>(() => [
+  portalFirst.value && runs('portal', 'portal', t('updatePayment'), t('openingPortal'), section.openPortal),
+  props.billing.isPaused.value && runs('resume', 'resume', t('resume'), t('resuming'), section.resumePlan),
+  props.billing.cancelAtPeriodEnd.value && runs('uncancel', 'uncancel', t('keepPlan'), t('keeping'), section.keepPlan),
+  changeCancellable.value && runs('cancel-change', 'cancel-change', t('cancelChange'), t('cancelingChange'), section.cancelChange),
+  portalLast.value && runs('portal', 'portal', t('portal'), t('openingPortal'), section.openPortal),
+  section.switchable.value && opens('change-plan', t('changePlan'), section.switchToggleProps()),
+  section.pausable.value && opens('pause', t('pause'), section.pauseToggleProps()),
+  cancellable.value && opens('cancel', t('cancel'), section.confirm.toggleProps()),
+].filter((button): button is PlanButton => button !== false))
 
 /** One benefit: its name (else what it gives), what it gives, and what it holds. */
 const kind = (benefit: EntitlementBenefit) => valueLabel(labels, 'settings', 'benefitKinds', benefit.kind ?? 'other')
@@ -189,62 +223,20 @@ const portalNote = computed(() => managing.value && section.benefits.value.some(
     </div>
     <template v-if="section.state.value">
       <template v-if="managing">
-        <!-- What the buttons offer follows the subscription, not only the state its line reads as: a plan set to cancel offers Keep plan, and one with a change scheduled offers to cancel the change, whatever else holds. -->
         <div data-settings="plan-actions">
           <button
-            v-if="portalFirst"
-            data-settings="portal"
+            v-for="action in actions"
+            :key="action.hook"
+            :ref="(element) => action.element && (action.element.value = element as HTMLElement | null)"
+            :data-settings="action.hook"
             type="button"
-            v-bind="busyAttributes(pending('portal'))"
-            @click="press('portal', section.openPortal)"
+            v-bind="action.attributes"
           >
-            {{ pending('portal') ? t('openingPortal') : t('updatePayment') }}
-          </button>
-          <button
-            v-if="billing.isPaused.value"
-            data-settings="resume"
-            type="button"
-            v-bind="busyAttributes(pending('resume'))"
-            @click="press('resume', section.resumePlan)"
-          >
-            {{ pending('resume') ? t('resuming') : t('resume') }}
-          </button>
-          <button
-            v-if="billing.cancelAtPeriodEnd.value"
-            data-settings="uncancel"
-            type="button"
-            v-bind="busyAttributes(pending('uncancel'))"
-            @click="press('uncancel', section.keepPlan)"
-          >
-            {{ pending('uncancel') ? t('keeping') : t('keepPlan') }}
-          </button>
-          <button
-            v-if="changeCancellable"
-            data-settings="cancel-change"
-            type="button"
-            v-bind="busyAttributes(pending('cancel-change'))"
-            @click="press('cancel-change', section.cancelChange)"
-          >
-            {{ pending('cancel-change') ? t('cancelingChange') : t('cancelChange') }}
-          </button>
-          <button
-            v-if="portalLast"
-            data-settings="portal"
-            type="button"
-            v-bind="busyAttributes(pending('portal'))"
-            @click="press('portal', section.openPortal)"
-          >
-            {{ pending('portal') ? t('openingPortal') : t('portal') }}
-          </button>
-          <button
-            v-if="cancellable"
-            data-settings="cancel"
-            type="button"
-            v-bind="section.confirm.toggleProps()"
-          >
-            {{ t('cancel') }}
+            {{ action.text }}
           </button>
         </div>
+        <WorkspaceBillingSwitch />
+        <WorkspaceBillingPause />
         <component
           :is="cancelling.is"
           v-if="cancellable"

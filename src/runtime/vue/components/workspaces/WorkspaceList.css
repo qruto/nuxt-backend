@@ -18,7 +18,7 @@
     align-items: center;
     gap: 0.6rem;
     padding: 0.55rem 0.7rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
     box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
     font-size: 0.88rem;
@@ -45,7 +45,7 @@
   [data-settings='active-badge'] {
     font-size: 0.68rem;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--bk-tracking-label, 0.06em);
     text-transform: uppercase;
     padding: 0.15rem 0.5rem;
     border-radius: 999px;

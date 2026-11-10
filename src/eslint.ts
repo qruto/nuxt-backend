@@ -1,6 +1,7 @@
 /**
  * The ESLint preset for a `nuxt-backend` app: the official Convex lint rules,
- * scoped to the functions directory, with Convex's generated code ignored.
+ * scoped to the functions directory, with Convex's generated code and the
+ * files the module generates there ignored.
  *
  * Needs `@convex-dev/eslint-plugin` installed next to it (an optional peer).
  *
@@ -48,6 +49,14 @@ export interface BackendEslintOptions {
   rules?: Linter.RulesRecord
 }
 
+/**
+ * The files the module writes at the top of the functions directory and
+ * rewrites from the app's config: the brand, paths and labels files, and the
+ * billing id map `billing sync` writes. A lint fix in one is undone by the
+ * next write.
+ */
+const BACKEND_GENERATED_FILES: readonly string[] = Object.freeze(['brand.generated.ts', 'paths.generated.ts', 'labels.generated.ts', 'billing.generated.ts'])
+
 /** `./backend/` → `backend`: the glob prefix, without a leading `./` or trailing slashes. */
 function normalizeDir(dir: string): string {
   let end = dir.length
@@ -58,7 +67,8 @@ function normalizeDir(dir: string): string {
 /**
  * Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to
  * the functions directory (tests excluded), and `nuxt-backend:generated`
- * ignores every `_generated` folder in it.
+ * ignores every `_generated` folder in it and the files the module generates
+ * there (brand, paths, labels and the billing id map).
  *
  * The rules parse TypeScript. Inside `withNuxt(…)` the parser is already set;
  * a standalone config adds `typescript-eslint`'s parser for `.ts` files.
@@ -68,7 +78,7 @@ export function backendEslint(options: BackendEslintOptions = {}): Linter.Config
   return [
     {
       name: 'nuxt-backend:generated',
-      ignores: [`${dir}/**/_generated/**`],
+      ignores: [`${dir}/**/_generated/**`, ...BACKEND_GENERATED_FILES.map(file => `${dir}/${file}`)],
     },
     {
       name: 'nuxt-backend:convex',

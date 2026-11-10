@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { busyAttributes } from '../../a11y'
+import { confirmGroup } from '../../utils/confirm-group'
 import type { CancelConfirm } from '../../utils/cancel-confirm'
 
 /**
@@ -13,15 +14,8 @@ import type { CancelConfirm } from '../../utils/cancel-confirm'
 defineOptions({ name: 'CancelConfirmGroup' })
 const props = defineProps<{ confirm: CancelConfirm }>()
 const options = computed(() => props.confirm.options)
-const hook = (value: string) => ({ [`data-${options.value.family}`]: value })
-const busy = () => options.value.isBusy()
+const { hook, busy, keydown } = confirmGroup(() => options.value, () => props.confirm.close())
 const ends = () => options.value.endsOn()
-
-function keydown(event: KeyboardEvent) {
-  if (event.key !== 'Escape') return
-  event.stopPropagation()
-  props.confirm.close()
-}
 </script>
 
 <template>

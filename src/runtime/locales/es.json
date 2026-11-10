@@ -273,7 +273,22 @@
       "confirmTitle": "Cancelar el plan",
       "confirmEnds": "El plan termina el {date}. Todo lo que incluye se mantiene hasta entonces.",
       "confirmEndsPeriod": "El plan termina con el periodo actual. Todo lo que incluye se mantiene hasta entonces.",
-      "confirmCancel": "Confirmar cancelación"
+      "confirmCancel": "Confirmar cancelación",
+      "changeTitle": "¿Cambiar a {plan}?",
+      "billedAt": {
+        "month": "{plan}, facturación mensual",
+        "year": "{plan}, facturación anual"
+      },
+      "changeNow": "{price} desde ahora. El cambio es inmediato, y la diferencia de este periodo se liquida ahora.",
+      "changeLater": "{price} desde el {date}. Primero termina el año que pagaste: el cambio ocurre cuando acaba.",
+      "changeLaterPeriod": "{price} cuando termine el año que pagaste: el cambio ocurre entonces.",
+      "changeTrial": "{price} desde ahora. El cambio es inmediato y tu prueba continúa: no se cobra nada hasta que termine.",
+      "changeTrialEnds": "{price} desde ahora. El cambio es inmediato y termina tu prueba, así que el primer pago se cobra ahora.",
+      "changeTrialLater": "{price} cuando termine tu prueba: el cambio ocurre entonces.",
+      "changeGifted": "{price} desde el pago. Tu plan regalado termina en cuanto completes el pago, y el tiempo que le queda no se conserva.",
+      "confirmChange": "Confirmar el cambio",
+      "switchingPlan": "Cambiando el plan…",
+      "keepCurrent": "Ahora no"
     },
     "settings": {
       "title": "Ajustes",
@@ -326,6 +341,40 @@
       "confirmEnds": "El plan termina el {date}. Todo lo que incluye se mantiene hasta entonces.",
       "confirmEndsPeriod": "El plan termina con el periodo actual. Todo lo que incluye se mantiene hasta entonces.",
       "confirmCancel": "Confirmar cancelación",
+      "changePlan": "Cambiar de plan",
+      "switchTo": "Cambiar a",
+      "choosePlan": "Elige un plan",
+      "billedAt": {
+        "month": "{plan}, facturación mensual",
+        "year": "{plan}, facturación anual"
+      },
+      "period": {
+        "month": "/mes",
+        "year": "/año"
+      },
+      "changeTitle": "¿Cambiar a {plan}?",
+      "changeNow": "{price} desde ahora. El cambio es inmediato, y la diferencia de este periodo se liquida ahora.",
+      "changeLater": "{price} desde el {date}. Primero termina el año que pagaste: el cambio ocurre cuando acaba.",
+      "changeLaterPeriod": "{price} cuando termine el año que pagaste: el cambio ocurre entonces.",
+      "changeTrial": "{price} desde ahora. El cambio es inmediato y tu prueba continúa: no se cobra nada hasta que termine.",
+      "changeTrialEnds": "{price} desde ahora. El cambio es inmediato y termina tu prueba, así que el primer pago se cobra ahora.",
+      "changeTrialLater": "{price} cuando termine tu prueba: el cambio ocurre entonces.",
+      "confirmChange": "Confirmar el cambio",
+      "switchingPlan": "Cambiando el plan…",
+      "keepCurrent": "Ahora no",
+      "switched": "Ahora el plan es {plan}.",
+      "switchScheduled": "El {date}, el plan cambia a {plan}.",
+      "switchScheduledPeriod": "El plan cambia a {plan} cuando termine el año que pagaste.",
+      "pause": "Pausar el plan",
+      "pauseTitle": "Pausar el plan",
+      "pauseFrom": "El plan se pausa cuando termina este periodo, el {date}, y se reanuda solo tras los meses que elijas. No se cobra nada mientras está en pausa.",
+      "pauseFromPeriod": "El plan se pausa cuando termina este periodo y se reanuda solo tras los meses que elijas. No se cobra nada mientras está en pausa.",
+      "pauseFor": "Pausar durante",
+      "pauseMonths": "{count} mes | {count} meses",
+      "confirmPause": "Confirmar la pausa",
+      "pausing": "Pausando…",
+      "pauseScheduled": "El plan se pausa cuando termina este periodo y se reanuda el {date}.",
+      "pauseScheduledPeriod": "El plan se pausa cuando termina este periodo.",
       "finishingPurchase": "Finalizando tu compra…",
       "benefits": "Incluido",
       "benefitKinds": {
@@ -479,7 +528,8 @@
         "job": {
           "queue_changed": "{actor} cambió la cola de tareas",
           "canceled": "{actor} canceló una tarea",
-          "retried": "{actor} volvió a poner en cola una tarea fallida"
+          "retried": "{actor} volvió a poner en cola una tarea fallida",
+          "charge_retried": "{actor} volvió a intentar el cobro pendiente de una tarea"
         },
         "ai": {
           "spend_limit_reached": "{actor} pausó la IA: se alcanzó el límite de gasto de hoy"
@@ -842,7 +892,10 @@
           "cancel": "Cancelar",
           "cancelRefund": "Cancelar y reembolsar",
           "retry": "Reintentar",
-          "discard": "Descartar"
+          "discard": "Descartar",
+          "retryCharge": "Reintentar el cobro",
+          "owed": "{status}, {credits} créditos pendientes",
+          "owedGivenUp": "{status}, {credits} créditos sin cobrar"
         },
         "status": {
           "queued": "En espera",
@@ -1550,6 +1603,29 @@
       "sentTitle": "Enviados",
       "receivedEmpty": "Todavía no tienes regalos.",
       "sentEmpty": "Todavía no has enviado ningún regalo.",
+      "formTitle": "Enviar un regalo",
+      "kind": "Qué regalar",
+      "kinds": {
+        "pack": "Créditos",
+        "pass": "Un plan"
+      },
+      "packChoice": "Qué paquete",
+      "planChoice": "Qué plan",
+      "lengthChoice": "Por cuánto tiempo",
+      "lengthOption": "{count} mes | {count} meses",
+      "passHint": "Un plan regalado no necesita su tarjeta y nunca se renueva. Va a un espacio de trabajo con el plan gratuito.",
+      "recipient": "Su correo",
+      "note": "Una nota (opcional)",
+      "noteHint": "{count} de {max} caracteres, texto sin formato, sin enlaces",
+      "deliverDay": "Entregar el (opcional)",
+      "deliverHint": "Déjalo vacío para enviarlo en cuanto pagues.",
+      "send": "Pagar {price} y enviar",
+      "sending": "Abriendo el pago…",
+      "signInToSend": "Inicia sesión para enviar un regalo",
+      "payHint": "Pagas ahora. Hasta que lo reciban, puedes cambiar la fecha o la dirección, o cancelarlo con reembolso completo.",
+      "sentBack": "Pagado. El regalo sale el día que elegiste; lo verás en Enviados.",
+      "nothingToGive": "Todavía no hay nada a la venta para regalar.",
+      "sendFailed": "No se pudo enviar el regalo",
       "soon": "Los planes llegan pronto, y con ellos los regalos.",
       "itemPack": "{name}",
       "itemPass": "{count} mes de {plan} | {count} meses de {plan}",
@@ -1593,6 +1669,7 @@
       "claiming": "Recibiendo…",
       "claimed": "Regalo recibido. Tus {unit} llegarán en un momento.",
       "claimedPass": "Regalo recibido. Tu plan empieza ahora.",
+      "claimOpened": "Se abrió un último paso en una pestaña nueva. Termínalo allí para recibir el regalo.",
       "claimFailed": "No se pudo recibir el regalo"
     },
     "access": {
@@ -2068,6 +2145,10 @@
         "upgradeDismissed": {
           "why": "Mantiene el aviso oculto durante el tiempo que fija la aplicación. Si no se permiten las preferencias, solo se conserva para la pestaña.",
           "lasts": "El periodo de espera de la aplicación, como máximo un año."
+        },
+        "chunkReload": {
+          "why": "Evita que la página vuelva a recargarse durante un minuto, para que un fallo que persiste nunca se convierta en un bucle.",
+          "lasts": "Hasta que se cierra la pestaña."
         },
         "pushSubscription": {
           "why": "La suscripción push permite a la aplicación enviar notificaciones a ese dispositivo. El service worker, cuando el navegador lo necesita, las muestra y abre la aplicación al hacer clic; no almacena nada en caché.",
@@ -2576,6 +2657,7 @@
       "invalid_input_unsupported_type": "Ese tipo de archivo no se admite. Elige otro.",
       "invalid_input_upload_gone": "Esa subida ya no existe. Vuelve a subir el archivo.",
       "invalid_input_upload_claimed": "Esa subida ya se usó. Vuelve a subir el archivo.",
+      "invalid_input_unreadable": "Esta foto no se abre aquí. Prueba con un JPEG o un PNG.",
       "invalid_input_appeal_expired": "Esta decisión ya no se puede recurrir.",
       "invalid_input_appealed_already": "Esta decisión ya se recurrió.",
       "invalid_input_removed_copy": "Este archivo se retiró de la app y no se puede volver a subir.",
@@ -2598,6 +2680,14 @@
       "unavailable_stalled": "Esta tarea dejó de responder. Se te reembolsaron los créditos.",
       "unavailable_job_failed": "Esta tarea falló. Se te reembolsaron los créditos.",
       "unavailable_unexpected": "Algo salió mal.",
+      "unavailable_ai": "Las funciones de IA no están disponibles ahora mismo. Inténtalo de nuevo en breve.",
+      "unavailable_billing": "La facturación no está disponible ahora mismo. Inténtalo de nuevo en breve.",
+      "unavailable_checkout": "Las compras no están disponibles ahora mismo. Inténtalo de nuevo en breve.",
+      "unavailable_email": "El correo no está disponible ahora mismo. Inténtalo de nuevo en breve.",
+      "unavailable_protection": "La verificación de seguridad no está disponible ahora mismo. Inténtalo de nuevo en breve.",
+      "unavailable_push": "Las notificaciones en este dispositivo no están disponibles ahora mismo. Inténtalo de nuevo en breve.",
+      "unavailable_referrals": "Las invitaciones a amigos no están disponibles ahora mismo. Inténtalo de nuevo en breve.",
+      "unavailable_signups": "Los registros no están disponibles ahora mismo. Inténtalo de nuevo en breve.",
       "invalid_input_reason": "Indica un motivo.",
       "invalid_input_goodFaith": "Confirma que tu denuncia es exacta y que la haces de buena fe."
     },

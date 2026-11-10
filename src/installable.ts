@@ -56,6 +56,17 @@ export interface InstallableOptions {
   /** One line on what the app does, in the install dialog. */
   description?: string
   /**
+   * The app's identity, a path on the site (`/`, `/?app`): what a browser
+   * tells one installed app from another by. Set it before the first install
+   * and never change it, or every install becomes a second app. Default:
+   * none, which a browser reads as `start_url` (`/`).
+   */
+  id?: string
+  /** The language the manifest's name and description are in, a language tag (`en`, `pt-BR`). Default: none. */
+  lang?: string
+  /** The orientation the installed app opens in: `any`, `natural`, `portrait` or `landscape`, or a `-primary` or `-secondary` one of the last two. Default: none, the device's. */
+  orientation?: InstallOrientation
+  /**
    * The two icons, by their path on the site (`/icons/app-192.png`) when
    * they are not where the module looks: `icon-192.png` and
    * `icon-512.png` in `public/`, else RealFaviconGenerator's
@@ -69,7 +80,22 @@ export interface InstallableOptions {
    * and `icon-maskable-512.png` when `public/` holds them, else none.
    */
   maskable?: boolean | InstallIcons
+  /**
+   * Chrome's own install banner on Android (the mini-infobar), which it
+   * shows on a visit once the app is installable: `false` stops it, so the
+   * app's own button (`useInstallPrompt()`) offers the install instead. The
+   * module then cancels `beforeinstallprompt` as the event fires, which no
+   * component can do once it mounts. Default: `true`, the banner shows, and
+   * `useInstallPrompt()` opens the dialog from a button all the same.
+   */
+  browserBanner?: boolean
 }
+
+/** The orientations a manifest takes: the Screen Orientation API's lock types. */
+export const INSTALL_ORIENTATIONS = ['any', 'natural', 'landscape', 'landscape-primary', 'landscape-secondary', 'portrait', 'portrait-primary', 'portrait-secondary'] as const
+
+/** An orientation the installed app opens in. */
+export type InstallOrientation = (typeof INSTALL_ORIENTATIONS)[number]
 
 /** A path on the site as a file in `public/`. */
 const fileOf = (publicDir: string, path: string) => join(publicDir, ...path.replace(/^\/+/, '').split('/'))
@@ -113,12 +139,15 @@ export function webAppManifest(name: string, { icons = ICON_SETS[0]!, maskable =
   const background = options.backgroundColor ?? theme
   const entries = (pair: InstallIcons, purpose: 'any' | 'maskable') => INSTALL_SIZES.map(size => ({ src: pair[size], sizes: `${size}x${size}`, type: 'image/png', purpose }))
   return {
+    ...(options.id ? { id: options.id } : {}),
     name,
     short_name: name,
     ...(options.description ? { description: options.description } : {}),
+    ...(options.lang ? { lang: options.lang } : {}),
     start_url: '/',
     scope: '/',
     display: 'standalone',
+    ...(options.orientation ? { orientation: options.orientation } : {}),
     ...(theme ? { theme_color: theme } : {}),
     ...(background ? { background_color: background } : {}),
     icons: [...entries(icons, 'any'), ...(maskable ? entries(maskable, 'maskable') : [])],
@@ -161,6 +190,22 @@ function isPublicPath(value: unknown): value is string {
   return typeof value === 'string' && /^\/(?![/\\])/.test(value) && !/^[a-z][\w+.-]*:/i.test(value) && !value.split(/[/\\]/).includes('..')
 }
 
+/** A path on this site, query and all: one leading `/`, no other origin. What a manifest's `id` resolves against `start_url`'s origin to. */
+function isSitePath(value: unknown): value is string {
+  return typeof value === 'string' && /^\/(?![/\\])/.test(value) && !/\s/.test(value)
+}
+
+/** A well-formed language tag, as `Intl` reads one. */
+function isLanguageTag(value: unknown): value is string {
+  if (typeof value !== 'string' || value.trim() !== value || value === '') return false
+  try {
+    return Intl.getCanonicalLocales(value).length === 1
+  }
+  catch {
+    return false
+  }
+}
+
 /** What is wrong with an icon pair: both sizes, each a path into `public/`. */
 function pairProblems(key: string, pair: unknown): string[] {
   if (!pair || typeof pair !== 'object' || Array.isArray(pair)) return [`\`installable.${key}\` takes \`{ 192: '/icon-192.png', 512: '/icon-512.png' }\`.`]
@@ -169,6 +214,23 @@ function pairProblems(key: string, pair: unknown): string[] {
     if (path === undefined) return [`\`installable.${key}\` has no ${size} px icon: give both sizes.`]
     return isPublicPath(path) ? [] : [`\`installable.${key}[${size}]\` is ${JSON.stringify(path)}: give a path of a file in \`public/\`, with one leading \`/\`, never another origin.`]
   })
+}
+
+/** What is wrong with the manifest's identity, language and orientation. */
+function identityProblems(options: Record<string, unknown>): string[] {
+  const problems: string[] = []
+  if (options.id !== undefined && !isSitePath(options.id)) problems.push(`\`installable.id\` is ${JSON.stringify(options.id)}: give a path on the site, with one leading \`/\`, such as '/'.`)
+  if (options.lang !== undefined && !isLanguageTag(options.lang)) problems.push(`\`installable.lang\` is ${JSON.stringify(options.lang)}: give a language tag, such as 'en' or 'pt-BR'.`)
+  if (options.orientation !== undefined && !(INSTALL_ORIENTATIONS as readonly unknown[]).includes(options.orientation)) problems.push(`\`installable.orientation\` is ${JSON.stringify(options.orientation)}: give one of ${INSTALL_ORIENTATIONS.map(name => `'${name}'`).join(', ')}.`)
+  return problems
+}
+
+/** What is wrong with the keys that take a plain value: the description and the banner switch. */
+function valueProblems(options: Record<string, unknown>): string[] {
+  return [
+    ...(options.description === undefined || typeof options.description === 'string' ? [] : ['`installable.description` takes a string.']),
+    ...(options.browserBanner === undefined || typeof options.browserBanner === 'boolean' ? [] : ['`installable.browserBanner` takes `true` or `false`.']),
+  ]
 }
 
 /**
@@ -185,7 +247,8 @@ export function installableProblems(value: unknown): string[] {
   return [
     ...(theme === undefined ? [] : typeof theme === 'object' && theme !== null ? [...color('themeColor.light', (theme as Record<string, unknown>).light), ...color('themeColor.dark', (theme as Record<string, unknown>).dark)] : color('themeColor', theme)),
     ...(options.backgroundColor === undefined ? [] : color('backgroundColor', options.backgroundColor)),
-    ...(options.description === undefined || typeof options.description === 'string' ? [] : ['`installable.description` takes a string.']),
+    ...valueProblems(options),
+    ...identityProblems(options),
     ...(options.icons === undefined ? [] : pairProblems('icons', options.icons)),
     ...(options.maskable === undefined || typeof options.maskable === 'boolean' ? [] : pairProblems('maskable', options.maskable)),
   ]

@@ -273,7 +273,22 @@
       "confirmTitle": "Cancel the plan",
       "confirmEnds": "The plan ends on {date}. Everything it includes stays until then.",
       "confirmEndsPeriod": "The plan ends with the current period. Everything it includes stays until then.",
-      "confirmCancel": "Confirm cancellation"
+      "confirmCancel": "Confirm cancellation",
+      "changeTitle": "Switch to {plan}?",
+      "billedAt": {
+        "month": "{plan}, billed monthly",
+        "year": "{plan}, billed yearly"
+      },
+      "changeNow": "{price} from now on. The switch happens at once, and the difference for this period is settled now.",
+      "changeLater": "{price} from {date}. The year you paid for runs out first: the switch happens when it ends.",
+      "changeLaterPeriod": "{price} once the year you paid for runs out: the switch happens when it ends.",
+      "changeTrial": "{price} from now on. The switch happens at once and your trial carries over: nothing is charged until it ends.",
+      "changeTrialEnds": "{price} from now on. The switch happens at once and ends your trial, so the first payment is charged now.",
+      "changeTrialLater": "{price} once your trial ends: the switch happens then.",
+      "changeGifted": "{price} from checkout on. Your gifted plan stops once you check out, and the time left on it does not carry over.",
+      "confirmChange": "Confirm switch",
+      "switchingPlan": "Switching the plan…",
+      "keepCurrent": "Not now"
     },
     "settings": {
       "title": "Settings",
@@ -326,6 +341,40 @@
       "confirmEnds": "The plan ends on {date}. Everything it includes stays until then.",
       "confirmEndsPeriod": "The plan ends with the current period. Everything it includes stays until then.",
       "confirmCancel": "Confirm cancellation",
+      "changePlan": "Change plan",
+      "switchTo": "Switch to",
+      "choosePlan": "Choose a plan",
+      "billedAt": {
+        "month": "{plan}, billed monthly",
+        "year": "{plan}, billed yearly"
+      },
+      "period": {
+        "month": "/mo",
+        "year": "/yr"
+      },
+      "changeTitle": "Switch to {plan}?",
+      "changeNow": "{price} from now on. The switch happens at once, and the difference for this period is settled now.",
+      "changeLater": "{price} from {date}. The year you paid for runs out first: the switch happens when it ends.",
+      "changeLaterPeriod": "{price} once the year you paid for runs out: the switch happens when it ends.",
+      "changeTrial": "{price} from now on. The switch happens at once and your trial carries over: nothing is charged until it ends.",
+      "changeTrialEnds": "{price} from now on. The switch happens at once and ends your trial, so the first payment is charged now.",
+      "changeTrialLater": "{price} once your trial ends: the switch happens then.",
+      "confirmChange": "Confirm switch",
+      "switchingPlan": "Switching the plan…",
+      "keepCurrent": "Not now",
+      "switched": "The plan is now {plan}.",
+      "switchScheduled": "On {date}, the plan switches to {plan}.",
+      "switchScheduledPeriod": "The plan switches to {plan} when the year you paid for runs out.",
+      "pause": "Pause plan",
+      "pauseTitle": "Pause the plan",
+      "pauseFrom": "The plan pauses when this period ends, on {date}, and resumes by itself after the months you pick. Nothing is charged while it is paused.",
+      "pauseFromPeriod": "The plan pauses when this period ends, and resumes by itself after the months you pick. Nothing is charged while it is paused.",
+      "pauseFor": "Pause for",
+      "pauseMonths": "{count} month | {count} months",
+      "confirmPause": "Confirm pause",
+      "pausing": "Pausing…",
+      "pauseScheduled": "The plan pauses when this period ends and resumes {date}.",
+      "pauseScheduledPeriod": "The plan pauses when this period ends.",
       "finishingPurchase": "Finishing your purchase…",
       "benefits": "Included",
       "benefitKinds": {
@@ -479,7 +528,8 @@
         "job": {
           "queue_changed": "{actor} changed the job queue",
           "canceled": "{actor} canceled a job",
-          "retried": "{actor} put a failed job back in line"
+          "retried": "{actor} put a failed job back in line",
+          "charge_retried": "{actor} tried a job's owed charge again"
         },
         "ai": {
           "spend_limit_reached": "{actor} paused AI: today's spend limit was reached"
@@ -842,7 +892,10 @@
           "cancel": "Cancel",
           "cancelRefund": "Cancel and refund",
           "retry": "Retry",
-          "discard": "Discard"
+          "discard": "Discard",
+          "retryCharge": "Retry the charge",
+          "owed": "{status}, {credits} credits owed",
+          "owedGivenUp": "{status}, {credits} credits never charged"
         },
         "status": {
           "queued": "Waiting",
@@ -1550,6 +1603,29 @@
       "sentTitle": "Sent",
       "receivedEmpty": "No gifts for you yet.",
       "sentEmpty": "You have not sent a gift yet.",
+      "formTitle": "Send a gift",
+      "kind": "What to give",
+      "kinds": {
+        "pack": "Credits",
+        "pass": "A plan"
+      },
+      "packChoice": "Which pack",
+      "planChoice": "Which plan",
+      "lengthChoice": "For how long",
+      "lengthOption": "{count} month | {count} months",
+      "passHint": "A plan pass needs no card from them and never renews. It goes to a workspace on the free plan.",
+      "recipient": "Their email",
+      "note": "A note (optional)",
+      "noteHint": "{count} of {max} characters, plain text, no links",
+      "deliverDay": "Deliver on (optional)",
+      "deliverHint": "Leave it empty to send it as soon as you pay.",
+      "send": "Pay {price} and send",
+      "sending": "Opening checkout…",
+      "signInToSend": "Sign in to send a gift",
+      "payHint": "You pay now. Until they receive it, you can change the date or the address, or cancel for a full refund.",
+      "sentBack": "Paid. The gift goes out on the day you picked; you will find it under Sent.",
+      "nothingToGive": "Nothing is on sale to give yet.",
+      "sendFailed": "The gift could not be sent",
       "soon": "Plans open soon, and gifts with them.",
       "itemPack": "{name}",
       "itemPass": "{count} month of {plan} | {count} months of {plan}",
@@ -1593,6 +1669,7 @@
       "claiming": "Receiving…",
       "claimed": "Gift received. The {unit} arrive in a moment.",
       "claimedPass": "Gift received. Your plan starts now.",
+      "claimOpened": "One last step opened in a new tab. Finish there to receive the gift.",
       "claimFailed": "Could not receive the gift"
     },
     "access": {
@@ -2087,6 +2164,10 @@
           "why": "Keeps the prompt hidden for the time the app sets. Without preferences allowed, it is kept for the tab only.",
           "lasts": "The app's cool-down, a year at most."
         },
+        "chunkReload": {
+          "why": "Keeps that page from reloading again for a minute, so a failure that persists never turns into a loop.",
+          "lasts": "Until the tab closes."
+        },
         "pushSubscription": {
           "why": "The push subscription lets the app send that device notifications. The service worker, where the browser needs one, shows them and opens the app on a click; it caches nothing.",
           "lasts": "Until the person turns notifications off on the device or takes back the site's permission."
@@ -2578,6 +2659,7 @@
       "invalid_input_unsupported_type": "That type of file isn't accepted. Pick another one.",
       "invalid_input_upload_gone": "That upload is gone. Upload the file again.",
       "invalid_input_upload_claimed": "That upload was already used. Upload the file again.",
+      "invalid_input_unreadable": "This photo won't open here. Try a JPEG or PNG.",
       "invalid_input_appeal_expired": "This decision can no longer be appealed.",
       "invalid_input_appealed_already": "This decision was appealed already.",
       "invalid_input_removed_copy": "This file was removed from the app and can't be uploaded again.",
@@ -2599,7 +2681,15 @@
       "unavailable_ai_paused": "AI features are paused for now. Try again later.",
       "unavailable_stalled": "This job stopped responding. Your credits were refunded.",
       "unavailable_job_failed": "This job failed. Your credits were refunded.",
-      "unavailable_unexpected": "Something went wrong."
+      "unavailable_unexpected": "Something went wrong.",
+      "unavailable_ai": "AI features aren't available right now. Try again shortly.",
+      "unavailable_billing": "Billing isn't available right now. Try again shortly.",
+      "unavailable_checkout": "Purchases aren't available right now. Try again shortly.",
+      "unavailable_email": "Email isn't available right now. Try again shortly.",
+      "unavailable_protection": "The security check isn't available right now. Try again shortly.",
+      "unavailable_push": "Notifications on this device aren't available right now. Try again shortly.",
+      "unavailable_referrals": "Referrals aren't available right now. Try again shortly.",
+      "unavailable_signups": "Sign-ups aren't available right now. Try again shortly."
     },
     "email": {
       "layout": {

@@ -204,6 +204,45 @@ The appeal link opens the `report` page with the decision's token in its fragmen
 
 You should see the strip hidden and the email in your [dev inbox](/docs/develop/dev-inbox).
 
+### Build the appeal into your own report page
+
+A `/report` page of your own replaces the packaged one, and the appeal link still opens it. `useReportAppeal()` is the appeal half without its markup: it reads the token from the page's `#appeal=<token>` fragment once mounted (or takes one, `useReportAppeal(() => token)`), then the decision through `getAppeal`, and sends the appeal through `appealDecision`. `useReportForm()` stays the notice half of the same page.
+
+| `state` | What the author sees |
+|---|---|
+| `none` | No token in the address: show the notice form |
+| `checking` | The decision is being read |
+| `unknown` | The link names no decision: ask them to copy all of it from the email |
+| `form` | The decision (`decision.value`: `action`, `title`, `reason`, `at`) and the box for why it should change, until `decision.value.until` |
+| `expired` | Six months have passed: the decision can no longer be appealed |
+| `open`, `upheld`, `reversed` | The appeal was sent, and the outcome once a person decided |
+
+```vue [app/pages/report.vue]
+<script setup lang="ts">
+const appeal = useReportAppeal()
+const { t } = appeal.labels
+</script>
+
+<template>
+  <section v-if="appeal.state.value !== 'none'" aria-labelledby="appeal-title">
+    <h1 id="appeal-title">{{ t('appeal.title') }}</h1>
+    <template v-if="appeal.decision.value">
+      <p>{{ t(`appeal.${appeal.decision.value.action}`, { date: appeal.formatDate(appeal.decision.value.at), title: appeal.decision.value.title ?? t('appeal.untitled') }) }}</p>
+      <form v-if="appeal.state.value === 'form'" @submit.prevent="appeal.send()">
+        <label>{{ t('appeal.text') }} <textarea v-model="appeal.text.value" maxlength="4000" required /></label>
+        <p v-if="appeal.error.value" role="alert">{{ appeal.labels.errorMessage(appeal.error.value) }}</p>
+        <button :aria-disabled="appeal.isPending.value || undefined">{{ t(appeal.isPending.value ? 'appeal.sending' : 'appeal.send') }}</button>
+      </form>
+      <p v-else role="status">{{ t(`appeal.${appeal.state.value}`) }}</p>
+    </template>
+    <p v-else-if="appeal.state.value === 'checking' || appeal.state.value === 'unknown'" role="status">{{ t(`appeal.${appeal.state.value}`) }}</p>
+  </section>
+  <ReportForm v-else />
+</template>
+```
+
+`send()` never rejects: it resolves `true` once the deployment took the appeal, and a refusal lands in `error`. An author appeals a decision once: once sent, `state` follows the appeal, live.
+
 ### Meet the 48-hour clock
 
 An intimate-image request starts a 48-hour clock under the TAKE IT DOWN Act. The Reports tab lists those requests first, with the time each must be decided by. A request the app could not place on a thing has its own deadline and sorts among them by it. Such a notice hides nothing of yours and matches no identical copies, so its action reads **Mark handled**: use it once you removed the content yourself, and its sender hears that you acted on it, never that the content was removed. Pass `locate` so requests land on the thing they name. Check the queue at least daily, or alert your team on new reports. Once you hide the image, every upload with the same bytes as its `files` is removed too, and the same bytes are refused if someone uploads them again (`invalid_input` on `file`, reason `removed_copy`). A file still being checked goes when its check ends, with the copies of its stripped bytes. A file `setupStorage` does not keep is not matched, and the log says `reports.copies_unmatched`.

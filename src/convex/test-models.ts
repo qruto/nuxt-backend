@@ -6,7 +6,8 @@ import { TEST_EMBEDDING_MODELS, TEST_IMAGE_MODELS, TEST_MODELS } from './integra
 // reports a fixed cost in the shape the AI Gateway reports it, so a test of a
 // metered action settles through the path a live call does, with no key and
 // no network. A safety classifier's id (Llama Guard, a safeguard model) gets
-// a classifier instead, so `ai.requireSafe` passes or refuses on purpose, and
+// a classifier instead, so `ai.requireSafe` passes or refuses on purpose,
+// from a marker in the text or in an image's bytes, and
 // an image model's id (`google/gemini-2.5-flash-image`, `openai/gpt-image-1`)
 // answers with a PNG beside the text, so a step that stores the image runs.
 // Development and production never load it: it is installed by
@@ -29,6 +30,59 @@ function lastUserText(prompt: Parameters<MeteredModel['doGenerate']>[0]['prompt'
 /** What text carries for the mock safety classifier to flag it: `unsafe` and `S1`. Anything else is `safe`. */
 export const TEST_UNSAFE_MARKER = '[[unsafe]]'
 
+/**
+ * The marker that has the mock safety classifier answer chosen Llama Guard
+ * codes: `TEST_UNSAFE_CODE('S7')` is `[[unsafe:S7]]`, answered
+ * `unsafe\nS7`; several codes join with a comma (`'S1,S10'`). In text,
+ * or anywhere in an image's bytes.
+ *
+ * @experimental
+ */
+export const TEST_UNSAFE_CODE = (codes: string): string => `[[unsafe:${codes}]]`
+
+/** The markers the mock classifier reads: `[[unsafe]]`, or `[[unsafe:S7]]` with its codes. */
+const CLASSIFIER_MARKER = /\[\[unsafe(?::(S\d{1,2}(?:,S\d{1,2})*))?\]\]/
+
+/** Bytes as text, so a marker inside an image is found. */
+const latin1 = (bytes: Uint8Array): string => {
+  let text = ''
+  for (const byte of bytes) text += String.fromCharCode(byte)
+  return text
+}
+
+/** The bytes of a file part of a prompt, as text: raw bytes, or base64. A file by URL is not read. */
+function fileText(part: { data?: unknown }): string {
+  const data = (part.data && typeof part.data === 'object' && 'type' in part.data ? (part.data as { type: string, data?: unknown }).type === 'data' ? (part.data as { data?: unknown }).data : undefined : part.data)
+  if (data instanceof Uint8Array) return latin1(data)
+  if (typeof data !== 'string') return ''
+  try {
+    return latin1(Uint8Array.from(atob(data), char => char.charCodeAt(0)))
+  }
+  catch {
+    return data
+  }
+}
+
+/** What the last user message of a prompt holds for the classifier: its text, and its images' bytes as text. */
+function lastUserContent(prompt: Parameters<MeteredModel['doGenerate']>[0]['prompt']): string {
+  const user = [...prompt].reverse().find(message => message.role === 'user')
+  const content = user?.content as unknown
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content.map((part) => {
+    if (!part || typeof part !== 'object') return ''
+    if ('text' in part) return String(part.text)
+    return (part as { type?: unknown }).type === 'file' || (part as { type?: unknown }).type === 'image' ? fileText(part as { data?: unknown }) : ''
+  }).join(' ')
+}
+
+/** How the mock classifier answers, as Llama Guard does: `safe`, or `unsafe` and the codes a marker asks for (`S1` for `[[unsafe]]`). */
+export function classifierAnswer(content: string): string {
+  const marker = CLASSIFIER_MARKER.exec(content)
+  if (!marker) return 'safe'
+  return `unsafe\n${marker[1] ?? 'S1'}`
+}
+
 /** Whether an id names a safety classifier: Llama Guard, or a policy-following safeguard model. */
 const isClassifier = (modelId: string): boolean => /llama-guard|safeguard/i.test(modelId)
 
@@ -49,13 +103,14 @@ const usage = {
 /**
  * The mock for a model id: it answers with the prompt it was given, and a
  * fixed cost. A safety classifier's id answers as Llama Guard does: `safe`,
- * or `unsafe` and `S1` for text that carries {@link TEST_UNSAFE_MARKER}. An
- * image model's id adds {@link TEST_IMAGE_PNG} as a generated file.
+ * or `unsafe` and `S1` for content that carries {@link TEST_UNSAFE_MARKER},
+ * or the codes {@link TEST_UNSAFE_CODE} names, in its text or an image's
+ * bytes. An image model's id adds {@link TEST_IMAGE_PNG} as a generated file.
  */
 export function testModel(modelId: string): MeteredModel {
   if (!sdk) throw new Error('[nuxt-backend/test] A model call under test needs the AI SDK: install it with `pnpm add ai`.')
   const answer = isClassifier(modelId)
-    ? (prompt: Parameters<MeteredModel['doGenerate']>[0]['prompt']) => lastUserText(prompt).includes(TEST_UNSAFE_MARKER) ? 'unsafe\nS1' : 'safe'
+    ? (prompt: Parameters<MeteredModel['doGenerate']>[0]['prompt']) => classifierAnswer(lastUserContent(prompt))
     : (prompt: Parameters<MeteredModel['doGenerate']>[0]['prompt']) => `Test reply to: ${lastUserText(prompt) || 'an empty prompt'}`
   const providerMetadata = { gateway: { cost: String(TEST_MODEL_USD) } }
   const finishReason = { unified: 'stop', raw: 'stop' } as const

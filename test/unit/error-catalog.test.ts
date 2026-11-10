@@ -311,4 +311,31 @@ describe('translateBackendError', () => {
     expect(translateBackendError(getBackendError(backendError('no_workspace'))!, english, french)).toBe(LABELS.errors.no_workspace)
     expect(translateBackendError(notMember, english)).toBe(LABELS.errors.forbidden_not_member)
   })
+
+  it('runs the chain through each of the reader\'s sources whole, in order: an earlier one\'s generic sentence wins over a later one\'s for the reason', () => {
+    const english = createTranslate()
+    const overrides = createTranslate({ errors: { unavailable: 'Indisponible (app).' } })
+    const locale = createTranslate({ errors: { unavailable_billing: 'Facturation indisponible.', forbidden_not_member: 'Pas membre.' } })
+    const down = getBackendError(backendError('unavailable', { service: 'billing', reason: 'provider_refused' }))!
+    expect(translateBackendError(down, english, overrides, locale)).toBe('Indisponible (app).')
+    // A source without the code's keys hands the refusal to the next.
+    expect(translateBackendError(getBackendError(backendError('forbidden', { reason: 'not_member' }))!, english, overrides, locale)).toBe('Pas membre.')
+  })
+
+  it('words an unavailable refusal by its reason, then its service, then the code', () => {
+    const english = createTranslate()
+    const down = (service: string, reason: string) => getBackendError(backendError('unavailable', { service, reason }))!
+    // A reason with a sentence of its own keeps it.
+    expect(translateBackendError(down('checkout', 'checkout_paused'), english)).toBe(LABELS.errors.unavailable_checkout_paused)
+    // A reason with none reads its service's.
+    expect(translateBackendError(down('billing', 'provider_refused'), english)).toBe(LABELS.errors.unavailable_billing)
+    expect(translateBackendError(down('ai', 'provider_refused'), english)).toBe(LABELS.errors.unavailable_ai)
+    expect(LABELS.errors.unavailable_billing).toMatch(/^Billing /)
+    // A service the labels do not word reads the code's.
+    expect(translateBackendError(down('backend', 'something_new'), english)).toBe(LABELS.errors.unavailable)
+    // The reader's own service sentence, over the English one; an app's own service too.
+    const theirs = createTranslate({ errors: { unavailable_billing: 'Facturation indisponible.', unavailable_maps: 'Cartes indisponibles.' } })
+    expect(translateBackendError(down('billing', 'provider_refused'), english, theirs)).toBe('Facturation indisponible.')
+    expect(translateBackendError(down('maps', 'provider_refused'), english, theirs)).toBe('Cartes indisponibles.')
+  })
 })

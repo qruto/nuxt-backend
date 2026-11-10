@@ -144,9 +144,12 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useFeatures` — reactive feature-gating for the current user — the SaaS access primitive
 - `useFlag` — whether a feature flag is on for whoever is looking: their account, their active workspace and their plan, as `backend/flags.ts` declares the flag and the admin console overrides it
 - `useFlagAdmin` — the admin console's Flags tab, as data: every flag with its default and its override, and the change an administrator makes, through `listFlags` and `setFlag` of `backend/flags.ts`
+- `useGiftForm` — the gift form without its markup: a credit pack or a plan pass with its length (the lengths the plan is gifted for, at their live prices), the recipient, a note and a delivery day, and the send, which signs a visitor in and brings them back, then opens the purchaser's checkout over `useGifts().send` (experimental)
+- `useGiftList` — the gift lists without their markup: what a person received and sent, with names, dates and states in their language, and every action over `useGifts()`, a cancel behind a recent sign-in
 - `useGifts` — gifts, from both sides
 - `useHumanCheck` — proof that a person makes a call: the client half of `verifyHuman`, for the calls that reach the deployment over the live connection and never pass through the app's server (a waitlist join, a contact form, a referral claim)
 - `useInboxAdmin` — the admin console's Inbox tab, as data: what people sent through the contact form and by email (reply addresses, workspace addresses, the support inbox), newest first, and the replies an administrator sends to the support inbox's threads, through `backend/email.ts` (experimental)
+- `useInstallPrompt` — offer the install of the app from a button of its own: whether the browser handed over its install dialog, whether the app is installed, and the action that opens the dialog
 - `useInvite` — redeem an invite code or an access link on a page of your own: check it before anyone signs in, and keep it for the tab so the sign-in hands it over with the code
 - `useJob` — one queued job, live: its status, what holds it and its place in line while it waits, its progress while it runs, and its result or the reason it failed (experimental)
 - `useLabels` — the labels of one packaged component's group, resolved for the person reading them
@@ -163,8 +166,9 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useReferralAdmin` — the admin console's Referrals tab, as data: the program's totals, the top referrers, the flagged queue and one referrer's history, through `backend/referrals.ts`, and the decision an administrator makes on a flagged referral
 - `useReferralInvite` — the state of the page a referral link (`/r/<code>`) opens, headless: what the link offers, the sign-in that returns to the page, and the claim
 - `useReferrals` — a person's referral code, link and rewards: the data behind `<ReferralCard>`, for a page of your own
+- `useReportAppeal` — the appeal of a content decision, without its markup: the decision a `#appeal=<token>` link names, the appeal's state, and sending it once
 - `useReportForm` — a report about content of the app's, without its markup
-- `useReturnPath` — where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere), else where sign-in lands (`redirects.afterSignIn`, `/` without it)
+- `useReturnPath` — where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere, and never to the sign-in page, which would ask them to sign in again), else where sign-in lands (`redirects.afterSignIn`, `/` without it)
 - `useSandboxInbox` — the mail a test address received within the last hour, refreshed while the page is open — so a demo, a preview deployment or an e2e run can finish an email-code sign-in without a real mailbox (experimental)
 - `useSearch` — reactive, debounced full-text search
 - `useSessions` — device-session management: list, revoke one, revoke the rest
@@ -174,6 +178,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useUsage` — consumption history for a credit meter, read from the provider's events API — the events your server ingested when it spent credits
 - `useWaitlist` — join the waitlist, and read a place in it, on markup of your own: the steps `<WaitlistForm>` runs
 - `useWaitlistAdmin` — the admin console's Waitlist tab, as data: the waiting people (the oldest first, narrowed by a filter) with a count per status, and the changes an administrator makes, through `backend/waitlist.ts`
+- `useWithdrawal` — the EU withdrawal window: whether the signed-in billing manager's purchase is still inside the 14 days of the Consumer Rights Directive's Art. 9, until when, and the withdrawal itself, the withdrawal function of its Art. 11a — what `<WithdrawalButton>` is built on, for a section of your own around it
 - `useWorkflowStatus` — reactively track a durable [Workflow](https://www.convex.dev/components/workflow)'s status (experimental)
 - `useWorkspace` — workspace state and actions: the list, the switch, the members and the full invitation flow (invite / accept / decline / cancel — the packaged `AcceptInvitation` component and `/accept-invitation` page build on these)
 
@@ -204,6 +209,8 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `<ConsentPrompt>` — asks for the consents a person has not given at their current version, and nothing else: the required kinds `setupAccount({ consents })` declares after a version rises (the page waits behind a dialog until they are accepted), the age of an account that never answered the minimum age, and, while the app uses optional storage, one question per browser with **Allow** and **Decline** of equal weight
 - `<ContactForm>` — a contact form for visitors, and a feedback form for signed-in people: the same component
 - `<Gate>` — renders its content only for the people every check it names admits: signed in (`signed-in`), an app-wide role (`role`), the active workspace or a role in it (`workspace`), a feature of the plan (`feature`), or room left on a quota (`quota`, `amount`)
+- `<GiftForm>` — the gift form: a credit pack or a plan pass with its length (the lengths the plan is gifted for, at their live prices), the recipient's email, a note and a delivery day, then the purchaser's own checkout (`useGifts().send`)
+- `<GiftList>` — the gifts a person received, each to claim into a workspace they manage, and the gifts they sent, each with what they can still do until it is claimed: resend its notice, address it to someone else, date it again, or cancel it for a refund behind a recent sign-in
 - `<HowDidYouHear>` — one optional question after sign-up: "How did you hear about us?"
 - `<LegalContactPoints>` — the single points of contact the EU Digital Services Act asks every host to name: one for the authorities of the member states, the Commission and the Board (Art. 11), one for the people who use the app (Art. 12, `legal.contact` unless you name another), and the languages you answer in, from `appConfig.backend.legal.contactPoints`
 - `<LegalDetail>` — one of the company details `appConfig.backend.legal` holds, inside a sentence of yours: the company, its address and phone, the contact, the data protection officer, the registration number, the share capital, the VAT line, the publication director, the host or the consumer mediator

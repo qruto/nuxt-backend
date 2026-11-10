@@ -1,26 +1,22 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, reactive, ref, useId } from 'vue'
 import { useRoute } from '#imports'
-import { useAction, useMutation } from 'nuxt-convex-module/client'
-import type { AppealView, NoticeInput } from '../../../../convex/integrations/reports'
+import { useAction } from 'nuxt-convex-module/client'
+import type { NoticeInput } from '../../../../convex/integrations/reports'
 import { REPORT_REASONS, type ReportReason } from '../../../../convex/report-rules'
-import { formatBillingDate } from '../../composables/billing-format'
 import { useHumanCheck } from '../../composables/use-human-check'
 import { useLabels } from '../../composables/use-labels'
 import { useActiveLocale } from '../../utils/active-locale'
 import { getBackendError } from '../../utils/backend-error'
-import { absentQuery, useLiveQuery } from '../../utils/live-query'
 import { useBackendNamespace } from '../../utils/namespace'
 
-// The `report` page's two forms, headless: the notice anyone may send
-// (`ReportNotice.vue`) and the author's appeal (`ReportAppeal.vue`), through
-// the functions `backend/admin.ts` re-exports from `setupAdmin({ reports })`.
+// The `report` page's notice form, headless (`ReportNotice.vue`), through the
+// `sendNotice` `backend/admin.ts` re-exports from `setupAdmin({ reports })`.
+// The author's appeal (`ReportAppeal.vue`) is the public `useReportAppeal`.
 
-/** The report functions the page calls. */
+/** The report function the notice form calls. */
 interface ReportPageRefs {
   sendNotice?: FunctionReference<'action', 'public', NoticeInput, null>
-  getAppeal?: FunctionReference<'query', 'public', { token: string }, AppealView | null>
-  appealDecision?: FunctionReference<'mutation', 'public', { token: string, text: string }, null>
 }
 
 const missing = (name: string) => new Error(`[nuxt-backend] The report page needs \`${name}\` re-exported from setupAdmin({ reports }) in backend/admin.ts.`)
@@ -102,61 +98,6 @@ export function useReportNotice() {
     anonymous,
     invalidField,
     errorText: computed(() => (error.value ? errorMessage(error.value) : null)),
-    submit,
-  }
-}
-
-/**
- * The author's appeal against a decision, by the token the statement of
- * reasons links with: the decision and its reason, then a box for why it
- * should change, once, until six months after it.
- *
- * @internal
- */
-export function useReportAppeal(token: () => string | null) {
-  const api = useBackendNamespace<ReportPageRefs>('admin', 'ReportAppeal')
-  const read = api.getAppeal ? useLiveQuery(api.getAppeal, () => (token() ? { token: token()! } : 'skip')) : absentQuery<AppealView | null>()
-  const appeal = api.appealDecision ? useMutation(api.appealDecision) : null
-  const { t, errorMessage, locale } = useLabels('report')
-  const id = useId()
-  const text = ref('')
-  const sending = ref(false)
-  const error = ref<unknown>(null)
-
-  const view = computed(() => read.data.value)
-  /** What the person reads: still checking, a link that names no decision, a decision past its window, the form, or the appeal's state. */
-  const state = computed(() => {
-    if (!token() || view.value === null) return 'unknown' as const
-    if (view.value === undefined) return 'checking' as const
-    if (view.value.appeal) return view.value.appeal.status
-    return view.value.until < Date.now() ? 'expired' as const : 'form' as const
-  })
-
-  async function submit(): Promise<void> {
-    if (sending.value || !text.value.trim()) return
-    error.value = null
-    sending.value = true
-    try {
-      if (!appeal) throw missing('appealDecision')
-      await appeal({ token: token()!, text: text.value })
-    }
-    catch (cause) {
-      error.value = cause
-    }
-    finally {
-      sending.value = false
-    }
-  }
-
-  return {
-    id,
-    t,
-    view,
-    state,
-    text,
-    sending,
-    errorText: computed(() => (error.value ? errorMessage(error.value) : null)),
-    date: (at: number) => formatBillingDate(at, { dateStyle: 'long' }, locale.value),
     submit,
   }
 }

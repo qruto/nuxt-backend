@@ -43,6 +43,20 @@ export interface SentGiftView {
 /** Where the lists stand. */
 export type GiftListState = 'loading' | 'empty' | 'ready' | 'pending' | 'error'
 
+/**
+ * How a claim went: `'claimed'`, the server confirmed it (the credits or
+ * the plan arrive reactively); `'opened'`, the provider's $0 checkout opened
+ * in a new tab for a pack that asks for checkout fields, the last step
+ * before the gift lands.
+ */
+export type GiftClaimOutcome = 'claimed' | 'opened'
+
+/** Options for {@link useGiftList}. */
+export interface UseGiftListOptions {
+  /** Copy for the list, over `appConfig.backend.labels.gift` and the translations. */
+  labels?: MaybeRefOrGetter<LabelGroupOverrides<'gift'> | undefined>
+}
+
 /** What the gifts page's markup binds to. */
 export interface UseGiftListReturn {
   state: ComputedRef<GiftListState>
@@ -52,13 +66,20 @@ export interface UseGiftListReturn {
   workspaces: ComputedRef<Array<{ id: string, name: string }>>
   /** The workspace chosen to receive into, per gift; `''` is the personal workspace. */
   target: Ref<Record<string, string>>
-  /** Why the last action failed, in words, or `null`. */
+  /** Why the last action failed, else why the gifts could not be read, in words, or `null`. */
   error: ComputedRef<string | null>
   /** The outcome of the last action in words, for a polite status. */
   announcement: Ref<string>
   /** The gift an action is running for, or `null`. */
   busy: Ref<string | null>
-  claim: (giftId: string) => Promise<void>
+  /**
+   * Receive one gift into the workspace in `target` (the personal one by
+   * default), announcing it: `claimedPass` for a plan pass, `claimed` for a
+   * pack, `claimOpened` when the last step opened in a new tab. Resolves
+   * that outcome, or `null` when another action was running or the claim
+   * was refused (in `error`).
+   */
+  claim: (giftId: string) => Promise<GiftClaimOutcome | null>
   resend: (giftId: string) => Promise<void>
   changeRecipient: (giftId: string, recipientEmail: string) => Promise<boolean>
   reschedule: (giftId: string, deliverAt: string) => Promise<boolean>
@@ -67,18 +88,30 @@ export interface UseGiftListReturn {
 }
 
 /**
- * The gifts page without its markup: what a person received and sent, with
- * names, dates and states in their language, and every action over
- * `useGifts()`, a cancel behind a recent sign-in. State and actions; the
- * `/gifts` page's `<GiftList>` is this with the package's markup.
+ * The gift lists without their markup: what a person received and sent,
+ * with names, dates and states in their language, and every action over
+ * `useGifts()`, a cancel behind a recent sign-in. Actions never reject:
+ * their outcome is `announcement`, their refusal `error`, both in words.
+ * `<GiftList>`, on the `/gifts` page, is this with the package's markup.
  *
- * @internal
+ * @example
+ * ```vue
+ * <script setup lang="ts">
+ * const list = useGiftList()
+ * </script>
+ * <template>
+ *   <article v-for="gift in list.received.value" :key="gift.id">
+ *     {{ gift.what }}, from {{ gift.sender }}
+ *     <button v-if="gift.claimable" @click="list.claim(gift.id)">Receive</button>
+ *   </article>
+ * </template>
+ * ```
  */
-export function useGiftList(overrides?: MaybeRefOrGetter<LabelGroupOverrides<'gift'> | undefined>): UseGiftListReturn {
+export function useGiftList(options: UseGiftListOptions = {}): UseGiftListReturn {
   const gifts = useGifts()
   const workspace = useWorkspace()
   const pricing = usePricing()
-  const labels = useLabels('gift', () => toValue(overrides))
+  const labels = useLabels('gift', () => toValue(options.labels))
   const unit = useMeterUnit()
   const { t, locale } = labels
   const { withReauthentication } = useReauthentication()
@@ -137,8 +170,8 @@ export function useGiftList(overrides?: MaybeRefOrGetter<LabelGroupOverrides<'gi
     return received.value.length === 0 && sent.value.length === 0 ? 'empty' : 'ready'
   })
 
-  /** Run one action for one gift: its outcome in words for a polite status, its refusal in words for an alert. */
-  async function act<T>(giftId: string, done: string, call: () => Promise<T>): Promise<T | undefined> {
+  /** Run one action for one gift: its outcome in words for a polite status (the label `done` names, or picks from the result), its refusal in words for an alert. */
+  async function act<T>(giftId: string, done: string | ((result: T) => string), call: () => Promise<T>): Promise<T | undefined> {
     if (busy.value !== null) return undefined
     busy.value = giftId
     failure.value = null
@@ -146,7 +179,7 @@ export function useGiftList(overrides?: MaybeRefOrGetter<LabelGroupOverrides<'gi
     try {
       const result = await call()
       // A claim's words name what the credits count (`{unit}`).
-      announcement.value = t(done as never, { unit: unit.word(null) })
+      announcement.value = t((typeof done === 'function' ? done(result) : done) as never, { unit: unit.word(null) })
       return result
     }
     catch (error) {
@@ -164,12 +197,18 @@ export function useGiftList(overrides?: MaybeRefOrGetter<LabelGroupOverrides<'gi
     sent,
     workspaces,
     target,
-    error: computed(() => failure.value),
+    error: computed(() => failure.value ?? (gifts.error.value ? labels.errorMessage(gifts.error.value) : null)),
     announcement,
     busy,
     labels,
     claim: async (giftId) => {
-      await act(giftId, 'claimed', () => gifts.claim(giftId, target.value[giftId] ? { workspaceId: target.value[giftId] } : {}))
+      const pass = gifts.received.value?.find(gift => gift.id === giftId)?.plan !== undefined
+      const outcome = await act<GiftClaimOutcome>(
+        giftId,
+        result => (result === 'opened' ? 'claimOpened' : pass ? 'claimedPass' : 'claimed'),
+        async () => (await gifts.claim(giftId, target.value[giftId] ? { workspaceId: target.value[giftId] } : {}) ? 'claimed' : 'opened'),
+      )
+      return outcome ?? null
     },
     resend: async (giftId) => {
       await act(giftId, 'resent', () => gifts.resend(giftId))

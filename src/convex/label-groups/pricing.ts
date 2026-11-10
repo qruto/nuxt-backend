@@ -96,6 +96,26 @@ const PRICING_LABELS = {
   confirmEnds: 'The plan ends on {date}. Everything it includes stays until then.',
   confirmEndsPeriod: 'The plan ends with the current period. Everything it includes stays until then.',
   confirmCancel: 'Confirm cancellation',
+  // A subscriber's switch takes one step too: the price it moves to, when the
+  // switch happens, and the one button that switches. {price} is the price with its period.
+  changeTitle: 'Switch to {plan}?',
+  // What a switch of the billing period names, on the plan's own card.
+  billedAt: {
+    month: '{plan}, billed monthly',
+    year: '{plan}, billed yearly',
+  },
+  changeNow: '{price} from now on. The switch happens at once, and the difference for this period is settled now.',
+  changeLater: '{price} from {date}. The year you paid for runs out first: the switch happens when it ends.',
+  changeLaterPeriod: '{price} once the year you paid for runs out: the switch happens when it ends.',
+  // During a trial: the trial carries over to the new plan, or the switch ends it with a first payment, or a switch that waits happens when it ends.
+  changeTrial: '{price} from now on. The switch happens at once and your trial carries over: nothing is charged until it ends.',
+  changeTrialEnds: '{price} from now on. The switch happens at once and ends your trial, so the first payment is charged now.',
+  changeTrialLater: '{price} once your trial ends: the switch happens then.',
+  // A gifted plan's holder switches by checking the new plan out, which ends the gift in its place.
+  changeGifted: '{price} from checkout on. Your gifted plan stops once you check out, and the time left on it does not carry over.',
+  confirmChange: 'Confirm switch',
+  switchingPlan: 'Switching the plan…',
+  keepCurrent: 'Not now',
 } satisfies LabelTree
 
 export default PRICING_LABELS

@@ -6,7 +6,7 @@
 @layer nuxt-backend {
   [data-account='section-delete'] {
     padding: 0.9rem;
-    border: var(--bk-border-width) solid color-mix(in srgb, var(--bk-error) 30%, transparent);
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid color-mix(in srgb, var(--bk-error) 30%, transparent);
     box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
   }

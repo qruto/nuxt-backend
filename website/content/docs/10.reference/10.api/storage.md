@@ -184,6 +184,43 @@ How a table's rows are shared, for [Storage.shareable](#shareable).
 
 ***
 
+### UploadSafety
+
+Defined in: [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts)
+
+The content check [Storage.acceptUpload](#acceptupload) runs: the app's `ai`, from `setupAi`.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="requiresafe"></a> `requireSafe` | (`ctx`, `input`, `about?`) => `Promise`\<`void`\> | `ai.requireSafe`: refuses an image the moderation policy blocks, `invalid_input` with reason `content_blocked`. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+
+***
+
+### AcceptUploadOptions
+
+Defined in: [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts)
+
+What [Storage.acceptUpload](#acceptupload) runs around the content check: your check first, your keep last.
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-kept"></a> `Kept` |
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="check"></a> `check?` | () => `boolean` \| `void` \| `Promise`\<`boolean` \| `void` \| `null`\> \| `null` | Your check that the upload may go where it is headed, before the content check reads it: the caller's row, room on it, not a file kept already. A check that refuses here costs no classifier call. Refuse by throwing, or by returning `false`, which refuses the upload as `invalid_input` on `file`; pass by returning nothing, `null` or `true`. A query that returns a row doesn't type as a check, since the row is never read: wrap it, `check: async () => { await ctx.runQuery(…) }`. **Guarantee** - Runs: in the action that calls `acceptUpload`, through the `ctx` your callback closed over (an internal query of yours, a rate limit) - Delivery: once per `acceptUpload`; a person's retry calls `acceptUpload` again, and with it this - Order: first, before the content check and `keep` - When it throws: `acceptUpload` throws its error, and neither the content check nor `keep` runs; an `invalid_input` on `file` or `images`, or a `quota_exceeded`, discards the upload, any other error keeps it for a retry. A check that returns `false` is refused as `invalid_input` on `file`, so the upload is discarded - Idempotency: a check: it may run again for the same upload, so it should write nothing a second run would trip over | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+| <a id="safety"></a> `safety` | `false` \| [`UploadSafety`](#uploadsafety) | The content check: your `ai` (`setupAi`), whose `requireSafe` reads the upload as an image; a file that is no image is refused `unsupported_type` on `images`, and discarded. `false` keeps the upload with no content check, for files that are no images. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+| <a id="about"></a> `about?` | [`ModerationSubject`](/docs/reference/api/ai#moderationsubject) | What the content check records about the upload, for its flag: `{ subject, stage }`, and `userId` or `owner` when it is not the signed-in person's. Default stage `'upload'`. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+| <a id="keep"></a> `keep` | () => `Kept` \| `Promise`\<`Kept`\> | Keep the upload: your internal mutation that claims it with `storage.claim` and writes your row, in one transaction. What it returns, `acceptUpload` returns. **Guarantee** - Runs: in the action that calls `acceptUpload`, through the `ctx` your callback closed over (`ctx.runMutation` of your mutation) - Delivery: once per `acceptUpload` whose check and content check passed - Order: last, after `check` and the content check passed - When it throws: `acceptUpload` throws its error; your mutation rolled back, the claim with it, so a refusal of the file (the claim's own `invalid_input` on `file`, the type or the size, or the quota's `quota_exceeded`) discards the upload, and any other error, an `invalid_input` on a field of yours among them, keeps it for a retry - Idempotency: your mutation's transaction: its claim and your row commit together or not at all, and a second keep of a claimed upload is refused `upload_claimed` | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+
+***
+
 ### SetupStorageOptions
 
 Defined in: [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts)
@@ -225,6 +262,7 @@ The app's storage, from [setupStorage](#setupstorage).
 | <a id="release"></a> `release` | (`ctx`, `storageId`) => `Promise`\<`void`\> | Delete a file with its owner record and give its bytes back to the quota. `null`, `undefined` or an unknown id does nothing. It checks no owner: pass an id read from your own row. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 | <a id="discard"></a> `discard` | (`ctx`, `storageId`) => `Promise`\<`boolean`\> | Delete an upload at once while nobody claimed it: one a person sent to an upload URL and then dropped, or one your check refused before the claim. Never a kept file, anyone's: a claimed or stored id is left as it is, and so is an id with no file. Call it from a mutation or an action, as often as you like: it answers whether bytes went, `false` the second time. Unclaimed uploads are swept after a day anyway; this frees them now. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 | <a id="bytes"></a> `bytes` | (`ctx`, `storageId`) => `Promise`\<`Uint8Array`\<`ArrayBufferLike`\> \| `null`\> | A file's bytes in an action of yours, an upload not yet claimed included: what a check reads before the upload is kept (`ai.requireSafe` reads them so). `null` for an id no file has. It checks no owner: read only what your code decided the caller may send. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
+| <a id="acceptupload"></a> `acceptUpload` | \<`Kept`\>(`ctx`, `storageId`, `options`) => `Promise`\<`Kept`\> | Accept an upload sent to an upload URL, in an action of yours: your `check`, then the content check (`safety`, your `ai`), then your `keep`, the mutation that claims it. A refusal of the upload itself (`invalid_input` on `file` or `images`, the classifier's `content_blocked` among them, or `quota_exceeded`) discards it at once and throws, though a file kept already stays as it is; any other failure (a provider down, another workspace's row, a caption `keep` refused) keeps it, so the same id can be sent again. Returns what `keep` returned. **Example** `[backend/strips.ts] export const attachPhoto = workspace.action({ args: { id: v.id('strips'), photoId: v.string() }, handler: (ctx, { id, photoId }) => storage.acceptUpload(ctx, photoId, { check: () => ctx.runQuery(internal.strips.checkPhoto, { id, photoId, workspaceId: ctx.workspace.id }), safety: ai, about: { subject: id }, keep: () => ctx.runMutation(internal.strips.keepPhoto, { id, photoId, userId: ctx.user.id, workspaceId: ctx.workspace.id }), }), })` | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 | <a id="fileurl"></a> `fileUrl` | (`ctx`, `storageId`) => `Promise`\<`string` \| `null`\> | A file's URL once your query decided who may see it; `null` for a file that is gone or still checked. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 | <a id="signedurl"></a> `signedUrl` | (`ctx`, `storageId`, `options?`) => `Promise`\<`string` \| `null`\> | An expiring URL on the deployment's routes: `ttl` ms, an hour by default, seven days at most; `null` for a file that is gone or still checked. Under a day, a live query that signs one runs again every half hour, so its page holds fresh URLs (with a `ttl` of an hour or more, never an expired one), and the URL changes only once a step of half its `ttl`: it works for `ttl` at least and half as long again at most, and a run in between answers the same URL, so the browser's cache holds. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |
 | <a id="expire"></a> `expire` | (`ctx`, `storageId`, `at`) => `Promise`\<`boolean`\> | When a file goes: past `at` (epoch ms, or a `Date`), the component's maintenance deletes it within the hour, with its record, and gives its bytes back to the quota; `null` keeps it again. A time already past (the epoch included) is due at the next run. Returns whether the id names a kept file. It checks no owner: pass an id read from your own row. | [src/convex/integrations/storage.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/storage.ts) |

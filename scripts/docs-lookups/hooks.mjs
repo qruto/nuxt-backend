@@ -18,6 +18,7 @@ const HOOK_SOURCES = [
   ['setupAudit', 'src/convex/integrations/audit.ts', 'SetupAuditOptions', ''],
   ['access.memberTickets', 'src/convex/integrations/launch.ts', 'MemberTicketsOptions', ''],
   ['storage.shareable', 'src/convex/integrations/storage.ts', 'ShareableOptions', ''],
+  ['storage.acceptUpload', 'src/convex/integrations/storage.ts', 'AcceptUploadOptions', ''],
   ['defineJobQueue', 'src/convex/integrations/ai/jobs.ts', 'DefineJobQueueOptions', ''],
 ]
 

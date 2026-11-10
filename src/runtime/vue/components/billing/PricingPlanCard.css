@@ -9,7 +9,7 @@
     flex-direction: column;
     gap: 0.6rem;
     padding: 1.1rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
     border-radius: calc(var(--bk-radius) * 1.5);
     background: var(--bk-surface);
     box-shadow: var(--bk-shadow);
@@ -18,7 +18,7 @@
   [data-pricing='plan'][data-current] {
     border-color: var(--bk-accent);
     /* A second line, drawn as an outline so the card keeps its --bk-shadow. */
-    outline: var(--bk-border-width) solid var(--bk-accent);
+    outline: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-accent);
   }
 
   [data-pricing='plan'][data-highlight] {
@@ -42,7 +42,7 @@
   [data-pricing='current-badge'] {
     font-size: 0.68rem;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--bk-tracking-label, 0.06em);
     text-transform: uppercase;
     padding: 0.15rem 0.5rem;
     border-radius: 999px;
@@ -65,7 +65,7 @@
 
   [data-pricing='plan'][data-canceling] {
     border-color: color-mix(in srgb, var(--bk-warn) 60%, transparent);
-    outline: var(--bk-border-width) solid color-mix(in srgb, var(--bk-warn) 60%, transparent);
+    outline: var(--bk-border-width-surface, var(--bk-border-width)) solid color-mix(in srgb, var(--bk-warn) 60%, transparent);
   }
 
   [data-pricing='plan-trial'] {
@@ -104,5 +104,32 @@
     justify-content: center;
     text-align: center;
     text-decoration: none;
+  }
+
+  /* A subscriber's switch, confirmed in one step under the card's button. */
+  [data-pricing='change-confirm'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.7rem;
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
+    border-radius: var(--bk-radius);
+    font-size: 0.82rem;
+  }
+
+  [data-pricing='change-title'],
+  [data-pricing='change-when'] {
+    margin: 0;
+  }
+
+  [data-pricing='change-title'] {
+    font-weight: 600;
+  }
+
+  [data-pricing='confirm-change'] {
+    background: var(--bk-accent);
+    border-color: var(--bk-accent);
+    color: var(--bk-on-accent);
+    font-weight: 600;
   }
 }

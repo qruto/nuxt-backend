@@ -134,7 +134,7 @@ describe('doctor --fix at the billing provider', () => {
     const report = await fixProviderSettings(rootDir, { prod: false, confirm: async () => true, print }, { emailSync: emailOn })
     expect(report.applied).toEqual([])
     expect(lines[0]).toMatch(/^\[nuxt-backend\] doctor --fix: the billing provider refused a change: /)
-    expect(emailOn).toHaveBeenCalledWith(rootDir, { prod: false, dryRun: true })
+    expect(emailOn).toHaveBeenCalledWith(rootDir, { prod: false, dryRun: true, enableWebhook: true })
     expect(organization().subscriptionSettings).toMatchObject({ preventTrialAbuse: false })
   })
 })

@@ -276,6 +276,8 @@ const MODULE_PRIMARIES: Record<string, string[]> = {
   ConfirmDialog: ['ConfirmDialog.css'],
   ContactForm: ['ContactForm.css'],
   Gate: ['Gate.css'],
+  // Its send button fills with the accent. No playground page renders it yet.
+  GiftForm: ['GiftForm.css'],
   // Its Continue button fills with the accent. No playground page renders it yet.
   HowDidYouHear: ['HowDidYouHear.css'],
   // The `/invite` page's own panel: no playground page renders it.
@@ -283,7 +285,8 @@ const MODULE_PRIMARIES: Record<string, string[]> = {
   // The `/unsubscribe` page's own panel: no playground page renders it.
   EmailUnsubscribe: ['EmailUnsubscribe.css'],
   OnboardingFlow: ['OnboardingFlow.css'],
-  PricingTable: ['PricingTable.css'],
+  // A subscriber's "Confirm switch" fills with the accent, in the card.
+  PricingTable: ['PricingTable.css', 'PricingPlanCard.css'],
   ProfileSettings: ['ProfileSettings.css', 'ProfileIdentity.css'],
   ReauthenticateDialog: ['ReauthenticateDialog.css'],
   // The `/r/:code` page's own panel: no playground page renders it.

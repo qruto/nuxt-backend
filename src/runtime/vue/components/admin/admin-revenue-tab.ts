@@ -1,4 +1,5 @@
 import { computed, useId } from 'vue'
+import { minorUnitDigits, toMajorUnits } from '../../../../convex/money.js'
 import { REVENUE_INTERVALS, type RevenueMetric, type RevenueReport } from '../../../../convex/integrations/billing/types/revenue'
 import { REVENUE_WINDOWS, useRevenue } from '../../composables/use-revenue'
 import { useLabels } from '../../composables/use-labels'
@@ -22,6 +23,9 @@ export interface ChartSeries {
   total: string
 }
 
+/** The currency the provider's metrics count in: its own figures name none. */
+const REVENUE_CURRENCY = 'USD'
+
 /** The cancel flow's eight reasons, in the order the view lists them. */
 const REASONS = ['too_expensive', 'missing_features', 'switched_service', 'unused', 'customer_service', 'low_quality', 'too_complex', 'other'] as const
 
@@ -36,8 +40,10 @@ export function useRevenueTab() {
   const id = useId()
   const report = computed(() => revenue.report.value ?? null)
 
-  // Amounts arrive in cents: shown in dollars, with the cents a small amount needs.
-  const money = (cents: number | null) => cents === null ? '—' : new Intl.NumberFormat(locale.value, { style: 'currency', currency: 'USD', maximumFractionDigits: Math.abs(cents) < 100 && cents !== 0 ? 4 : 2 }).format(cents / 100)
+  // Amounts arrive in the currency's smallest unit (the report states none:
+  // dollars): shown in its main one, with the digits a small amount needs.
+  const digits = minorUnitDigits(REVENUE_CURRENCY)
+  const money = (minor: number | null) => minor === null ? '—' : new Intl.NumberFormat(locale.value, { style: 'currency', currency: REVENUE_CURRENCY, maximumFractionDigits: Math.abs(minor) < 10 ** digits && minor !== 0 ? digits + 2 : digits }).format(toMajorUnits(minor, REVENUE_CURRENCY))
   const count = (value: number | null) => value === null ? '—' : new Intl.NumberFormat(locale.value).format(value)
   const rate = (value: number | null) => value === null ? '—' : new Intl.NumberFormat(locale.value, { style: 'percent', maximumFractionDigits: 1 }).format(value)
   const day = (at: number) => new Intl.DateTimeFormat(locale.value, revenue.interval.value === 'month' ? { month: 'short', year: 'numeric', timeZone: 'UTC' } : { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(at)

@@ -98,6 +98,10 @@
           "to": "/docs/reference/cli/diagnostics#agent-files"
         },
         {
+          "name": "env-example",
+          "to": "/docs/reference/cli/diagnostics#env-example"
+        },
+        {
           "name": "name-collisions",
           "to": "/docs/reference/cli/diagnostics#name-collisions"
         },
@@ -540,6 +544,14 @@
           "to": "/docs/reference/components/billing#withdrawalbutton"
         },
         {
+          "name": "<GiftForm>",
+          "to": "/docs/reference/components/billing#giftform"
+        },
+        {
+          "name": "<GiftList>",
+          "to": "/docs/reference/components/billing#giftlist"
+        },
+        {
           "name": "<ReferralCard>",
           "to": "/docs/reference/components/billing#referralcard"
         }
@@ -581,11 +593,27 @@
           "to": "/docs/reference/api/use-gifts"
         },
         {
+          "name": "useGiftList",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useGiftForm",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useWithdrawal",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useReferrals",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
           "name": "useReferralInvite",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "formatBillingAmount",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         }
       ]
@@ -791,6 +819,10 @@
         },
         {
           "name": "usePushSubscription",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useInstallPrompt",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
@@ -1111,6 +1143,18 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "preparePhoto",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "isPhotoFile",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "PhotoPrepError",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "getBackendError",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -1312,6 +1356,14 @@
           "to": "/docs/reference/components/billing#withdrawalbutton"
         },
         {
+          "name": "<GiftForm>",
+          "to": "/docs/reference/components/billing#giftform"
+        },
+        {
+          "name": "<GiftList>",
+          "to": "/docs/reference/components/billing#giftlist"
+        },
+        {
           "name": "<ReferralCard>",
           "to": "/docs/reference/components/billing#referralcard"
         },
@@ -1474,6 +1526,10 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "useReportAppeal",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useExperiment",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         }
@@ -1541,9 +1597,9 @@
       "kind": "Components",
       "items": [
         {
-          "name": "39 in all",
+          "name": "41 in all",
           "to": "/docs/reference/components",
-          "label": "39 components in all"
+          "label": "41 components in all"
         }
       ]
     },
@@ -1551,9 +1607,9 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "63 in all",
+          "name": "72 in all",
           "to": "/docs/reference/nuxt/composables",
-          "label": "63 composables in all"
+          "label": "72 composables in all"
         }
       ]
     },
@@ -1601,9 +1657,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "108 in all",
+          "name": "109 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "108 findings in all"
+          "label": "109 findings in all"
         }
       ]
     }
@@ -1877,6 +1933,18 @@
           "to": "/docs/reference/api/use-gifts"
         },
         {
+          "name": "useGiftList",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useGiftForm",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useWithdrawal",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useReferrals",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -1961,6 +2029,18 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "preparePhoto",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "isPhotoFile",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "PhotoPrepError",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useNotifications",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -1981,6 +2061,10 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "useInstallPrompt",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useAnnouncements",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -1994,6 +2078,10 @@
         },
         {
           "name": "useReportForm",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useReportAppeal",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
@@ -2018,6 +2106,10 @@
         },
         {
           "name": "getBackendError",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "formatBillingAmount",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
@@ -2156,6 +2248,14 @@
         {
           "name": "<WithdrawalButton>",
           "to": "/docs/reference/components/billing#withdrawalbutton"
+        },
+        {
+          "name": "<GiftForm>",
+          "to": "/docs/reference/components/billing#giftform"
+        },
+        {
+          "name": "<GiftList>",
+          "to": "/docs/reference/components/billing#giftlist"
         },
         {
           "name": "<ReferralCard>",

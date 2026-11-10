@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { APPEAL_FRAGMENT } from '../../../convex/report-rules'
+import { appealTokenOf } from '../../../convex/report-rules'
 import PageFrame from '../components/shell/PageFrame.vue'
 import ReportAppeal from '../components/shell/ReportAppeal.vue'
 import ReportNotice from '../components/shell/ReportNotice.vue'
@@ -24,8 +24,7 @@ const { t } = useLabels('report')
 const appealToken = ref<string | null | undefined>(undefined)
 
 onMounted(() => {
-  const fragment = decodeURIComponent(window.location.hash.replace(/^#/, '')).trim()
-  appealToken.value = fragment.startsWith(APPEAL_FRAGMENT) ? fragment.slice(APPEAL_FRAGMENT.length) || null : null
+  appealToken.value = appealTokenOf(window.location.hash)
 })
 </script>
 

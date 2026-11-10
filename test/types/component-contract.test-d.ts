@@ -71,6 +71,9 @@ interface Slots {
   // No slots: the button and the card render their parts by registered name.
   WithdrawalButton: Record<never, never>
   ReferralCard: Record<never, never>
+  // No slots: the gift form and the gift lists are swapped whole.
+  GiftForm: Record<never, never>
+  GiftList: Record<never, never>
   // No slots: the legal parts print the facts app config and the backend hold.
   LegalProcessors: Record<never, never>
   LegalStorage: Record<never, never>

@@ -31,8 +31,10 @@
     background: var(--bk-accent);
     color: var(--bk-on-accent);
     text-decoration: none;
-    box-shadow: var(--bk-shadow-control);
+    box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control));
+    translate: var(--_bk-press-offset);
     font-family: var(--bk-font-control, var(--bk-font));
+    letter-spacing: var(--bk-tracking-control, revert-layer);
   }
 
   /* A code typed by hand, whenever no link brought one that works. */

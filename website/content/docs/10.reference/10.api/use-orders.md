@@ -103,7 +103,7 @@ const orders = useOrders({ limit: 10 })
 </script>
 <template>
   <p v-for="order in orders.orders.value" :key="order.id">
-    {{ order.createdAt }} — {{ order.totalAmount / 100 }} {{ order.currency }}
+    {{ order.createdAt }} — {{ formatBillingAmount(order.totalAmount, order.currency) }}
     <button @click="orders.invoice(order.id)">Invoice</button>
   </p>
 </template>

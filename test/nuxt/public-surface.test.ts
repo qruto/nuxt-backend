@@ -391,14 +391,14 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './account': ['ACCOUNT_DATA_SOURCES', 'setupAccount'],
   './admin': ['IMPERSONATION_SESSION_SECONDS', 'setupAdmin', 'setupWebhooks'],
   './flags': ['BACKEND_FLAGS', 'FLAG_TARGETS_MAX', 'MAINTENANCE_MESSAGE_MAX', 'ROLLOUT_BUCKETS', 'defineFlags', 'flagBucket', 'setupFlags'],
-  './ai': ['DEFAULT_THRESHOLDS', 'MODERATION_CATEGORIES', 'arachnidShield', 'azureContentSafety', 'defineJobQueue', 'openaiModeration', 'priceTokens', 'retryable', 'setupAi', 'vJobEnd'],
+  './ai': ['DEFAULT_THRESHOLDS', 'MODERATION_CATEGORIES', 'arachnidShield', 'azureContentSafety', 'defineJobQueue', 'openaiModeration', 'priceTokens', 'retryable', 'setupAi', 'vJobEnd', 'vOwedCharge'],
   './storage': ['DEFAULT_ACCEPTED_TYPES', 'DEFAULT_MAX_FILE_SIZE', 'SIGNED_URL_TTL_MAX_MS', 'SIGNED_URL_TTL_MS', 'setupStorage', 'sniffContentType', 'stripImageMetadata'],
   './notifications': ['setupNotifications'],
   './monitoring': ['MONITORING_TAGS', 'checkIn', 'checkingIn', 'isReportable', 'reportError', 'reportingErrors'],
 
   './convex.config': ['default'],
   './auth.config': ['default', 'defineBackendAuthConfig'],
-  './test': ['TEST_FAINT', 'TEST_KNOWN_ABUSE', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'asUser', 'default', 'defineBackendTestApp', 'drain', 'register', 'seedBilling', 'seedCredits', 'seedWorkspace', 'stubStorageFetch', 'upload'],
+  './test': ['TEST_FAINT', 'TEST_KNOWN_ABUSE', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_UNSAFE_CODE', 'asUser', 'default', 'defineBackendTestApp', 'drain', 'fileExists', 'register', 'seedBilling', 'seedCredits', 'seedWorkspace', 'stubBillingProvider', 'stubStorageFetch', 'upload'],
   './test-utils': ['backendMockProvides', 'backendTestAliases', 'createBackendMock', 'renderEmail', 'resetBackendMock'],
   './eslint': ['BACKEND_ESLINT_RULES', 'backendEslint'],
 }
@@ -504,10 +504,12 @@ describe('@internal', () => {
 const REGISTRY = {
   composables: [
     'getBackendError',
+    'formatBillingAmount',
     'useAccount',
     'useConsents',
     'useContactForm',
     'useReportForm',
+    'useReportAppeal',
     'useOnboarding',
     'useActivation',
     'useAppShell',
@@ -537,6 +539,9 @@ const REGISTRY = {
     'useExperiment',
     'useFeatures',
     'useGifts',
+    'useGiftList',
+    'useGiftForm',
+    'useWithdrawal',
     'useHumanCheck',
     'useInboxAdmin',
     'useJob',
@@ -547,6 +552,7 @@ const REGISTRY = {
     'useEmailPreferences',
     'useEmailLink',
     'usePushSubscription',
+    'useInstallPrompt',
     'useAnnouncements',
     'useAnnouncementsAdmin',
     'useNotifications',
@@ -564,6 +570,9 @@ const REGISTRY = {
     'useSignInAlerts',
     'useShareLink',
     'useUploadField',
+    'preparePhoto',
+    'isPhotoFile',
+    'PhotoPrepError',
     'useUsage',
     'useWorkflowStatus',
   ],
@@ -592,6 +601,8 @@ const REGISTRY = {
     'ConsentPrompt',
     'ContactForm',
     'Gate',
+    'GiftForm',
+    'GiftList',
     'HowDidYouHear',
     'LegalContactPoints',
     'LegalDetail',
@@ -623,7 +634,7 @@ const REGISTRY = {
     'ProfileIdentity', 'ProfileNameSection', 'ProfileEmailSection', 'ProfileLanguageSection', 'ProfilePreferencesSection',
     'SecurityPasskeys', 'SecuritySessions', 'SecurityAlerts', 'AccountExport', 'AccountDeletion',
     'WorkspaceList', 'WorkspaceBilling', 'WorkspaceCredits', 'AcceptInvitationActions', 'AuditLogEvent',
-    'PricingPeriodSwitch', 'PricingCurrencySelect', 'PricingPlanCard', 'PricingPackCard', 'PricingCancelConfirm', 'PricingEmailOptOut',
+    'PricingPeriodSwitch', 'PricingCurrencySelect', 'PricingPlanCard', 'PricingPackCard', 'PricingCancelConfirm', 'PricingChangeConfirm', 'PricingEmailOptOut',
     'BillingHistoryOrder', 'UsageHistoryEvent',
     'CancelFlowQuestion', 'CancelFlowOffer', 'CancelFlowConfirm', 'CancelFlowEnd',
     'AdminUsersTable', 'AdminUserDrawer', 'AdminWorkspacesTable', 'AdminWorkspaceDrawer',
@@ -637,7 +648,7 @@ const REGISTRY = {
 }
 
 /** The experimental tier, by the names STABILITY.md lists. */
-const EXPERIMENTAL = ['./ai', './monitoring', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_FAINT', 'TEST_KNOWN_ABUSE', 'ComponentTestKit', 'BackendTestAppOptions', 'BackendTestApp', 'TestFile', 'TestUploadOptions', 'StubStorageFetchOptions', 'TestTimers', 'TestBilling', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage', 'PricedPlanGift', 'PricedGiftLength']
+const EXPERIMENTAL = ['./ai', './monitoring', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_UNSAFE_CODE', 'TEST_FAINT', 'TEST_KNOWN_ABUSE', 'fileExists', 'stubBillingProvider', 'StubBillingProviderOptions', 'TestBillingProvider', 'TestUsageEvent', 'DrainOptions', 'ComponentTestKit', 'BackendTestAppOptions', 'BackendTestApp', 'TestFile', 'TestUploadOptions', 'StubStorageFetchOptions', 'TestTimers', 'TestBilling', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage', 'PricedPlanGift', 'PricedGiftLength', 'useGiftForm']
 
 /**
  * The experimental members of a stable type, by where the source tags them

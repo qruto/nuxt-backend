@@ -42,7 +42,7 @@ const french = {
     },
     profile: { title: 'Profil' },
     usage: { units: '{count} crédit | {count} crédits' },
-    errors: { forbidden: 'Accès refusé.', forbidden_role: 'Votre rôle ne le permet pas.', invalid_input_otp: 'Ce code est incorrect.' },
+    errors: { forbidden: 'Accès refusé.', forbidden_role: 'Votre rôle ne le permet pas.', invalid_input_otp: 'Ce code est incorrect.', unavailable_billing: 'Facturation indisponible.' },
   },
 }
 
@@ -219,6 +219,42 @@ describe('errors and dates', () => {
   it('prefers the locale\'s generic sentence to the package\'s English one for the reason', () => {
     // The package words not_member in English; the French messages word only `forbidden`.
     expect(mount(Message, { props: { error: backendError('forbidden', { reason: 'not_member' }) } }).text()).toBe('Accès refusé.')
+  })
+
+  it('searches app config first, every key of it, before the locale\'s messages: an app\'s generic sentence wins over the locale\'s for the reason or the service', () => {
+    const sentence = (error: unknown) => mount(Message, { props: { error } }).text()
+    const billingDown = backendError('unavailable', { service: 'billing', reason: 'provider_refused' })
+    expect(sentence(billingDown)).toBe('Facturation indisponible.')
+    config.labels = { errors: { forbidden: 'Not allowed (app).', unavailable: 'We are down (app).' } }
+    try {
+      expect(sentence(backendError('forbidden', { reason: 'role' }))).toBe('Not allowed (app).')
+      expect(sentence(backendError('forbidden', { reason: 'not_member' }))).toBe('Not allowed (app).')
+      expect(sentence(billingDown)).toBe('We are down (app).')
+      config.labels = { errors: { forbidden: 'Not allowed (app).', forbidden_role: 'Your role cannot (app).' } }
+      expect(sentence(backendError('forbidden', { reason: 'role' }))).toBe('Your role cannot (app).')
+    }
+    finally {
+      config.labels = {}
+    }
+  })
+
+  it('reads an English locale\'s own messages before the package\'s English, which is registered for it', () => {
+    const sentence = (error: unknown) => mount(Message, { props: { error } }).text()
+    const short = backendError('insufficient_credits', { balance: 2, need: 5 })
+    i18n.global.locale.value = 'en'
+    localeEntries.value = { en: { language: 'en-US' } }
+    expect(sentence(short)).toBe('Not enough credits: 2 left, 5 needed. Top up to continue.')
+    i18n.global.setLocaleMessage('en', { backend: { ...english.backend, errors: { ...english.backend.errors, insufficient_credits: 'Not enough coins (app).', forbidden: 'Not allowed (app).' } } })
+    try {
+      // The app's message for the code, over the package's English with the numbers or for the reason.
+      expect(sentence(short)).toBe('Not enough coins (app).')
+      expect(sentence(backendError('forbidden', { reason: 'not_member' }))).toBe('Not allowed (app).')
+      // Where the app's messages have no key, the package's most specific one.
+      expect(sentence(backendError('unavailable', { service: 'billing', reason: 'provider_refused' }))).toBe(english.backend.errors.unavailable_billing)
+    }
+    finally {
+      i18n.global.setLocaleMessage('en', english)
+    }
   })
 
   it('words the auth server\'s own refusals too, never its English sentence', () => {

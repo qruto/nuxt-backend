@@ -3,6 +3,7 @@ import { subscriptionsCreate } from '@polar-sh/sdk/funcs/subscriptionsCreate.js'
 import { subscriptionsGet } from '@polar-sh/sdk/funcs/subscriptionsGet.js'
 import { subscriptionsUpdate } from '@polar-sh/sdk/funcs/subscriptionsUpdate.js'
 import type { FunctionReference } from 'convex/server'
+import { addMonths } from '../../catalog.js'
 import { BILLING_MANAGER_ROLES } from '../../constants.js'
 import { resolveBackendPaths } from '../../paths.js'
 import { backendError } from '../../errors.js'
@@ -28,17 +29,8 @@ import type { RunQueryCtx, RunWriteCtx } from './types/base.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-/** The date `months` calendar months after `from`, the way the provider adds a monthly period. */
-export function addMonths(from: number, months: number): number {
-  const date = new Date(from)
-  const day = date.getUTCDate()
-  date.setUTCDate(1)
-  date.setUTCMonth(date.getUTCMonth() + months)
-  // Jan 31 + 1 month is the end of February, not March 3.
-  const last = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate()
-  date.setUTCDate(Math.min(day, last))
-  return date.getTime()
-}
+// Months count as the provider counts a monthly period (catalog.ts, shared with the plan section's pause).
+export { addMonths }
 
 /** How long a plan pass's claim holds its gift: the provider calls of one claim, with room to spare. */
 const CLAIM_HOLD_MS = 5 * 60 * 1000

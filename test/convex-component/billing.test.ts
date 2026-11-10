@@ -189,6 +189,31 @@ describe('spend reservations (reserve → settle / release)', () => {
     expect(row?.meters[0]).toMatchObject({ balance: 1, consumedUnits: 1 })
   })
 
+  test('release with keep lets only the rest go: what it kept stays held, so no spend after it can take it', async () => {
+    const pending = () => t.run(async ctx => (await ctx.db.query('billingEntitlements').first())?.pendingSpends)
+    // A job held 5; its charge of 3 was refused, and is tried again later.
+    await seed(5)
+    await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 5, externalId: 'job', hold: 60_000 })
+    await t.mutation(api.billing.release, { userId: 'u1', externalId: 'job', keep: 3 })
+    const row = await t.query(api.billing.getByUser, { userId: 'u1' })
+    expect(row?.meters[0]).toMatchObject({ balance: 2, consumedUnits: 3 })
+    expect(await pending()).toEqual([expect.objectContaining({ externalId: 'job', amount: 3 })])
+    // Another spend finds only the 2 that went back.
+    expect(await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 3, externalId: 'other' }))
+      .toMatchObject({ ok: false, reason: 'insufficient', balance: 2 })
+    // Taken again under its id, it is the same hold, not a second one.
+    expect(await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 3, externalId: 'job', allowOverage: true }))
+      .toMatchObject({ ok: true, balance: 2 })
+    // A provider read still counts it, and a keep above what it holds keeps it whole.
+    await t.mutation(api.billing.upsert, { userId: 'u1', activeProductIds: [], benefits: [], meters: [{ meterId: 'm1', consumedUnits: 0, creditedUnits: 5, balance: 5 }] })
+    await t.mutation(api.billing.release, { userId: 'u1', externalId: 'job', keep: 10 })
+    expect((await t.query(api.billing.getByUser, { userId: 'u1' }))?.meters[0]).toMatchObject({ balance: 2 })
+    // Once the caller stops trying, a release without keep lets it all go.
+    await t.mutation(api.billing.release, { userId: 'u1', externalId: 'job' })
+    expect((await t.query(api.billing.getByUser, { userId: 'u1' }))?.meters[0]).toMatchObject({ balance: 5 })
+    expect(await pending()).toEqual([])
+  })
+
   test('upsert re-subtracts active reservations from fresh provider state', async () => {
     await seed(5)
     await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 2, externalId: 'inflight' })
@@ -240,6 +265,19 @@ describe('amounts the cache refuses', () => {
     await expect(t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount, externalId: 'x' }))
       .rejects.toThrow(/billing\.debit: `amount` must be a finite number above zero/)
     expect(await meter()).toMatchObject({ balance: 10, consumedUnits: 0 })
+  })
+
+  test.each([
+    ['negative', -1],
+    ['NaN', Number.NaN],
+    ['infinite', Number.POSITIVE_INFINITY],
+  ])('release refuses a %s keep and lets nothing go', async (_label, keep) => {
+    await seed()
+    await t.mutation(api.billing.debit, { userId: 'u1', meterId: 'm1', amount: 4, externalId: 'x' })
+
+    await expect(t.mutation(api.billing.release, { userId: 'u1', externalId: 'x', keep }))
+      .rejects.toThrow(/billing\.release: `keep` must be a finite number of zero or more/)
+    expect(await meter()).toMatchObject({ balance: 6, consumedUnits: 4 })
   })
 
   test('debit fails closed on a balance that is not a number', async () => {

@@ -11,6 +11,8 @@ export type StepFailure
   = | { kind: 'throttled', retryAfter?: number }
   /** A timeout or an error the provider marks retryable (`502`, `503`): wait, try again. */
     | { kind: 'retryable', retryAfter?: number }
+  /** An image call that drew nothing and said no more: try once more at most, since each try bills the prompt again. */
+    | { kind: 'empty' }
   /** The model refused the content: fail the job at once, `content_blocked`. */
     | { kind: 'blocked' }
   /** A spending limit refused the call (a Vercel budget's `402`): fail at once, `provider_refused`. */
@@ -29,6 +31,7 @@ interface ErrorLike {
   responseHeaders?: unknown
   responseBody?: unknown
   type?: unknown
+  code?: unknown
   cause?: unknown
   data?: unknown
 }
@@ -92,9 +95,54 @@ export function upstreamErrorOf(error: unknown): string | undefined {
   return undefined
 }
 
-/** Whether any text of the chain (name, message, type, body) says `pattern`. */
+/** Whether any text of the chain (name, message, type, code, body) says `pattern`. */
 const says = (chain: readonly ErrorLike[], pattern: RegExp): boolean =>
-  chain.some(error => [error.name, error.message, error.type, error.responseBody].some(text => typeof text === 'string' && pattern.test(text)))
+  chain.some(error => [error.name, error.message, error.type, error.code, error.responseBody].some(text => typeof text === 'string' && pattern.test(text)))
+
+/**
+ * A provider's refusal of the content, in any of its words: a content
+ * filter, a content policy (DALL·E's `content_policy_violation`),
+ * OpenAI's image models' `moderation_blocked`, or a request "rejected by
+ * the safety system".
+ */
+export const CONTENT_REFUSAL = /content[-_ ]filter|content_policy|moderation_blocked|safety[_ ]system/i
+
+/** The AI SDK's `NoImageGeneratedError`: `generateImage` got no image back, which another attempt may get. */
+export const NO_IMAGE = /NoImageGeneratedError/
+
+/**
+ * A finish reason a provider gives an image answer its safety filter
+ * emptied: Google's `SAFETY`, `IMAGE_SAFETY`, `PROHIBITED_CONTENT`,
+ * `BLOCKLIST` and `SPII`, a filter's explanation that names safety, a
+ * `content_filter`, a content policy, or `moderation_blocked`.
+ */
+const SAFETY_REASON = /safety|prohibited|blocklist|spii|content[-_ ]?filter|content_policy|moderation_blocked/i
+
+/** The keys an image answer's provider metadata gives its finish reason under, at any depth. */
+const REASON_KEY = /^(?:finish_?reason|block_?reason|rai_?filtered_?reason|filtered_?reason)$/i
+
+/**
+ * Whether an image answer that drew nothing says its safety filter
+ * emptied it: a finish reason for safety in its provider metadata
+ * ({@link SAFETY_REASON}, read under a finish reason's key only, never
+ * from a setting's name), or a warning that says the content was refused.
+ */
+export function emptiedForSafety(answer: { providerMetadata?: unknown, warnings?: readonly unknown[] }): boolean {
+  const warned = (answer.warnings ?? []).some((warning) => {
+    const { type, message } = (typeof warning === 'object' && warning !== null ? warning : {}) as { type?: unknown, message?: unknown }
+    return type === 'other' && typeof message === 'string' && (CONTENT_REFUSAL.test(message) || /safety[_ ]filter/i.test(message))
+  })
+  return warned || reasonsSafety(answer.providerMetadata, 0)
+}
+
+/** A finish reason for safety under one of {@link REASON_KEY}, at most five levels down. */
+function reasonsSafety(value: unknown, depth: number): boolean {
+  if (depth > 4 || typeof value !== 'object' || value === null) return false
+  return Object.entries(value).some(([key, child]) => {
+    const reasons = REASON_KEY.test(key) ? (Array.isArray(child) ? child : [child]) : []
+    return reasons.some(reason => typeof reason === 'string' && SAFETY_REASON.test(reason)) || reasonsSafety(child, depth + 1)
+  })
+}
 
 /** A catalog error's payload: its code and fields, as `backendError` threw it. */
 export function catalogPayload(error: unknown): Record<string, unknown> | undefined {
@@ -111,7 +159,10 @@ export function catalogPayload(error: unknown): Record<string, unknown> | undefi
  * `quota_for_entity_exceeded`, whatever error class wraps it, is a refusal;
  * a `429` or the gateway's rate-limit error a throttle; a timeout, a `408`,
  * `5xx` or an error the provider marks retryable a passing failure; a call
- * that finished with a `content-filter` reason a refused prompt.
+ * that finished with a `content-filter` reason, or a provider that says it
+ * refused the content ({@link CONTENT_REFUSAL}), a refused prompt; an image
+ * call that got no image back (the AI SDK's `NoImageGeneratedError`) and
+ * says no more an empty answer, tried once more at most.
  */
 export function classifyStepError(error: unknown, calls: readonly ModelCall[] = []): StepFailure {
   const payload = catalogPayload(error)
@@ -124,13 +175,17 @@ export function classifyStepError(error: unknown, calls: readonly ModelCall[] = 
   if (status === 429 || says(chain, /RateLimit|rate[_ ]limit/i)) return { kind: 'throttled', ...wait }
   // An error marked retryable (`retryable()`, or a provider's) is tried again, whatever a call's answer was.
   const marked = chain.some(link => link.isRetryable === true)
-  if (!marked && (calls.some(call => call.finishReason === 'content-filter') || says(chain, /content[-_ ]filter|content_policy/i))) return { kind: 'blocked' }
+  if (!marked && (calls.some(call => call.finishReason === 'content-filter') || says(chain, CONTENT_REFUSAL))) return { kind: 'blocked' }
   const retryable = marked
     || (status !== undefined && (status === 408 || status >= 500))
     || says(chain, /Timeout|timed out|AbortError|ECONNRESET/i)
   if (retryable) return { kind: 'retryable', ...wait }
+  if (says(chain, NO_IMAGE)) return { kind: 'empty' }
   return { kind: 'fatal' }
 }
+
+/** How many attempts an empty image answer gets in all: the first, and one more. */
+export const EMPTY_ATTEMPTS = 2
 
 /**
  * An error a job step throws for a failure another attempt may not meet,
@@ -147,15 +202,15 @@ export function retryable(message: string): Error {
   return Object.assign(new Error(message), { isRetryable: true })
 }
 
-/** Whether a failure may pass on another attempt: a throttle, a timeout or a passing provider error. */
-export function isPassing(failure: StepFailure): failure is Extract<StepFailure, { kind: 'throttled' | 'retryable' }> {
-  return failure.kind === 'throttled' || failure.kind === 'retryable'
+/** Whether a failure may pass on another attempt: a throttle, a timeout, a passing provider error, or an empty image answer. */
+export function isPassing(failure: StepFailure): failure is Extract<StepFailure, { kind: 'throttled' | 'retryable' | 'empty' }> {
+  return failure.kind === 'throttled' || failure.kind === 'retryable' || failure.kind === 'empty'
 }
 
-/** How a failed attempt moves its model's limit: a throttle halves it, a passing or unknown error restarts its clean run, a refusal leaves it. */
+/** How a failed attempt moves its model's limit: a throttle halves it, a passing or unknown error or an empty answer restarts its clean run, a refusal leaves it. */
 export function modelOutcomeOf(failure: StepFailure): 'throttled' | 'error' | undefined {
   if (failure.kind === 'throttled') return 'throttled'
-  return failure.kind === 'retryable' || failure.kind === 'fatal' ? 'error' : undefined
+  return failure.kind === 'retryable' || failure.kind === 'empty' || failure.kind === 'fatal' ? 'error' : undefined
 }
 
 /** The catalog error a job fails with, as its payload: what the person sees. */

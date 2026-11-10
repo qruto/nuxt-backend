@@ -85,7 +85,7 @@
 
   [data-onboarding='root'] :where(input) {
     padding: 0.55rem 0.7rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
@@ -116,13 +116,15 @@
 
   [data-onboarding='root'] :where(button) {
     padding: 0.55rem 0.9rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
-    box-shadow: var(--bk-shadow-control);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
+    box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control));
+    translate: var(--_bk-press-offset);
     border-radius: var(--bk-radius-control);
     background: transparent;
     color: inherit;
     font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
+    letter-spacing: var(--bk-tracking-control, revert-layer);
     font-weight: 600;
     cursor: pointer;
   }
@@ -158,7 +160,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.6rem 0.8rem;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
     box-shadow: var(--bk-shadow);
     border-radius: var(--bk-radius);
     background: var(--bk-surface);

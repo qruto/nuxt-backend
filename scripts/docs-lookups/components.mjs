@@ -23,7 +23,7 @@ const lowerFirst = text => text.replace(/^([A-Z])(?=[a-z])/, first => first.toLo
 export const FAMILY_PAGES = {
   account: ['AuthForm', 'WaitlistForm', 'ConsentPrompt', 'ReauthenticateDialog', 'ProfileSettings', 'SecuritySettings', 'AccountData', 'OnboardingFlow', 'ActivationChecklist', 'HowDidYouHear'],
   workspaces: ['WorkspaceSettings', 'AcceptInvitation', 'AuditLog', 'AdminUsers', 'AdminWorkspaces'],
-  billing: ['PricingTable', 'BillingCheckoutLink', 'BillingPortalLink', 'BillingHistory', 'UsageHistory', 'UpgradePrompt', 'CancelFlow', 'WithdrawalButton', 'ReferralCard'],
+  billing: ['PricingTable', 'BillingCheckoutLink', 'BillingPortalLink', 'BillingHistory', 'UsageHistory', 'UpgradePrompt', 'CancelFlow', 'WithdrawalButton', 'GiftForm', 'GiftList', 'ReferralCard'],
   shell: ['Gate', 'BackendNotices', 'AccessDenied', 'ConnectionStatus', 'UploadField', 'NotificationInbox', 'ContactForm', 'AppShell', 'AiLabel', 'LegalProcessors', 'LegalStorage', 'LegalDetail', 'LegalVersion', 'LegalContactPoints', 'LegalModeration'],
 
 }
@@ -303,10 +303,20 @@ const TOKEN_ROLES = {
   '--bk-font': 'The face of every component\'s text',
   '--bk-font-heading': 'The face of headings, falling back to `--bk-font`',
   '--bk-font-control': 'The face of buttons, falling back to `--bk-font`',
+  '--bk-tracking-heading': 'The letter-spacing of headings and titles, the page\'s or the title\'s own while unset',
+  '--bk-tracking-control': 'The letter-spacing of buttons and links drawn as buttons, left to the page, its reset and the browser while unset',
+  '--bk-tracking-label': 'The letter-spacing of small uppercase labels (section titles, badges, the "or" between two choices), each keeping its own while unset',
   '--bk-border-width': 'The width of every outline: controls, fields, cards and dialogs',
+  '--bk-border-width-surface': 'The outline of cards, banners, panels and dialogs, falling back to `--bk-border-width`',
+  '--bk-border-width-control': 'The outline of buttons, fields and chips, falling back to `--bk-border-width`',
   '--bk-shadow': 'Cards, banners and panels',
   '--bk-shadow-control': 'Buttons drawn as buttons',
   '--bk-shadow-overlay': 'Dialogs, menus and popovers',
+  '--bk-shadow-control-hover': 'A drawn button under the pointer, keeping `--bk-shadow-control` while unset',
+  '--bk-shadow-control-active': 'A drawn button while pressed, falling back to the hover shadow',
+  '--bk-offset-control-hover': 'How far a drawn button moves under the pointer (a `translate` value), none while unset',
+  '--bk-offset-control-active': 'How far a drawn button moves while pressed, falling back to the hover offset',
+  '--bk-transition-control': 'The `transition` of buttons and links between those states, none while unset',
 }
 
 /** The shared tokens tokens.css declares in its first block, with their values. */

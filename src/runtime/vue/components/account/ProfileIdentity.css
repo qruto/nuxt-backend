@@ -51,7 +51,7 @@
     font-weight: 600;
     padding: 0.15rem 0.55rem;
     border-radius: 999px;
-    border: var(--bk-border-width) solid var(--bk-edge);
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
     color: var(--bk-muted);
   }
 }

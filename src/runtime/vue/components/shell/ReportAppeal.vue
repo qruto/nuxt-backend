@@ -5,11 +5,12 @@
  * fragment. It shows the decision and its reason, then a box for why it
  * should change; once sent, the appeal's state, then its outcome.
  *
- * Internal: the page's body, built on `useReportAppeal`.
+ * Internal: the page's body, built on the public `useReportAppeal`.
  *
  * @internal
  */
-import { useReportAppeal } from './report-form'
+import { computed, useId } from 'vue'
+import { useReportAppeal } from '../../composables/use-report-appeal'
 
 const props = defineProps<{
   /** The decision's token, from the address's fragment; `null` for none. */
@@ -17,7 +18,9 @@ const props = defineProps<{
 }>()
 
 const appeal = useReportAppeal(() => props.token)
-const { t, id } = appeal
+const { t, errorMessage } = appeal.labels
+const id = useId()
+const errorText = computed(() => (appeal.error.value ? errorMessage(appeal.error.value) : null))
 </script>
 
 <template>
@@ -43,12 +46,12 @@ const { t, id } = appeal
     >
       {{ t('appeal.unknown') }}
     </p>
-    <template v-else-if="appeal.view.value">
+    <template v-else-if="appeal.decision.value">
       <p data-report="decision">
-        {{ t(`appeal.${appeal.view.value.action}`, { date: appeal.date(appeal.view.value.at), title: appeal.view.value.title ?? t('appeal.untitled') }) }}
+        {{ t(`appeal.${appeal.decision.value.action}`, { date: appeal.formatDate(appeal.decision.value.at), title: appeal.decision.value.title ?? t('appeal.untitled') }) }}
       </p>
       <p data-report="reason">
-        {{ t('appeal.reason', { reason: appeal.view.value.reason }) }}
+        {{ t('appeal.reason', { reason: appeal.decision.value.reason }) }}
       </p>
       <p
         v-if="appeal.state.value === 'expired'"
@@ -60,11 +63,11 @@ const { t, id } = appeal
       <form
         v-else-if="appeal.state.value === 'form'"
         data-report="appeal-form"
-        :aria-busy="appeal.sending.value || undefined"
-        @submit.prevent="appeal.submit()"
+        :aria-busy="appeal.isPending.value || undefined"
+        @submit.prevent="appeal.send()"
       >
         <p data-report="until">
-          {{ t('appeal.until', { date: appeal.date(appeal.view.value.until) }) }}
+          {{ t('appeal.until', { date: appeal.formatDate(appeal.decision.value.until) }) }}
         </p>
         <label :for="`${id}-text`">{{ t('appeal.text') }}</label>
         <textarea
@@ -77,22 +80,22 @@ const { t, id } = appeal
           maxlength="4000"
         />
         <p
-          v-if="appeal.errorText.value"
+          v-if="errorText"
           data-report="error"
           role="alert"
         >
-          {{ appeal.errorText.value }}
+          {{ errorText }}
         </p>
         <button
           type="submit"
           data-report="send"
-          :aria-disabled="appeal.sending.value || undefined"
+          :aria-disabled="appeal.isPending.value || undefined"
         >
-          {{ t(appeal.sending.value ? 'appeal.sending' : 'appeal.send') }}
+          {{ t(appeal.isPending.value ? 'appeal.sending' : 'appeal.send') }}
         </button>
       </form>
       <p
-        v-else
+        v-else-if="appeal.state.value !== 'none'"
         data-report="status"
         role="status"
       >

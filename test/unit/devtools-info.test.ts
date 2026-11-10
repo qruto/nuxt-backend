@@ -11,7 +11,7 @@ import {
   type BuildDevtoolsInfoInput,
 } from '../../src/devtools/info'
 import { finding } from '../../src/findings'
-import { resolvedBackendPages } from '../../src/pages'
+import { collectExistingPagePaths, resolvedBackendPages } from '../../src/pages'
 
 describe('computeDevtoolsPages', () => {
   it('flags pages whose path an app page already occupies', () => {
@@ -31,6 +31,14 @@ describe('computeDevtoolsPages', () => {
 
     expect(pages).toHaveLength(Object.keys(resolved).length)
     expect(pages.find(page => page.key === 'login')).toMatchObject({ path: '/sign-in', shadowed: true })
+  })
+
+  // Nuxt registers `app/pages/r/[code].vue` as `/r/:code()`; a catch-all there leaves the referral page mounted.
+  it('flags a page an app page of the same shape replaces, however Nuxt spelled its parameter', () => {
+    const resolved = resolvedBackendPages(undefined)
+    const referral = (taken: Set<string>) => computeDevtoolsPages(resolved, taken).find(page => page.key === 'referral')
+    expect(referral(collectExistingPagePaths([{ path: '/r/:code()' }]))).toMatchObject({ path: '/r/:code', shadowed: true })
+    expect(referral(collectExistingPagePaths([{ path: '/r/:slug(.*)*' }]))).toMatchObject({ shadowed: false })
   })
 })
 

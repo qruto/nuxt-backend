@@ -26,6 +26,7 @@
     align-self: flex-start;
     border: 0;
     box-shadow: none;
+    translate: none;
     color: var(--bk-muted);
   }
 }

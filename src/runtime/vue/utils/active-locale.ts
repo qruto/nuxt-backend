@@ -1,6 +1,7 @@
 import { computed, type ComputedRef } from 'vue'
 import { tryUseNuxtApp } from '#imports'
 import { normalizeLocale } from '../../../convex/locale.js'
+import { intlLocale } from './intl'
 
 /** A locale as `@nuxtjs/i18n` lists it in `locales`: a code, or an object with its display name. */
 type I18nLocaleEntry = string | { code: string, name?: string }
@@ -9,6 +10,8 @@ type I18nLocaleEntry = string | { code: string, name?: string }
 interface I18nLocales {
   locale: { value: string } | string
   locales?: { value: I18nLocaleEntry[] } | I18nLocaleEntry[]
+  /** The active locale's entry in `i18n.locales`, with its BCP 47 `language` when it names one. */
+  localeProperties?: { value?: { language?: string } }
   setLocale?: (code: string) => Promise<void> | void
 }
 
@@ -31,6 +34,29 @@ function currentCode(i18n: I18nLocales): string {
 export function useActiveLocale(): () => string | undefined {
   const i18n = appI18n()
   return () => (i18n ? normalizeLocale(currentCode(i18n)) ?? undefined : undefined)
+}
+
+/**
+ * The active `@nuxtjs/i18n` locale of `i18n` as a tag `Intl` takes: its
+ * `language` when `i18n.locales` names one, else its code; `undefined`
+ * without `@nuxtjs/i18n`.
+ *
+ * @internal
+ */
+export function intlLocaleOf(i18n: I18nLocales | undefined): string | undefined {
+  if (!i18n) return undefined
+  return intlLocale(i18n.localeProperties?.value?.language) ?? intlLocale(currentCode(i18n))
+}
+
+/**
+ * The current app's locale as `Intl` takes it, read now: what
+ * `useLabels().locale` holds, for a formatter called without one in a
+ * setup or a render. `undefined` without `@nuxtjs/i18n` or outside an app.
+ *
+ * @internal
+ */
+export function activeIntlLocale(): string | undefined {
+  return intlLocaleOf(appI18n())
 }
 
 /** One language a person can pick: its i18n code and the name the app gives it. */

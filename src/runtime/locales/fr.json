@@ -273,7 +273,22 @@
       "confirmTitle": "Résilier le forfait",
       "confirmEnds": "Le forfait prend fin le {date}. Tout ce qu’il inclut reste disponible d’ici là.",
       "confirmEndsPeriod": "Le forfait prend fin avec la période en cours. Tout ce qu’il inclut reste disponible d’ici là.",
-      "confirmCancel": "Confirmer la résiliation"
+      "confirmCancel": "Confirmer la résiliation",
+      "changeTitle": "Passer à {plan} ?",
+      "billedAt": {
+        "month": "{plan}, facturation mensuelle",
+        "year": "{plan}, facturation annuelle"
+      },
+      "changeNow": "{price} dès maintenant. Le changement est immédiat, et la différence de cette période est réglée maintenant.",
+      "changeLater": "{price} à partir du {date}. L’année payée se termine d’abord : le changement a lieu à sa fin.",
+      "changeLaterPeriod": "{price} une fois l’année payée terminée : le changement a lieu à ce moment-là.",
+      "changeTrial": "{price} dès maintenant. Le changement est immédiat et votre essai continue : rien n’est facturé avant sa fin.",
+      "changeTrialEnds": "{price} dès maintenant. Le changement est immédiat et met fin à votre essai : le premier paiement est donc facturé maintenant.",
+      "changeTrialLater": "{price} une fois votre essai terminé : le changement a lieu à ce moment-là.",
+      "changeGifted": "{price} à partir du paiement. Votre forfait offert s’arrête dès que vous finalisez le paiement, et le temps restant n’est pas conservé.",
+      "confirmChange": "Confirmer le changement",
+      "switchingPlan": "Changement du forfait…",
+      "keepCurrent": "Pas maintenant"
     },
     "settings": {
       "title": "Paramètres",
@@ -326,6 +341,40 @@
       "confirmEnds": "Le forfait prend fin le {date}. Tout ce qu’il inclut reste disponible d’ici là.",
       "confirmEndsPeriod": "Le forfait prend fin avec la période en cours. Tout ce qu’il inclut reste disponible d’ici là.",
       "confirmCancel": "Confirmer la résiliation",
+      "changePlan": "Changer de forfait",
+      "switchTo": "Passer à",
+      "choosePlan": "Choisir un forfait",
+      "billedAt": {
+        "month": "{plan}, facturation mensuelle",
+        "year": "{plan}, facturation annuelle"
+      },
+      "period": {
+        "month": "/mois",
+        "year": "/an"
+      },
+      "changeTitle": "Passer à {plan} ?",
+      "changeNow": "{price} dès maintenant. Le changement est immédiat, et la différence de cette période est réglée maintenant.",
+      "changeLater": "{price} à partir du {date}. L’année payée se termine d’abord : le changement a lieu à sa fin.",
+      "changeLaterPeriod": "{price} une fois l’année payée terminée : le changement a lieu à ce moment-là.",
+      "changeTrial": "{price} dès maintenant. Le changement est immédiat et votre essai continue : rien n’est facturé avant sa fin.",
+      "changeTrialEnds": "{price} dès maintenant. Le changement est immédiat et met fin à votre essai : le premier paiement est donc facturé maintenant.",
+      "changeTrialLater": "{price} une fois votre essai terminé : le changement a lieu à ce moment-là.",
+      "confirmChange": "Confirmer le changement",
+      "switchingPlan": "Changement du forfait…",
+      "keepCurrent": "Pas maintenant",
+      "switched": "Le forfait est désormais {plan}.",
+      "switchScheduled": "Le {date}, le forfait passe à {plan}.",
+      "switchScheduledPeriod": "Le forfait passe à {plan} une fois l’année payée terminée.",
+      "pause": "Suspendre le forfait",
+      "pauseTitle": "Suspendre le forfait",
+      "pauseFrom": "Le forfait est suspendu à la fin de cette période, le {date}, et reprend de lui-même après les mois choisis. Rien n’est facturé pendant la suspension.",
+      "pauseFromPeriod": "Le forfait est suspendu à la fin de cette période et reprend de lui-même après les mois choisis. Rien n’est facturé pendant la suspension.",
+      "pauseFor": "Suspendre pendant",
+      "pauseMonths": "{count} mois | {count} mois",
+      "confirmPause": "Confirmer la suspension",
+      "pausing": "Suspension…",
+      "pauseScheduled": "Le forfait est suspendu à la fin de cette période et reprend le {date}.",
+      "pauseScheduledPeriod": "Le forfait est suspendu à la fin de cette période.",
       "finishingPurchase": "Finalisation de votre achat…",
       "benefits": "Inclus",
       "benefitKinds": {
@@ -479,7 +528,8 @@
         "job": {
           "queue_changed": "{actor} : modification de la file de tâches",
           "canceled": "{actor} : annulation d’une tâche",
-          "retried": "{actor} : remise en file d’une tâche échouée"
+          "retried": "{actor} : remise en file d’une tâche échouée",
+          "charge_retried": "{actor} : nouvel essai du débit en attente d’une tâche"
         },
         "ai": {
           "spend_limit_reached": "{actor} a mis l’IA en pause : la limite de dépenses du jour est atteinte"
@@ -842,7 +892,10 @@
           "cancel": "Annuler",
           "cancelRefund": "Annuler et rembourser",
           "retry": "Réessayer",
-          "discard": "Écarter"
+          "discard": "Écarter",
+          "retryCharge": "Relancer le débit",
+          "owed": "{status}, {credits} crédits dus",
+          "owedGivenUp": "{status}, {credits} crédits jamais débités"
         },
         "status": {
           "queued": "En attente",
@@ -1550,6 +1603,29 @@
       "sentTitle": "Envoyés",
       "receivedEmpty": "Aucun cadeau pour vous pour l’instant.",
       "sentEmpty": "Vous n’avez encore envoyé aucun cadeau.",
+      "formTitle": "Envoyer un cadeau",
+      "kind": "Quoi offrir",
+      "kinds": {
+        "pack": "Des crédits",
+        "pass": "Un forfait"
+      },
+      "packChoice": "Quel pack",
+      "planChoice": "Quel forfait",
+      "lengthChoice": "Pour combien de temps",
+      "lengthOption": "{count} mois | {count} mois",
+      "passHint": "Un forfait offert ne demande pas leur carte et ne se renouvelle jamais. Il va à un espace de travail au forfait gratuit.",
+      "recipient": "Son e-mail",
+      "note": "Un mot (facultatif)",
+      "noteHint": "{count} sur {max} caractères, texte brut, sans liens",
+      "deliverDay": "Livrer le (facultatif)",
+      "deliverHint": "Laissez vide pour l’envoyer dès le paiement.",
+      "send": "Payer {price} et envoyer",
+      "sending": "Ouverture du paiement…",
+      "signInToSend": "Connectez-vous pour envoyer un cadeau",
+      "payHint": "Vous payez maintenant. Tant qu’il n’est pas reçu, vous pouvez changer la date ou l’adresse, ou l’annuler avec un remboursement complet.",
+      "sentBack": "Payé. Le cadeau part le jour choisi ; vous le trouverez dans Envoyés.",
+      "nothingToGive": "Rien n’est encore en vente à offrir.",
+      "sendFailed": "Le cadeau n’a pas pu être envoyé",
       "soon": "Les forfaits arrivent bientôt, et les cadeaux avec eux.",
       "itemPack": "{name}",
       "itemPass": "{count} mois de {plan} | {count} mois de {plan}",
@@ -1593,6 +1669,7 @@
       "claiming": "Réception…",
       "claimed": "Cadeau reçu. Vos {unit} arrivent dans un instant.",
       "claimedPass": "Cadeau reçu. Votre forfait commence maintenant.",
+      "claimOpened": "Une dernière étape s’est ouverte dans un nouvel onglet. Terminez-la pour recevoir le cadeau.",
       "claimFailed": "Impossible de recevoir le cadeau"
     },
     "access": {
@@ -2068,6 +2145,10 @@
         "upgradeDismissed": {
           "why": "Garde le message masqué pendant la durée fixée par l’application. Si les préférences ne sont pas autorisées, il n’est conservé que pour l’onglet.",
           "lasts": "Le délai de l’application, un an au plus."
+        },
+        "chunkReload": {
+          "why": "Empêche la page de se recharger à nouveau pendant une minute, pour qu’une panne qui persiste ne tourne jamais en boucle.",
+          "lasts": "Jusqu’à la fermeture de l’onglet."
         },
         "pushSubscription": {
           "why": "L’abonnement push permet à l’application d’envoyer des notifications à cet appareil. Le service worker, lorsque le navigateur en a besoin, les affiche et ouvre l’application en cas de clic ; il ne met rien en cache.",
@@ -2576,6 +2657,7 @@
       "invalid_input_unsupported_type": "Ce type de fichier n’est pas accepté. Choisissez-en un autre.",
       "invalid_input_upload_gone": "Ce téléversement n’existe plus. Téléversez à nouveau le fichier.",
       "invalid_input_upload_claimed": "Ce téléversement a déjà été utilisé. Téléversez à nouveau le fichier.",
+      "invalid_input_unreadable": "Cette photo ne s’ouvre pas ici. Essayez un JPEG ou un PNG.",
       "invalid_input_appeal_expired": "Cette décision ne peut plus faire l’objet d’un recours.",
       "invalid_input_appealed_already": "Un recours a déjà été formé contre cette décision.",
       "invalid_input_removed_copy": "Ce fichier a été retiré de l’application et ne peut pas être téléversé à nouveau.",
@@ -2598,6 +2680,14 @@
       "unavailable_stalled": "Cette tâche a cessé de répondre. Vos crédits ont été remboursés.",
       "unavailable_job_failed": "Cette tâche a échoué. Vos crédits ont été remboursés.",
       "unavailable_unexpected": "Une erreur s’est produite.",
+      "unavailable_ai": "Les fonctionnalités d’IA ne sont pas disponibles pour le moment. Réessayez dans un instant.",
+      "unavailable_billing": "La facturation n’est pas disponible pour le moment. Réessayez dans un instant.",
+      "unavailable_checkout": "Les achats ne sont pas disponibles pour le moment. Réessayez dans un instant.",
+      "unavailable_email": "L’e-mail n’est pas disponible pour le moment. Réessayez dans un instant.",
+      "unavailable_protection": "La vérification de sécurité n’est pas disponible pour le moment. Réessayez dans un instant.",
+      "unavailable_push": "Les notifications sur cet appareil ne sont pas disponibles pour le moment. Réessayez dans un instant.",
+      "unavailable_referrals": "Les invitations d’amis ne sont pas disponibles pour le moment. Réessayez dans un instant.",
+      "unavailable_signups": "Les inscriptions ne sont pas disponibles pour le moment. Réessayez dans un instant.",
       "invalid_input_reason": "Indiquez un motif.",
       "invalid_input_goodFaith": "Confirmez que votre signalement est exact et fait de bonne foi."
     },

@@ -51,7 +51,9 @@ With [Sentry](/docs/services/sentry) wired, the browser's error reports need not
 
 With [Nuxt Content](https://content.nuxt.com) installed, a plugin adds `'wasm-unsafe-eval'` to `script-src` (or a `script-src` of its own, from `default-src`). Content queries its collections in the browser through SQLite built to WebAssembly, and without that source a client-side navigation to a Content page finds nothing. It lets the page compile WebAssembly and nothing else: `eval()` of JavaScript stays refused.
 
-Every one of these additions goes into the app-wide policy, the `/**` rule. A route rule of yours that sets a directive of its own replaces that directive for its paths, since nuxt-security merges a route's source list over the app's by replacing it (`defuReplaceArray`). A `script-src` on a route of yours then loses `'wasm-unsafe-eval'` and the bot check's origin, and a `connect-src` the deployment's origins: list them in it yourself.
+With `heic-to` installed, the HEIC decoder [`preparePhoto`](/docs/build/data/files/checked-uploads#prepare-photos-in-the-browser) loads, a plugin adds `blob:` to `worker-src` (a `worker-src` of its own, from the directive it falls back to, when the policy sets none, so frames are not opened to `blob:`). The decoder runs in a worker it starts from a `blob:` URL, which `worker-src 'self'` refuses. The build the package loads, `heic-to/csp`, compiles no JavaScript and no WebAssembly at runtime, so `script-src` gains nothing.
+
+Every one of these additions goes into the app-wide policy, the `/**` rule. A route rule of yours that sets a directive of its own replaces that directive for its paths, since nuxt-security merges a route's source list over the app's by replacing it (`defuReplaceArray`). A `script-src` on a route of yours then loses `'wasm-unsafe-eval'` and the bot check's origin, a `worker-src` the decoder's `blob:`, and a `connect-src` the deployment's origins: list them in it yourself.
 
 The auth proxy (`/api/auth/**`) carries its own rules, merged over the global config, and your `routeRules` can override them in turn:
 
@@ -59,6 +61,8 @@ The auth proxy (`/api/auth/**`) carries its own rules, merged over the global co
 - `allowedMethodsRestricter` limits the proxy to `GET`, `HEAD`, `POST` and `OPTIONS`.
 
 The policy is nonce-based: `nuxt-security` puts a fresh nonce on every script and style the server renders, and `script-src` trusts what those load (`'strict-dynamic'`). A production build also requires [Trusted Types](https://developer.mozilla.org/en-US/docs/Web/API/Trusted_Types_API) (`require-trusted-types-for 'script'`), so no string reaches a DOM sink that runs script unless a policy passed it. The policy names three: `vue`, Vue's own; `nuxt-backend`, the package's (the bot check's script); and a narrow `default`, for code that knows nothing of Trusted Types, such as the head manager writing a JSON-LD block. It passes HTML without markup, script text that is JSON, and script URLs on the page's own origin, and refuses the rest, so the sink throws. Development leaves Trusted Types off, because Vite's error overlay writes markup no policy passes.
+
+One inline script of the package's runs under this policy: a production build puts the chunk-load recovery first in each page's head ([`chunkRecovery`](/docs/reference/configuration/module-options#options)). It carries the request's nonce once, the one `nuxt-security` puts on every script in the head, a prerendered page has `nuxt-security` hash it instead, and it writes no sink, so Trusted Types has nothing to refuse. When a module script or stylesheet of the app fails before the page has loaded, or a dynamic import before the first page has rendered in full, hydration included, it reloads the page once, under a guard of its own in `sessionStorage`. A client plugin tells it when the app has started; from then on a failure is Nuxt's to handle.
 
 Code of yours, or a library's, that writes such a sink needs a policy of its own: list its name in `trusted-types`, or turn the requirement off.
 
@@ -75,19 +79,22 @@ export default defineNuxtConfig({
 })
 ```
 
-On `nuxt dev`, the package also turns off `nuxt-security`'s rate limiter, `upgrade-insecure-requests` and HSTS. Every reload and DevTools probe counts against the limiter, and its `429` looks like a broken page. On a plain-http dev port, Safari obeys the other two for `localhost`, so every asset goes to `https://` and fails. A production build keeps all three. A value of your own under the `security` key wins in development too, so a `rateLimiter` you tune for production belongs under `$production` if you want it off locally:
+On `nuxt dev`, the package also turns off `nuxt-security`'s rate limiter, `upgrade-insecure-requests` and HSTS. Every reload and DevTools probe counts against the limiter, and its `429` looks like a broken page. On a plain-http dev port, Safari obeys the other two for `localhost`, so every asset goes to `https://` and fails. A production build keeps all three. A value of your own under the `security` key is for production: it reaches `nuxt dev` for the other options, never for these three, so a `rateLimiter` you tune for production stays off locally. To turn one on in development, set it under `$development`:
 
 ```ts [nuxt.config.ts]
 export default defineNuxtConfig({
-  $production: {
-    security: { rateLimiter: { tokensPerInterval: 2000, interval: 300_000 } },
+  // Production's: development keeps the limiter off.
+  security: { rateLimiter: { tokensPerInterval: 2000, interval: 300_000 } },
+  // Development's own, when you want to try the limiter locally.
+  $development: {
+    security: { rateLimiter: { tokensPerInterval: 50, interval: 60_000 } },
   },
 })
 ```
 
 A browser that already stored HSTS for `localhost` keeps upgrading until that policy expires, up to 180 days with the default. Clear the stored policy, or wait it out.
 
-`convex.security: false` opts out of the Convex additions. `security: false` turns `nuxt-security` off entirely, which the package does not recommend.
+`convex.security: false` opts out of the Convex additions. `security: false` turns `nuxt-security` off entirely, which the package does not recommend. The chunk-load recovery then carries no nonce, since nothing puts one on it. A Content-Security-Policy of your own must allow it, with `'unsafe-inline'` in `script-src` or a nonce of your own on every script in the head; otherwise the browser blocks it and reports a violation on every page, so set `backend.chunkRecovery: false`.
 
 ## Resources other sites load
 

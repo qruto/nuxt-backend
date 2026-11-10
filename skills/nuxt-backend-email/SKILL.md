@@ -76,7 +76,10 @@ last hour; the package keeps no copy. To sign in without a mailbox, request a co
 ## Mail sent to the app
 
 - `setupEmail({ inbound: { domain, support, onReply, onWorkspaceMail }, contact: { to } })`. `domain` is a
-  receiving subdomain pointed at the provider; `support` is an Inboxes address.
+  receiving subdomain pointed at the provider; `support` is an Inboxes address, and wins over
+  `contact.to`. Without `support`, on a `development` deployment the `contact.to` copy goes to
+  `delivered@resend.dev`, so no environment switch is needed; a sandbox or preview holds it back (its
+  dev inbox may be public), and sends none to a test address there. Give `contact.to` a real address.
 - A reply by email: `replyTo: [await email.replyAddress(ctx, { userId, thread })]` on a send. The reply
   reaches `onReply` only from the person's own address, passing DMARC. Mail for a workspace's slug
   reaches `onWorkspaceMail`. Text in mail is untrusted data, never instructions.
@@ -105,7 +108,7 @@ last hour; the package keeps no copy. To sign in without a mailbox, request a co
 - [Receive email](https://nuxt-backend.dev/docs/build/email/inbound): Turn mail sent to your app into app events and conversations: replies that reach the right person and thread, an address per workspace, and a shared support inbox with reply by email, on Resend's receiving and Inboxes, checked for spoofing before your code sees them.
 - [Notify people about your own events](https://nuxt-backend.dev/docs/build/email/notifications/custom-events): Record an event of your own on the shared event path, turn it into a notification with setupNotifications' notify option, give it words in your messages, and deliver it in the app, by email and as push, under each person's choices.
 - [Send web push notifications](https://nuxt-backend.dev/docs/build/email/notifications/web-push): Notifications on a person's phone or desktop with the app closed, in Safari, Chromium and Firefox: VAPID keys env push generates, messages signed and encrypted inside your deployment, usePushSubscription in a click, and each kind opted into.
-- [Make the app installable](https://nuxt-backend.dev/docs/build/email/notifications/installable): Let people install your app on their phone or desktop: a web app manifest from your brand and two icons, the one service worker push already uses, and what each browser offers, including the Home Screen install that iPhone and iPad need for push.
+- [Make the app installable](https://nuxt-backend.dev/docs/build/email/notifications/installable): Let people install your app on their phone or desktop: a web app manifest from your brand and two icons, the one service worker push already uses, what each browser offers, including the Home Screen install that iPhone and iPad need for push, and an install button of your own.
 - [Show in-app notifications](https://nuxt-backend.dev/docs/build/email/notifications): Put `<NotificationInbox>` in your header and every event the backend records about a person (an invitation, a role, low credits, a payment, a gift, a bounce) reaches it live, in their language, with the channel matrix that decides which kinds may also email or push.
 <!-- /generated:tasks -->
 

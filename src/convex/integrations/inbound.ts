@@ -2,7 +2,7 @@ import { RateLimiter } from '@convex-dev/rate-limiter'
 import { actionGeneric, type FunctionReference, type GenericActionCtx, type GenericDataModel, internalActionGeneric, queryGeneric } from 'convex/server'
 import { v } from 'convex/values'
 import { Resend } from 'resend'
-import { backendEnvironment, readEnv } from '../delivery.js'
+import { backendEnvironment, contactMailbox, readEnv } from '../delivery.js'
 import { isLive } from '../environment.js'
 import { backendError } from '../errors.js'
 import {
@@ -105,7 +105,14 @@ export interface InboundOptions {
 
 /** What `setupEmail({ contact })` takes. */
 export interface ContactOptions {
-  /** The team's mailbox: a contact message is copied there with the sender's address as its reply-to, when there is no support inbox. */
+  /**
+   * The team's mailbox: a contact message is copied there with the sender's
+   * address as its reply-to, when there is no support inbox. On a
+   * `development` deployment the copy goes to the provider's sandbox inbox
+   * (`delivered@resend.dev`) instead, which the dev inbox reads. A test
+   * address here gets no copy on a sandbox or a preview that publishes its
+   * dev inbox, where anyone could read it: give it a real address.
+   */
   to?: string
 }
 
@@ -141,16 +148,16 @@ export interface InboxConsole {
   rows: InboxRow[]
 }
 
-/** What `syncInbound` reports to `nuxt-backend email sync`. */
+/** What `syncInbound` reports to `nuxt-backend email sync`, and to `doctor --fix`, which plans it with a dry run (`{ dryRun: true }`). */
 export interface InboundSyncReport {
   /** The support address, or `null` when `setupEmail` names none. */
   support: string | null
-  /** The inbox: found, made now, or `null` without a support address. */
-  inbox: 'found' | 'created' | null
+  /** The inbox: found, made now (`would-create` on a dry run), or `null` without a support address or a domain to make it on. */
+  inbox: 'found' | 'created' | 'would-create' | null
   /** The receiving domain's state at the provider, or `null` when the address names a domain the account does not hold. */
   domain: { name: string, status: string, receiving: boolean } | null
-  /** The webhook that carries the events: found, its events completed, or missing (it needs the route's URL and secret, which only you can set). */
-  webhook: { state: 'ok' | 'updated' | 'missing', id: string | null, added: string[] }
+  /** The webhook that carries the events: found, its events completed (`would-update` on a dry run, with the events it would add), or missing (it needs the route's URL and secret, which only you can set). */
+  webhook: { state: 'ok' | 'updated' | 'would-update' | 'missing', id: string | null, added: string[] }
   /** What is left to do by hand, in words. */
   todo: string[]
 }
@@ -363,6 +370,9 @@ export function createInbound(deps: InboundDeps) {
       }
       const name = (account ? account.name?.trim() : input.name?.trim()) || undefined
       const locale = (account?.locale || input.locale?.trim())?.slice(0, 35)
+      // On a development deployment, the sandbox inbox; none where a public dev inbox would show it (contactMailbox).
+      const to = contactMailbox(contact?.to)
+      if (!support && contact?.to?.trim() && !to) logBackend('warn', 'email.contact_held', 'A contact message was stored and not sent to the team: its address is a test one, which this deployment\'s public dev inbox would show to anyone.')
       await ctx.runMutation(component().storeContact, defined({
         userId: accountId ?? undefined,
         name,
@@ -370,7 +380,7 @@ export function createInbound(deps: InboundDeps) {
         message: input.message.trim().slice(0, CONTACT_MESSAGE_MAX),
         locale,
         support,
-        to: contact?.to?.trim().toLowerCase(),
+        to,
       }) as never)
       return { sent: true }
     },
@@ -662,21 +672,25 @@ export function createInbound(deps: InboundDeps) {
     return true
   }
 
-  /** The support inbox: found, or created on a domain the account holds. */
-  async function syncInbox(client: Resend, report: InboundSyncReport, address: string, domainHeld: boolean): Promise<void> {
+  /** The support inbox: found, or created on a domain the account holds (on a dry run, said it would be). */
+  async function syncInbox(client: Resend, report: InboundSyncReport, address: string, { domainHeld, dryRun }: { domainHeld: boolean, dryRun: boolean }): Promise<void> {
     const known = await client.inboxes.get(address)
     if (known.data) {
       report.inbox = 'found'
       return
     }
     if (!isNotFound(known.error) || !domainHeld) return
+    if (dryRun) {
+      report.inbox = 'would-create'
+      return
+    }
     const made = await client.inboxes.create({ emailAddress: address, name: 'Support' })
     if (made.error) report.todo.push(`The support inbox was not created: ${made.error.message}`)
     else report.inbox = 'created'
   }
 
-  /** The webhook behind `/email/events`: its events completed with the two inbound ones. */
-  async function syncWebhook(client: Resend, report: InboundSyncReport): Promise<void> {
+  /** The webhook behind `/email/events`: its events completed with the two inbound ones (on a dry run, the ones it would add). */
+  async function syncWebhook(client: Resend, report: InboundSyncReport, dryRun: boolean): Promise<void> {
     const route = ((await client.webhooks.list()).data?.data ?? []).find(item => item.endpoint.endsWith('/email/events'))
     if (!route) {
       report.webhook.state = 'missing'
@@ -687,14 +701,16 @@ export function createInbound(deps: InboundDeps) {
     const have = new Set<string>(route.events ?? [])
     const added = INBOUND_EVENTS.filter(event => !have.has(event))
     if (!added.length || !route.events) return
+    if (dryRun) return void Object.assign(report.webhook, { state: 'would-update', added: [...added] })
     const updated = await client.webhooks.update(route.id, { events: [...route.events, ...added] })
     if (updated.error) report.todo.push(`The webhook's events were not completed: ${updated.error.message}`)
     else Object.assign(report.webhook, { state: 'updated', added: [...added] })
   }
 
   const syncInbound = internalActionGeneric({
-    args: {},
-    handler: async (): Promise<InboundSyncReport> => {
+    // A dry run reads what is there and changes nothing: `doctor --fix` asks with it first.
+    args: { dryRun: v.optional(v.boolean()) },
+    handler: async (_ctx, { dryRun = false }): Promise<InboundSyncReport> => {
       const report: InboundSyncReport = { support: support ?? null, inbox: null, domain: null, webhook: { state: 'ok', id: null, added: [] }, todo: [] }
       if (!support) {
         report.todo.push('Set `inbound.support` on setupEmail to name the support inbox.')
@@ -702,8 +718,8 @@ export function createInbound(deps: InboundDeps) {
       }
       const client = providerClient()
       const domainHeld = await syncDomain(client, report, support.slice(support.lastIndexOf('@') + 1))
-      await syncInbox(client, report, support, domainHeld)
-      await syncWebhook(client, report)
+      await syncInbox(client, report, support, { domainHeld, dryRun })
+      await syncWebhook(client, report, dryRun)
       return report
     },
   })
