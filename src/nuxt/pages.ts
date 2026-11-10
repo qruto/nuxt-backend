@@ -216,18 +216,37 @@ const REPLACED_DOCS_URL = 'https://nuxt-backend.dev/docs/build/ui/pages#search-e
 /** The route rule keys that keep a page out of search: what a private page's path gives up to a public page of the app's. */
 const INDEX_KEYS = ['robots', 'sitemap'] as const
 
-/** A private ready-made page's path: where its rules went (`ruleKey`), and the index keys the app set there itself. */
+/**
+ * The response header @nuxtjs/robots makes of a `robots: false` rule (its
+ * `header` option, on by default), lower-cased. It writes it into the rule
+ * at `modules:done`, before the pages resolve, so it outlives the rule.
+ */
+const ROBOTS_HEADER = 'x-robots-tag'
+
+/**
+ * A private ready-made page's path: where its rules went (`ruleKey`), the
+ * index keys the app set there itself (`own`, with ROBOTS_HEADER for a
+ * header of its own), and the robots header a public page took off it,
+ * given back with the private rules.
+ */
 interface PrivatePagePath {
   def: BackendPageDef
   path: string
   ruleKey: string
   own: ReadonlySet<string>
+  robotsHeader?: [name: string, value: unknown]
 }
 
-/** The index keys an app's own rule for this path sets, read before the module adds its own. */
+/** The name a rule's headers give the robots header, in whatever case. */
+function robotsHeaderName(headers: unknown): string | undefined {
+  return headers && typeof headers === 'object' ? Object.keys(headers).find(name => name.toLowerCase() === ROBOTS_HEADER) : undefined
+}
+
+/** The index keys an app's own rule for this path sets, read before the module adds its own and before @nuxtjs/robots adds its header. */
 function ownIndexKeys(nuxt: Nuxt, ruleKey: string): ReadonlySet<string> {
   const rule = nuxt.options.routeRules?.[ruleKey] as Record<string, unknown> | undefined
-  return new Set(INDEX_KEYS.filter(key => rule && key in rule))
+  if (!rule) return new Set()
+  return new Set([...INDEX_KEYS.filter(key => key in rule), ...(robotsHeaderName(rule.headers) ? [ROBOTS_HEADER] : [])])
 }
 
 /**
@@ -237,10 +256,12 @@ function ownIndexKeys(nuxt: Nuxt, ruleKey: string): ReadonlySet<string> {
  * decides instead, once the pages resolve with their meta. One with `auth`
  * rules of its own or a parent's (`definePageMeta({ auth: true })`) keeps
  * every private rule, as protectGuardedPages would give it. A public one
- * is indexable again (`robots` and `sitemap` off its path), and development
- * names the path; it keeps the cache exemption (`cache-control: private,
- * no-store`), since its render for a signed-in visitor still carries the
- * session's token. A key the app set for the path itself is never touched.
+ * is indexable again (`robots` and `sitemap` off its path, and the
+ * `X-Robots-Tag` header @nuxtjs/robots made of that `robots`), and
+ * development names the path; it keeps the cache exemption (`cache-control:
+ * private, no-store`), since its render for a signed-in visitor still
+ * carries the session's token. A key the app set for the path itself is
+ * never touched.
  * Decided again each time the pages resolve, so a page that gains or loses
  * its `auth` rules in development takes its path's rules with it.
  */
@@ -276,17 +297,26 @@ function decideReplacedPrivatePages(nuxt: Nuxt, files: Map<string, BackendPageDe
 /**
  * Take the private page's index rules off one rule table's entry for its
  * path, or give them back: the app's own keys stay as they are either way,
- * and a value that is not the module's (`false`) is the app's too.
+ * and a value that is not the module's (`false`) is the app's too. The
+ * robots header goes with the module's `robots` and comes back with it.
  */
 function setIndexRules(table: Record<string, unknown>, entry: PrivatePagePath, indexable: boolean): void {
   const rule = table[entry.ruleKey] as Record<string, unknown> | undefined
   if (!indexable) {
-    table[entry.ruleKey] = defu(rule, rulesFor(entry.def))
+    const header = entry.robotsHeader ? { headers: Object.fromEntries([entry.robotsHeader]) } : {}
+    table[entry.ruleKey] = defu(rule, rulesFor(entry.def), header)
     return
   }
   if (!rule) return
   const released = (key: string) => (INDEX_KEYS as readonly string[]).includes(key) && !entry.own.has(key) && rule[key] === false
-  table[entry.ruleKey] = Object.fromEntries(Object.entries(rule).filter(([key]) => !released(key)))
+  const kept = Object.fromEntries(Object.entries(rule).filter(([key]) => !released(key)))
+  const header = released('robots') && !entry.own.has(ROBOTS_HEADER) ? robotsHeaderName(kept.headers) : undefined
+  if (header) {
+    const { [header]: value, ...headers } = kept.headers as Record<string, unknown>
+    entry.robotsHeader = [header, value]
+    kept.headers = headers
+  }
+  table[entry.ruleKey] = kept
 }
 
 /** The SEO modules whose presence turns on the pricing page's Open Graph tags and structured data. */

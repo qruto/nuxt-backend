@@ -825,6 +825,28 @@ describe('the noindex meta tag with @nuxtjs/robots installed', () => {
     expect(installedModuleNames(getNuxt())).toContain('@nuxtjs/robots')
     expect(ourPlugins(getNuxt()).filter(src => /noindex/.test(src))).toEqual([])
   })
+
+  // It made each `robots: false` a `noindex, nofollow` header at `modules:done`, before the pages resolved.
+  it('drops the header it made of a private page\'s rule for a public app page there, and gives it back with the rule', async () => {
+    const nuxt = getNuxt()
+    const rulesAtGifts = () => [nuxt.options.routeRules?.['/gifts'], nitroRouteRules(nuxt)['/gifts']]
+    const shop: NuxtPage = { name: 'gifts', path: '/gifts', file: join(fixtureDir, 'app/pages/gifts.vue') }
+    const resolve = async (page?: NuxtPage) => nuxt.callHook('pages:resolved', await extendPages(nuxt, page ? [page] : []))
+    for (const rule of rulesAtGifts()) expect(rule).toMatchObject({ robots: false, headers: { 'X-Robots-Tag': 'noindex, nofollow' } })
+
+    await resolve(shop)
+    for (const rule of rulesAtGifts()) {
+      expect(rule).not.toHaveProperty('robots')
+      expect(rule!.headers).toEqual({ 'cache-control': 'private, no-store' })
+    }
+    // Another private page keeps its header.
+    expect(nitroRouteRules(nuxt)['/settings']).toMatchObject({ headers: { 'X-Robots-Tag': 'noindex, nofollow' } })
+
+    for (const page of [{ ...shop, meta: { auth: true } }, undefined]) {
+      await resolve(page)
+      for (const rule of rulesAtGifts()) expect(rule).toMatchObject({ robots: false, headers: { 'cache-control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow' } })
+    }
+  })
 })
 
 describe('with a DSN set and the SDK installed', () => {
