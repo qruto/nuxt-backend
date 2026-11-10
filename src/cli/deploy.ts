@@ -78,7 +78,7 @@ export const deploy = withContract('deploy', {
         return
       }
       const print = (line: string) => console.error(line)
-      process.exitCode = await runBuild({ backend: convexBackend(rootDir, { json: false }), convexDeploy: deployArgs => spawnConvex(rootDir, deployArgs), env: process.env, packageManager: packageManagerOf(rootDir), migrate: () => migrateDeployment(rootDir, { prod: true, dryRun: false, print }), print })
+      process.exitCode = await runBuild({ backend: convexBackend(rootDir, { json: false }), convexDeploy: deployArgs => spawnConvex(rootDir, deployArgs), env: process.env, packageManager: packageManagerOf(rootDir), migrate: () => migrateDeployment(rootDir, { prod: true, dryRun: false, print, command: 'deploy --build' }), print })
       return
     }
     const key = nonProductionDeployKey({ ...readEnvFiles(rootDir), ...process.env })
@@ -97,7 +97,7 @@ export const deploy = withContract('deploy', {
       billingSync: options => runBillingSync(rootDir, options, { print }),
       emailWebhook: (apiKey, url, options) => ensureEmailWebhook(apiKey, url, options),
       emailSync: ({ dryRun }) => runEmailSync(rootDir, { prod: true, dryRun }),
-      migrate: ({ dryRun }) => migrateDeployment(rootDir, { prod: true, dryRun, print }),
+      migrate: ({ dryRun }) => migrateDeployment(rootDir, { prod: true, dryRun, print, command: 'deploy' }),
       doctor: () => runDoctorChecks(rootDir, { prod: true }),
       buildAdvice: host.kind === 'vercel' ? buildCommandAdvice(rootDir) : null,
       print,

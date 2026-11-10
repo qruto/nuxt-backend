@@ -73,6 +73,8 @@ export interface DataOptions {
   /** How often to read their state while following them. */
   interval?: number
   print?: (line: string) => void
+  /** The command its progress lines name: `upgrade`, or `deploy` and `deploy --build`, which run the migrations after their push. */
+  command?: string
 }
 
 /** Whether a set of migrations is at rest: all done, none to run, or one failed. */
@@ -98,7 +100,7 @@ async function follow(rootDir: string, started: PackageMigrationStatus[], option
   let migrations = started
   const deadline = Date.now() + (options.wait ?? 120_000)
   while (!settled(overall(migrations)) && Date.now() < deadline) {
-    options.print?.(`[nuxt-backend] upgrade: ${migrations.filter(migration => migration.state === 'done').length} of ${migrations.length} package migrations done…`)
+    options.print?.(`[nuxt-backend] ${options.command ?? 'upgrade'}: ${migrations.filter(migration => migration.state === 'done').length} of ${migrations.length} package migrations done…`)
     await sleep(options.interval ?? 1_500)
     migrations = await call(rootDir, 'status', options.prod).catch(() => migrations)
   }

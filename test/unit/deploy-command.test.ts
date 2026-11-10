@@ -26,6 +26,8 @@ const production = vi.hoisted(() => ({
   spawned: [] as string[][],
   /** What production answers `migrations:status` and `migrations:run` with. */
   migrations: [] as unknown[],
+  /** Answers to those calls ahead of `migrations`, the first first. */
+  migrationAnswers: [] as unknown[][],
 }))
 vi.mock('../../src/convex-cli', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../src/convex-cli')>()
@@ -49,7 +51,7 @@ vi.mock('../../src/convex-cli', async (importOriginal) => {
       if (words[0] === 'deploy') return { stdout: 'Deployed', stderr: '' }
       if (words[0] === 'deployment' && words[1] === 'token') return { stdout: `Created a deploy key.\n${'prod:happy-otter-123|host-deploy-key-secret'}\n`, stderr: '' }
       // The package's data migrations, each done, and a deployment that mounts one pool, whose backfill starts.
-      if (words.includes('migrations:status') || words.includes('migrations:run')) return { stdout: JSON.stringify(production.migrations), stderr: '' }
+      if (words.includes('migrations:status') || words.includes('migrations:run')) return { stdout: JSON.stringify(production.migrationAnswers.shift() ?? production.migrations), stderr: '' }
       if (words.includes('__nuxt_backend_component_listing__')) throw new original.ConvexCliError('convex run exited with code 1', { code: 1, signal: null, timedOut: false, stderrTail: '', components: ['workpool'] })
       if (words.includes('migrations:backfillPendingStartIds')) return { stdout: 'null', stderr: '' }
       throw Object.assign(new Error(`convex ${words[0]} exited with code 1: Could not find function`), { missingFunction: true })
@@ -76,6 +78,7 @@ beforeEach(() => {
   production.calls.length = 0
   production.spawned.length = 0
   production.migrations = PACKAGE_MIGRATIONS.map(({ name, since, does }) => ({ name, since, does, state: 'done', processed: 0 }))
+  production.migrationAnswers = []
   stdout = []
   stderr = []
   vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => void stdout.push(args.join(' ')))
@@ -160,6 +163,18 @@ describe('nuxt-backend deploy, the command', () => {
     expect(stderr.join('\n')).toContain('deploy --build: the data migrations: every data migration done; the workpool backfill started on workpool')
     expect(process.exitCode).toBe(0)
     expect(stderr.join('\n')).not.toContain(production.env.get('AUTH_SECRET')!)
+  })
+
+  it('names deploy --build, not upgrade, while it follows the migrations it started', async () => {
+    vi.stubEnv('CONVEX_DEPLOY_KEY', DEPLOY_KEY)
+    vi.stubEnv('VERCEL_PROJECT_PRODUCTION_URL', 'panels.vercel.app')
+    const at = (state: string) => PACKAGE_MIGRATIONS.map(({ name, since, does }) => ({ name, since, does, state, processed: 0 }))
+    // Pending when read, running once started, done on the next read.
+    production.migrationAnswers = [at('pending'), at('running')]
+    await run('--build')
+    const progress = stderr.filter(line => line.includes('package migrations done'))
+    expect(progress).toEqual([`[nuxt-backend] deploy --build: 0 of ${PACKAGE_MIGRATIONS.length} package migrations done…`])
+    expect(process.exitCode).toBe(0)
   })
 
   it('prints every step it would take as one JSON document under --dry-run --json, and writes nothing', async () => {
