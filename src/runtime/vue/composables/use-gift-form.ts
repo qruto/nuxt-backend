@@ -1,10 +1,10 @@
 import { computed, onMounted, ref, type ComputedRef, type Ref } from 'vue'
-import { navigateTo, useRoute, useRouter, useState } from '#imports'
+import { navigateTo, useRoute, useRouter } from '#imports'
 import type { PricedGiftLength, PricedPack, PricedPlan } from '../../../convex/integrations/billing/types/records.js'
 import { useAuthSession } from '../utils/auth-session'
 import { useActiveLocale } from '../utils/active-locale'
 import { failureOf, type BackendError } from '../utils/backend-error'
-import { onSite } from '../utils/pricing-bindings'
+import { onSite, usePageClock } from '../utils/pricing-bindings'
 import { formatBillingAmount } from './billing-format'
 import { useBackendPagePath } from './use-backend-page-path'
 import { useGifts } from './use-gifts'
@@ -76,7 +76,7 @@ export interface UseGiftFormReturn {
   message: Ref<string>
   /** The day the notice goes out, `YYYY-MM-DD`; `''` sends it once paid. */
   deliverOn: Ref<string>
-  /** The first day the delivery date takes (today), `YYYY-MM-DD`: a date input's `min`. */
+  /** The first day the delivery date takes (today, by the server's clock while the page hydrates, then the browser's), `YYYY-MM-DD`: a date input's `min`. */
   firstDay: ComputedRef<string>
   /** The last day it takes, a year ahead: a date input's `max`. */
   lastDay: ComputedRef<string>
@@ -199,8 +199,9 @@ export function useGiftForm(options: UseGiftFormOptions = {}): UseGiftFormReturn
       : null
   })
 
-  // Today on the server's clock, carried to the browser: the date input's bounds read the same on both.
-  const today = useState('backend:gift-form:today', () => isoDay(Date.now()))
+  // Today on the page's clock: the server's while hydrating, so the date input's bounds read the same on both, then the browser's.
+  const clock = usePageClock()
+  const today = computed(() => isoDay(clock.value))
   const lastDay = computed(() => isoDay(Date.parse(today.value) + (DELIVER_AHEAD_DAYS - 1) * DAY_MS))
 
   // Back from a paid checkout: say so once, and take the flag off the address.

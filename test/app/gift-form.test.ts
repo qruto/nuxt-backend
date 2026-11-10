@@ -189,6 +189,22 @@ describe('useGiftForm', () => {
     expect(gift.firstDay.value).toBe(new Date().toISOString().slice(0, 10))
     expect(Date.parse(gift.lastDay.value) - Date.parse(gift.firstDay.value)).toBe(365 * 24 * 60 * 60 * 1000)
   })
+
+  it('counts today from the day the page is entered, on a return without a reload too', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(Date.parse('2099-01-15T12:00:00.000Z'))
+      backend()
+      expect((await form()).firstDay.value).toBe('2099-01-15')
+      vi.setSystemTime(Date.parse('2099-01-17T12:00:00.000Z'))
+      clearNuxtData()
+      backend()
+      expect((await form()).firstDay.value).toBe('2099-01-17')
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('<GiftForm>', () => {

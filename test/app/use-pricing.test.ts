@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h, ref, type Ref } from 'vue'
 import { enableAutoUnmount, flushPromises } from '@vue/test-utils'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { clearNuxtData, useRouter, useState } from '#app'
+import { clearNuxtData, useNuxtApp, useRouter, useState } from '#app'
 import { backendError } from '../../src/convex/errors'
 import type { PricedPack, PricedPlan, Pricing } from '../../src/convex/integrations/billing/types/records'
 import { createBackendMock, resetBackendMock, type BackendMock } from '../../src/runtime/test-utils'
 import { usePricing, type UsePricingOptions, type UsePricingReturn } from '../../src/runtime/vue/composables/use-pricing'
+import { usePageClock } from '../../src/runtime/vue/utils/pricing-bindings'
 import { diagnostics } from '../../src/runtime/vue/utils/live-query'
 
 // Where the provider's page opens: nowhere, here.
@@ -335,8 +336,9 @@ describe('usePricing: the address, the offer window and where a checkout returns
     expect((await read({}, '/pricing?plan=unknown')).requested.value).toBeUndefined()
   })
 
-  it('runs a promotion between its start and its end by the server\'s clock, the one the page rendered at', async () => {
-    const promotion = { key: 'launch', name: 'Launch', percentOff: 20, duration: 'once' as const }
+  const promotion = { key: 'launch', name: 'Launch', percentOff: 20, duration: 'once' as const }
+
+  it('runs a promotion between its start and its end', async () => {
     backendWith(undefined, { ...PRICING, promotion: { ...promotion, endsAt: '2020-01-01T00:00:00.000Z' } })
     const ended = await read({ discount: 'launch' })
     expect(ended.promotion.value?.key).toBe('launch')
@@ -344,12 +346,48 @@ describe('usePricing: the address, the offer window and where a checkout returns
     clearNuxtData()
     backendWith(undefined, { ...PRICING, promotion: { ...promotion, startsAt: '2020-01-01T00:00:00.000Z', endsAt: '2099-01-01T00:00:00.000Z' } })
     expect((await read({ discount: 'launch' })).activePromotion.value?.key).toBe('launch')
-    // The clock the server rendered at, as the payload carries it: a page rendered after the end shows none.
-    clearNuxtData()
-    useState('backend:pricing:now').value = Date.parse('2099-06-01T00:00:00.000Z')
-    backendWith(undefined, { ...PRICING, promotion: { ...promotion, endsAt: '2099-01-01T00:00:00.000Z' } })
-    expect((await read({ discount: 'launch' })).activePromotion.value).toBeUndefined()
-    useState('backend:pricing:now').value = Date.now()
+  })
+
+  it('reads the server\'s clock while the page hydrates, then the browser\'s once it is on screen', async () => {
+    // The clock the server rendered at, as the payload carries it.
+    useState('backend:now').value = 1000
+    const nuxtApp = useNuxtApp()
+    const seen: number[] = []
+    let clock!: Ref<number>
+    nuxtApp.isHydrating = true
+    try {
+      await mountSuspended(defineComponent({
+        setup() {
+          clock = usePageClock()
+          seen.push(clock.value)
+          return () => h('div')
+        },
+      }))
+    }
+    finally {
+      nuxtApp.isHydrating = false
+    }
+    expect(seen).toEqual([1000])
+    expect(clock.value).toBeGreaterThan(Date.parse('2026-01-01T00:00:00.000Z'))
+  })
+
+  it('reads the time a page is entered at: a return without a reload shows a promotion that started since, and hides one that ended', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      const pricing = { ...PRICING, promotion: { ...promotion, startsAt: '2099-02-01T00:00:00.000Z', endsAt: '2099-03-01T00:00:00.000Z' } }
+      const visitAt = async (at: string) => {
+        vi.setSystemTime(Date.parse(at))
+        clearNuxtData()
+        backendWith(undefined, pricing)
+        return (await read({ discount: 'launch' })).activePromotion.value?.key
+      }
+      expect(await visitAt('2099-01-15T00:00:00.000Z')).toBeUndefined()
+      expect(await visitAt('2099-02-15T00:00:00.000Z')).toBe('launch')
+      expect(await visitAt('2099-03-15T00:00:00.000Z')).toBeUndefined()
+    }
+    finally {
+      vi.useRealTimers()
+    }
   })
 
   it('answers where each kind of checkout returns, a path on the site made absolute, and checks a plan out to it', async () => {

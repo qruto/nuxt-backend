@@ -9,7 +9,7 @@ import { useActiveLocale } from '../utils/active-locale'
 import { currencyCode, visitorCurrency } from '../utils/currency'
 import { diagnostics } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
-import { askedInterval, onSite, pricingBindings, promotionRuns, shownInterval, type PricingBindings } from '../utils/pricing-bindings'
+import { askedInterval, onSite, pricingBindings, promotionRuns, shownInterval, usePageClock, type PricingBindings } from '../utils/pricing-bindings'
 import { useAuthSession } from '../utils/auth-session'
 import { useBilling } from './use-billing'
 import { useCampaign } from './use-campaign'
@@ -117,9 +117,11 @@ export interface UsePricingReturn {
   promotion: ComputedRef<PricedPromotion | undefined>
   /**
    * The promotion asked for, while it runs: from its `startsAt` to its
-   * `endsAt`, by the server's clock — the moment the page rendered there,
-   * carried to the browser, so the server's HTML and the browser's render
-   * agree on it. `undefined` before it starts, after it ends, and without one.
+   * `endsAt`, by the page's clock — the moment the page rendered on the
+   * server while the browser hydrates it, so the server's HTML and the
+   * hydration agree on it, then the browser's own time once the page is on
+   * screen, and the time a client-side visit enters the page at. `undefined`
+   * before it starts, after it ends, and without one.
    */
   activePromotion: ComputedRef<PricedPromotion | undefined>
   /**
@@ -282,8 +284,8 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
   const plans = computed(() => read.data.value?.plans)
   const intervals = computed(() => CATALOG_INTERVALS.filter(interval => (plans.value ?? []).some(plan => !plan.retired && plan.prices[interval] && !plan.prices[interval].archived)))
   const state = intervalState(intervals, () => route.query.interval)
-  // One clock for the page: the server's, carried to the browser in the payload.
-  const renderedAt = useState('backend:pricing:now', () => Date.now())
+  // The page's clock: the server's while hydrating, then the browser's.
+  const now = usePageClock()
   const promotion = computed(() => read.data.value?.promotion)
   const successUrlFor = (kind: 'plan' | 'pack', key: string): string | undefined => {
     const wanted = options.successUrl?.[kind]
@@ -299,7 +301,7 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
     currency: computed(() => read.data.value?.currency),
     currencies: computed(() => read.data.value?.currencies ?? []),
     promotion,
-    activePromotion: computed(() => (promotion.value && promotionRuns(promotion.value, renderedAt.value) ? promotion.value : undefined)),
+    activePromotion: computed(() => (promotion.value && promotionRuns(promotion.value, now.value) ? promotion.value : undefined)),
     requested: computed(() => {
       const key = route.query.plan
       return typeof key === 'string' && (plans.value ?? []).some(plan => plan.key === key) ? key : undefined

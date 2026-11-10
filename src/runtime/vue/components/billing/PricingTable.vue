@@ -44,7 +44,9 @@ import { providePricingView, type PlanAction, type PlanTrial, type PricingSlotCo
  * default. The address
  * picks what shows: `?interval=year` the yearly prices, `?plan=<key>`
  * the card it marks and scrolls into view. A promotion runs by the
- * server's clock, so its window reads the same in the HTML and the browser.
+ * server's clock while the page hydrates, so its window reads the same in
+ * the HTML and the browser, then by the browser's from the moment the page
+ * is on screen or is entered again.
  *
  * Signed-out visitors get a sign-in link that returns to this very address
  * (a campaign link's discount and UTM included) instead of checkout
@@ -165,8 +167,8 @@ const planCards = computed(() => props.plans ?? (config.billing.plans.length > 0
 const packCards = computed(() => props.packs ?? (config.billing.packs.length > 0 ? config.billing.packs : (pricing.packs.value ?? []).map(pack => ({ key: pack.key }))))
 const contact = computed(() => (props.contact === undefined ? config.billing.contact ?? null : props.contact))
 
-// The promotion that runs now, by the server's clock carried to the
-// browser: the HTML and the hydrated page agree on it.
+// The promotion that runs now, by the page's clock: the server's while
+// hydrating, so the HTML and the hydrated page agree on it, then the browser's.
 const promotion = computed(() => pricing.activePromotion.value)
 
 const subscribedId = computed(() => billing.subscription.value?.productId)
