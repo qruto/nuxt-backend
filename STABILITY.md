@@ -197,7 +197,7 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
 - **Composables**:
   - `PhotoPrepError` — the refusal `preparePhoto` throws for a file that is no picture or one the browser can't open, read by `getBackendError` as `invalid_input` on `file`
   - `getBackendError` — reads a refusal's catalog code out of anything a call threw or resolved with
-  - `isPhotoFile` — whether a picked or dropped file is worth preparing as a photo: an image type, or a HEIC the device left untyped
+  - `isPhotoFile` — whether a picked or dropped file is worth preparing as a photo: an image type other than SVG and GIF, or a HEIC the device left untyped
   - `preparePhoto` — a photo made ready in the browser before it uploads: HEIC decoded, turned upright, scaled to a long edge and re-encoded with no metadata; `useUploadField`'s `prepare` as it is
   - `useAccessAdmin` — the admin console's Access tab as data: the phase, the invite codes and access links, the invitations by address, and the changes an administrator makes
   - `useAccessPhase` — the app's launch phase, rendered on the server and live

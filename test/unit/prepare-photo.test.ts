@@ -353,6 +353,16 @@ describe('isPhotoFile', () => {
     expect(isPhotoFile(new File([''], 'notes.txt', { type: 'text/plain' }))).toBe(false)
     expect(isPhotoFile(new Blob(['']))).toBe(false)
   })
+
+  it('turns away an SVG, which has no size to draw at, and a GIF, whose animation would be cut to one frame', async () => {
+    const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], 'logo.svg', { type: 'image/svg+xml' })
+    const gif = new File([new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61])], 'wave.gif', { type: 'image/gif' })
+    for (const file of [svg, gif]) {
+      expect(isPhotoFile(file), file.name).toBe(false)
+      expect(await preparePhoto(file).catch((failure: unknown) => failure), file.name).toMatchObject({ reason: 'unsupported_type' })
+    }
+    expect(createImageBitmap).not.toHaveBeenCalled()
+  })
 })
 
 describe('the HEIC decoder, an optional peer', () => {

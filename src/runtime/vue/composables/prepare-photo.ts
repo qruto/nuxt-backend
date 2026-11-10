@@ -68,12 +68,20 @@ function isHeic(file: Blob): boolean {
 }
 
 /**
+ * Image types that are no photo to prepare. An SVG has no size of its own
+ * to draw at, so it would be sent as a 1 × 1 JPEG, and a GIF's animation
+ * would be cut to its first frame. Send a GIF as it is, when your
+ * `accept` takes one.
+ */
+const NOT_PHOTOS = /^image\/(?:svg\+xml|gif)\b/i
+
+/**
  * Whether a file picked, dropped or pasted is worth preparing as a photo:
- * an image type, or a HEIC the device left untyped. A filter for a drop
- * zone; {@link preparePhoto} refuses the rest itself.
+ * an image type other than SVG and GIF, or a HEIC the device left untyped.
+ * A filter for a drop zone; {@link preparePhoto} refuses the rest itself.
  */
 export function isPhotoFile(file: Blob): boolean {
-  return file.type.startsWith('image/') || isHeic(file)
+  return isHeic(file) || (file.type.startsWith('image/') && !NOT_PHOTOS.test(file.type))
 }
 
 type Drawable = ImageBitmap | HTMLImageElement
@@ -291,8 +299,8 @@ function checked(options: PreparePhotoOptions): Required<Omit<PreparePhotoOption
  * upright by its EXIF orientation, scaled down to `longEdge`, and
  * re-encoded as `type` (JPEG by default) on a canvas, which keeps the
  * pixels and drops every metadata tag, GPS included. A file that is no
- * picture, or one this browser can't open, is refused with a
- * {@link PhotoPrepError}.
+ * photo (an SVG and a GIF are not), or one this browser can't open, is
+ * refused with a {@link PhotoPrepError}.
  *
  * Its second argument is the options, or the abort signal alone, so it is
  * `useUploadField`'s `prepare` as it is.
