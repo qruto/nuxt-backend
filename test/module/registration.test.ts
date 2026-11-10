@@ -1008,6 +1008,17 @@ describe('devtools: false', () => {
   })
 })
 
+// Chrome's own install banner shows unless the app asks otherwise: then a
+// client plugin cancels `beforeinstallprompt` as it fires (the defaults add none).
+describe('installable.browserBanner: false', () => {
+  const getNuxt = useBoot({ backend: { installable: { browserBanner: false } } })
+
+  it('adds the client plugin that stops the browser\'s install banner, beside the one that keeps the event', () => {
+    const names = ourPlugins(getNuxt()).filter(src => src.includes('install-')).map(src => src.replace(/^.*[\\/]vue[\\/]plugins[\\/]/, '').replace(/\.ts$/, '')).sort()
+    expect(names).toEqual(['install-banner.client', 'install-prompt.client'])
+  })
+})
+
 // nuxt-security's own switch, honoured by the package that installs it: no
 // headers module, and no Trusted Types policies for a CSP that is not sent.
 describe('security: false', () => {

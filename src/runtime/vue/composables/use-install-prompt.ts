@@ -19,7 +19,8 @@ export interface UseInstallPromptReturn {
    * The browser handed over its install dialog, so a button of the app's
    * can open it: Chrome and Edge, on desktop and Android, once the app is
    * installable and not installed. `false` on the server, while the page
-   * hydrates, in every other browser, and once the dialog was shown.
+   * hydrates, in every other browser, and once the dialog was answered,
+   * from the app's button or the browser's own banner.
    */
   canInstall: ComputedRef<boolean>
   /** The app runs as an installed app (its own window, or the Home Screen on iOS), or was installed from this page. `false` on the server and while the page hydrates. */
@@ -28,7 +29,8 @@ export interface UseInstallPromptReturn {
    * Open the browser's install dialog. Call it from a click: the browser
    * shows it only in answer to a gesture, and only once per event it fired.
    * Resolves `'unavailable'` when there is no dialog to show (check
-   * `canInstall` first).
+   * `canInstall` first), or when the browser refused to show it: a call
+   * outside a click keeps the dialog for the next one.
    */
   prompt: () => Promise<InstallPromptOutcome>
 }
@@ -43,17 +45,23 @@ let listening = false
 
 /**
  * Listen for the browser's install events, once per page: keep the install
- * dialog `beforeinstallprompt` hands over (and stop the browser's own
- * banner, so the app's button offers it), and note `appinstalled`. Called by
- * the client plugin as the app starts, and by `useInstallPrompt()` as it
- * mounts, for an app that leaves the plugin out.
+ * dialog `beforeinstallprompt` hands over until it is answered, and note
+ * `appinstalled`. The browser's own banner still shows: only
+ * `installable.browserBanner: false` stops it (plugins/install-banner.client),
+ * as only a listener that runs when the event fires can. Called by the
+ * client plugin as the app starts, and by `useInstallPrompt()` as it mounts,
+ * for an app that leaves the plugin out.
  */
 export function listenForInstallPrompt(): void {
   if (listening || typeof window === 'undefined') return
   listening = true
   window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault()
-    deferred.value = event as BeforeInstallPromptEvent
+    const install = event as BeforeInstallPromptEvent
+    deferred.value = install
+    // One answer spends the dialog, given from the app's button or from the browser's banner.
+    install.userChoice.then(() => {
+      if (deferred.value === install) deferred.value = null
+    }, () => {})
   })
   window.addEventListener('appinstalled', () => {
     deferred.value = null
@@ -97,9 +105,16 @@ export function useInstallPrompt(): UseInstallPromptReturn {
   async function prompt(): Promise<InstallPromptOutcome> {
     const event = deferred.value
     if (!event) return 'unavailable'
+    try {
+      await event.prompt()
+    }
+    catch (error) {
+      // Outside a click the browser refuses (`NotAllowedError`), and the dialog stays good for the next one.
+      if ((error as { name?: unknown } | null)?.name !== 'NotAllowedError' && deferred.value === event) deferred.value = null
+      return 'unavailable'
+    }
     // The browser shows one dialog per event: whatever the answer, it is spent.
-    deferred.value = null
-    await event.prompt()
+    if (deferred.value === event) deferred.value = null
     const { outcome } = await event.userChoice
     if (outcome === 'accepted') installedHere.value = true
     return outcome

@@ -80,6 +80,15 @@ export interface InstallableOptions {
    * and `icon-maskable-512.png` when `public/` holds them, else none.
    */
   maskable?: boolean | InstallIcons
+  /**
+   * Chrome's own install banner on Android (the mini-infobar), which it
+   * shows on a visit once the app is installable: `false` stops it, so the
+   * app's own button (`useInstallPrompt()`) offers the install instead. The
+   * module then cancels `beforeinstallprompt` as the event fires, which no
+   * component can do once it mounts. Default: `true`, the banner shows, and
+   * `useInstallPrompt()` opens the dialog from a button all the same.
+   */
+  browserBanner?: boolean
 }
 
 /** The orientations a manifest takes: the Screen Orientation API's lock types. */
@@ -216,6 +225,14 @@ function identityProblems(options: Record<string, unknown>): string[] {
   return problems
 }
 
+/** What is wrong with the keys that take a plain value: the description and the banner switch. */
+function valueProblems(options: Record<string, unknown>): string[] {
+  return [
+    ...(options.description === undefined || typeof options.description === 'string' ? [] : ['`installable.description` takes a string.']),
+    ...(options.browserBanner === undefined || typeof options.browserBanner === 'boolean' ? [] : ['`installable.browserBanner` takes `true` or `false`.']),
+  ]
+}
+
 /**
  * Why the `installable` option cannot be used, one sentence each; empty
  * when it can. `assertModuleOptions` refuses the build with them, so a
@@ -230,7 +247,7 @@ export function installableProblems(value: unknown): string[] {
   return [
     ...(theme === undefined ? [] : typeof theme === 'object' && theme !== null ? [...color('themeColor.light', (theme as Record<string, unknown>).light), ...color('themeColor.dark', (theme as Record<string, unknown>).dark)] : color('themeColor', theme)),
     ...(options.backgroundColor === undefined ? [] : color('backgroundColor', options.backgroundColor)),
-    ...(options.description === undefined || typeof options.description === 'string' ? [] : ['`installable.description` takes a string.']),
+    ...valueProblems(options),
     ...identityProblems(options),
     ...(options.icons === undefined ? [] : pairProblems('icons', options.icons)),
     ...(options.maskable === undefined || typeof options.maskable === 'boolean' ? [] : pairProblems('maskable', options.maskable)),

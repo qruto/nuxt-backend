@@ -17,13 +17,18 @@ import { PUSH_WORKER_URL } from '../convex/web-push'
  *   `theme-color` meta tags. The `installable` option adds colours, a
  *   description, other icon paths and maskable icons; `false` serves none.
  *   An app that ships a manifest of its own (a PWA module, or a file in
- *   `public/`) gets none.
+ *   `public/`) gets none;
+ * - the install events, kept for `useInstallPrompt()` whoever serves the
+ *   manifest, and with `installable.browserBanner: false` the listener
+ *   that stops Chrome's own install banner.
  */
 export function registerInstallable(resolver: Resolver, nuxt: Nuxt, options: InstallableOptions | false = {}): void {
   addServerHandler({ route: PUSH_WORKER_URL, method: 'get', handler: { nuxt: resolver.resolve('./runtime/server/push-worker') } })
   // useInstallPrompt() reads the install events from the app's start, whoever serves the manifest.
   addPlugin({ src: resolver.resolve('./runtime/vue/plugins/install-prompt.client'), mode: 'client' })
   if (options === false) return
+  // Only a listener that runs as `beforeinstallprompt` fires can stop the banner: never a component, once it mounts.
+  if (options.browserBanner === false) addPlugin({ src: resolver.resolve('./runtime/vue/plugins/install-banner.client'), mode: 'client' })
   const publicDir = resolve(nuxt.options.rootDir, nuxt.options.dir?.public ?? 'public')
   nuxt.hook('modules:done', async () => {
     if (ownsManifest(publicDir, MANIFEST_MODULES.filter(name => hasNuxtModule(name, nuxt)), nuxt.options.app.head.link ?? [])) return

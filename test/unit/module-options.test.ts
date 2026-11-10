@@ -160,6 +160,7 @@ describe('the installable option', () => {
     expect(() => assertModuleOptions({ installable: false })).not.toThrow()
     expect(() => assertModuleOptions({ installable: { themeColor: { light: '#ffb900', dark: 'oklch(0.3 0.1 270)' }, backgroundColor: 'white', icons: { 192: '/brand/app-192.png', 512: '/brand/app-512.png' }, maskable: true } })).not.toThrow()
     expect(() => assertModuleOptions({ installable: { id: '/?app', lang: 'pt-BR', orientation: 'portrait-primary' } })).not.toThrow()
+    expect(() => assertModuleOptions({ installable: { browserBanner: false } })).not.toThrow()
   })
 
   it('stops the build on a colour, a path or a pair it cannot make a manifest from', () => {
@@ -182,5 +183,6 @@ describe('the installable option', () => {
     expect(refusal({ id: '//other.example' })).toContain('`installable.id`')
     expect(refusal({ lang: 'not a tag' })).toContain('`installable.lang`')
     expect(refusal({ orientation: 'sideways' })).toContain('`installable.orientation`')
+    expect(refusal({ browserBanner: 'off' })).toContain('`installable.browserBanner`')
   })
 })

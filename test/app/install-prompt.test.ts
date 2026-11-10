@@ -7,16 +7,28 @@ import type { UseInstallPromptReturn } from '../../src/runtime/vue/composables/u
 // useInstallPrompt on the browser's install events: Chromium's
 // `beforeinstallprompt` hands over a dialog the app's button opens once,
 // `appinstalled` and a standalone window say the app is installed, and every
-// other browser leaves both false. The page's state is shared, so each test
-// takes a fresh copy of the module.
+// other browser leaves both false. The browser's own banner is left to show:
+// only the module's opt-in plugin cancels the event. The page's state is
+// shared, so each test takes a fresh copy of the module.
 
 type Choice = 'accepted' | 'dismissed'
 
-/** Chromium's install event, with the dialog it hands over answering `choice`. */
-function installEvent(choice: Choice) {
-  const event = new Event('beforeinstallprompt', { cancelable: true }) as Event & { prompt: () => Promise<void>, userChoice: Promise<{ outcome: Choice }> }
-  event.prompt = vi.fn(async () => {})
-  event.userChoice = Promise.resolve({ outcome: choice })
+/**
+ * Chromium's install event: its dialog answers `choice` once `prompt()`
+ * opens it (`refusals` are the errors the first calls throw, as a call
+ * outside a click does), or once `answer()` stands for the browser's own
+ * banner opening it.
+ */
+function installEvent(choice: Choice, ...refusals: Error[]) {
+  let answer!: () => void
+  const event = new Event('beforeinstallprompt', { cancelable: true }) as Event & { prompt: () => Promise<void>, userChoice: Promise<{ outcome: Choice }>, answer: () => void }
+  event.userChoice = new Promise(resolve => (answer = () => resolve({ outcome: choice })))
+  event.answer = answer
+  event.prompt = vi.fn(async () => {
+    const refusal = refusals.shift()
+    if (refusal) throw refusal
+    answer()
+  })
   return event
 }
 
@@ -56,7 +68,8 @@ describe('useInstallPrompt', () => {
     listenForInstallPrompt()
     const event = installEvent('accepted')
     window.dispatchEvent(event)
-    expect(event.defaultPrevented).toBe(true)
+    // Kept, not cancelled: the browser's own banner still shows.
+    expect(event.defaultPrevented).toBe(false)
     const install = await mounted()
     expect(install.canInstall.value).toBe(true)
     expect(install.installed.value).toBe(false)
@@ -75,6 +88,36 @@ describe('useInstallPrompt', () => {
     expect(await install.prompt()).toBe('dismissed')
     expect(install.canInstall.value).toBe(false)
     expect(install.installed.value).toBe(false)
+  })
+
+  it('keeps the dialog when the browser refuses a call outside a click, and opens it on the next one', async () => {
+    const install = await mounted()
+    const event = installEvent('accepted', new DOMException('The prompt() method must be called with a user gesture', 'NotAllowedError'))
+    window.dispatchEvent(event)
+    expect(await install.prompt()).toBe('unavailable')
+    expect(install.canInstall.value).toBe(true)
+    expect(await install.prompt()).toBe('accepted')
+    expect(event.prompt).toHaveBeenCalledTimes(2)
+    expect(install.canInstall.value).toBe(false)
+  })
+
+  it('drops a dialog the browser can no longer show', async () => {
+    const install = await mounted()
+    window.dispatchEvent(installEvent('accepted', new DOMException('The prompt() method cannot be called.', 'InvalidStateError')))
+    expect(await install.prompt()).toBe('unavailable')
+    expect(install.canInstall.value).toBe(false)
+  })
+
+  it('drops the dialog once the browser\'s own banner opened it and it was answered', async () => {
+    const install = await mounted()
+    const event = installEvent('dismissed')
+    window.dispatchEvent(event)
+    expect(install.canInstall.value).toBe(true)
+    event.answer()
+    await flushPromises()
+    expect(install.canInstall.value).toBe(false)
+    expect(await install.prompt()).toBe('unavailable')
+    expect(event.prompt).not.toHaveBeenCalled()
   })
 
   it('offers nothing where the browser hands no dialog over', async () => {
@@ -102,5 +145,19 @@ describe('useInstallPrompt', () => {
     window.dispatchEvent(new Event('appinstalled'))
     expect(install.installed.value).toBe(true)
     expect(install.canInstall.value).toBe(false)
+  })
+})
+
+describe('the install banner plugin (installable.browserBanner: false)', () => {
+  it('cancels the event as it fires, which stops the browser\'s own banner, and leaves the dialog to the app', async () => {
+    const { default: plugin } = await import('../../src/runtime/vue/plugins/install-banner.client')
+    ;(plugin as unknown as { setup: () => void }).setup()
+    listenForInstallPrompt()
+    const event = installEvent('accepted')
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    const install = await mounted()
+    expect(install.canInstall.value).toBe(true)
+    expect(await install.prompt()).toBe('accepted')
   })
 })

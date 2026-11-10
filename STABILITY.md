@@ -90,7 +90,7 @@ Every name on this surface is brand-neutral: no export, value or type, and no re
   - `authRoute`
   - `css`
   - `devtools`
-  - `installable`, and its keys `themeColor`, `backgroundColor`, `description`, `id`, `lang`, `orientation`, `icons` and `maskable`
+  - `installable`, and its keys `themeColor`, `backgroundColor`, `description`, `id`, `lang`, `orientation`, `icons`, `maskable` and `browserBanner`
   - `pages`
   - `redirects`
   - `url`
