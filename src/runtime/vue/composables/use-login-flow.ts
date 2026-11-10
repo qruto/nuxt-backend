@@ -85,6 +85,15 @@ export interface UseLoginFlowReturn {
    * method's button.
    */
   lastMethod: ComputedRef<SignInMethod | null>
+  /**
+   * Whether this browser can run a passkey ceremony at all (WebAuthn):
+   * `null` until the flow's component has mounted, so the server render and
+   * the first client render agree, then `true` or `false`. An in-app
+   * browser or a plain-http origin has none, and a passkey offered there
+   * only ends in an error: hide the passkey button where it reads `false`
+   * (`v-if="webAuthnSupported !== false"`), as `<AuthForm>` does.
+   */
+  webAuthnSupported: Readonly<Ref<boolean | null>>
   email: Ref<string>
   otp: Ref<string>
   /**
@@ -217,6 +226,13 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
       step.value = opening()
     })
   }
+  // Read after mount, so the server render and the first client render agree.
+  const webAuthnSupported = ref<boolean | null>(null)
+  const readWebAuthn = () => {
+    webAuthnSupported.value = typeof window.PublicKeyCredential === 'function'
+  }
+  if (getCurrentInstance()) onMounted(readWebAuthn)
+  else if (typeof window !== 'undefined') readWebAuthn()
   const email = ref('')
   const otp = ref('')
   const recoveryCode = ref('')
@@ -506,6 +522,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   return {
     step,
     lastMethod: auth.lastSignInMethod,
+    webAuthnSupported,
     email,
     otp,
     recoveryCode,

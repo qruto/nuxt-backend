@@ -24,7 +24,7 @@ navigation:
 | [nuxt-backend/billing](/docs/reference/api/billing) | - |
 | [nuxt-backend/convex.config](/docs/reference/api/convex-config) | - |
 | [nuxt-backend/email](/docs/reference/api/email) | - |
-| [nuxt-backend/eslint](/docs/reference/api/eslint) | The ESLint preset for a `nuxt-backend` app: the official Convex lint rules, scoped to the functions directory, with Convex's generated code ignored. |
+| [nuxt-backend/eslint](/docs/reference/api/eslint) | The ESLint preset for a `nuxt-backend` app: the official Convex lint rules, scoped to the functions directory, with Convex's generated code and the files the module generates there ignored. |
 | [nuxt-backend/flags](/docs/reference/api/flags) | - |
 | [nuxt-backend/functions](/docs/reference/api/functions) | - |
 | [nuxt-backend/http](/docs/reference/api/http) | - |

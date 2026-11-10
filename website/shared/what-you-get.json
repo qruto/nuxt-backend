@@ -98,6 +98,10 @@
           "to": "/docs/reference/cli/diagnostics#agent-files"
         },
         {
+          "name": "env-example",
+          "to": "/docs/reference/cli/diagnostics#env-example"
+        },
+        {
           "name": "name-collisions",
           "to": "/docs/reference/cli/diagnostics#name-collisions"
         },
@@ -1613,9 +1617,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "108 in all",
+          "name": "109 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "108 findings in all"
+          "label": "109 findings in all"
         }
       ]
     }

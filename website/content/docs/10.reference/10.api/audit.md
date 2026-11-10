@@ -928,6 +928,16 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) put a failed job of the billing entity back in line, with a new hold on its credits.";
      recordedBy: "`jobs:retryJob` (`defineJobQueue`), from the Queue tab's dead letters";
   };
+  "job.charge_retried": {
+     scope: "entity";
+     data: {
+        kind: "string";
+        credits: "number";
+     };
+     channels: readonly [];
+     description: "An administrator (the actor) tried again the charge a job of the billing entity owed after its tries gave up: `kind` is its `jobs.define` export, and `credits` what it owes, held again while it is tried.";
+     recordedBy: "`jobs:retryJob` (`defineJobQueue`), from the Queue tab's Retry the charge";
+  };
   "ai.spend_limit_reached": {
      scope: "account";
      data: {
@@ -1619,6 +1629,14 @@ derives and what records it.
 | `job.retried.channels` | readonly \[\] | `[]` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
 | `job.retried.description` | `"An administrator (the actor) put a failed job of the billing entity back in line, with a new hold on its credits."` | `'An administrator (the actor) put a failed job of the billing entity back in line, with a new hold on its credits.'` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
 | `job.retried.recordedBy` | `` "`jobs:retryJob` (`defineJobQueue`), from the Queue tab's dead letters" `` | '\`jobs:retryJob\` (\`defineJobQueue\`), from the Queue tab\\'s dead letters' | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| <a id="property-jobcharge_retried"></a> `job.charge_retried` | \{ `scope`: `"entity"`; `data`: \{ `kind`: `"string"`; `credits`: `"number"`; \}; `channels`: readonly \[\]; `description`: `` "An administrator (the actor) tried again the charge a job of the billing entity owed after its tries gave up: `kind` is its `jobs.define` export, and `credits` what it owes, held again while it is tried." ``; `recordedBy`: `` "`jobs:retryJob` (`defineJobQueue`), from the Queue tab's Retry the charge" ``; \} | - | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `job.charge_retried.scope` | `"entity"` | `'entity'` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `job.charge_retried.data` | \{ `kind`: `"string"`; `credits`: `"number"`; \} | - | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `job.charge_retried.data.kind` | `"string"` | `STRING` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `job.charge_retried.data.credits` | `"number"` | `NUMBER` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `job.charge_retried.channels` | readonly \[\] | `[]` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `job.charge_retried.description` | `` "An administrator (the actor) tried again the charge a job of the billing entity owed after its tries gave up: `kind` is its `jobs.define` export, and `credits` what it owes, held again while it is tried." `` | `` 'An administrator (the actor) tried again the charge a job of the billing entity owed after its tries gave up: `kind` is its `jobs.define` export, and `credits` what it owes, held again while it is tried.' `` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `job.charge_retried.recordedBy` | `` "`jobs:retryJob` (`defineJobQueue`), from the Queue tab's Retry the charge" `` | '\`jobs:retryJob\` (\`defineJobQueue\`), from the Queue tab\\'s Retry the charge' | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
 | <a id="property-aispend_limit_reached"></a> `ai.spend_limit_reached` | \{ `scope`: `"account"`; `data`: \{ `usd`: `"number"`; `limit`: `"number"`; \}; `channels`: readonly \[\]; `description`: `` "What AI cost the whole app today (UTC), `usd`, reached the daily spend limit, `limit` (US dollars), so the app turned the `pause_ai` kill switch on until the next UTC day begins, when it lifts by itself. By the app: no one signed in acted, and the administrators' view shows it." ``; `recordedBy`: `` "The cost record that reached `setupAi({ spendLimit })` (`costs.checkSpendLimit` in the `backend` component)" ``; \} | - | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
 | `ai.spend_limit_reached.scope` | `"account"` | `'account'` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
 | `ai.spend_limit_reached.data` | \{ `usd`: `"number"`; `limit`: `"number"`; \} | - | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |

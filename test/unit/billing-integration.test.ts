@@ -386,6 +386,18 @@ describe('spendCredits', () => {
     expect(ctx.runMutation).not.toHaveBeenCalledWith('ref:finalize', expect.anything())
   })
 
+  it('keeps what it would charge held when ingestion fails with keepReservation, in the one release that lets the rest go', async () => {
+    getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
+    mockEventsIngest.mockRejectedValue(new Error('provider down'))
+    const ctx = makeCtx({ debit: { ok: true, balance: 7 } })
+    const reservation = { entityId: 'u1', externalId: 'job-2', reserved: true, meterId: 'm1', value: 5 }
+
+    await expect(billing.settleSpend(ctx as never, reservation, { name: 'credits', finalAmount: 3, keepReservation: true })).rejects.toThrow('provider down')
+    expect(ctx.runMutation).toHaveBeenCalledWith('ref:release', { userId: 'u1', externalId: 'job-2', keep: 3 })
+    // One write: no release and fresh hold with a moment between them.
+    expect(ctx.runMutation).toHaveBeenCalledTimes(1)
+  })
+
   it('takes the credits from the cache again when the reservation was gone by the time the event landed', async () => {
     getCustomerByUserId.mockResolvedValue({ id: 'cus_1' } as never)
     mockEventsIngest.mockResolvedValue({ ok: true, value: {} } as never)

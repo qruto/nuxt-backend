@@ -472,7 +472,8 @@
         "job": {
           "queue_changed": "{actor} cambió la cola de tareas",
           "canceled": "{actor} canceló una tarea",
-          "retried": "{actor} volvió a poner en cola una tarea fallida"
+          "retried": "{actor} volvió a poner en cola una tarea fallida",
+          "charge_retried": "{actor} volvió a intentar el cobro pendiente de una tarea"
         },
         "ai": {
           "spend_limit_reached": "{actor} pausó la IA: se alcanzó el límite de gasto de hoy"
@@ -835,7 +836,10 @@
           "cancel": "Cancelar",
           "cancelRefund": "Cancelar y reembolsar",
           "retry": "Reintentar",
-          "discard": "Descartar"
+          "discard": "Descartar",
+          "retryCharge": "Reintentar el cobro",
+          "owed": "{status}, {credits} créditos pendientes",
+          "owedGivenUp": "{status}, {credits} créditos sin cobrar"
         },
         "status": {
           "queued": "En espera",
@@ -2052,6 +2056,10 @@
         "upgradeDismissed": {
           "why": "Mantiene el aviso oculto durante el tiempo que fija la aplicación. Si no se permiten las preferencias, solo se conserva para la pestaña.",
           "lasts": "El periodo de espera de la aplicación, como máximo un año."
+        },
+        "chunkReload": {
+          "why": "Evita que la página vuelva a recargarse durante un minuto, para que un fallo que persiste nunca se convierta en un bucle.",
+          "lasts": "Hasta que se cierra la pestaña."
         },
         "pushSubscription": {
           "why": "La suscripción push permite a la aplicación enviar notificaciones a ese dispositivo. El service worker, cuando el navegador lo necesita, las muestra y abre la aplicación al hacer clic; no almacena nada en caché.",

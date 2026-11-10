@@ -472,7 +472,8 @@
         "job": {
           "queue_changed": "{actor} changed the job queue",
           "canceled": "{actor} canceled a job",
-          "retried": "{actor} put a failed job back in line"
+          "retried": "{actor} put a failed job back in line",
+          "charge_retried": "{actor} tried a job's owed charge again"
         },
         "ai": {
           "spend_limit_reached": "{actor} paused AI: today's spend limit was reached"
@@ -835,7 +836,10 @@
           "cancel": "Cancel",
           "cancelRefund": "Cancel and refund",
           "retry": "Retry",
-          "discard": "Discard"
+          "discard": "Discard",
+          "retryCharge": "Retry the charge",
+          "owed": "{status}, {credits} credits owed",
+          "owedGivenUp": "{status}, {credits} credits never charged"
         },
         "status": {
           "queued": "Waiting",
@@ -2070,6 +2074,10 @@
         "upgradeDismissed": {
           "why": "Keeps the prompt hidden for the time the app sets. Without preferences allowed, it is kept for the tab only.",
           "lasts": "The app's cool-down, a year at most."
+        },
+        "chunkReload": {
+          "why": "Keeps that page from reloading again for a minute, so a failure that persists never turns into a loop.",
+          "lasts": "Until the tab closes."
         },
         "pushSubscription": {
           "why": "The push subscription lets the app send that device notifications. The service worker, where the browser needs one, shows them and opens the app on a click; it caches nothing.",

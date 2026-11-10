@@ -12,7 +12,8 @@ import {
   readProviderOrganization,
   type ProviderChange,
 } from './billing/settings'
-import { runEmailSync } from './email'
+import type { InboundSyncReport } from '../convex/integrations/inbound'
+import { emailSyncLines, emailSyncRefusal, inboundSyncLines, runEmailSync, runEmailSyncCommand, runInboundSync, type EmailSyncReport } from './email'
 
 /**
  * `doctor --fix`'s provider half: the billing settings the warn-only
@@ -90,16 +91,25 @@ async function fixBilling(rootDir: string, { prod, confirm, print, report, probe
   }
 }
 
-/** The email half: the webhook back on, once its route answers the probe. Its events are `email sync`'s, which ran before. */
+/**
+ * The email half: the webhook back on, once its route answers the probe,
+ * and nothing else. Its events and what `backend/email.ts` declares are
+ * `email sync`'s, a step of `doctor --fix` confirmed on its own, so a sync
+ * declined there is not made here. A deployment still on a backend from
+ * before that runs the whole sync with `enableWebhook`, its read logging
+ * every declared object where the switch alone logs none: the question
+ * then names what that sync would change too.
+ */
 async function fixEmail(rootDir: string, { prod, confirm, print, report, probe, emailSync }: { prod: boolean, confirm: ConfirmChange, print: (line: string) => void, report: ProviderFixReport, probe: typeof probeWebhookRoute, emailSync: typeof runEmailSync }): Promise<void> {
-  const read = await emailSync(rootDir, { prod, dryRun: true }).catch(() => null)
+  const read = await emailSync(rootDir, { prod, dryRun: true, enableWebhook: true }).catch(() => null)
   const url = read?.webhook.url
   if (!read || !url || read.webhook.enabled !== false) return
   if ((await probe(url)).state !== 'mounted') {
     print('[nuxt-backend] doctor --fix: the email webhook stays off: its route does not answer the probe yet. Fix the route (doctor\'s email-webhook-route), then run doctor --fix again.')
     return
   }
-  const change = { description: `Turn the email webhook ${url} back on: its route answers the probe now.` }
+  const alongside = read.log.length > 0 ? emailSyncPlans(read) : []
+  const change = { description: `Turn the email webhook ${url} back on: its route answers the probe now.${alongside.length > 0 ? ` The deployment runs an older backend, whose sync makes the rest with it: ${alongside.join(', ')}.` : ''}` }
   if (!await confirm(change)) {
     report.skipped.push('email-webhook-enabled')
     return
@@ -134,6 +144,118 @@ export async function fixProviderSettings(rootDir: string, { prod, confirm, prin
   }
   if (report.skipped.length > 0) print(`[nuxt-backend] doctor --fix: left as they are (not confirmed): ${report.skipped.join(', ')}.`)
   return report
+}
+
+/** What `doctor --fix`'s `email sync` step came to. */
+export type EmailSyncFixOutcome = 'applied' | 'unchanged' | 'declined' | 'skipped' | 'failed'
+
+/**
+ * What a dry-run sync would change: an entry to create or update, a
+ * provider id to store on the deployment for one it found, the webhook (a
+ * new one's signing secret stored on the deployment), or a flow the
+ * deployment does not run as declared, a removed one it still runs among
+ * them. A backend older than `ids` and `flows.retired` reports neither.
+ */
+function emailSyncPlans(report: EmailSyncReport): string[] {
+  const entries = report.log.filter(entry => entry.action === 'would-create' || entry.action === 'would-update').map(entry => `${entry.action === 'would-create' ? 'create' : 'update'} the ${entry.kind} ${entry.key}`)
+  const ids = (report.ids ?? []).map(id => `store the provider's id for the ${id.kind} ${id.key} on the deployment`)
+  const webhook = report.webhook.action === 'would-create' ? [`create the webhook ${report.webhook.url} and store its signing secret on the deployment as EMAIL_WEBHOOK_SECRET`] : report.webhook.action === 'would-update' ? [`give the webhook ${report.webhook.missingEvents.join(', ')}`] : []
+  const flows = (report.flows?.unsynced ?? []).map(flow => `configure the flow ${flow}`)
+  const retired = (report.flows?.retired ?? []).map(flow => `stop the flow ${flow}, which backend/email.ts no longer declares`)
+  return [...entries, ...ids, ...webhook, ...flows, ...retired]
+}
+
+/**
+ * What the support inbox's dry run would change: the inbox made, the
+ * webhook given the inbound events, or, when the email sync makes the
+ * webhook, the new one given them right after.
+ */
+function inboundSyncPlans(inbound: InboundSyncReport, email: EmailSyncReport): string[] {
+  const inbox = inbound.inbox === 'would-create' ? [`create the support inbox ${inbound.support}`] : []
+  if (inbound.webhook.state === 'would-update') return [...inbox, `give the webhook ${inbound.webhook.added.join(', ')}`]
+  const madeFirst = inbound.support !== null && inbound.webhook.state === 'missing' && email.webhook.action === 'would-create'
+  return [...inbox, ...madeFirst ? ['give the new webhook the support inbox\'s events'] : []]
+}
+
+/**
+ * The support inbox's half of the plan, from `email:syncInbound`'s own dry
+ * run: nothing when the deployment has no inbound sync. A deployment that
+ * cannot plan it (a backend pushed before it had a dry run) has the whole
+ * inbound sync to confirm, as `email sync` runs it.
+ */
+async function planInboundSync(rootDir: string, prod: boolean, email: EmailSyncReport, plan: typeof runInboundSync): Promise<{ plans: string[], lines: string[] }> {
+  let inbound: InboundSyncReport | null
+  try {
+    inbound = await plan(rootDir, { prod, dryRun: true })
+  }
+  catch (error) {
+    return { plans: [`sync the support inbox, which the deployment could not plan (${error instanceof Error ? error.message : String(error)})`], lines: [] }
+  }
+  if (!inbound) return { plans: [], lines: [] }
+  return { plans: inboundSyncPlans(inbound, email), lines: inboundSyncLines(inbound) }
+}
+
+/** How {@link syncEmailOnFix} reads the deployment and writes it: `email sync`'s dry runs, then `email sync` itself. */
+export interface EmailSyncFixDeps {
+  plan?: typeof runEmailSync
+  planInbound?: typeof runInboundSync
+  apply?: typeof runEmailSyncCommand
+}
+
+/**
+ * `doctor --fix`'s `email sync`, confirmed like the provider settings: a
+ * dry run of the sync and of the support inbox's first, their lines
+ * printed, then the sync itself only once `confirm` agrees (`--yes`, or a
+ * yes at a terminal; nobody at one declines), on dev and `--prod` alike,
+ * since it writes the email provider's account. The question names every
+ * change, the webhook's secret stored on the deployment and the support
+ * inbox's among them, and is not asked when neither dry run finds one. A
+ * deployment that cannot sync (no `EMAIL_API_KEY`, a send-only key, no
+ * `email:syncEmail`) is skipped, as doctor's findings name it; a refusal,
+ * a provider error or a sync that ends with a nonzero exit code fails.
+ */
+export async function syncEmailOnFix(rootDir: string, { prod, confirm, print }: { prod: boolean, confirm: ConfirmChange, print: (line: string) => void }, deps: EmailSyncFixDeps = {}): Promise<EmailSyncFixOutcome> {
+  const planned = await planEmailSync(rootDir, prod, print, deps.plan ?? runEmailSync)
+  if (typeof planned === 'string') return planned
+  const inbound = await planInboundSync(rootDir, prod, planned.report, deps.planInbound ?? runInboundSync)
+  const plans = [...planned.plans, ...inbound.plans]
+  if (plans.length === 0) {
+    print('[nuxt-backend] doctor --fix: email sync: the email provider has what backend/email.ts declares.')
+    return 'unchanged'
+  }
+  for (const line of [...emailSyncLines(planned.report), ...inbound.lines]) print(line)
+  const account = prod ? 'production\'s email provider account' : 'the dev email provider account'
+  if (!await confirm({ description: `Sync ${account}: ${plans.join(', ')}.` })) return 'declined'
+  const { exitCode } = await (deps.apply ?? runEmailSyncCommand)(rootDir, { prod }, print)
+  if (exitCode === 0) return 'applied'
+  print(`[nuxt-backend] doctor --fix: email sync failed: run \`npx nuxt-backend email sync${prod ? ' --prod' : ''}\` for its full output.`)
+  return 'failed'
+}
+
+/** The dry run {@link syncEmailOnFix} asks about: its report and what it would change, or why there is nothing to ask. */
+async function planEmailSync(rootDir: string, prod: boolean, print: (line: string) => void, plan: typeof runEmailSync): Promise<EmailSyncFixOutcome | { report: EmailSyncReport, plans: string[] }> {
+  const refusal = emailSyncRefusal(rootDir, prod)
+  if (refusal) {
+    print(`[nuxt-backend] doctor --fix: email sync refused: ${refusal}`)
+    return 'failed'
+  }
+  let report: EmailSyncReport | null
+  try {
+    report = await plan(rootDir, { prod, dryRun: true })
+  }
+  catch (error) {
+    print(`[nuxt-backend] doctor --fix: email sync failed: ${error instanceof Error ? error.message : String(error)}`)
+    return 'failed'
+  }
+  if (!report) {
+    print('[nuxt-backend] doctor --fix: email sync skipped: the deployment has no email:syncEmail.')
+    return 'skipped'
+  }
+  if (report.key !== 'full') {
+    for (const line of emailSyncLines(report)) print(line)
+    return 'skipped'
+  }
+  return { report, plans: emailSyncPlans(report) }
 }
 
 /**

@@ -3,7 +3,7 @@
 // settings. Runtime-neutral, so the auth and billing integrations share it.
 
 import { backendEnvironment } from './app.js'
-import { isLive, logsSignInCodes, runsProviderAdminActions } from './environment.js'
+import { isLive, logsSignInCodes, publishesDevInbox, runsProviderAdminActions } from './environment.js'
 import { backendError } from './errors.js'
 
 type EnvHost = { process?: { env?: Record<string, string | undefined> } }
@@ -26,6 +26,31 @@ const SANDBOX_ADDRESS = /^(?:delivered|bounced|complained)(?:\+[^@\s]+)?@resend\
 /** Whether an address is one of the provider's test addresses, whatever the deployment's mode. */
 export function isSandboxAddress(email: string): boolean {
   return SANDBOX_ADDRESS.test(email.trim().toLowerCase())
+}
+
+/** The provider's sandbox inbox: the test address the dev inbox reads (`npx nuxt-backend inbox`). */
+export const SANDBOX_INBOX = 'delivered@resend.dev'
+
+/**
+ * Where the contact form's copy for the team goes, from
+ * `setupEmail({ contact: { to } })` (a support inbox, when there is one,
+ * wins over it): the sandbox inbox on a `development` deployment, where
+ * test mode would hold a real address back, so the copy shows in the dev
+ * inbox; `to` itself on any other. Never the sandbox inbox on a `sandbox`
+ * or a preview, whose dev inbox may answer anyone who knows the address
+ * (`getSandboxInbox`): a visitor's message is personal data, so there test
+ * mode holds the copy back, and the message waits in the admin console. A
+ * test address of the provider's (`bounced@resend.dev`) stays as it is,
+ * except on a deployment other than `development` that publishes its dev
+ * inbox (`EMAIL_DEV_INBOX=1`), where the copy would be one anyone could
+ * read: there, as with no `to`, no copy is sent.
+ */
+export function contactMailbox(to: string | undefined): string | undefined {
+  const address = to?.trim().toLowerCase()
+  if (!address) return undefined
+  const environment = backendEnvironment()
+  if (environment === 'development') return isSandboxAddress(address) ? address : SANDBOX_INBOX
+  return isSandboxAddress(address) && publishesDevInbox(environment, readEnv('EMAIL_DEV_INBOX')) ? undefined : address
 }
 
 // The kind of deployment, as its `BACKEND_ENVIRONMENT` says: the app reads

@@ -292,6 +292,12 @@ describe('the page guard in the browser', () => {
     expect(loadAuthClient).toHaveBeenCalledTimes(2)
   })
 
+  it('sends a signed-out visitor to /login when the packaged sign-in page is off', async () => {
+    const config = useRuntimeConfig().public as Record<string, unknown>
+    config.backend = { ...(config.backend as object), pages: { login: false } }
+    expect(await guard(route('/account', { auth: true }))).toEqual({ path: '/login', query: { redirect: '/account' } })
+  })
+
   it('sends a signed-out visitor to sign in, with the way back and no one-time code', async () => {
     const result = await guard(route('/oauth/admin?consent_code=secret&tab=keys', { auth: { role: 'admin' } }))
     expect(navigateTo).toHaveBeenCalledWith({ path: '/signin', query: { redirect: '/oauth/admin?tab=keys' } })

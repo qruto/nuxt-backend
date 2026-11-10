@@ -3,6 +3,7 @@ import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 import { TRUSTED_TYPES_POLICIES } from '../runtime/vue/trusted-types'
 import { appBrandLogoPath } from './brand'
+import { setForDevelopment } from './development'
 
 /**
  * What the package asks of `nuxt-security`, under the app's own options
@@ -24,7 +25,9 @@ import { appBrandLogoPath } from './brand'
  *   no HSTS. Every reload, DevTools probe and test run counts against the
  *   limiter, whose 429s read as page failures, and on a plain-http dev port
  *   Safari obeys the other two for localhost, so every asset goes to
- *   https:// and fails. A production build keeps all three.
+ *   https:// and fails. A production build keeps all three, and an app's
+ *   own value for one of them reaches development only from `$development`
+ *   ({@link securityDevOverrides}).
  *
  * An app that loads code which writes sinks itself lists that code's policy
  * in `trusted-types`, or turns the requirement off with
@@ -52,6 +55,31 @@ export function securityDefaults(dev: boolean): Record<string, unknown> {
       },
     },
   }
+}
+
+/**
+ * What development keeps off over the app's own `security` options, handed
+ * to nuxt-security as overrides. As defaults alone, an app's
+ * `security.rateLimiter: { tokensPerInterval: 2000 }`, meant for
+ * production, turned the limiter back on in `nuxt dev`, and a
+ * `strictTransportSecurity` of its own turned HSTS back on. Each of the
+ * three (the request limiter, HSTS and `upgrade-insecure-requests`) stays
+ * off in development unless the app sets it there itself, under
+ * `$development` (`$development: { security: { rateLimiter: { … } } }`).
+ * Headers or a policy the app turned off (`headers: false`,
+ * `contentSecurityPolicy: false`) get no override: one would turn them back on.
+ */
+export function securityDevOverrides(nuxt: Pick<Nuxt, 'options'>): Record<string, unknown> {
+  const own = (field: string[]) => setForDevelopment(nuxt, ['security', ...field])
+  const headers = (nuxt.options.security as { headers?: unknown } | undefined)?.headers
+  const overrides: Record<string, unknown> = own(['rateLimiter']) ? {} : { rateLimiter: false }
+  if (headers === false) return overrides
+  const policy = (headers as { contentSecurityPolicy?: unknown } | undefined)?.contentSecurityPolicy
+  const offHeaders = {
+    ...(own(['headers', 'strictTransportSecurity']) ? {} : { strictTransportSecurity: false }),
+    ...(policy === false || own(['headers', 'contentSecurityPolicy', 'upgrade-insecure-requests']) ? {} : { contentSecurityPolicy: { 'upgrade-insecure-requests': false } }),
+  }
+  return Object.keys(offHeaders).length ? { ...overrides, headers: offHeaders } : overrides
 }
 
 /**
