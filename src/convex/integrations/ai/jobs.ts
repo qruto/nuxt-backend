@@ -44,6 +44,7 @@ import { setupAudit } from '../audit.js'
 import type { CostReport, SpendReservation } from '../billing.js'
 import { BILLING_ACCESS, BILLING_METERS, BILLING_TO } from '../billing/context.js'
 import { requireCreditAmount } from '../billing/credits.js'
+import { providerFailurePasses } from '../billing/provider-failure.js'
 import type { Ai, AiModel, MeteredModel } from './config.js'
 import { AI_CONTEXTS } from './context.js'
 import { usageOf } from './costs.js'
@@ -309,8 +310,13 @@ export interface JobProgress {
 export interface JobChargeOptions {
   /**
    * More of your own string metadata for the usage event, such as the id
-   * of what the job made (`{ comicId }`): merged with the queue's
-   * `userId` and `job`, which win over keys of the same name.
+   * of what the job made (`{ stripId }`): merged with the queue's
+   * `userId` and `job`, which win over keys of the same name. Within the
+   * billing provider's limits on a usage event: at most 47 keys (it takes
+   * 50, and the queue adds `userId`, `job` and the meter's amount), each of
+   * 1 to 40 ASCII characters, not starting with `_` (the provider's own
+   * keys, such as `_cost` and `_llm`) or `$`, and values of at most 500
+   * characters. `job.charge` throws a `TypeError` past them.
    */
   metadata?: Record<string, string>
 }
@@ -334,11 +340,14 @@ export interface JobContext {
    * fails after it is refunded what it was charged. Throws in a kind that
    * charges at start; does nothing in a job put in line `{ free: true }`.
    *
-   * A balance short of the credits fails the job. Any other refusal (the
-   * provider down, no billing customer yet) leaves the charge owed: the job
-   * runs on and ends `done`, its hold stays taken, and the queue tries the
-   * charge again in the background (`onOwedCharge`). `metadata` goes on
-   * the usage event beside the queue's own.
+   * A balance short of the credits fails the job, and so does a billing
+   * provider that refuses the charge itself, such as a revoked access
+   * token. A refusal that may pass (the provider down or rate limiting, no
+   * billing customer yet) leaves the charge owed: the job runs on and ends
+   * `done`, its hold stays taken, and the queue tries the charge again in
+   * the background (`onOwedCharge`). `metadata` goes on the usage event
+   * beside the queue's own, within the provider's limits
+   * ({@link JobChargeOptions.metadata}): past them, `job.charge` throws.
    */
   charge: (credits: number, options?: JobChargeOptions) => Promise<void>
 }
@@ -1167,6 +1176,15 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   /** A refusal that waits: billing has not synced the balance (`not_synced`) or the customer (`no_customer`) yet. */
   const isUnsynced = (error: unknown): boolean => getBackendError(error)?.code === 'not_ready'
 
+  /**
+   * A refusal a charge by output waits out as an owed charge: billing not
+   * synced yet, or a provider failure that may pass (no answer, a `408`,
+   * `429` or `5xx`). A provider that refuses the request itself, such as a
+   * revoked access token (`401`), would refuse every try: that job fails as
+   * a charge at start does, its hold back.
+   */
+  const isPassingRefusal = (error: unknown): boolean => isUnsynced(error) || providerFailurePasses(error)
+
   /** A hold to let go by its id: one an earlier try took and never noted is still let go, and none is a no-op. */
   const released = (hold: SpendReservation): SpendReservation => ({ ...hold, reserved: true })
 
@@ -1434,8 +1452,9 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
    * ingest failed let it go, or a wait past its week let it lapse, the
    * credits are taken again, or the job fails short of them, so the
    * provider never bills what the cached balance still shows. Charged by
-   * output (`amount`), a refusal other than a shortfall leaves the charge
-   * owed instead of failing a job that made what it charges for.
+   * output (`amount`), a refusal that may pass ({@link isPassingRefusal})
+   * leaves the charge owed instead of failing a job that made what it
+   * charges for.
    */
   const charge = async (ctx: ActionCtx, job: JobRow, amount?: number, metadata?: Record<string, string>, attempt = 0): Promise<BillOutcome | undefined> => {
     const hold = reservationOf(job)
@@ -1455,7 +1474,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
       await billing.settleSpend(ctx as never, held, defined({ finalAmount: price, metadata: chargeTags(job, metadata) }))
     }
     catch (error) {
-      if (price !== undefined && !isShortfall(error)) return await oweCharge(ctx, job, held ?? hold, price, metadata, error)
+      if (price !== undefined && isPassingRefusal(error)) return await oweCharge(ctx, job, held ?? hold, price, metadata, error)
       await billing.releaseSpend(ctx as never, released(held ?? hold))
       return await billingRefused(ctx, job, error, attempt)
     }
@@ -1886,10 +1905,42 @@ function owedOf(job: JobRow): JobOwed | undefined {
   return job.chargeOwed === undefined || job.charged ? undefined : { credits: job.price ?? 0, givenUp: job.chargeOwed === 'given_up' }
 }
 
-/** `job.charge`'s metadata, checked: string keys and string values, as the usage event takes them. */
+/** The billing provider's limits on a usage event's metadata: 50 keys, each of 40 characters at most, and string values of 500. */
+const EVENT_METADATA = { keys: 50, keyLength: 40, valueLength: 500 }
+
+/** The keys the queue adds to every charge's metadata: `userId`, `job` and the meter's amount. */
+const QUEUE_METADATA_KEYS = 3
+
+/**
+ * A metadata key both a usage event and the job's billing step take: 1 to
+ * 40 printable ASCII characters, the first neither `_` (the provider's own
+ * keys) nor `$`.
+ */
+const METADATA_KEY = /^[\x20-\x23\x25-\x5E\x60-\x7E][\x20-\x7E]{0,39}$/
+
+/**
+ * `job.charge`'s metadata, checked against what a usage event takes: an
+ * object of string values, within the billing provider's limits. Past them
+ * the provider would refuse the charge on every try, so it throws here,
+ * where the job's code called it.
+ */
 function checkedMetadata(metadata: Record<string, string>): Record<string, string> {
   if (typeof metadata !== 'object' || metadata === null || Array.isArray(metadata) || Object.values(metadata).some(value => typeof value !== 'string')) {
-    throw new TypeError('[nuxt-backend] job.charge: `metadata` is an object of string values, such as `{ comicId }`.')
+    throw new TypeError('[nuxt-backend] job.charge: `metadata` is an object of string values, such as `{ stripId }`.')
+  }
+  const keys = Object.keys(metadata)
+  const most = EVENT_METADATA.keys - QUEUE_METADATA_KEYS
+  if (keys.length > most) {
+    throw new TypeError(`[nuxt-backend] job.charge: \`metadata\` has ${keys.length} keys, over the ${most} of your own a usage event takes: the billing provider takes ${EVENT_METADATA.keys}, and the queue adds \`userId\`, \`job\` and the meter's amount.`)
+  }
+  for (const key of keys) {
+    if (!METADATA_KEY.test(key)) {
+      throw new TypeError(`[nuxt-backend] job.charge: \`metadata\` key ${JSON.stringify(key)} is no key a usage event takes: 1 to ${EVENT_METADATA.keyLength} ASCII characters, not starting with \`_\` (the billing provider's own keys, such as \`_cost\` and \`_llm\`) or \`$\`.`)
+    }
+    const length = [...metadata[key]!].length
+    if (length > EVENT_METADATA.valueLength) {
+      throw new TypeError(`[nuxt-backend] job.charge: \`metadata.${key}\` is ${length} characters, over the ${EVENT_METADATA.valueLength} a usage event takes.`)
+    }
   }
   return { ...metadata }
 }

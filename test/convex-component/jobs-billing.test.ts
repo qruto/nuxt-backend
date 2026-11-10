@@ -70,7 +70,15 @@ const print = jobs.define({
   },
 })
 
-/** A comic that charges its pages, then fails to bind; or tags its charge with a number, which no usage event takes. */
+/** Metadata past the billing provider's limits on a usage event, by the comic id that tags its charge with it. */
+const misfits: Record<string, Record<string, string>> = {
+  'long-value': { note: 'x'.repeat(501) },
+  'long-key': { ['k'.repeat(41)]: 'v' },
+  'provider-key': { _cost: '1' },
+  'crowded': Object.fromEntries(Array.from({ length: 48 }, (_, i) => [`key${i}`, 'v'])),
+}
+
+/** A comic that charges its pages, then fails to bind; or tags its charge with a number, or metadata past the provider's limits, which no usage event takes. */
 const misprint = jobs.define({
   meter: 'credits',
   charge: 'output',
@@ -78,6 +86,7 @@ const misprint = jobs.define({
   args: { comicId: v.string(), pages: v.number() },
   handler: async (job, { comicId, pages }) => {
     if (comicId === 'numbered') await job.charge(pages, { metadata: { pages } as never })
+    if (misfits[comicId]) await job.charge(pages, { metadata: misfits[comicId] })
     await job.charge(pages, { metadata: { comicId } })
     throw new Error('The comic could not be bound.')
   },
@@ -237,6 +246,66 @@ describe('a charge the provider refuses for now', () => {
     expect(await job(t, jobId)).toMatchObject({ status: 'failed', charged: 0 })
     expect(provider.events).toEqual([])
     expect(await balanceOf(t, ada.workspaceId!)).toBe(10)
+  })
+
+  test.each([
+    ['a value over 500 characters', 'long-value', /`metadata\.note` is 501 characters, over the 500/],
+    ['a key over 40 characters', 'long-key', /is no key a usage event takes: 1 to 40 ASCII characters/],
+    ['a key of the provider\'s own', 'provider-key', /"_cost" is no key a usage event takes/],
+    ['more keys than the event has room for', 'crowded', /has 48 keys, over the 47 of your own/],
+  ])('takes metadata within the provider\'s limits only: %s fails the job where it was charged, before anything is', async (_label, comicId, message) => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 10 } })
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const jobId = await ada.mutation(ref.start, { kind: 'misprint', comicId, pages: 2 })
+    await drain(t, vi)
+    expect(await job(t, jobId)).toMatchObject({ status: 'failed', charged: 0 })
+    expect(provider.events).toEqual([])
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(10)
+    expect(logged.mock.calls.flat().map(String).join('\n')).toMatch(message)
+    logged.mockRestore()
+  })
+})
+
+describe('a charge the provider refuses for good', () => {
+  test('fails the job as a charge at start does: nothing owed, nothing tried in the background, its hold back', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 10 } })
+    // A revoked access token: the provider answers 401 to every try.
+    provider.restore()
+    provider = stubBillingProvider({ status: 401 })
+    provider.refuse('charges')
+
+    const jobId = await ada.mutation(ref.start, { kind: 'print', comicId: 'comic-6', pages: 3 })
+    await drain(t, vi)
+
+    expect(await job(t, jobId)).toMatchObject({ status: 'failed', charged: 0, error: { code: 'unavailable', reason: 'provider_refused' } })
+    expect(await job(t, jobId)).not.toHaveProperty('owed')
+    expect(await rows(t, 'ends')).toEqual([{ _id: expect.anything(), _creationTime: expect.any(Number), jobId, status: 'failed', charged: 0 }])
+    expect(await rows(t, 'owedCharges')).toEqual([])
+    // The job's own tries only: the queue tried none in the background.
+    expect(provider.refused).toBe(3)
+    expect(provider.charges).toEqual([])
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(10)
+  })
+
+  test('a rate limit is no such refusal: a charge refused 429 is owed, and lands', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 10 } })
+    provider.restore()
+    provider = stubBillingProvider({ status: 429 })
+    provider.refuse('charges', 1)
+
+    const jobId = await ada.mutation(ref.start, { kind: 'print', comicId: 'comic-7', pages: 2 })
+    await drain(t, vi, { until: async () => (await rows(t, 'ends')).length > 0 })
+    expect(await job(t, jobId)).toMatchObject({ status: 'done', charged: 0, owed: { credits: 2, givenUp: false } })
+
+    await drain(t, vi)
+    expect(provider.charges).toEqual([expect.objectContaining({ value: 2, metadata: expect.objectContaining({ comicId: 'comic-7' }) })])
+    expect(await job(t, jobId)).toMatchObject({ status: 'done', charged: 2 })
   })
 })
 
