@@ -164,7 +164,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useReferralInvite` — the state of the page a referral link (`/r/<code>`) opens, headless: what the link offers, the sign-in that returns to the page, and the claim
 - `useReferrals` — a person's referral code, link and rewards: the data behind `<ReferralCard>`, for a page of your own
 - `useReportForm` — a report about content of the app's, without its markup
-- `useReturnPath` — where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere), else where sign-in lands (`redirects.afterSignIn`, `/` without it)
+- `useReturnPath` — where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere, and never to the sign-in page, which would ask them to sign in again), else where sign-in lands (`redirects.afterSignIn`, `/` without it)
 - `useSandboxInbox` — the mail a test address received within the last hour, refreshed while the page is open — so a demo, a preview deployment or an e2e run can finish an email-code sign-in without a real mailbox (experimental)
 - `useSearch` — reactive, debounced full-text search
 - `useSessions` — device-session management: list, revoke one, revoke the rest

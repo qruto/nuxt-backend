@@ -2071,6 +2071,10 @@
           "why": "Keeps the prompt hidden for the time the app sets. Without preferences allowed, it is kept for the tab only.",
           "lasts": "The app's cool-down, a year at most."
         },
+        "chunkReload": {
+          "why": "Keeps that page from reloading again for a minute, so a failure that persists never turns into a loop.",
+          "lasts": "Until the tab closes."
+        },
         "pushSubscription": {
           "why": "The push subscription lets the app send that device notifications. The service worker, where the browser needs one, shows them and opens the app on a click; it caches nothing.",
           "lasts": "Until the person turns notifications off on the device or takes back the site's permission."

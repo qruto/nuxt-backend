@@ -5,7 +5,7 @@ import { computeDeployment } from '../deployment'
 import { detectCapabilities } from '../capabilities'
 import { appMonitoringDsn, monitoringSdkInstalled } from '../monitoring'
 import { collectPreflightFindings, OPTIONAL_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV, type PreflightFinding } from '../preflight'
-import { BACKEND_PAGE_DEFS, type BackendPageKey } from '../pages'
+import { BACKEND_PAGE_DEFS, pagePathShape, type BackendPageKey } from '../pages'
 import type {
   DevtoolsDeploymentEnv,
   DevtoolsEnvTier,
@@ -62,7 +62,7 @@ export function computeDevtoolsPages(
 ): DevtoolsPageInfo[] {
   return BACKEND_PAGE_DEFS.map((def) => {
     const path = resolved[def.key]
-    return { key: def.key, path, auth: def.auth, shadowed: taken.has(path) }
+    return { key: def.key, path, auth: def.auth, shadowed: taken.has(pagePathShape(path)) }
   })
 }
 

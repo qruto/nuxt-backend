@@ -155,6 +155,12 @@ export interface BrowserStorageItem {
   lasts: string
   /** `necessary`: strictly necessary for what the person asked for, so written without consent (ePrivacy Art. 5(3)); else the purpose it waits for. */
   consent: StorageConsent
+  /**
+   * Written by the app's own production build, whatever its backend runs
+   * on, so listed whatever the health says of `capability`: a production
+   * build may run against a dev backend, whose hosting reads `missing`.
+   */
+  everyBuild?: true
 }
 
 /**
@@ -284,6 +290,18 @@ export const BROWSER_STORAGE = {
     lasts: 'The app\'s cool-down, a year at most.',
     consent: 'preferences',
   },
+  // The chunk-load recovery's guard (RELOAD_GUARD_KEY in src/runtime/server/chunk-recovery.ts).
+  chunkReload: {
+    capability: 'hosting',
+    everyBuild: true,
+    name: 'nuxt-backend:reload',
+    kind: 'sessionStorage',
+    httpOnly: false,
+    set: 'A page\'s code fails to load before the app starts, and the page reloads to fetch it again.',
+    why: 'Keeps that page from reloading again for a minute, so a failure that persists never turns into a loop.',
+    lasts: 'Until the tab closes.',
+    consent: 'necessary',
+  },
   pushSubscription: {
     capability: 'notifications',
     name: PUSH_WORKER_URL,
@@ -355,7 +373,10 @@ export function subprocessorsInUse(inUse: (capability: CapabilityName) => boolea
   return (Object.keys(SUBPROCESSORS) as SubprocessorKey[]).filter(key => inUse(SUBPROCESSORS[key].capability))
 }
 
-/** The stored items of the capabilities in use, in list order. */
+/** The stored items of the capabilities in use, and those every build writes, in list order. */
 export function browserStorageInUse(inUse: (capability: CapabilityName) => boolean = () => true): BrowserStorageKey[] {
-  return (Object.keys(BROWSER_STORAGE) as BrowserStorageKey[]).filter(key => inUse(BROWSER_STORAGE[key].capability))
+  return (Object.keys(BROWSER_STORAGE) as BrowserStorageKey[]).filter((key) => {
+    const item: BrowserStorageItem = BROWSER_STORAGE[key]
+    return item.everyBuild === true || inUse(item.capability)
+  })
 }

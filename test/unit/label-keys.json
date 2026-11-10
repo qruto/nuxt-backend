@@ -1594,6 +1594,8 @@
   "legal.storage.presence.lasts": [],
   "legal.storage.upgradeDismissed.why": [],
   "legal.storage.upgradeDismissed.lasts": [],
+  "legal.storage.chunkReload.why": [],
+  "legal.storage.chunkReload.lasts": [],
   "legal.storage.pushSubscription.why": [],
   "legal.storage.pushSubscription.lasts": [],
   "legal.storage.replay.why": [],

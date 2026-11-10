@@ -282,7 +282,7 @@ async function resolveMiddleware(nuxt: Nuxt): Promise<RegisteredMiddleware> {
  * listing is unchanged and the scaffold sentinel (`convex.json`, which the
  * scaffolder writes whenever the functions dir is not `convex/`) is absent.
  */
-function useBoot(overrides: Record<string, unknown> = {}, options: { dev?: boolean } = {}): () => Nuxt {
+function useBoot(overrides: Record<string, unknown> = {}, options: { dev?: boolean, envName?: string } = {}): () => Nuxt {
   let nuxt: Nuxt
   let before: string[]
 
@@ -291,6 +291,8 @@ function useBoot(overrides: Record<string, unknown> = {}, options: { dev?: boole
     nuxt = await loadNuxt({
       cwd: fixtureDir,
       dev: options.dev ?? false,
+      // The `$<env>` config block that applies; under the test runner, `$test`'s.
+      ...(options.envName ? { envName: options.envName } : {}),
       ready: true,
       overrides: { telemetry: false, ...overrides } as Overrides,
     })
@@ -661,6 +663,68 @@ describe('module registration (defaults)', () => {
     expect(pages).toHaveLength(DEFAULT_PAGES.length)
   })
 
+  // Nuxt registers `app/pages/r/[code].vue` as `/r/:code()`, the referral page's `/r/:code` by another spelling.
+  it('skips a page the app serves at a path with a parameter, however Nuxt spelled it', async () => {
+    for (const path of ['/r/:code()', '/r/:id()']) {
+      const appReferral: NuxtPage = { name: 'r-code', path, file: join(fixtureDir, 'app/pages/r/[code].vue') }
+      const pages = await extendPages(getNuxt(), [appReferral])
+      expect(pages.map(page => page.name), path).not.toContain('backend-referral')
+      expect(pages.filter(page => page.path.startsWith('/r/')), path).toEqual([appReferral])
+    }
+  })
+
+  // `app/pages/r/[...slug].vue` or `[[code]].vue` answers more addresses; the router ranks `/r/:code` above it, as on a page of its own.
+  it('keeps the referral page beside an app\'s catch-all or optional page under the same path', async () => {
+    for (const [path, file] of [['/r/:slug(.*)*', 'r/[...slug].vue'], ['/r/:code?', 'r/[[code]].vue']] as const) {
+      const appPage: NuxtPage = { name: 'r-any', path, file: join(fixtureDir, 'app/pages', file) }
+      const pages = await extendPages(getNuxt(), [appPage])
+      expect(pages.map(page => page.name), path).toContain('backend-referral')
+      expect(pages, path).toContain(appPage)
+    }
+  })
+
+  // An app's public shop at /gifts, where the packaged gifts page asks for a sign-in.
+  it('lets an app page without `auth` rules at a private page\'s path be indexed, and keeps it out of caches', async () => {
+    const nuxt = getNuxt()
+    const rulesAtGifts = () => [nuxt.options.routeRules?.['/gifts'], nitroRouteRules(nuxt)['/gifts']]
+    const shop: NuxtPage = { name: 'gifts', path: '/gifts', file: join(fixtureDir, 'app/pages/gifts.vue') }
+    const resolve = async (page?: NuxtPage) => nuxt.callHook('pages:resolved', await extendPages(nuxt, page ? [page] : []))
+
+    await resolve(shop)
+    for (const rule of rulesAtGifts()) {
+      expect(rule).not.toHaveProperty('robots')
+      expect(rule).not.toHaveProperty('sitemap')
+      expect(rule).toMatchObject({ prerender: false, cache: false, swr: false, isr: false, headers: { 'cache-control': 'private, no-store' } })
+    }
+
+    // The same page asking for a sign-in keeps every private rule, and so does the packaged page once it is back.
+    for (const page of [{ ...shop, meta: { auth: true } }, undefined]) {
+      await resolve(page)
+      for (const rule of rulesAtGifts()) expect(rule).toMatchObject({ robots: false, sitemap: false, cache: false, headers: { 'cache-control': 'private, no-store' } })
+    }
+  })
+
+  it('puts the chunk-load recovery in a production build\'s pages, with the client plugin that tells it the app started', () => {
+    const nuxt = getNuxt()
+    expect(nitroPlugins(nuxt).filter(plugin => /[\\/]runtime[\\/]server[\\/]chunk-recovery(?:\.ts)?$/.test(plugin))).toHaveLength(1)
+    expect(nuxt.options.plugins.filter(plugin => typeof plugin !== 'string' && /[\\/]plugins[\\/]chunk-recovery\.client(?:\.ts)?$/.test(plugin.src))).toEqual([expect.objectContaining({ mode: 'client' })])
+  })
+
+  it('runs the recovery\'s render hook before nuxt-security\'s nonce pass, which puts the request\'s nonce on its tag', () => {
+    const plugins = nitroPlugins(getNuxt())
+    const recovery = plugins.findIndex(plugin => /[\\/]runtime[\\/]server[\\/]chunk-recovery(?:\.ts)?$/.test(plugin))
+    const nonce = plugins.findIndex(plugin => /[\\/]nuxt-security[\\/].*[\\/]40-cspSsrNonce(?:\.js)?$/.test(plugin))
+    expect(recovery).toBeGreaterThanOrEqual(0)
+    expect(nonce).toBeGreaterThan(recovery)
+  })
+
+  it('leaves development\'s defaults to development', () => {
+    const nuxt = getNuxt()
+    expect(nuxt.options.app.buildAssetsDir).toBe('/_nuxt/')
+    expect(Object.keys(nuxt.options.vite.server?.headers ?? {}).map(name => name.toLowerCase())).not.toContain('cache-control')
+    expect((nuxt.options.security as { rateLimiter?: unknown }).rateLimiter).not.toBe(false)
+  })
+
   // The DevTools bridge is dev-only; the session-ended watch and the
   // passkey ceremony's idle load are always on.
   it('wires no error-reporting SDK without a DSN, installed or not: nothing imports it', () => {
@@ -670,10 +734,10 @@ describe('module registration (defaults)', () => {
     expect(nitroPlugins(nuxt).filter(plugin => plugin.includes('monitoring'))).toEqual([])
   })
 
-  it('adds the noindex plugin and the client-side session-ended, onboarding-redirect, checkout-return, first-touch, email-presence, passkey-ceremony, protection and trusted-types plugins outside dev', () => {
+  it('adds the noindex plugin and the client-side session-ended, onboarding-redirect, checkout-return, first-touch, email-presence, passkey-ceremony, protection, trusted-types and chunk-recovery plugins outside dev', () => {
     const plugins = getNuxt().options.plugins.filter(entry => typeof entry !== 'string' && entry.src.startsWith(runtimeDir)) as Array<{ src: string, mode?: string }>
-    expect(ourPlugins(getNuxt())).toHaveLength(9)
-    expect(plugins.map(plugin => plugin.src.replace(/^.*[\\/]vue[\\/]plugins[\\/]/, '').replace(/\.ts$/, '')).sort()).toEqual(['checkout-return', 'email-presence', 'first-touch', 'noindex', 'onboarding-redirect', 'passkey-ceremony', 'protection.client', 'session-ended', 'trusted-types.client'])
+    expect(ourPlugins(getNuxt())).toHaveLength(10)
+    expect(plugins.map(plugin => plugin.src.replace(/^.*[\\/]vue[\\/]plugins[\\/]/, '').replace(/\.ts$/, '')).sort()).toEqual(['checkout-return', 'chunk-recovery.client', 'email-presence', 'first-touch', 'noindex', 'onboarding-redirect', 'passkey-ceremony', 'protection.client', 'session-ended', 'trusted-types.client'])
 
     for (const plugin of plugins) {
       // The noindex meta tag is on the server's render too; everything else is the browser's.
@@ -770,6 +834,63 @@ describe('the noindex meta tag with @nuxtjs/robots installed', () => {
   it('is left to that module', () => {
     expect(installedModuleNames(getNuxt())).toContain('@nuxtjs/robots')
     expect(ourPlugins(getNuxt()).filter(src => /noindex/.test(src))).toEqual([])
+  })
+
+  // It made each `robots: false` a `noindex, nofollow` header at `modules:done`, before the pages resolved.
+  it('drops the header it made of a private page\'s rule for a public app page there, and gives it back with the rule', async () => {
+    const nuxt = getNuxt()
+    const rulesAtGifts = () => [nuxt.options.routeRules?.['/gifts'], nitroRouteRules(nuxt)['/gifts']]
+    const shop: NuxtPage = { name: 'gifts', path: '/gifts', file: join(fixtureDir, 'app/pages/gifts.vue') }
+    const resolve = async (page?: NuxtPage) => nuxt.callHook('pages:resolved', await extendPages(nuxt, page ? [page] : []))
+    for (const rule of rulesAtGifts()) expect(rule).toMatchObject({ robots: false, headers: { 'X-Robots-Tag': 'noindex, nofollow' } })
+
+    await resolve(shop)
+    for (const rule of rulesAtGifts()) {
+      expect(rule).not.toHaveProperty('robots')
+      expect(rule!.headers).toEqual({ 'cache-control': 'private, no-store' })
+    }
+    // Another private page keeps its header.
+    expect(nitroRouteRules(nuxt)['/settings']).toMatchObject({ headers: { 'X-Robots-Tag': 'noindex, nofollow' } })
+
+    for (const page of [{ ...shop, meta: { auth: true } }, undefined]) {
+      await resolve(page)
+      for (const rule of rulesAtGifts()) expect(rule).toMatchObject({ robots: false, headers: { 'cache-control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow' } })
+    }
+  })
+})
+
+describe('robots.txt with @nuxtjs/robots\' disallowNonIndexableRoutes', () => {
+  // The app lists /profile itself: that line is the app's, whatever page answers there.
+  const getNuxt = useBoot({ modules: ['@nuxtjs/robots'], robots: { disallowNonIndexableRoutes: true, disallow: ['/profile'] } })
+
+  /** The `Disallow` lines of robots.txt's `*` groups, in every copy of the runtime config robots.txt and its header read. */
+  function disallowed(nuxt: Nuxt): string[][] {
+    const nitro = (nuxt as unknown as { _nitro?: { options: { runtimeConfig: Record<string, unknown> } } })._nitro
+    const configs = [nuxt.options.runtimeConfig, nitro?.options.runtimeConfig] as Array<Record<string, unknown> | undefined>
+    return configs.flatMap(config => [config?.['nuxt-robots'], (config?.public as Record<string, unknown> | undefined)?.['nuxt-robots']])
+      .map(robots => ((robots as { groups: Array<{ userAgent: string[], disallow: string[] }> }).groups)
+        .filter(group => group.userAgent.includes('*')).flatMap(group => group.disallow))
+  }
+
+  // It wrote each `robots: false` path into robots.txt at `modules:done`, before the pages resolved.
+  it('takes a private page\'s line off robots.txt for a public app page there, and gives it back with the rule', async () => {
+    const nuxt = getNuxt()
+    const page = (name: string, meta?: NuxtPage['meta']): NuxtPage => ({ name, path: `/${name}`, file: join(fixtureDir, `app/pages/${name}.vue`), ...(meta ? { meta } : {}) })
+    const resolve = async (...pages: NuxtPage[]) => nuxt.callHook('pages:resolved', await extendPages(nuxt, pages))
+    expect(disallowed(nuxt)).toHaveLength(4)
+    for (const lines of disallowed(nuxt)) expect(lines).toEqual(expect.arrayContaining(['/gifts', '/settings', '/profile']))
+
+    await resolve(page('gifts'), page('profile'))
+    for (const lines of disallowed(nuxt)) {
+      expect(lines).not.toContain('/gifts')
+      // Another private page keeps its line, and the app's own line stays.
+      expect(lines).toEqual(expect.arrayContaining(['/settings', '/profile']))
+    }
+
+    for (const pages of [[page('gifts', { auth: true })], []]) {
+      await resolve(...pages)
+      for (const lines of disallowed(nuxt)) expect(lines.filter(line => line === '/gifts')).toEqual(['/gifts'])
+    }
   })
 })
 
@@ -1006,6 +1127,15 @@ describe('devtools: false', () => {
   })
 })
 
+describe('chunkRecovery: false', () => {
+  const getNuxt = useBoot({ backend: { chunkRecovery: false } })
+
+  it('adds no recovery script to the pages', () => {
+    expect(nitroPlugins(getNuxt()).filter(plugin => plugin.includes('chunk-recovery'))).toEqual([])
+    expect(ourPlugins(getNuxt()).filter(src => src.includes('chunk-recovery'))).toEqual([])
+  })
+})
+
 // nuxt-security's own switch, honoured by the package that installs it: no
 // headers module, and no Trusted Types policies for a CSP that is not sent.
 describe('security: false', () => {
@@ -1112,6 +1242,59 @@ describe('dev boot under a test runner (test: true), DevTools left on', () => {
     expect(await rendersFallback('backend/_generated/api.d.ts', { filename: 'nuxt-backend-provide-api.mjs' })).toBe(true)
     expect(await rendersFallback('backend\\_generated\\api.d.ts')).toBe(true)
     expect(await rendersFallback('backend/todos.ts')).toBe(false)
+  })
+})
+
+describe('development defaults', () => {
+  // The module logs through consola, which writes to the process streams.
+  const written: string[] = []
+  const streams: Array<{ mockRestore: () => void }> = []
+  beforeAll(() => {
+    for (const stream of [process.stdout, process.stderr]) {
+      streams.push(vi.spyOn(stream, 'write').mockImplementation((chunk: string | Uint8Array) => {
+        written.push(String(chunk))
+        return true
+      }))
+    }
+  })
+  const getNuxt = useBoot({ test: true }, { dev: true })
+  afterAll(() => {
+    for (const stream of streams) stream.mockRestore()
+  })
+
+  // `no-cache`, not `no-store`: the browser checks each module before it uses it, and an unchanged one costs a 304.
+  it('serves the dev modules from /_dev/, checked before each use', () => {
+    const nuxt = getNuxt()
+    expect(nuxt.options.app.buildAssetsDir).toBe('/_dev/')
+    expect((nuxt.options.runtimeConfig.app as { buildAssetsDir?: string }).buildAssetsDir).toBe('/_dev/')
+    expect(nuxt.options.vite.server?.headers).toMatchObject({ 'Cache-Control': 'no-cache' })
+    // Never in a page served by the dev server: the recovery is a production build's.
+    expect(nitroPlugins(nuxt).filter(plugin => plugin.includes('chunk-recovery'))).toEqual([])
+    expect(ourPlugins(nuxt).filter(src => src.includes('chunk-recovery'))).toEqual([])
+  })
+
+  it('names an app page that makes a private page\'s path public, once', async () => {
+    const nuxt = getNuxt()
+    const shop: NuxtPage = { name: 'gifts', path: '/gifts', file: join(fixtureDir, 'app/pages/gifts.vue') }
+    for (let pass = 0; pass < 2; pass++) await nuxt.callHook('pages:resolved', await extendPages(nuxt, [shop]))
+    const warnings = written.join('').split('\n').filter(line => line.includes('replaces the ready-made gifts page'))
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('The app page at `/gifts`')
+    expect(written.join('')).toContain('definePageMeta({ auth: true })')
+  })
+})
+
+describe('development defaults the app sets itself', () => {
+  const getNuxt = useBoot({
+    test: true,
+    $development: { app: { buildAssetsDir: '/_assets/' } },
+    vite: { server: { headers: { 'cache-control': 'max-age=5' } } },
+  }, { dev: true, envName: 'development' })
+
+  it('keeps the app\'s own module cache settings, the one under $development included', () => {
+    const nuxt = getNuxt()
+    expect(nuxt.options.app.buildAssetsDir).toBe('/_assets/')
+    expect(nuxt.options.vite.server?.headers).toEqual({ 'cache-control': 'max-age=5' })
   })
 })
 

@@ -400,6 +400,7 @@ const features = {
 const loginFlow = {
   step: world.loginStep,
   lastMethod: computed(() => world.loginLastMethod.value),
+  webAuthnSupported: ref<boolean | null>(true),
   email: ref('ada@example.com'),
   name: ref(''),
   otp: ref(''),

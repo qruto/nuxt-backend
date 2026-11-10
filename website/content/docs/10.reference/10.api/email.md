@@ -1416,7 +1416,7 @@ What `setupEmail({ contact })` takes.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="to-6"></a> `to?` | `string` | The team's mailbox: a contact message is copied there with the sender's address as its reply-to, when there is no support inbox. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
+| <a id="to-6"></a> `to?` | `string` | The team's mailbox: a contact message is copied there with the sender's address as its reply-to, when there is no support inbox. On a `development` deployment the copy goes to the provider's sandbox inbox (`delivered@resend.dev`) instead, which the dev inbox reads. A test address here gets no copy on a sandbox or a preview that publishes its dev inbox, where anyone could read it: give it a real address. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
 
 ***
 
