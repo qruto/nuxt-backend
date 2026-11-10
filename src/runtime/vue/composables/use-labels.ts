@@ -58,6 +58,15 @@ interface I18nComposer {
   localeProperties?: { value?: { language?: string } }
 }
 
+/**
+ * Where a label is looked up: every source in order (`all`), the app's
+ * overrides alone (`overrides`: the component's `labels` prop and app
+ * config), or the active locale's messages alone (`messages`: the app's,
+ * and the package's in a language it translates). The last two never read
+ * the package's English.
+ */
+type LabelSources = 'all' | 'overrides' | 'messages'
+
 /** The `{name}` placeholders of a message. */
 const placeholders = (message: string): string[] => [...new Set([...message.matchAll(/\{(\w+)\}/g)].map(([, name]) => name!))]
 
@@ -185,24 +194,24 @@ export function useLabels<G extends LabelGroup>(group: G, overrides?: MaybeRefOr
     return intlLocale(i18n.localeProperties?.value?.language) ?? intlLocale(code)
   })
 
-  // English is the active language without @nuxtjs/i18n, and with it on an English locale.
-  const englishActive = () => locale.value === undefined || /^en(?:-|$)/i.test(locale.value)
+  // An English locale holds the package's English as its own messages: registered for it, they are still the package's.
+  const englishLocale = () => locale.value !== undefined && /^en(?:-|$)/i.test(locale.value)
 
   /**
-   * One label of any group, through the four sources in order; without
-   * `englishFallback`, the key when only the package's English has it and
-   * the active language is another: the label in the active language,
-   * the app's or the package's, or none.
+   * One label of any group, through the four sources in order; with
+   * `sources`, through the app's overrides alone or the active locale's
+   * messages alone, and the key when they have none.
    */
-  const resolve = (groupName: LabelGroup, key: string, params: LabelParams, own?: LabelTree, englishFallback = true): string => {
+  const resolve = (groupName: LabelGroup, key: string, params: LabelParams, own?: LabelTree, sources: LabelSources = 'all'): string => {
     const path = `${groupName}.${key}`
     const app = (config.labels as Record<string, LabelTree | undefined>)[groupName]
     const overrideOf = (name: string) => (own ? findLabel(own, name) : undefined) ?? (app ? findLabel(app, name) : undefined)
-    const override = overrideOf(key)
+    const override = sources === 'messages' ? undefined : overrideOf(key)
     if (override !== undefined) {
       if (import.meta.dev) warnOnce(path, () => overrideWarning(path, override))
       return formatLabel(override, params)
     }
+    if (sources === 'overrides') return path
     if (import.meta.dev && groupName === 'notifications') warnOnce(path, () => shadowWarning(path, overrideOf(key.replace(/Yours$/, ''))))
     const english = englishLabel(path, groupName === group)
     const message = `backend.${path}`
@@ -214,11 +223,11 @@ export function useLabels<G extends LabelGroup>(group: G, overrides?: MaybeRefOr
       // A key this locale leaves out falls back quietly: the package's English is the plan, not a slip.
       const text = i18n.t(message, named, { ...(typeof params.count === 'number' ? { plural: params.count } : {}), missingWarn: false, fallbackWarn: false })
       // `te` answers through the fallback chain, so the package's own English, reached
-      // from another locale, does not count as the app's.
-      const own = englishFallback || i18n.te(message, currentLocale()) || english === undefined || text !== formatLabel(english, params)
-      if (own) return text
+      // from another locale or registered for an English one, is not the locale's own.
+      const inLocale = i18n.te(message, currentLocale()) && !englishLocale()
+      if (sources === 'all' || inLocale || english === undefined || text !== formatLabel(english, params)) return text
     }
-    return english === undefined || (!englishFallback && !englishActive()) ? path : formatLabel(english, params)
+    return english === undefined || sources !== 'all' ? path : formatLabel(english, params)
   }
 
   const t = (key: string, params: LabelParams = {}) =>
@@ -246,12 +255,18 @@ export function useLabels<G extends LabelGroup>(group: G, overrides?: MaybeRefOr
     return children
   }
 
-  const anyGroup = (key: string, params: LabelParams = {}, english = true) => {
+  const anyGroup = (key: string, params: LabelParams = {}, sources: LabelSources = 'all') => {
     const [groupName, ...rest] = key.split('.')
-    return resolve(groupName as LabelGroup, rest.join('.'), params, undefined, english)
+    return resolve(groupName as LabelGroup, rest.join('.'), params, undefined, sources)
   }
+  // The app's own labels first, each source from its most specific key to the code's, then the package's.
   const errorMessage = (error: unknown): string =>
-    translateBackendError((isFailure(error) ? error : failureOf(error)) as Parameters<typeof translateBackendError>[0], anyGroup, (key, params) => anyGroup(key, params, false))
+    translateBackendError(
+      (isFailure(error) ? error : failureOf(error)) as Parameters<typeof translateBackendError>[0],
+      anyGroup,
+      (key, params) => anyGroup(key, params, 'overrides'),
+      (key, params) => anyGroup(key, params, 'messages'),
+    )
 
   const lookup = (key: string, params: LabelParams = {}): string | null => {
     if (!/^[A-Z]\w*(?:\.\w+)+$/i.test(key)) return null

@@ -312,6 +312,16 @@ describe('translateBackendError', () => {
     expect(translateBackendError(notMember, english)).toBe(LABELS.errors.forbidden_not_member)
   })
 
+  it('runs the chain through each of the reader\'s sources whole, in order: an earlier one\'s generic sentence wins over a later one\'s for the reason', () => {
+    const english = createTranslate()
+    const overrides = createTranslate({ errors: { unavailable: 'Indisponible (app).' } })
+    const locale = createTranslate({ errors: { unavailable_billing: 'Facturation indisponible.', forbidden_not_member: 'Pas membre.' } })
+    const down = getBackendError(backendError('unavailable', { service: 'billing', reason: 'provider_refused' }))!
+    expect(translateBackendError(down, english, overrides, locale)).toBe('Indisponible (app).')
+    // A source without the code's keys hands the refusal to the next.
+    expect(translateBackendError(getBackendError(backendError('forbidden', { reason: 'not_member' }))!, english, overrides, locale)).toBe('Pas membre.')
+  })
+
   it('words an unavailable refusal by its reason, then its service, then the code', () => {
     const english = createTranslate()
     const down = (service: string, reason: string) => getBackendError(backendError('unavailable', { service, reason }))!

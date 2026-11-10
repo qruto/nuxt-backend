@@ -158,16 +158,18 @@ function defined<T extends Record<string, unknown>>(fields: T): T {
  * (`errors.invalid_input_<field>`); a service that is down, with a reason
  * of no sentence of its own, gets its service's (`errors.unavailable_<service>`).
  *
- * The keys go by specificity across every source: `t` (and `own`) answer
- * each key from the app's override first, then the package's label, before
- * the next, less specific key is tried. So an app's `invalid_input_<field>`
- * or `unavailable_<service>` never hides the package's sentence for the
- * reason, and an app's `<code>_<reason>` still wins over it. `own` is the
- * active language alone: walked first, it lets a translated generic
- * sentence win over a reason only the package's English words.
+ * `own` are the reader's own sources, in order: each is walked whole, from
+ * the most specific key to the code's own, before the next and before `t`.
+ * So an app's sentence for the code wins over the package's for the reason,
+ * the field or the service, and a locale's generic sentence over the
+ * package's English for the reason.
  */
-function labelFor(code: BackendErrorCode, data: Record<string, unknown>, t: Translate = translate, own?: Translate): string {
-  return (own && sentenceFor(code, data, own)) ?? sentenceFor(code, data, t) ?? code
+function labelFor(code: BackendErrorCode, data: Record<string, unknown>, t: Translate = translate, own: readonly Translate[] = []): string {
+  for (const source of own) {
+    const text = sentenceFor(code, data, source)
+    if (text !== undefined) return text
+  }
+  return sentenceFor(code, data, t) ?? code
 }
 
 /** A label through `t`, or `undefined` when `t` has none by that name. */
@@ -245,12 +247,14 @@ function banEnd(message: unknown): number | undefined {
  * labels the way the reader's app translates them. A sentence the throw site
  * wrote for the person (`data.message`), or one a composable kept from an
  * app's own error, is not the catalog's, so it stays as written. `own`, when
- * given, resolves only what the app supplies itself (its overrides and its
- * locale's messages): the chain runs through it first, so a locale that words
- * only the generic `errors.forbidden` shows that rather than the package's
- * English sentence for the reason.
+ * given, are the sources that resolve only what the app supplies itself, in
+ * order (its overrides, then its locale's messages): the chain runs through
+ * each whole first, so an app's `errors.forbidden` wins over the package's
+ * sentence for the reason, and a locale that words only the generic
+ * `errors.forbidden` shows that rather than the package's English sentence
+ * for the reason.
  */
-export function translateBackendError(error: Pick<BackendError, 'code' | 'data' | 'message'>, t: Translate, own?: Translate): string {
+export function translateBackendError(error: Pick<BackendError, 'code' | 'data' | 'message'>, t: Translate, ...own: Translate[]): string {
   const data = error.data as Record<string, unknown>
   if (!isCode(error.code) || error.message !== labelFor(error.code, data)) return error.message
   return labelFor(error.code, data, t, own)
