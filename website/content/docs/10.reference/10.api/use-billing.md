@@ -96,8 +96,12 @@ Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qrut
 What a plan change would do, before it is made ([UseBillingReturn.changeOf](#changeof)):
 when it takes effect, how the current period's difference is settled,
 and the rule that decided it. The same rule the server applies
-(`billing.updateSubscription`), so a confirmation of your own says what
-the switch will do.
+(`billing.updateSubscription`), for a switch made with
+`changePlan(productId, { proration: 'invoice' })`, the one the packaged
+confirmations make, so a confirmation of your own that switches the same
+way says what the switch will do. A `changePlan` without `proration`
+settles by the organization's default instead, which may defer the
+charge to the next invoice or schedule the switch for the period's end.
 
 #### Properties
 
@@ -109,7 +113,8 @@ the switch will do.
 | <a id="frominterval"></a> `fromInterval?` | [`PlanChangeInterval`](#planchangeinterval) | The interval the subscription bills at now, when known. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="applies"></a> `applies` | `"now"` \| `"period_end"` | `'now'`: the subscription moves at once. `'period_end'`: the change is scheduled for the end of the current period and reads back as `pendingChange` until then. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="appliesat-1"></a> `appliesAt` | `Date` \| `null` | When a scheduled change takes effect (the current period's end); `null` for one made at once, or while the period's end is not known. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="proration"></a> `proration` | `"now"` \| `"none"` | How the current period's difference is settled: `'now'`, prorated and charged or credited at once (by the provider's proration setting, or the `proration` passed to `changePlan`); `'none'` for a change that waits for the period's end, where nothing is settled mid-period and the new price is charged from the renewal on. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="proration"></a> `proration` | `"now"` \| `"none"` | How the switch is settled. `'now'`: money changes hands at once — the current period's difference, prorated, is charged or credited; during a trial, the new plan's first period is charged, as a switch to a plan with no trial (or a shorter one, already over) ends the trial. `'none'`: nothing is settled now — the change waits for the period's end and the new price is charged from the renewal on, or, during a trial, the trial carries over to the new plan and nothing is charged until it ends. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="trial"></a> `trial` | `boolean` | `true` while the subscription is in its trial: the switch then settles no difference, and `proration` says whether the trial carries over (`'none'`) or ends with a charge (`'now'`). A change that waits applies when the trial ends. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="rule"></a> `rule` | `"paid_year"` \| `null` | Why it waits, when it does: `'paid_year'` for a yearly price left for a monthly one, which runs out the year paid for (that price granted the year's credits up front). `null` for a change made at once. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 
 ***
@@ -321,7 +326,7 @@ A plan pass a workspace holds: gifted until `endsAt`, with no card and no renewa
 | <a id="months-2"></a> `months?` | `number` | How many months it was given for. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="startedat-1"></a> `startedAt` | `Date` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="endsat-1"></a> `endsAt` | `Date` | - | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="trial"></a> `trial?` | `true` | A reverse trial's pass: the workspace started on it, nobody gave it. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="trial-1"></a> `trial?` | `true` | A reverse trial's pass: the workspace started on it, nobody gave it. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 
 ***
 
@@ -507,10 +512,10 @@ Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qrut
 | <a id="ispastdue"></a> `isPastDue` | `ComputedRef`\<`boolean`\> | `true` while a payment failed and the provider retries it (the `status` is `past_due`): the plan still runs, and the customer updates the payment method in the portal (`portal()`). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="isfinishingcheckout"></a> `isFinishingCheckout` | `ComputedRef`\<`boolean`\> | `true` while the page refreshes the entitlements after the customer came back from checkout: the checkout-return plugin found the checkout's id on the address, took it off and is syncing once. The new plan reads back as soon as it is `false` again. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="pendingchange"></a> `pendingChange` | `ComputedRef`\<[`PendingPlanChange`](#pendingplanchange) \| `null`\> | The plan change scheduled for the start of the next period, `null` when none. Kept from the subscription's webhooks and from the response of a plan change, so it reads back as soon as `changePlan` returns. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="changeof"></a> `changeOf` | (`productId`) => [`PlanChangePreview`](#planchangepreview) \| `null` | What switching the subscription to `productId` would do — when it takes effect, how the period's difference is settled, and why — before `changePlan` makes it: what a confirmation step says. A yearly price left for a monthly one waits for the paid year's end; any other change applies at once. `null` without a paid subscription to change (none, the free plan, a gifted pass, still loading), and for the product it is already on. Reactive: call it inside a `computed` or the template. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="changeof"></a> `changeOf` | (`productId`) => [`PlanChangePreview`](#planchangepreview) \| `null` | What switching the subscription to `productId` would do — when it takes effect, how the period's difference is settled, and why — before `changePlan(productId, { proration: 'invoice' })` makes it: what a confirmation step says. A yearly price left for a monthly one waits for the paid year's end; any other change applies at once, settling the period's difference then, or during a trial carrying the trial over when the new plan has one. `null` without a paid subscription to change (none, the free plan, a gifted pass, still loading), and for the product it is already on. Reactive: call it inside a `computed` or the template. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="checkout"></a> `checkout` | (`productIds`, `options?`) => `Promise`\<`string`\> | Generate a checkout for the given product(s) and open it (returns the URL). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="portal"></a> `portal` | (`options?`) => `Promise`\<`string`\> | Open the billing customer portal (returns the URL). | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
-| <a id="changeplan"></a> `changePlan` | (`productId`, `options?`) => `Promise`\<`void`\> | Switch the active subscription to another product (upgrade/downgrade). From a yearly price to a monthly one the switch waits for the paid year's end, whatever `proration` says: it reads back as `pendingChange`. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
+| <a id="changeplan"></a> `changePlan` | (`productId`, `options?`) => `Promise`\<`void`\> | Switch the active subscription to another product (upgrade/downgrade). From a yearly price to a monthly one the switch waits for the paid year's end, whatever `proration` says: it reads back as `pendingChange`. Without `proration` the organization's default settles it; `changeOf` describes the switch made with `proration: 'invoice'`, as the packaged confirmations make it. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="cancel"></a> `cancel` | (`options?`) => `Promise`\<[`CancelOutcome`](#canceloutcome)\> | Cancel the active subscription — at period end by default, with the customer's optional reason and comment, which go with the cancellation itself. Where the reason has a save offer (`setupBilling({ lifecycle: { saveOffers } })`) and nothing bars one, it answers `{ offer }` instead, and cancels nothing: the next call, or one with `offer: false`, cancels. Otherwise `{ canceled: true, endsAt }` (epoch ms, when the plan ends). Rejects as `invalid_input` (reason `cancel_scheduled`) when it is already set to cancel: the provider takes one cancellation per period. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="acceptoffer"></a> `acceptOffer` | (`offer`) => `Promise`\<`void`\> | Accept the save offer `cancel` answered with: the server applies what it made (a pause, a downgrade at the period's end, a discount), once. Rejects as `invalid_input` (`offer`) for an offer it did not make, one already taken, or one no longer open. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
 | <a id="uncancel"></a> `uncancel` | (`options?`) => `Promise`\<`void`\> | Undo a pending cancellation, putting the subscription back on renewal. Rejects as `invalid_input` (reason `no_cancel_scheduled`) when none is set. | [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts) |
@@ -880,10 +885,11 @@ type ClientProrationBehavior = "invoice" | "prorate";
 Defined in: [src/runtime/vue/composables/use-billing.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-billing.ts)
 
 The subset of the provider's proration behaviours a **client** may choose
-(`ProrationBehavior` in `nuxt-backend/billing` has all four). `invoice` and
-`prorate` settle the difference now; `next_period` and `reset` hand over the
-new plan immediately while deferring or waiving the charge, so they stay
-server-side — pass them from your own Convex action via
+(`ProrationBehavior` in `nuxt-backend/billing` has all four). Both switch
+at once: `invoice` charges or credits the difference now, `prorate` on
+the next invoice. `next_period` schedules the switch for the period's
+end and `reset` charges the new plan in full and restarts the cycle, so
+they stay server-side — pass them from your own Convex action via
 `billing.updateSubscription(ctx, …)`, or make one the organization's default.
 
 ***
@@ -1167,10 +1173,11 @@ Defined in: [src/runtime/vue/composables/billing-format.ts](https://github.com/q
 Money the way the provider states it — a minor-unit integer plus an ISO
 currency code — rendered in `locale`, else the app's active
 `@nuxtjs/i18n` locale, else English: never the visitor's own, so a server
-render and the browser write it alike. The minor unit is the
-currency's own: cents for USD and EUR (`1999` is $19.99), the yen itself
-for JPY (`1999` is ¥1,999), a fils for KWD (three digits). A whole amount
-shows no decimals. Without a currency the amount counts in cents; an
+render and the browser write it alike. The minor unit is the one the
+provider states the currency in: cents for USD and EUR (`1999` is
+$19.99), hundredths for HUF and ISK too (`500000` is HUF 5,000), the yen
+itself for JPY (`1999` is ¥1,999), a fils for KWD (three digits). A whole
+amount shows no decimals. Without a currency the amount counts in cents; an
 unknown code falls back to the bare amount rather than throwing mid-render.
 
 #### Parameters
