@@ -6,6 +6,7 @@ import { ConvexError } from 'convex/values'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getBackendError } from '../../src/convex/errors'
 import { heicDecoderInstalled, registerPhotoDecoder } from '../../src/nuxt/photos'
+import { exifJpeg, orientationOf } from '../helpers/images'
 import { isPhotoFile, PhotoPrepError, preparePhoto } from '../../src/runtime/vue/composables/prepare-photo'
 
 // preparePhoto with the browser's image APIs stood in for: what it asks the
@@ -21,7 +22,7 @@ vi.mock('heic-to/csp', () => ({ heicTo }))
 const addNitroPlugin = vi.hoisted(() => vi.fn())
 vi.mock('@nuxt/kit', async importOriginal => ({ ...await importOriginal<Record<string, unknown>>(), addNitroPlugin }))
 
-interface Drawn { width: number, height: number, fill: string | null, drew: unknown, encoded: { type?: string, quality?: number } | null }
+interface Drawn { width: number, height: number, fill: string | null, drew: unknown, encoded: { type?: string, quality?: number } | null, turned?: string[] }
 
 /** Every canvas made, with what was drawn on it and how it was encoded. */
 let canvases: Drawn[] = []
@@ -37,6 +38,10 @@ function context(drawn: Drawn) {
       drawn.drew = source
       expect([width, height]).toEqual([drawn.width, drawn.height])
     },
+    // A turn of the canvas itself, recorded: the decoder has turned the photo already.
+    ...Object.fromEntries(['rotate', 'translate', 'scale', 'transform', 'setTransform'].map(name => [name, () => {
+      drawn.turned = [...drawn.turned ?? [], name]
+    }])),
   }
 }
 
@@ -381,6 +386,69 @@ describe('preparePhoto\'s HEIC decoder, loading', () => {
       vi.resetModules()
       vi.useRealTimers()
     }
+  })
+})
+
+describe('preparePhoto, by what it sends', () => {
+  /** What a canvas writes for what was drawn on it: its own encode, at its size. */
+  const encodeOf = (drawn: Drawn) => `encoded ${drawn.width}x${drawn.height} ${drawn.encoded?.type}`
+
+  /** A canvas whose encode is its own bytes, made from what it drew and nothing else. */
+  class EncodingCanvas extends FakeOffscreenCanvas {
+    override async convertToBlob(options: { type?: string, quality?: number }) {
+      this.drawn.encoded = options
+      return new Blob([encodeOf(this.drawn)], { type: options.type })
+    }
+  }
+
+  /** The browser's createImageBitmap: the sensor's 4000 × 3000, turned upright when asked and the EXIF says so. */
+  async function browserBitmap(file: Blob, options?: ImageBitmapOptions) {
+    const orientation = orientationOf(new Uint8Array(await file.arrayBuffer())) ?? 1
+    const sideways = options?.imageOrientation === 'from-image' && orientation >= 5
+    return bitmap(sideways ? 3000 : 4000, sideways ? 4000 : 3000)
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal('OffscreenCanvas', EncodingCanvas)
+    vi.mocked(createImageBitmap).mockImplementation(browserBitmap as never)
+  })
+
+  it('sends the canvas\'s own encode, with none of the photo\'s bytes: no EXIF, no GPS, no comment', async () => {
+    const source = exifJpeg({ orientation: 1 })
+    const sent = new Uint8Array(await (await preparePhoto(new File([source], 'IMG_0001.jpg', { type: 'image/jpeg' }))).arrayBuffer())
+    expect(new TextDecoder().decode(sent)).toBe(encodeOf(canvases[0]!))
+    const text = new TextDecoder('latin1').decode(sent)
+    for (const tag of ['Exif', 'GPS', 'xmpmeta', 'ICC_PROFILE', 'IPTC', 'taken at home']) expect(text, tag).not.toContain(tag)
+    // Not even the scan: no run of the source's own bytes.
+    expect(Buffer.from(sent).includes(Buffer.from(source.subarray(-8)))).toBe(false)
+  })
+
+  it('sends a small photo re-encoded too, never the file as it came, though nothing needed scaling', async () => {
+    vi.mocked(createImageBitmap).mockResolvedValueOnce(bitmap(800, 600) as never)
+    const photo = new File([exifJpeg({ orientation: 1 })], 'small.jpg', { type: 'image/jpeg' })
+    const sent = await preparePhoto(photo)
+    expect(sent).not.toBe(photo)
+    expect(await sent.text()).toBe('encoded 800x600 image/jpeg')
+  })
+
+  it('turns a sideways photo upright once: the decoder turns it by its EXIF, and the canvas draws it as it is', async () => {
+    // Orientation 6: the camera held upright, the sensor's pixels on their side.
+    await preparePhoto(new File([exifJpeg({ orientation: 6 })], 'portrait.jpg', { type: 'image/jpeg' }))
+    expect(createImageBitmap).toHaveBeenCalledExactlyOnceWith(expect.any(File), { imageOrientation: 'from-image' })
+    expect(canvases).toEqual([expect.objectContaining({ width: 1536, height: 2048 })])
+    expect(canvases[0]!.turned).toBeUndefined()
+  })
+
+  it('turns a sideways photo upright once through an <img> too, which reads the EXIF itself', async () => {
+    vi.mocked(createImageBitmap).mockRejectedValueOnce(new TypeError('imageOrientation is not supported'))
+    // An <img> reports, and draws, the photo upright.
+    const image = { naturalWidth: 3000, naturalHeight: 4000, decoding: '', src: '', decode: vi.fn(async () => {}) }
+    vi.stubGlobal('Image', function FakeImage() {
+      return image
+    })
+    await preparePhoto(new File([exifJpeg({ orientation: 6 })], 'portrait.jpg', { type: 'image/jpeg' }))
+    expect(canvases).toEqual([expect.objectContaining({ width: 1536, height: 2048, drew: image })])
+    expect(canvases[0]!.turned).toBeUndefined()
   })
 })
 
