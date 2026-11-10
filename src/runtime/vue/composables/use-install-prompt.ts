@@ -38,7 +38,7 @@ export interface UseInstallPromptReturn {
 // One page's install state, shared by every caller: the browser fires
 // `beforeinstallprompt` once, often before any component that offers the
 // install has mounted, so the client plugin (plugins/install-prompt.client)
-// listens from the app's start. Written only in the browser.
+// listens as the client bundle loads. Written only in the browser.
 const deferred = shallowRef<BeforeInstallPromptEvent | null>(null)
 const installedHere = ref(false)
 let listening = false
@@ -48,9 +48,9 @@ let listening = false
  * dialog `beforeinstallprompt` hands over until it is answered, and note
  * `appinstalled`. The browser's own banner still shows: only
  * `installable.browserBanner: false` stops it (plugins/install-banner.client),
- * as only a listener that runs when the event fires can. Called by the
- * client plugin as the app starts, and by `useInstallPrompt()` as it mounts,
- * for an app that leaves the plugin out.
+ * as only a listener that runs when the event fires can. Called as the
+ * client plugin's module loads, before any plugin runs, and by
+ * `useInstallPrompt()` as it mounts, for an app that leaves the plugin out.
  */
 export function listenForInstallPrompt(): void {
   if (listening || typeof window === 'undefined') return

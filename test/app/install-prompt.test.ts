@@ -148,11 +148,22 @@ describe('useInstallPrompt', () => {
   })
 })
 
-describe('the install banner plugin (installable.browserBanner: false)', () => {
-  it('cancels the event as it fires, which stops the browser\'s own banner, and leaves the dialog to the app', async () => {
-    const { default: plugin } = await import('../../src/runtime/vue/plugins/install-banner.client')
-    ;(plugin as unknown as { setup: () => void }).setup()
-    listenForInstallPrompt()
+// A plugin's setup waits for every plugin before it that awaits, and the
+// browser fires the event once the page has loaded: each plugin listens as its
+// module loads, with the client bundle, before any plugin runs.
+describe('the install plugins', () => {
+  it('keep the event from the moment the client bundle loads, before any plugin runs', async () => {
+    await import('../../src/runtime/vue/plugins/install-prompt.client')
+    const event = installEvent('accepted')
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(false)
+    expect((await mounted()).canInstall.value).toBe(true)
+  })
+
+  // Last: the banner's listener stays on the window.
+  it('stop the browser\'s own banner with installable.browserBanner: false, as the event fires, and leave the dialog to the app', async () => {
+    await import('../../src/runtime/vue/plugins/install-banner.client')
+    await import('../../src/runtime/vue/plugins/install-prompt.client')
     const event = installEvent('accepted')
     window.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(true)
