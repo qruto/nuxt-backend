@@ -80,11 +80,16 @@ export async function runEmailSync(rootDir: string, { prod = false, dryRun = fal
   return JSON.parse(stdout) as EmailSyncReport
 }
 
-/** Run the deployment's inbound sync (the support inbox, its domain, the webhook's inbound events): `null` when it has no `email:syncInbound`. */
-export async function runInboundSync(rootDir: string, { prod = false }: { prod?: boolean } = {}, run: typeof runConvex = runConvex): Promise<InboundSyncReport | null> {
+/**
+ * Run the deployment's inbound sync (the support inbox, its domain, the
+ * webhook's inbound events): `null` when it has no `email:syncInbound`. A
+ * dry run (`doctor --fix`'s plan) changes nothing; the sync itself passes
+ * no argument, which a backend from before the dry run takes too.
+ */
+export async function runInboundSync(rootDir: string, { prod = false, dryRun = false }: { prod?: boolean, dryRun?: boolean } = {}, run: typeof runConvex = runConvex): Promise<InboundSyncReport | null> {
   let stdout: string
   try {
-    ({ stdout } = await run(rootDir, ['run', ...deploymentFlags({ prod }), 'email:syncInbound', '{}']))
+    ({ stdout } = await run(rootDir, ['run', ...deploymentFlags({ prod }), 'email:syncInbound', JSON.stringify(dryRun ? { dryRun } : {})]))
   }
   catch (error) {
     if (namesNoFunction(error)) return null
@@ -99,16 +104,16 @@ export function inboundSyncLines(report: InboundSyncReport): string[] {
   const lines = [`  ${(report.inbox ?? 'missing').padEnd(13)} inbox     ${report.support}`]
   if (report.domain) lines.push(`  ·             domain    ${report.domain.name}: ${report.domain.status}, receiving ${report.domain.receiving ? 'on' : 'off'}`)
   const { webhook } = report
-  lines.push(`  ${(webhook.state === 'ok' ? 'exists' : webhook.state).padEnd(13)} webhook   inbound events${webhook.added.length ? ` — added ${webhook.added.join(', ')}` : ''}`)
+  lines.push(`  ${(webhook.state === 'ok' ? 'exists' : webhook.state).padEnd(13)} webhook   inbound events${webhook.added.length ? ` — ${webhook.state === 'would-update' ? 'would add' : 'added'} ${webhook.added.join(', ')}` : ''}`)
   for (const todo of report.todo) lines.push(`  todo          inbound   ${todo}`)
   return lines
 }
 
 /**
  * The support inbox's part of `email sync`, after the rest: skipped on a
- * dry run (it has none) and without a full-access key, said in one line
- * when the deployment has no `email:syncInbound`. Answers its report, and
- * whether it failed.
+ * dry run (`doctor --fix` plans it with the inbound sync's own) and without
+ * a full-access key, said in one line when the deployment has no
+ * `email:syncInbound`. Answers its report, and whether it failed.
  */
 async function syncInbound(rootDir: string, report: EmailSyncReport, prod: boolean, print: (line: string) => void): Promise<{ inbound: InboundSyncReport | null, failed: boolean }> {
   if (report.key !== 'full') return { inbound: null, failed: false }

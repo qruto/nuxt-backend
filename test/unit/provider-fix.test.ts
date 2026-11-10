@@ -3,6 +3,7 @@ import { applyProviderChanges, billingEndpointFindings, planEndpointChanges, pla
 import { changeConfirmation, fixProviderSettings, syncEmailOnFix } from '../../src/cli/provider-fix'
 import { BILLING_WEBHOOK_PROVISION_EVENTS, type BillingCatalog } from '../../src/convex/catalog'
 import type { EmailSyncReport } from '../../src/convex/integrations/email-sync'
+import type { InboundSyncReport } from '../../src/convex/integrations/inbound'
 
 // `doctor --fix` at the providers: what it recommends turning on (never
 // off, never seat settings), that an endpoint comes back on only once its
@@ -131,13 +132,20 @@ describe('syncEmailOnFix', () => {
   const hook = { url: 'https://happy-otter-123.convex.site/email/events', action: 'exists', missingEvents: [], enabled: true }
   const synced = { dryRun: true, key: 'full', log: [{ action: 'exists', kind: 'topic', key: 'product' }], webhook: hook, senders: [], region: { expected: null, actual: null }, topics: 1, postalAddress: true, flows: { declared: [], unsynced: [] } } as unknown as EmailSyncReport
   const pending = { ...synced, log: [{ action: 'would-create', kind: 'topic', key: 'product' }], webhook: { ...hook, action: 'would-update', missingEvents: ['email.clicked'] } } as unknown as EmailSyncReport
+  /** The support inbox's dry run when the provider has it all. */
+  const inboxInPlace: InboundSyncReport = { support: 'support@panels.example', inbox: 'found', domain: { name: 'panels.example', status: 'verified', receiving: true }, webhook: { state: 'ok', id: 'wh_1', added: [] }, todo: [] }
 
-  function run({ plan, applied = 0, confirm = async () => true, prod = false }: { plan: EmailSyncReport | null | Error, applied?: number, confirm?: (change: { description: string }) => Promise<boolean>, prod?: boolean }) {
+  /** `plan` and `inbound` are the two dry runs' answers; `inbound` defaults to a deployment with no email:syncInbound. */
+  function run({ plan, inbound = null, applied = 0, confirm = async () => true, prod = false }: { plan: EmailSyncReport | null | Error, inbound?: InboundSyncReport | null | Error, applied?: number, confirm?: (change: { description: string }) => Promise<boolean>, prod?: boolean }) {
     for (const name of ['CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT']) vi.stubEnv(name, undefined)
     const deps = {
       plan: vi.fn(async () => {
         if (plan instanceof Error) throw plan
         return plan
+      }),
+      planInbound: vi.fn(async () => {
+        if (inbound instanceof Error) throw inbound
+        return inbound
       }),
       apply: vi.fn(async () => ({ exitCode: applied, output: null })),
     }
@@ -170,11 +178,33 @@ describe('syncEmailOnFix', () => {
     expect(prod.deps.apply).not.toHaveBeenCalled()
   })
 
-  it('asks nothing when the provider already has what the code declares', async () => {
+  it('asks nothing when the provider already has what the code declares, the support inbox included', async () => {
     const unchanged = run({ plan: synced })
     expect(await unchanged.outcome).toBe('unchanged')
     expect(unchanged.asked).toEqual([])
     expect(unchanged.deps.apply).not.toHaveBeenCalled()
+    const inboxToo = run({ plan: synced, inbound: inboxInPlace })
+    expect(await inboxToo.outcome).toBe('unchanged')
+    expect(inboxToo.deps.planInbound).toHaveBeenCalledWith('/nowhere', { prod: false, dryRun: true })
+  })
+
+  it('plans the support inbox too, and syncs when only it would change', async () => {
+    const inbox = run({ plan: synced, inbound: { ...inboxInPlace, inbox: 'would-create', webhook: { state: 'would-update', id: 'wh_1', added: ['inbox.email.received'] } } })
+    expect(await inbox.outcome).toBe('applied')
+    expect(inbox.asked).toEqual(['Sync the dev email provider account: create the support inbox support@panels.example, give the webhook inbox.email.received.'])
+    expect(inbox.lines).toContain('  would-create  inbox     support@panels.example')
+    expect(inbox.deps.apply).toHaveBeenCalledWith('/nowhere', { prod: false }, expect.any(Function))
+
+    // A deployment whose inbound sync predates its dry run: the whole sync is asked about, as email sync runs it.
+    const older = run({ plan: synced, inbound: new Error('convex run exited with code 1: Object contains extra field `dryRun`') })
+    expect(await older.outcome).toBe('applied')
+    expect(older.asked[0]).toContain('sync the support inbox, which the deployment could not plan (convex run exited with code 1')
+  })
+
+  it('names every effect of a new webhook: its secret stored on the deployment, and the support inbox\'s events', async () => {
+    const fresh = run({ plan: { ...synced, webhook: { ...hook, action: 'would-create', missingEvents: [] } } as unknown as EmailSyncReport, inbound: { ...inboxInPlace, webhook: { state: 'missing', id: null, added: [] } } })
+    expect(await fresh.outcome).toBe('applied')
+    expect(fresh.asked).toEqual([`Sync the dev email provider account: create the webhook ${hook.url} and store its signing secret on the deployment as EMAIL_WEBHOOK_SECRET, give the new webhook the support inbox's events.`])
   })
 
   it('fails on a sync that exits nonzero, or a dry run that fails, and skips a deployment that cannot sync', async () => {

@@ -68,7 +68,7 @@ const deliver = actionGeneric({
     return { status: response.status }
   },
 })
-const syncRef = makeFunctionReference<'action', Record<string, never>, any>('email:syncInbound')
+const syncRef = makeFunctionReference<'action', { dryRun?: boolean }, any>('email:syncInbound')
 
 const testApp = defineBackendTestApp(defineSchema({}), {
   './_generated/api.js': () => Promise.resolve({}),
@@ -576,6 +576,16 @@ describe('email sync', () => {
     expect(sdk.webhookUpdate).toHaveBeenCalledWith('wh_1', { events: ['email.sent', 'email.received', 'inbox.email.received'] })
     expect(report).toMatchObject({ support: 'support@panels.example', inbox: 'created', domain: { name: 'panels.example', receiving: false }, webhook: { state: 'updated', id: 'wh_1', added: ['inbox.email.received'] } })
     expect(report.todo).toEqual([expect.stringContaining('Turn on receiving for panels.example')])
+  })
+
+  test('says on a dry run what it would make, and makes none of it', async () => {
+    sdk.domains.mockResolvedValue({ data: { data: [{ name: 'panels.example', status: 'verified', capabilities: { sending: 'enabled', receiving: 'enabled' } }] }, error: null })
+    sdk.inboxGet.mockResolvedValue({ data: null, error: { name: 'not_found', message: 'no', statusCode: 404 } })
+    sdk.webhooks.mockResolvedValue({ data: { data: [{ id: 'wh_1', endpoint: 'https://panels.convex.site/email/events', events: ['email.sent'] }] }, error: null })
+    const report = await t.action(syncRef, { dryRun: true })
+    expect(report).toMatchObject({ inbox: 'would-create', domain: { name: 'panels.example', receiving: true }, webhook: { state: 'would-update', id: 'wh_1', added: ['email.received', 'inbox.email.received'] }, todo: [] })
+    expect(sdk.inboxCreate).not.toHaveBeenCalled()
+    expect(sdk.webhookUpdate).not.toHaveBeenCalled()
   })
 
   test('finds what is there and changes nothing', async () => {
