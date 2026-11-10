@@ -223,17 +223,28 @@ describe('the contact form', () => {
   })
 
   // `contact: { to: 'team@panels.example' }` on a dev deployment, where test mode would hold the team's address back.
-  test('copies a message for the contact mailbox to the sandbox inbox outside production', async () => {
+  test('copies a message for the contact mailbox to the sandbox inbox on a development deployment', async () => {
     vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
     await t.action(submitCopy, { ...stranger, email: 'mo@example.com' })
     const admin = await asUser(t, { role: 'admin' })
     expect((await admin.query(inboxOf, {}))!.rows).toEqual([expect.objectContaining({ from: 'mo@example.com', delivery: 'copy' })])
   })
 
+  // A public demo publishes its dev inbox (`deploy --sandbox`): a visitor's message must not land where anyone may read it.
+  test('holds the copy for the contact mailbox back on a sandbox, and keeps the message', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'sandbox')
+    vi.stubEnv('EMAIL_DEV_INBOX', '1')
+    await t.action(submitCopy, { ...stranger, email: 'mo@example.com' })
+    // A sandbox's administrator signs in with a passkey alone.
+    const admin = await asUser(t, { role: 'admin', passkeyOnly: true, signInMethod: 'passkey' })
+    expect((await admin.query(inboxOf, {}))!.rows).toEqual([expect.objectContaining({ from: 'mo@example.com', delivery: 'held' })])
+    expect(logged(warn, 'email.contact_held')).toHaveLength(1)
+  })
+
   test('holds the copy back in test mode and without a key, and keeps the message', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    // A support inbox at a real address, which test mode holds back.
-    await t.action(submit, { ...stranger, email: 'mo@example.com' })
+    await t.action(submitCopy, { ...stranger, email: 'mo@example.com' })
     vi.stubEnv('EMAIL_API_KEY', '')
     await t.action(submitSandbox, { ...stranger, email: 'bo@example.com' })
     await t.action(submitBare, { ...stranger, email: 'cy@example.com' })

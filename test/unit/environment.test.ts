@@ -84,17 +84,21 @@ describe('the deployment reading it', () => {
   })
 
   // `setupEmail({ contact: { to } })`: one setting for every deployment.
-  it('copies a contact message to the team\'s mailbox on production, and to the sandbox inbox anywhere else', () => {
-    for (const value of ['development', 'preview', 'sandbox', '']) {
+  it('copies a contact message to the sandbox inbox on development, and to the team\'s mailbox anywhere else', () => {
+    for (const value of BACKEND_ENVIRONMENTS) {
       vi.stubEnv('BACKEND_ENVIRONMENT', value)
-      expect(contactMailbox(' Support@Acme.dev '), value).toBe('delivered@resend.dev')
       // A test address of the provider's is kept, and no mailbox means no copy.
       expect(contactMailbox('bounced@resend.dev'), value).toBe('bounced@resend.dev')
       expect(contactMailbox(undefined), value).toBeUndefined()
       expect(contactMailbox('  '), value).toBeUndefined()
     }
-    vi.stubEnv('BACKEND_ENVIRONMENT', 'production')
-    expect(contactMailbox(' Support@Acme.dev ')).toBe('support@acme.dev')
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
+    expect(contactMailbox(' Support@Acme.dev ')).toBe('delivered@resend.dev')
+    // A sandbox's dev inbox is a public page: a visitor's message never goes where anyone may read it.
+    for (const value of ['production', 'preview', 'sandbox', '']) {
+      vi.stubEnv('BACKEND_ENVIRONMENT', value)
+      expect(contactMailbox(' Support@Acme.dev '), value).toBe('support@acme.dev')
+    }
   })
 })
 

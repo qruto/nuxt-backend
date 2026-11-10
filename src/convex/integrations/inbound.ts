@@ -107,8 +107,8 @@ export interface InboundOptions {
 export interface ContactOptions {
   /**
    * The team's mailbox: a contact message is copied there with the sender's
-   * address as its reply-to, when there is no support inbox. On a deployment
-   * other than `production` the copy goes to the provider's sandbox inbox
+   * address as its reply-to, when there is no support inbox. On a
+   * `development` deployment the copy goes to the provider's sandbox inbox
    * (`delivered@resend.dev`) instead, which the dev inbox reads.
    */
   to?: string
@@ -375,7 +375,7 @@ export function createInbound(deps: InboundDeps) {
         message: input.message.trim().slice(0, CONTACT_MESSAGE_MAX),
         locale,
         support,
-        // Outside production, the sandbox inbox (contactMailbox).
+        // On a development deployment, the sandbox inbox (contactMailbox).
         to: contactMailbox(contact?.to),
       }) as never)
       return { sent: true }
