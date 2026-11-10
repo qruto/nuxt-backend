@@ -334,6 +334,21 @@ describe('a member\'s ticket', () => {
     const { taken } = await signUp(failing, 'friend@example.org', tokenOf(await host.mutation(issueMemberTicket, {})))
     expect(taken).toEqual({ ticket: 'member-ticket', label: 'member' })
     expect(warn.mock.calls.flat().join(' ')).toContain('access.referral_unclaimed')
+
+    // A program that throws once its claim is made leaves the friend counted: the warning says they may not be, never that they are not.
+    warn.mockClear()
+    const late = memberApp({
+      referrals: {
+        claimFor: async (ctx, input) => {
+          await referrals.claimFor(ctx, input)
+          throw new Error('activity down')
+        },
+      },
+    })()
+    const grace = await asUser(late, { email: 'grace@panels.example' })
+    await signUp(late, 'friend-of-grace@example.org', tokenOf(await grace.mutation(issueMemberTicket, {})))
+    expect(await grace.query(getReferrals, {})).toMatchObject({ claimed: 1 })
+    expect(warn.mock.calls.flat().join(' ')).toContain('may not count as the member\'s referral')
     warn.mockRestore()
   })
 

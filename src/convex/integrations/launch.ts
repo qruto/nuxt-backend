@@ -520,6 +520,8 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
    * A friend a member's ticket admitted, claimed as the member's referral
    * with `memberTickets({ referrals })`: the ledger row names the member, so
    * no address can name another. Logged, never thrown: the account exists.
+   * A throw can come after the claim is made (recording it on the member's
+   * activity), so the log says the friend may not count, never that they do not.
    */
   const claimForMember = async (ctx: Pick<AccessWriteCtx, 'runQuery' | 'runMutation'>, row: { ticket: string, label?: string }, userId: string): Promise<void> => {
     const holder = holderOf(row)
@@ -528,7 +530,7 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
       await program.referrals.claimFor(ctx, { referrerId: holder, userId })
     }
     catch (error) {
-      logBackend('warn', 'access.referral_unclaimed', 'A friend a member\'s ticket admitted was not claimed as the member\'s referral; the account was created.', error)
+      logBackend('warn', 'access.referral_unclaimed', 'A friend a member\'s ticket admitted may not count as the member\'s referral: the referral program threw; the account was created.', error)
     }
   }
 
