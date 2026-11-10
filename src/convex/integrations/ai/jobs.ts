@@ -48,7 +48,7 @@ import { providerFailurePasses } from '../billing/provider-failure.js'
 import type { Ai, AiModel, MeteredModel } from './config.js'
 import { AI_CONTEXTS } from './context.js'
 import { usageOf } from './costs.js'
-import { catalogPayload, classifyStepError, failurePayload, isPassing, modelOutcomeOf } from './job-errors.js'
+import { catalogPayload, classifyStepError, EMPTY_ATTEMPTS, failurePayload, isPassing, modelOutcomeOf } from './job-errors.js'
 import type { ModerationInput, ModerationSubject } from './moderation.js'
 import { type AiImageModel, meteredImageModel } from './images.js'
 import { settledAmount } from './metering.js'
@@ -918,8 +918,9 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
     await ctx.runMutation(queue.touch, defined({ jobId, until: lease(), lastError: text, usage: usageOf(calls), spendLimitUsd: aiConfig.spendLimit?.usdPerDay }))
     const outcome = modelOutcomeOf(failed)
     if (modelId && outcome) await ctx.runMutation(queue.recordModel, { model: modelId, outcome, ...defaultsOf(modelId) })
-    if (isPassing(failed) && attempt.attempt < STEP_ATTEMPTS) {
-      const wait = retryDelay(attempt.attempt, failed.retryAfter, `${jobId}:${modelId ?? ''}`)
+    // An empty image answer is tried once more at most: each try bills the prompt again.
+    if (isPassing(failed) && attempt.attempt < (failed.kind === 'empty' ? EMPTY_ATTEMPTS : STEP_ATTEMPTS)) {
+      const wait = retryDelay(attempt.attempt, failed.kind === 'empty' ? undefined : failed.retryAfter, `${jobId}:${modelId ?? ''}`)
       await ctx.runMutation(queue.touch, { jobId, until: lease() + wait })
       return { retry: wait }
     }

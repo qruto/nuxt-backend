@@ -1271,13 +1271,13 @@ describe('an image call the provider refuses', () => {
     expect(classifyStepError(refusal, calls)).toEqual({ kind: 'blocked' })
   })
 
-  it('reads an answer with no image as one another attempt may fill', async () => {
+  it('reads an answer with no image as an empty one, tried once more', async () => {
     const calls: ModelCall[] = []
     const model = meteredImageModel(imageModel(async () => ({ images: [], warnings: [], response: { timestamp: new Date(0), modelId: 'openai/gpt-image-1', headers: undefined } })), calls, { routing: routingOf({}) })
     const error = await generateImage({ model, prompt: 'A fox', maxRetries: 0 }).then(() => null, (thrown: unknown) => thrown)
     expect((error as Error).name).toBe('AI_NoImageGeneratedError')
     expect(calls).toEqual([expect.objectContaining({ state: 'finished', finishReason: 'no-image' })])
-    expect(classifyStepError(error, calls)).toEqual({ kind: 'retryable' })
+    expect(classifyStepError(error, calls)).toEqual({ kind: 'empty' })
     // A provider whose own model throws it: recorded refused, with no image, and tried again.
     const thrown = Object.assign(new Error('No image generated.'), { name: 'AI_NoImageGeneratedError' })
     const refused: ModelCall[] = []
@@ -1285,7 +1285,15 @@ describe('an image call the provider refuses', () => {
       throw thrown
     }), refused, { routing: routingOf({}) }).doGenerate(call)).rejects.toBe(thrown)
     expect(refused).toEqual([expect.objectContaining({ state: 'refused', finishReason: 'no-image' })])
-    expect(classifyStepError(thrown, refused)).toEqual({ kind: 'retryable' })
+    expect(classifyStepError(thrown, refused)).toEqual({ kind: 'empty' })
+  })
+
+  it('reads an answer with no image and a finish reason for safety as a refusal of the content', async () => {
+    const calls: ModelCall[] = []
+    const model = meteredImageModel(imageModel(async () => ({ images: [], warnings: [], providerMetadata: { google: { images: [], finishReason: 'IMAGE_SAFETY' } }, response: { timestamp: new Date(0), modelId: 'openai/gpt-image-1', headers: undefined } })), calls, { routing: routingOf({}) })
+    const error = await generateImage({ model, prompt: 'A fox', maxRetries: 0 }).then(() => null, (thrown: unknown) => thrown)
+    expect(calls).toEqual([expect.objectContaining({ state: 'finished', finishReason: 'content-filter' })])
+    expect(classifyStepError(error, calls)).toEqual({ kind: 'blocked' })
   })
 })
 

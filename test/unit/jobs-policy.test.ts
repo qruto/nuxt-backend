@@ -14,7 +14,7 @@ import {
   throttled,
   windowStartOf,
 } from '../../src/convex/jobs-policy'
-import { classifyStepError, retryAfterOf, upstreamErrorOf } from '../../src/convex/integrations/ai/job-errors'
+import { classifyStepError, EMPTY_ATTEMPTS, emptiedForSafety, failurePayload, isPassing, retryAfterOf, upstreamErrorOf } from '../../src/convex/integrations/ai/job-errors'
 import { backendError } from '../../src/convex/errors'
 
 // The queue's policy as plain functions: the define-time checks, the
@@ -179,11 +179,29 @@ describe('a step\'s error', () => {
     expect(classifyStepError(new Error('x'), [{ model: 'm', kind: 'image', state: 'refused', usage: { model: 'm', input: 0, output: 0 }, finishReason: 'content-filter' }])).toEqual({ kind: 'blocked' })
   })
 
-  it('tries again an image call that got no image back (NoImageGeneratedError), unless the call says its content was filtered', () => {
+  it('reads an image call that got no image back (NoImageGeneratedError) as an empty answer, tried once more, unless the call says its content was filtered', () => {
     const noImage = Object.assign(new Error('No image generated.'), { name: 'AI_NoImageGeneratedError' })
-    expect(classifyStepError(noImage)).toEqual({ kind: 'retryable' })
-    expect(classifyStepError(noImage, [{ model: 'm', kind: 'image', state: 'finished', usage: { model: 'm', input: 1, output: 0 }, finishReason: 'no-image' }])).toEqual({ kind: 'retryable' })
+    expect(classifyStepError(noImage)).toEqual({ kind: 'empty' })
+    expect(classifyStepError(noImage, [{ model: 'm', kind: 'image', state: 'finished', usage: { model: 'm', input: 1, output: 0 }, finishReason: 'no-image' }])).toEqual({ kind: 'empty' })
     expect(classifyStepError(noImage, [{ model: 'm', kind: 'image', state: 'finished', usage: { model: 'm', input: 1, output: 0 }, finishReason: 'content-filter' }])).toEqual({ kind: 'blocked' })
+    // Two attempts in all, each billed for the prompt; a step's own `retryable` still gets four.
+    expect(EMPTY_ATTEMPTS).toBe(2)
+    expect(isPassing({ kind: 'empty' })).toBe(true)
+    expect(failurePayload({ kind: 'empty' })).toEqual({ code: 'unavailable', service: 'ai', reason: 'provider_refused' })
+    expect(classifyStepError(Object.assign(new Error('The model returned no image.'), { isRetryable: true }))).toEqual({ kind: 'retryable' })
+  })
+
+  it('reads an empty image answer as emptied for safety by a finish reason under its reason\'s key, or a warning that says so, never a setting\'s name', () => {
+    expect(emptiedForSafety({ providerMetadata: { google: { images: [], finishReason: 'IMAGE_SAFETY' } } })).toBe(true)
+    expect(emptiedForSafety({ providerMetadata: { google: { images: [{ finishReason: 'PROHIBITED_CONTENT' }] } } })).toBe(true)
+    expect(emptiedForSafety({ providerMetadata: { vertex: { images: [{ raiFilteredReason: 'Your current safety filter threshold filtered out the generated image.' }] } } })).toBe(true)
+    expect(emptiedForSafety({ providerMetadata: { gateway: { finish_reason: ['content_filter'] } } })).toBe(true)
+    expect(emptiedForSafety({ warnings: [{ type: 'other', message: 'The image was blocked by the safety filter.' }] })).toBe(true)
+    // An empty answer that says nothing, a reason that is no block, and a setting that only names safety.
+    expect(emptiedForSafety({})).toBe(false)
+    expect(emptiedForSafety({ providerMetadata: { google: { images: [], finishReason: 'STOP' } } })).toBe(false)
+    expect(emptiedForSafety({ providerMetadata: { google: { safetySettings: 'BLOCK_NONE', images: [] } } })).toBe(false)
+    expect(emptiedForSafety({ warnings: [{ type: 'unsupported', feature: 'safetySettings', details: 'safety filter level' }] })).toBe(false)
   })
 
   it('reads Retry-After as an HTTP date too', () => {
