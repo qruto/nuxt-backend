@@ -57,6 +57,11 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const DOCTOR_FIX = '`doctor --fix` asks before it syncs email, and a deploy runs the package\'s migrations'
+const PAGE_SHAPE = 'A replaced page follows its shape, and `nuxt dev` serves its modules from a path of their own'
+const PRICE_DIGITS = 'Plan switches ask first, and prices keep their currency\'s own digits'
+const OWN_SENTENCE = 'An app\'s own error sentence keeps winning, and the browser\'s install banner stays'
+const MEMBER_REFERRALS = 'Member tickets credit their member as a referral, and tokens leave the address bar'
 const JOB_BILLING = 'A job waits for billing to catch up, and owes a charge the provider refuses for now'
 const SYNC_ORGANIZATION = '`billing sync` prices every product in the organization\'s currency, and attaches the benefits a product lacks'
 const LAZY_AUTH = 'The Better Auth client loads on first use, and a failed server call names its function'
@@ -78,6 +83,26 @@ const BETTER_AUTH_17 = 'Better Auth 1.7, and a deploy for the backend\'s schema'
  * `const` per section heading above the list, and its entries in it.
  */
 export const RENAMES: readonly Rename[] = [
+  // 0.4: doctor --fix asks before it syncs email, and a deploy runs the package's migrations.
+  { from: 'doctor --fix', to: '--yes', change: 'reshaped', section: DOCTOR_FIX, note: 'the email sync is planned as a dry run and applied on a yes at a terminal or with `--yes`; without either it lists the plan and writes nothing, and a sync that fails fails `doctor --fix`' },
+  { from: 'npx nuxt-backend upgrade --prod --yes', to: 'npx nuxt-backend deploy', change: 'reshaped', section: DOCTOR_FIX, note: '`deploy` and `deploy --build` run the package\'s data migrations and the workpool\'s backfill after a production push; the `upgrade --prod --yes` step after them finds nothing left, and stays only after a deploy that runs `convex deploy` itself' },
+
+  // 0.4: a page of the packaged page's shape replaces it, and dev modules move to /_dev/.
+  { from: '/_nuxt/', to: '/_dev/', change: 'reshaped', section: PAGE_SHAPE, note: 'on `nuxt dev`, an app that sets no `app.buildAssetsDir` gets its modules from `/_dev/`, and every module is served `Cache-Control: no-cache` unless the app sets its own in `vite.server.headers`; match `/_dev/` in a dev proxy rule or test matcher' },
+  { from: 'r/[...slug].vue', to: 'app/pages/r/[code].vue', change: 'reshaped', section: PAGE_SHAPE, note: 'only a page of the packaged page\'s shape replaces it; a catch-all or optional page leaves the packaged page beside it' },
+
+  // 0.4: plan switches ask first, and money follows the currency's smallest unit.
+  { from: '<PricingTable>', to: 'proration: \'invoice\'', change: 'reshaped', section: PRICE_DIGITS, note: 'a subscriber\'s switch asks first and bills the difference at once; a gifted plan\'s holder checks the new plan out; `usePricing().bind.planAction` switches the same way without asking' },
+  { from: '$99.00', to: '$99', change: 'reshaped', section: PRICE_DIGITS, note: 'amounts follow the currency\'s smallest unit (whole JPY, KRW and the other zero-decimal currencies, thousandths for BHD, JOD, KWD, OMR and TND), a whole amount with no decimals, in the pages and the renewal email alike; 0.3 divided every amount by 100' },
+
+  // 0.4: an app's own labels are searched first, and the browser's install banner stays.
+  { from: 'errors.unavailable', to: 'errors.unavailable_<service>', change: 'reshaped', section: OWN_SENTENCE, note: 'a refusal from a service that is down reads `errors.unavailable_<service>` when no sentence for the reason fits; the app\'s own labels are searched first, so its `errors.unavailable` keeps winning' },
+  { from: 'installable', to: 'backend.installable.browserBanner: false', change: 'reshaped', section: OWN_SENTENCE, note: '`useInstallPrompt()` keeps the browser\'s install event and leaves its own banner showing; `browserBanner: false` stops the banner' },
+
+  // 0.4: member tickets claim their member's referral on the server, and tokens stay out of the address.
+  { from: 'access.memberTickets', to: 'access.memberTickets({ referrals })', change: 'reshaped', section: MEMBER_REFERRALS, note: 'pass the app\'s `setupReferrals` instance for each friend a ticket admits to be claimed as its member\'s referral, as their account is made' },
+  { from: '/waitlist', to: 'the status email\'s link', change: 'reshaped', section: MEMBER_REFERRALS, note: 'the page keeps a status token in the tab, never in the address, so a bookmark no longer holds a place' },
+
   // A job waits for billing to catch up, owes a charge by output, and tries an empty image answer once more.
   { from: 'insufficient_credits', to: 'not_ready', change: 'reshaped', section: JOB_BILLING, note: 'a job whose first step finds no credit meter or no billing customer yet waits about five minutes, its hold taken, then fails `not_ready` (reason `not_synced` or `no_customer`); only a balance short of the credits fails `insufficient_credits`' },
   { from: 'job.charge', to: 'onOwedCharge', change: 'reshaped', section: JOB_BILLING, note: 'a refusal that may pass (no answer, `408`, `429`, `5xx`, no customer yet) leaves the charge owed: the job ends `done` with `owed`, its credits held, and the queue tries it in the background; any other `4xx` gives it up at once, the job still `done` and its hold back' },
