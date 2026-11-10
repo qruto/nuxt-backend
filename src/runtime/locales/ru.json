@@ -2568,6 +2568,7 @@
       "invalid_input_unsupported_type": "Файлы такого типа не принимаются. Выберите другой.",
       "invalid_input_upload_gone": "Загрузка пропала. Загрузите файл ещё раз.",
       "invalid_input_upload_claimed": "Эта загрузка уже использована. Загрузите файл ещё раз.",
+      "invalid_input_unreadable": "Это фото здесь не открывается. Попробуйте JPEG или PNG.",
       "invalid_input_appeal_expired": "Это решение больше нельзя обжаловать.",
       "invalid_input_appealed_already": "Это решение уже обжаловано.",
       "invalid_input_removed_copy": "Этот файл был удалён из приложения, и загрузить его снова нельзя.",

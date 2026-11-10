@@ -196,7 +196,10 @@ Every name on this surface is brand-neutral: no export, value or type, and no re
 The names the module registers, exactly as it registers them (`src/module.ts` and `src/nuxt/`):
 
 - **Composables**:
+  - `PhotoPrepError` — the refusal `preparePhoto` throws for a file that is no photo, one too large to open, or one the browser can't open, read by `getBackendError` as `invalid_input` on `file`
   - `getBackendError` — reads a refusal's catalog code out of anything a call threw or resolved with
+  - `isPhotoFile` — whether a picked or dropped file is worth preparing as a photo: an image type other than SVG and GIF, or a HEIC the device left untyped
+  - `preparePhoto` — a photo made ready in the browser before it uploads: HEIC decoded, turned upright, scaled to a long edge and re-encoded with no metadata; `useUploadField`'s `prepare` as it is
   - `useAccessAdmin` — the admin console's Access tab as data: the phase, the invite codes and access links, the invitations by address, and the changes an administrator makes
   - `useAccessPhase` — the app's launch phase, rendered on the server and live
   - `useAccount` — the account itself: its profile, its export and its deletion, with the typed confirmation, the grace period it waits out (`deletion`) and `cancelDeletion()`
@@ -692,6 +695,7 @@ Nuxt `^4.6.2` (Nuxt 4 from 4.6.2, where the `nuxt/server` API the server code is
 | `@convex-dev/eslint-plugin` | `^5.0.0` | `nuxt-backend/eslint` |
 | `@convex-dev/crons` | `^0.2.3` | jobs an app schedules at runtime, imported directly (installed and mounted by the app) |
 | `botid` | `^1.5.11` | the bot check on the app's server and in the browser on Vercel (Vercel BotID): wired on a Vercel build once it is installed; without it the module imports nothing of it |
+| `heic-to` | `^1.6.7` | `preparePhoto`'s HEIC decoder, for a HEIC or HEIF photo in a browser that can't open one itself (all but Safari): loaded only when one arrives, as its `heic-to/csp` build, which needs no `'unsafe-eval'`. With it installed, the module adds `blob:` to the security headers' `worker-src`, where the decoder's worker starts. Without it the module imports nothing of it, and such a photo is refused as `unreadable`. It is LGPL-3.0 |
 | `@sentry/nuxt` | `^11.10.0` | error reports and traces from the browser and the Nuxt server (the monitoring layer): wired once it is installed and a DSN is set (`MONITORING_DSN`, or `NEXT_PUBLIC_SENTRY_DSN`); without it the module imports nothing of it |
 | `ai` | `^7.0.129` | a model named in `nuxt-backend/ai` (`setupAi`'s `model`, `ctx.model()`): the AI SDK, with the Vercel AI Gateway provider it ships. The model types of `nuxt-backend/ai` (`AiModel`, `MeteredModel`) are the SDK's own: without `ai` installed they read as `any` under `skipLibCheck` (the Nuxt and Convex default), and a type check without it reports the missing module |
 | `@convex-dev/ai-sdk-provider` | `^0.3.0` | a model id through the Convex AI Gateway (`nuxt-backend/ai`), tried first on Convex Cloud: Convex's own provider for it. Without it, ids go to the Vercel AI Gateway |

@@ -1198,6 +1198,24 @@
       "summary": "The upload field without its markup: pick a file (by the button or by dropping it), run your `prepare` on it, upload it with the base module's `useUploadQueue` through the upload URL `setupStorage` mints, then hand the storage id to your `claim`, where the deployment checks it.",
       "url": "/docs/reference/nuxt/composables"
     },
+    "preparePhoto": {
+      "tab": "Data",
+      "tier": "stable",
+      "summary": "Make one photo ready to send, in the browser: decoded (a HEIC through `heic-to` when this browser can't open it, loaded only then), turned upright by its EXIF orientation, scaled down to `longEdge`, and re-encoded as `type` (JPEG by default) on a canvas, which keeps the pixels and drops every metadata tag, GPS included.",
+      "url": "/docs/reference/nuxt/composables"
+    },
+    "isPhotoFile": {
+      "tab": "Data",
+      "tier": "stable",
+      "summary": "Whether a file picked, dropped or pasted is worth preparing as a photo: an image type other than SVG and GIF, or a HEIC the device left untyped.",
+      "url": "/docs/reference/nuxt/composables"
+    },
+    "PhotoPrepError": {
+      "tab": "Data",
+      "tier": "stable",
+      "summary": "A photo `preparePhoto` could not make ready, as the refusal it is: `invalid_input` on `file`, with `reason`.",
+      "url": "/docs/reference/nuxt/composables"
+    },
     "useNotifications": {
       "tab": "Email",
       "tier": "stable",
