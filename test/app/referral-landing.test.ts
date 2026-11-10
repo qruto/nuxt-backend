@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { defineComponent, reactive } from 'vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, h, provide, reactive } from 'vue'
 import { enableAutoUnmount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { makeFunctionReference } from 'convex/server'
@@ -7,12 +7,27 @@ import { backendError } from '../../src/convex/errors'
 import type { ReferralPreview } from '../../src/convex/integrations/referrals'
 import { createBackendMock, resetBackendMock, type BackendMock } from '../../src/runtime/test-utils'
 import type { UseReferralInviteOptions, UseReferralInviteReturn } from '../../src/runtime/vue/composables/use-referral-invite'
+import { BackendApiKey } from '../../src/runtime/vue/utils/namespace'
 import { registerComponents } from '../helpers/register-components'
 
 // The page a referral link opens, `/r/<code>`: the test app has no pages, so
 // the route the link opens is stood in for, with its code and query.
 const route = reactive<{ path: string, fullPath: string, params: Record<string, string | string[]>, query: Record<string, string> }>({ path: '/r/ADA123', fullPath: '/r/ADA123', params: { code: 'ADA123' }, query: {} })
 mockNuxtImport('useRoute', () => () => route)
+
+// The namespaces asked for with no fallback: in development, each one the app
+// lacks warns that its backend file is missing.
+const required = vi.hoisted(() => [] as string[])
+vi.mock('../../src/runtime/vue/utils/namespace', async (original) => {
+  const actual = await original<typeof import('../../src/runtime/vue/utils/namespace')>()
+  return {
+    ...actual,
+    useBackendNamespace: (name: string, composable: string, api?: unknown) => {
+      if (api === undefined && actual.useApiNamespace(name) === undefined) required.push(name)
+      return actual.useBackendNamespace(name, composable, api)
+    },
+  }
+})
 
 await registerComponents('ReferralLanding')
 const { default: ReferralLanding } = await import('../../src/runtime/vue/components/billing/ReferralLanding.vue')
@@ -152,6 +167,23 @@ describe('the referral link\'s page', () => {
     const wrapper = await landing()
     expect(part(wrapper, 'landing-sign-up').exists()).toBe(true)
     expect(part(wrapper, 'landing-closed').exists()).toBe(false)
+  })
+
+  it('offers the sign-up in an app without backend/access.ts, and warns of no missing file: such an app is open', async () => {
+    backendWith()
+    required.length = 0
+    // The app's function tree with its referral program and no access functions.
+    const api = { referrals: { previewReferral: makeFunctionReference('referrals:previewReferral'), claimReferral: makeFunctionReference('referrals:claimReferral') } }
+    const wrapper = await mountSuspended(defineComponent({
+      setup() {
+        provide(BackendApiKey, api)
+        return () => h(ReferralLanding)
+      },
+    }))
+    await flushPromises()
+    expect(part(wrapper, 'landing-sign-up').exists()).toBe(true)
+    expect(part(wrapper, 'landing-closed').exists()).toBe(false)
+    expect(required).toEqual([])
   })
 
   it('words a trial, an offer of nothing, and an inviter without a name', async () => {

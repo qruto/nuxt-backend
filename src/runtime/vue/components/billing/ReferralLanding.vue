@@ -14,17 +14,19 @@
  * @internal
  */
 import { computed } from 'vue'
-import { useAccessPhase } from '../../composables/use-access'
+import { type AccessApiRefs, useAccessPhase } from '../../composables/use-access'
 import { useBackendPagePath } from '../../composables/use-backend-page-path'
 import { useLabels } from '../../composables/use-labels'
 import { useReferralInvite } from '../../composables/use-referral-invite'
+import { useApiNamespace } from '../../utils/namespace'
 
 const invite = useReferralInvite()
 const { t, errorMessage } = useLabels('referral')
 const home = useBackendPagePath('settings')
 const invitePath = useBackendPagePath('invite')
 const waitlistPath = useBackendPagePath('waitlist')
-const { phase } = useAccessPhase()
+// An app without backend/access.ts is open, and lacks no file: no warning for it.
+const { phase } = useAccessPhase({ api: useApiNamespace<AccessApiRefs>('access') ?? {} })
 
 /** The invite page, carrying this link's code: the sign-in it leads to comes back here to claim. */
 const inviteTo = computed(() => (invitePath.value ? `${invitePath.value}?ref=${encodeURIComponent(invite.code.value)}` : null))

@@ -6,8 +6,8 @@ import type { ReferralPreview } from '../../../convex/integrations/referrals'
 import type { BackendError } from '../utils/backend-error'
 import { failureOf } from '../utils/backend-error'
 import { absentQuery } from '../utils/live-query'
-import { useBackendNamespace } from '../utils/namespace'
-import { useAccessPhase } from './use-access'
+import { useApiNamespace, useBackendNamespace } from '../utils/namespace'
+import { type AccessApiRefs, useAccessPhase } from './use-access'
 import { useBackendPagePath } from './use-backend-page-path'
 import type { ReferralsApiRefs } from './use-referrals'
 
@@ -88,7 +88,8 @@ export function useReferralInvite(options: UseReferralInviteOptions = {}): UseRe
   const signedIn = computed(() => auth != null && auth.isAuthenticated.value)
   const loginPath = useBackendPagePath('login')
   const landing = useBackendPagePath('referral')
-  const { phase, isLoading: phaseLoading } = useAccessPhase()
+  // An app without backend/access.ts is open, and lacks no file: its phase reads as public, with no warning.
+  const { phase, isLoading: phaseLoading } = useAccessPhase({ api: useApiNamespace<AccessApiRefs>('access') ?? {} })
 
   const code = computed(() => {
     const value = route.params.code
