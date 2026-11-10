@@ -1,5 +1,117 @@
 # Changelog
 
+## v0.4.0
+
+[compare changes](https://github.com/qruto/nuxt-backend/compare/v0.3.0...v0.4.0)
+
+What moving comics.my to 0.3 turned up. A job charged by what it made keeps its result when billing refuses the charge, and settles it later. Gifts sell from a form, and plan changes say what they do first. Photos are made ready in the browser, and a checked upload is accepted in one call. Member tickets credit their member as a referral. An install prompt and new UI tokens arrive. Fixes land in the CLI's `upgrade`, `doctor` and `deploy`, and in how an app page replaces a packaged one.
+
+### Upgrading from 0.3
+
+Each change, with the edit to make, is on the [Upgrade page](https://nuxt-backend.dev/docs/ship/releases/upgrade). In short:
+
+- **`doctor --fix` asks before it syncs email.** At a terminal it asks; in CI it syncs only with `--yes`.
+- **A deploy runs the package's migrations.** `npx nuxt-backend deploy` and `deploy --build` run the data migrations and the workpool's backfill after a production push. A migration that fails fails the deploy.
+- **Dev modules come from `/_dev/`** on `nuxt dev`, unless the app sets `app.buildAssetsDir`. Match `/_dev/` in a dev proxy rule or test matcher that matched `/_nuxt/`.
+- **A replaced page follows its shape.** A page of the packaged page's shape replaces it, `app/pages/r/[code].vue` included, where 0.3 registered both. A catch-all or optional one still doesn't, and the packaged page stays beside it.
+- **Prices keep their currency's own digits.** JPY, KRW and the other zero-decimal currencies are whole units, where 0.3 divided them by 100. A whole USD price reads $99 in the renewal email. Without @nuxtjs/i18n, money and dates render in English for every visitor, where 0.3 used the visitor's own locale.
+- **Plan switches ask first**, and bill the difference at once (`proration: 'invoice'`).
+- **A job waits for billing to catch up.** A job whose first step finds billing not synced yet waits about five minutes and runs once billing syncs; only if it never does does it fail `not_ready`, where 0.3 failed `insufficient_credits` at once. A charge by output the provider refuses leaves the job `done`, retried in the background when the refusal may pass, given up at once when it won't.
+- **Member tickets and referrals.** Pass `access.memberTickets({ referrals })` for each friend a ticket admits to count as its member's referral.
+
+### New
+
+- **AI jobs.**
+  - A charge by output the provider refuses no longer fails the job, which ends `done`: a refusal that may pass leaves it owed and retried in the background under the hold's id, one that won't gives it up at once. `defineJobQueue({ onOwedCharge })` hears how it ends; the admin Queue tab offers "Retry the charge".
+  - `job.charge(n, { metadata })` is checked against the provider's limits up front.
+  - A step knows its job's owner (`ctx.job.owner`, `ctx.job.userId`).
+  - Image refusals read as blocked, and an image call that drew nothing is tried once more.
+  - The test kit adds `stubBillingProvider()`, `TEST_UNSAFE_CODE(codes)` and `fileExists`, and `drain` takes `{ until }`.
+- **Billing.**
+  - `useGiftForm()` and `<GiftForm>` sell gifts from the packaged `/gifts` page. They are experimental, like the gift lengths they sell. `useGiftList()` and `<GiftList>` are public.
+  - `useBilling().changeOf(productId)` previews a plan change, trials included. The settings' plan section can change or pause a plan for 1 to 3 months.
+  - `useWithdrawal()` reads the withdrawal window.
+  - Pricing reads `?plan=` and `?interval=` from the address, takes a return URL per action (`successUrl`), and keeps the offer window on the page's clock.
+- **Uploads.**
+  - `storage.acceptUpload(ctx, storageId, { check, safety, about, keep })` runs the check, the content check and the keep in one call.
+  - `preparePhoto(file, options)`, with `isPhotoFile` and `PhotoPrepError`, makes a photo ready in the browser: HEIC decoded (`heic-to`, an optional peer), turned upright, scaled, re-encoded, its metadata dropped.
+- **Growth.**
+  - Member tickets credit their member as a referral (`access.memberTickets({ referrals })`, `referrals.claimFor`).
+  - `/invite` takes a typed code. `/waitlist` joins without a token and follows the launch phase.
+  - `useReferralInvite().closed` and `useWaitlist().shareLink`.
+- **UI.**
+  - Tokens for tracking (`--bk-tracking-heading`, `--bk-tracking-control`, `--bk-tracking-label`), for outline widths (`--bk-border-width-surface`, `--bk-border-width-control`) and for a press (`--bk-shadow-control-hover`, `--bk-shadow-control-active`, `--bk-offset-control-hover`, `--bk-offset-control-active`, `--bk-transition-control`). Left unset, nothing looks different.
+  - `useInstallPrompt()` for an app's own install button, and `backend.installable` takes `id`, `lang`, `orientation` and `browserBanner`.
+  - `useReportAppeal()` is public, for an app's own report page.
+  - A refusal from a service that is down reads its service's sentence (`errors.unavailable_<service>`).
+- **CLI.**
+  - `doctor` reports `.env.example` drift (`env-example`) for the capabilities the app uses, and warns when it cannot read the file.
+  - On Vercel, an app with nuxt-site-config gets a preview's branch URL as its site and `indexable: false`, below its own `site` options.
+- **Nuxt module.** A production build reloads a page once when its code fails to load before the app has started (`chunkRecovery`). `useLoginFlow()` adds `webAuthnSupported`.
+
+### Fixed
+
+- **CLI.**
+  - `upgrade --dry-run` reads the app's own `nuxt.config` and `app.config`, where it showed `brand.generated.ts`, `labels.generated.ts` and moved page paths being emptied.
+  - `backendEslint()` ignores the module's `*.generated.ts`.
+- **Pages.**
+  - The packaged sign-in replaces its history entry and never returns to `/login`.
+  - With `pages.login: false`, the page guard and the session-ended watch send a visitor to `/login`.
+  - The development defaults (no rate limiter, HSTS or `upgrade-insecure-requests`) survive the app's own `security` options.
+- **Email.** On a `development` deployment, the contact form's copy for the team goes to the sandbox inbox. Elsewhere outside production, test mode holds it back, and the message waits in the admin console.
+- **Billing.** Money is formatted by the currency's smallest unit, and money and dates in the app's locale, so a server render and its hydration agree.
+- **Access.** The links the pages and composables build (share, ticket, referral, access, checkout) read the request's own `Host` on the server, never `X-Forwarded-Host`.
+
+### 🚀 Enhancements
+
+#### AI
+
+- Jobs that bill like a print shop ([#234](https://github.com/qruto/nuxt-backend/pull/234))
+
+#### Billing
+
+- Buy gifts from a form, confirm plan changes, and read pricing from the address ([#236](https://github.com/qruto/nuxt-backend/pull/236))
+
+#### UI
+
+- Tracking, press and border tokens, an install prompt, and refusals worded by service ([#237](https://github.com/qruto/nuxt-backend/pull/237))
+
+#### Uploads
+
+- Accept a checked upload in one call, and prepare photos in the browser ([#235](https://github.com/qruto/nuxt-backend/pull/235))
+
+#### Access
+
+- Tickets carry the referral, and the growth pages follow the launch phase ([#238](https://github.com/qruto/nuxt-backend/pull/238))
+
+### 🩹 Fixes
+
+#### CLI
+
+- Read the real config in upgrade --dry-run, confirm email sync, migrate on deploy ([#232](https://github.com/qruto/nuxt-backend/pull/232))
+
+#### Nuxt module
+
+- App pages decide what a replaced page keeps, and safe defaults for dev and a failed chunk ([#233](https://github.com/qruto/nuxt-backend/pull/233))
+
+### 🏡 Chore
+
+- Take nuxt-convex-module 0.14.1 and explain the glob alert after 0.3.0 ([#229](https://github.com/qruto/nuxt-backend/pull/229))
+
+### ✅ Tests
+
+#### Upgrade
+
+- Upgrade from the 0.3.0 starter, and drift the repair tests' own copy ([#231](https://github.com/qruto/nuxt-backend/pull/231))
+
+### 🤖 CI
+
+- Run e2e in its own job, retry registry lag, give lychee more time ([#230](https://github.com/qruto/nuxt-backend/pull/230))
+
+### ❤️ Contributors
+
+- Slava Razum ([@slavarazum](https://github.com/slavarazum))
+
 ## v0.3.0
 
 [compare changes](https://github.com/qruto/nuxt-backend/compare/v0.2.1...v0.3.0)

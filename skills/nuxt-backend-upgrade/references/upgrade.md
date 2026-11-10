@@ -17,6 +17,41 @@ has the reasons and every step. The core skill's `references/renames.json`, in
 After it, run `npx nuxt-backend doctor`, and `npx nuxt-backend init --agents` to refresh the app's
 agent files and skills.
 
+## [`doctor --fix` asks before it syncs email, and a deploy runs the package's migrations](https://nuxt-backend.dev/docs/ship/releases/upgrade#doctor---fix-asks-before-it-syncs-email-and-a-deploy-runs-the-packages-migrations)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `doctor --fix` | `--yes` | reshaped | the email sync is planned as a dry run and applied on a yes at a terminal or with `--yes`; without either it lists the plan and writes nothing, and a sync that fails fails `doctor --fix` |
+| `npx nuxt-backend upgrade --prod --yes` | `npx nuxt-backend deploy` | reshaped | `deploy` and `deploy --build` run the package's data migrations and the workpool's backfill after a production push; the `upgrade --prod --yes` step after them finds nothing left, and stays only after a deploy that runs `convex deploy` itself |
+
+## [A replaced page follows its shape, and `nuxt dev` serves its modules from a path of their own](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-replaced-page-follows-its-shape-and-nuxt-dev-serves-its-modules-from-a-path-of-their-own)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `/_nuxt/` | `/_dev/` | reshaped | on `nuxt dev`, an app that sets no `app.buildAssetsDir` gets its modules from `/_dev/`, and every module is served `Cache-Control: no-cache` unless the app sets its own in `vite.server.headers`; match `/_dev/` in a dev proxy rule or test matcher |
+| `r/[...slug].vue` | `app/pages/r/[code].vue` | reshaped | only a page of the packaged page's shape replaces it; a catch-all or optional page leaves the packaged page beside it |
+
+## [Plan switches ask first, and prices keep their currency's own digits](https://nuxt-backend.dev/docs/ship/releases/upgrade#plan-switches-ask-first-and-prices-keep-their-currencys-own-digits)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `<PricingTable>` | `proration: 'invoice'` | reshaped | a subscriber's switch asks first and bills the difference at once; a gifted plan's holder checks the new plan out; `usePricing().bind.planAction` switches the same way without asking |
+| `$99.00` | `$99` | reshaped | amounts follow the currency's smallest unit (whole JPY, KRW and the other zero-decimal currencies, thousandths for BHD, JOD, KWD, OMR and TND), a whole amount with no decimals, in the pages and the renewal email alike; 0.3 divided every amount by 100 |
+
+## [An app's own error sentence keeps winning, and the browser's install banner stays](https://nuxt-backend.dev/docs/ship/releases/upgrade#an-apps-own-error-sentence-keeps-winning-and-the-browsers-install-banner-stays)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `errors.unavailable` | `errors.unavailable_<service>` | reshaped | a refusal from a service that is down reads `errors.unavailable_<service>` when no sentence for the reason fits; the app's own labels are searched first, so its `errors.unavailable` keeps winning |
+| `installable` | `backend.installable.browserBanner: false` | reshaped | `useInstallPrompt()` keeps the browser's install event and leaves its own banner showing; `browserBanner: false` stops the banner |
+
+## [Member tickets credit their member as a referral, and tokens leave the address bar](https://nuxt-backend.dev/docs/ship/releases/upgrade#member-tickets-credit-their-member-as-a-referral-and-tokens-leave-the-address-bar)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `access.memberTickets` | `access.memberTickets({ referrals })` | reshaped | pass the app's `setupReferrals` instance for each friend a ticket admits to be claimed as its member's referral, as their account is made |
+| `/waitlist` | `the status email's link` | reshaped | the page keeps a status token in the tab, never in the address, so a bookmark no longer holds a place |
+
 ## [A job waits for billing to catch up, and owes a charge the provider refuses for now](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-job-waits-for-billing-to-catch-up-and-owes-a-charge-the-provider-refuses-for-now)
 
 | Was | Now | Change | Note |

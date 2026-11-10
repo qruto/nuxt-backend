@@ -1,6 +1,6 @@
 ---
-title: What's new in 0.3
-description: "0.3.0 moves into the package what the first apps on 0.2 wrote themselves: hearing when a job ends and charging for what it made, image models, pluggable moderation, welcome credits, billing that waits to launch, member tickets, labels in emails, the report form and legal pages, and test helpers."
+title: What's new in 0.4
+description: "0.4.0 settles what moving comics.my to 0.3 turned up: jobs charged by what they made keep their result when billing refuses the charge, a gift form and plan changes that say what they do, photos made ready in the browser, member tickets that credit referrals, an install prompt and new UI tokens, and fixes to upgrade, doctor, deploy and replaced pages."
 kind: landing
 related:
   - /docs/start/feature-map
@@ -11,31 +11,29 @@ navigation:
   icon: i-lucide-newspaper
 ---
 
-`0.3.0` takes in what comics.my, the first app built on `0.2`, had to write for itself, so the next app doesn't. Under it, Better Auth 1.7 on `nuxt-convex-module` 0.14 closes the Better Auth security advisories. The [Feature map](/docs/start/feature-map) lists every feature with its status, and the [Changelog](/docs/ship/releases/changelog) every change. What the release brings, capability by capability:
+`0.4.0` settles what moving comics.my, the first app on `0.3`, turned up. The [Feature map](/docs/start/feature-map) lists every feature with its status, and the [Changelog](/docs/ship/releases/changelog) every change. What the release brings, capability by capability:
 
-- **[AI jobs](/docs/build/ai/jobs).** `onJobEnd` runs once for every job that ends, however it ends, and app code reads and cancels jobs with `jobs.get` and `jobs.cancel`. `job.charge(n)` bills what a job made, capped at the hold taken when it was queued, and gives back the rest; a job can also run free. A step draws with image models through `ctx.image()`, stops its model calls at its `timeout`, and marks a failure worth another try with `retryable()`. `setupAi({ gateway })` chooses the AI gateway, and `setupAi({ routes })` gives some models a gateway order of their own.
-- **[Content safety](/docs/build/ai/content-safety).** `setupAi({ moderation })` sets a policy: what to block, what to escalate and how long flags are kept, with the flags listed in the admin console. [Providers plug in](/docs/build/ai/content-safety/providers) beside the default classifier, Llama Guard 4, which reads text and images: Azure AI Content Safety for images and text, OpenAI's moderation as a second opinion, and Project Arachnid Shield for known abuse imagery, all over one set of categories, with every decision recorded as its statement of reasons.
-- **[Billing](/docs/start/feature-map#billing).** Welcome credits on the free plan, granted once per person. A production deployment without a billing token or a production catalog reads "Plans open soon" and refuses a sale until it launches, and `usePricing().launched` says which. Plans list their gift lengths at live prices, and `npx nuxt-backend billing resync` reads every entity's entitlements again.
-- **[Growth](/docs/build/growth/launch).** Member tickets let members bring friends past the waitlist while the app is closed, the waitlist records where each person came from, and `npx nuxt-backend access admit` invites an address from the shell.
-- **[Email](/docs/start/feature-map#email) and [labels](/docs/build/ui/customize/labels).** The labels app config sets reach emails, notification emails and push through `labels.generated.ts`, and a `notification` template switches by kind.
-- **[UI](/docs/start/feature-map#ui).** Font, border and shadow [tokens](/docs/build/ui/customize/tokens) under one `[data-backend]` root, `useReportForm` for the notice form the EU Digital Services Act asks for, `useSignInAlerts`, legal components for Content pages, and the web app manifest's colours and icons.
-- **[Data](/docs/start/feature-map#data) and [tests](/docs/develop/testing).** `storage.expire`, a hook when a [share link](/docs/build/data/files/share-links) is turned on, [retention](/docs/build/data/retention) on a schedule, and `upload`, `seedCredits`, `seedBilling`, `drain` and `stubStorageFetch` in `nuxt-backend/test`. The upload field tells a refusal from a failure and retries a failure from where it stopped.
-- **[The tools](/docs/start/feature-map#developer-tools).** `doctor --prod` reads billing's launch state, checks for a `spendLimit` and says where to set up an uptime monitor and each AI gateway's own cap, `deploy --build` uses the project's package manager, and `upgrade` runs the workpool's backfill.
-- **Under the hood.** The Better Auth client loads on first use, so a page a signed-out visitor only reads downloads none of it. Browser error reports go through Sentry's managed tunnel on the app's own origin. Other sites can load the og images and the logo.
+- **[AI jobs](/docs/build/ai/jobs).** A job charged by what it made keeps its result when billing refuses the charge. A refusal that may pass leaves the charge owed and retried in the background under the hold's id. One that won't gives the charge up at once, logged for the operator. `defineJobQueue({ onOwedCharge })` hears how it ends, and the admin Queue tab offers "Retry the charge". A job whose first step finds billing not synced yet waits for it. `job.charge(n, { metadata })` is checked against the provider's limits. A step knows its job's owner, and an image call that drew nothing is tried once more.
+- **[Billing](/docs/start/feature-map#billing).** `<GiftForm>` sells gifts from the packaged `/gifts` page, and `<GiftList>` lists them. Plan switches say when they apply and how they settle before they happen, a plan can pause for 1 to 3 months, and `useWithdrawal()` reads the withdrawal window. The pricing page reads `?plan=` and `?interval=` from the address, and money follows each currency's smallest unit.
+- **[Uploads](/docs/build/data/files/checked-uploads).** `storage.acceptUpload` runs the check, the content check and the keep in one call. `preparePhoto` makes a photo ready in the browser before it uploads: HEIC decoded, turned upright, scaled, re-encoded and stripped of its metadata.
+- **[Growth](/docs/build/growth/launch).** Member tickets claim each friend they admit as their member's referral, on the server. `/invite` takes a typed code, `/waitlist` follows the launch phase, and neither keeps a token in the address bar.
+- **[UI](/docs/start/feature-map#ui).** Tracking, outline and press [tokens](/docs/build/ui/customize/tokens), which change nothing until you set them. `useInstallPrompt()` for an [install button](/docs/build/email/notifications/installable) of your own, `useReportAppeal()` for a report page of your own, and refusals worded by the service that is down.
+- **[The tools](/docs/start/feature-map#developer-tools).** `upgrade --dry-run` reads the app's own config. `doctor --fix` asks before it syncs email, and `deploy` runs the package's migrations. `doctor` reports `.env.example` drift, and on Vercel a preview gets its own site URL and stays out of search.
+- **Under the hood.** An app page replaces a packaged one only when it has the same shape. A production build reloads a page once when its code fails to load before the app starts. `nuxt dev` serves modules `no-cache`, from `/_dev/` unless the app sets `app.buildAssetsDir`, so Safari loads one Vue across restarts.
 
 Development runs on the providers' own test modes, with nothing simulated: Polar's sandbox, Resend's test addresses and the Convex AI Gateway ([Develop on real sandboxes](/docs/develop/sandboxes)). A feature the Feature map marks **Planned** arrives in the next minor release, and its page already describes it as it will ship.
 
-## Upgrading from 0.2
+## Upgrading from 0.3
 
-Deploy the backend, then run `npx nuxt-backend upgrade`: the `backend` component gains tables and fields, and the upgrade also runs the workpool's backfill. Most apps need a few edits beside it: a Better Auth plugin of your own must support 1.7, every passkey ceremony now asks for a fingerprint, face or PIN, and `setupEmail` takes the `labels` of the `labels.generated.ts` that `upgrade` writes. The [Upgrade page](/docs/ship/releases/upgrade) lists each change with the edit it asks for.
+Run `npx nuxt-backend upgrade` as for every release. A few behaviours change around it. `doctor --fix` syncs email in CI only with `--yes`. Dev modules move from `/_nuxt/` to `/_dev/`. Prices in zero-decimal currencies stop being divided by 100. A job whose billing is not synced yet waits for it, and fails `not_ready`, not `insufficient_credits`, only if it never syncs. The [Upgrade page](/docs/ship/releases/upgrade) lists each change with the edit it asks for.
 
 ## What waits for a later release
 
-`0.3.0` still serves client apps. The features a service platform needs (API keys, outgoing webhooks, an MCP endpoint for your users' agents, and deeper workspaces with custom roles) arrive together in a later release. The [Roadmap](/docs/start/roadmap) says why each one waits.
+`0.4.0` still serves client apps. The features a service platform needs (API keys, outgoing webhooks, an MCP endpoint for your users' agents, and deeper workspaces with custom roles) arrive together in a later release. The [Roadmap](/docs/start/roadmap) says why each one waits.
 
 ## Experimental
 
-A few parts may still change shape in a minor release of the `0.x` line, without the deprecation cycle: metered AI (`nuxt-backend/ai`), the monitoring helpers for your own actions, the test helpers and the backend mock, plan quotas and the dev inbox. Their pages carry the Experimental chip, and [the experimental tier](/docs/ship/releases/stability#the-experimental-tier) lists each name.
+A few parts may still change shape in a minor release of the `0.x` line, without the deprecation cycle: metered AI (`nuxt-backend/ai`), the monitoring helpers for your own actions, the test helpers and the backend mock, plan quotas, the gift form and the dev inbox. Their pages carry the Experimental chip, and [the experimental tier](/docs/ship/releases/stability#the-experimental-tier) lists each name.
 
 ## In this section
 

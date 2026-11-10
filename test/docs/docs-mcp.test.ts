@@ -50,7 +50,7 @@ vi.mock('#agent-discovery', () => ({
     { route: DOCS_MCP_PAGE, title: 'Docs MCP', description: 'These docs as an MCP server.', url: `${SITE_URL}${DOCS_MCP_PAGE}` },
   ],
   getAgentDocument: async (_event: unknown, path: string) => path === DOCS_MCP_PAGE
-    ? { title: 'Docs MCP', description: 'These docs as an MCP server.', markdown: '# Docs MCP\n\nVersion: nuxt-backend 0.3.x', canonicalUrl: `${SITE_URL}${DOCS_MCP_PAGE}` }
+    ? { title: 'Docs MCP', description: 'These docs as an MCP server.', markdown: '# Docs MCP\n\nVersion: nuxt-backend 0.4.x', canonicalUrl: `${SITE_URL}${DOCS_MCP_PAGE}` }
     : null,
 }))
 
@@ -298,7 +298,7 @@ describe('the server', () => {
     const { response, body } = await call('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '0' } })
     expect(response.status).toBe(200)
     expect(response.headers.get('mcp-session-id')).toBeNull()
-    expect(body.result?.serverInfo).toMatchObject({ name: DOCS_MCP_NAME, version: '0.3.x' })
+    expect(body.result?.serverInfo).toMatchObject({ name: DOCS_MCP_NAME, version: '0.4.x' })
     for (const name of toolNames.filter(name => name !== 'get-page' && name !== 'list-pages')) expect(body.result?.instructions, name).toContain(`\`${name}\``)
   })
 
