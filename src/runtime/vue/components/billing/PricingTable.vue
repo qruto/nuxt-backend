@@ -41,8 +41,10 @@ import { providePricingView, type PlanAction, type PlanTrial, type PricingSlotCo
  * left for a monthly one waits for the paid year's end) and how the
  * period's difference is settled (`useBilling().changeOf`), then switches
  * settling it at once (`proration: 'invoice'`), whatever the provider's
- * default. A gifted plan's holder is asked too: their switch is a
- * checkout of the new plan, which ends the gift in its place. The address
+ * default. The price it states is in the subscription's own currency,
+ * which the provider keeps on a switch, and a plan with no price in it is
+ * offered no switch. A gifted plan's holder is asked too: their switch is
+ * a checkout of the new plan, which ends the gift in its place. The address
  * picks what shows: `?interval=year` the yearly prices, `?plan=<key>`
  * the card it marks and scrolls into view. A promotion runs by the
  * server's clock while the page hydrates, so its window reads the same in
@@ -136,6 +138,20 @@ const pricing = usePricing({
     get plan() { return props.successUrl?.plan },
     get pack() { return props.successUrl?.pack },
   },
+})
+// A subscriber's switch keeps the subscription's currency (the provider's
+// rule), so its confirmation states the price in it: read apart, in the
+// browser, only while the page shows another one.
+const subscriptionCurrency = computed(() => {
+  const currency = billing.subscription.value?.currency
+  return typeof currency === 'string' && currency !== '' ? currency.toLowerCase() : undefined
+})
+const switchPricing = usePricing({
+  server: false,
+  actions: false,
+  currency: () => subscriptionCurrency.value,
+  enabled: () => billing.isSubscribed.value && billing.pass.value === null && subscriptionCurrency.value !== undefined
+    && pricing.currency.value !== undefined && subscriptionCurrency.value !== pricing.currency.value,
 })
 const route = useRoute()
 const { isAuthenticated } = useAuthSession()
@@ -364,11 +380,30 @@ function returnTo(kind: 'plan' | 'pack', key: string): { successUrl?: string } {
   return url ? { successUrl: url } : {}
 }
 
-/** The price a subscriber's switch to a card's plan is about. */
-function changeTarget(plan: ResolvedPlan): PlanChangeTarget {
+/**
+ * The price a switch to a card's plan is about. A subscriber's is in the
+ * subscription's currency: `null` while that price is read, `undefined`
+ * when the plan has none in it, which no switch can move to. A gifted
+ * plan's holder checks out, in the card's own.
+ */
+function changeTarget(plan: ResolvedPlan): PlanChangeTarget | null | undefined {
+  const price = billing.pass.value === null ? priceInSubscriptionCurrency(plan) : plan.price
+  if (price === null) return null
+  if (price === '') return undefined
   // Their own plan at the other period is named with it: "Pro, billed yearly".
   const name = plan.isCurrent ? t(`billedAt.${plan.interval}` as LabelKey<BackendLabels['pricing']>, { plan: plan.name }) : plan.name
-  return { key: plan.key, productId: plan.priceAt.productId, plan: name, price: `${plan.price}${t(`period.${plan.interval}` as LabelKey<BackendLabels['pricing']>)}` }
+  return { key: plan.key, productId: plan.priceAt.productId, plan: name, price: `${price}${t(`period.${plan.interval}` as LabelKey<BackendLabels['pricing']>)}` }
+}
+
+/** A card's price in the subscription's currency, formatted: `null` while it is read, `''` when the product has no price in it. */
+function priceInSubscriptionCurrency(plan: ResolvedPlan): string | null {
+  const currency = subscriptionCurrency.value
+  if (!currency || plan.priceAt.currency === currency) return plan.price
+  const offers = switchPricing.plans.value
+  if (offers === undefined) return null
+  const at = offers.find(entry => entry.key === plan.key)?.prices[plan.interval]
+  // A product with no price in it comes back in the catalog's currency.
+  return at?.productId === plan.priceAt.productId && at.currency === currency ? formatBillingAmount(at.amount, at.currency, locale.value) : ''
 }
 const root = ref<HTMLElement | null>(null)
 // Cancelling the current plan takes one step: its button opens what ends
@@ -501,11 +536,17 @@ function planAction(plan: ResolvedPlan): PlanAction {
     // Their own plan at the other interval is a switch of billing period; a
     // retired one is never switched to. A switch asks first: a subscriber's
     // what `changeOf` previews, a gifted plan's holder's that it is a
-    // checkout; one the preview cannot describe goes at once.
+    // checkout; one the preview cannot describe goes at once. One to a plan
+    // with no price in the subscription's currency is none the provider
+    // makes; one whose price in it is still being read waits.
+    const target = changeTarget(plan)
+    if (target === undefined) return { kind: 'none' }
     const asks = billing.pass.value !== null || billing.changeOf(plan.priceAt.productId) !== null
-    const switching = (intent: string, idle: string): PlanAction => asks
-      ? { kind: 'change', intent, idle, busy: t('changing'), target: changeTarget(plan) }
-      : { kind: 'button', intent, idle, busy: t('changing'), run: () => switchTo(plan.key) }
+    const switching = (intent: string, idle: string): PlanAction => target === null
+      ? { kind: 'button', intent, idle, busy: t('changing'), run: () => {}, unavailable: true }
+      : asks
+        ? { kind: 'change', intent, idle, busy: t('changing'), target }
+        : { kind: 'button', intent, idle, busy: t('changing'), run: () => switchTo(plan.key) }
     if (plan.isCurrent) return plan.isRetired ? { kind: 'none' } : switching('switch', t(`switchInterval.${plan.interval}` as LabelKey<BackendLabels['pricing']>))
     // Name the direction when the prices say which way it goes; fall back
     // to a neutral "switch" when the current price is unknown.

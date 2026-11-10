@@ -160,14 +160,20 @@ const packs = computed<CreditPack[]>(() => config.billing.packs.length > 0
   ? config.billing.packs
   : Object.entries(products.value).flatMap(([key, product]) => product?.isRecurring === false && product.isArchived !== true ? [{ key }] : []))
 
-/** Every price on sale the plan can switch to: each plan at each period, but the one the subscription is on. */
+/**
+ * Every price on sale the plan can switch to: each plan at each period, but
+ * the one the subscription is on, and any with no price in the
+ * subscription's currency (it comes back in the catalog's), which the
+ * provider would refuse to switch to.
+ */
 function switchOptions(): PlanSwitchOption[] {
   const current = billing.subscription.value?.productId
+  const currency = subscriptionCurrency()?.toLowerCase()
   return (pricing.plans.value ?? []).flatMap((plan) => {
     if (plan.free || plan.retired) return []
     return (['month', 'year'] as const).flatMap((interval) => {
       const price = plan.prices[interval]
-      if (!price || price.archived || price.productId === current) return []
+      if (!price || price.archived || price.productId === current || (currency !== undefined && price.currency !== currency)) return []
       return [{
         key: price.productId,
         productId: price.productId,

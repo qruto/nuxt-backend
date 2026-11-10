@@ -52,6 +52,16 @@ const PRICING: Pricing = {
   currencies: ['usd'],
 }
 
+/** The same plans priced in euros, 2 less each; Team in `teamIn`, the catalog's dollars when it has no euro price. */
+const inEuros = (teamIn: 'eur' | 'usd' = 'eur'): Pricing => ({
+  ...PRICING,
+  currency: 'eur',
+  currencies: ['usd', 'eur'],
+  plans: PRICING.plans.map(entry => entry.key === 'team' && teamIn === 'usd'
+    ? entry
+    : { ...entry, prices: Object.fromEntries(Object.entries(entry.prices).map(([interval, at]) => [interval, { ...at, currency: 'eur', amount: at!.amount - 200 }])) }),
+})
+
 /** A billing manager on `productId`, its period ending on PERIOD_END. */
 function subscribedTo(productId: string, fields: Record<string, unknown> = {}, products: Record<string, unknown> = PRODUCTS): BackendMock {
   const key = Object.entries(PRODUCTS).find(([, product]) => product.id === productId)![0]
@@ -203,6 +213,24 @@ describe('<PricingTable>\'s switch confirmation', () => {
     expect(part(ends, 'pricing', 'change-when').text()).toBe('$29/mo from now on. The switch happens at once and ends your trial, so the first payment is charged now.')
   })
 
+  it('states the price in the subscription\'s currency, which the provider keeps, on a page in another', async () => {
+    const backend = subscribedTo('prod_pro', { currency: 'usd' })
+    backend.state.queries['billing:getPricing'] = (args: { currency?: string }) => (args.currency === 'eur' ? inEuros() : PRICING)
+    const wrapper = await mountSuspended(PricingTable, { attachTo: document.body, route: '/pricing?currency=eur' })
+    await flushPromises()
+    expect(card(wrapper, 'Team').find('[data-pricing="plan-price"]').text()).toContain('€27')
+    await card(wrapper, 'Team').find('[data-pricing="plan-action"]').trigger('click')
+    expect(part(wrapper, 'pricing', 'change-when').text()).toBe('$29/mo from now on. The switch happens at once, and the difference for this period is settled now.')
+  })
+
+  it('offers no switch to a plan with no price in the subscription\'s currency, which the provider would refuse', async () => {
+    const backend = subscribedTo('prod_pro', { currency: 'eur' })
+    backend.state.queries['billing:getPricing'] = (args: { currency?: string }) => (args.currency === 'eur' ? inEuros('usd') : PRICING)
+    const wrapper = await table()
+    expect(card(wrapper, 'Team').find('[data-pricing="plan-action"]').exists()).toBe(false)
+    expect(backend.callsTo('billing:updateSubscription')).toEqual([])
+  })
+
   it('asks a gifted plan\'s holder too, saying the switch is a checkout that ends the gift, then checks the plan out', async () => {
     const backend = createBackendMock({
       user: {},
@@ -280,9 +308,8 @@ describe('the plan section\'s switch and pause', () => {
     const before = detected.value
     detected.value = 'eur'
     try {
-      const euros: Pricing = { ...PRICING, currency: 'eur', currencies: ['usd', 'eur'], plans: PRICING.plans.map(entry => ({ ...entry, prices: Object.fromEntries(Object.entries(entry.prices).map(([interval, at]) => [interval, { ...at, currency: 'eur', amount: at!.amount - 200 }])) })) }
       const backend = subscribedTo('prod_pro', { currency: 'usd' })
-      backend.state.queries['billing:getPricing'] = (args: { currency?: string }) => (args.currency === 'usd' ? PRICING : euros)
+      backend.state.queries['billing:getPricing'] = (args: { currency?: string }) => (args.currency === 'usd' ? PRICING : inEuros())
       const wrapper = await section()
       await part(wrapper, 'settings', 'change-plan').trigger('click')
       expect(part(wrapper, 'settings', 'switch-select').findAll('option').map(option => option.text())).toEqual(['Choose a plan', 'Pro, billed yearly · $90/yr', 'Team, billed monthly · $29/mo'])
@@ -290,6 +317,14 @@ describe('the plan section\'s switch and pause', () => {
     finally {
       detected.value = before
     }
+  })
+
+  it('lists no price the subscription\'s currency has none for, which the provider would refuse to switch to', async () => {
+    const backend = subscribedTo('prod_pro', { currency: 'eur' })
+    backend.state.queries['billing:getPricing'] = (args: { currency?: string }) => (args.currency === 'eur' ? inEuros('usd') : PRICING)
+    const wrapper = await section()
+    await part(wrapper, 'settings', 'change-plan').trigger('click')
+    expect(part(wrapper, 'settings', 'switch-select').findAll('option').map(option => option.text())).toEqual(['Choose a plan', 'Pro, billed yearly · €88/yr'])
   })
 
   it('says a yearly plan\'s switch to monthly waits for the year\'s end, and announces it as scheduled', async () => {
