@@ -1,5 +1,5 @@
 import { computed, nextTick, ref, type ComputedRef, type Ref } from 'vue'
-import type { PlanChangePreview } from '../composables/use-billing'
+import type { ClientProrationBehavior, PlanChangePreview } from '../composables/use-billing'
 import { returnFocus } from './focus-return'
 
 // Switching a subscriber's plan takes one confirmation wherever a packaged
@@ -9,8 +9,17 @@ import { returnFocus } from './focus-return'
 // closes it and gives focus back, except while the switch is on its way.
 // The group's markup is `PlanChangeConfirmGroup.vue`.
 
+/**
+ * How a confirmed switch settles: the period's difference charged or
+ * credited at once, as the confirmation says it is. Sent with every switch
+ * the packaged components make, so the organization's own default, which
+ * may defer the charge to the next invoice or schedule the switch for the
+ * period's end, never makes the words untrue.
+ */
+export const CONFIRMED_PRORATION = 'invoice' satisfies ClientProrationBehavior
+
 /** The labels the group reads, the same keys in every component's group. */
-type ChangeKey = 'changeTitle' | 'changeNow' | 'changeLater' | 'changeLaterPeriod' | 'confirmChange' | 'switchingPlan' | 'keepCurrent'
+type ChangeKey = 'changeTitle' | 'changeNow' | 'changeLater' | 'changeLaterPeriod' | 'changeTrial' | 'changeTrialEnds' | 'changeTrialLater' | 'confirmChange' | 'switchingPlan' | 'keepCurrent'
 
 /** A component's `t`, as far as the group reads it. */
 export type ChangeTranslate = (key: ChangeKey, params?: Record<string, string | number>) => string
@@ -76,6 +85,8 @@ export function createPlanChangeConfirm(options: PlanChangeConfirmOptions): Plan
     const change = preview.value
     const price = target.value?.price ?? ''
     if (!change) return ''
+    // In a trial nothing is prorated: the trial carries over, or ends with a first payment, or a switch that waits happens when it ends.
+    if (change.trial) return options.t(change.applies === 'period_end' ? 'changeTrialLater' : change.proration === 'none' ? 'changeTrial' : 'changeTrialEnds', { price })
     if (change.applies === 'now') return options.t('changeNow', { price })
     const date = change.appliesAt ? options.date(change.appliesAt) : null
     return date ? options.t('changeLater', { price, date }) : options.t('changeLaterPeriod', { price })

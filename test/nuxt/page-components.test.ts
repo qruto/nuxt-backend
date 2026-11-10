@@ -470,7 +470,7 @@ describe('PricingTable', () => {
     expect(down.text()).toContain('Downgrade to Starter')
     await down.trigger('click')
     await flushPromises()
-    expect(billing.changePlan).toHaveBeenCalledWith('prod_starter')
+    expect(billing.changePlan).toHaveBeenCalledWith('prod_starter', { proration: 'invoice' })
     expect(switching.emitted('plan-changed')).toBeTruthy()
   })
 
@@ -906,7 +906,7 @@ describe('PricingTable: yearly prices, retired plans, campaign links', () => {
     expect(own.text()).toBe('Switch to monthly billing')
     await own.trigger('click')
     await flushPromises()
-    expect(billing.changePlan).toHaveBeenCalledWith('prod_pro')
+    expect(billing.changePlan).toHaveBeenCalledWith('prod_pro', { proration: 'invoice' })
   })
 
   it('shows a retired plan to its subscribers alone, and switches nobody to it', () => {

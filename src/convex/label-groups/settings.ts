@@ -76,6 +76,10 @@ const SETTINGS_LABELS = {
   changeNow: '{price} from now on. The switch happens at once, and the difference for this period is settled now.',
   changeLater: '{price} from {date}. The year you paid for runs out first: the switch happens when it ends.',
   changeLaterPeriod: '{price} once the year you paid for runs out: the switch happens when it ends.',
+  // During a trial: the trial carries over to the new plan, or the switch ends it with a first payment, or a switch that waits happens when it ends.
+  changeTrial: '{price} from now on. The switch happens at once and your trial carries over: nothing is charged until it ends.',
+  changeTrialEnds: '{price} from now on. The switch happens at once and ends your trial, so the first payment is charged now.',
+  changeTrialLater: '{price} once your trial ends: the switch happens then.',
   confirmChange: 'Confirm switch',
   switchingPlan: 'Switching the plan…',
   keepCurrent: 'Not now',

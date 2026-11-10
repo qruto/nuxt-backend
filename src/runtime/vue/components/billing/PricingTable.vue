@@ -14,7 +14,7 @@ import { busyAttributes } from '../../a11y'
 import { useAuthSession } from '../../utils/auth-session'
 import { getBackendError } from '../../utils/backend-error'
 import { createCancelConfirm } from '../../utils/cancel-confirm'
-import { createPlanChangeConfirm, type PlanChangeTarget } from '../../utils/plan-change-confirm'
+import { CONFIRMED_PRORATION, createPlanChangeConfirm, type PlanChangeTarget } from '../../utils/plan-change-confirm'
 import { returnFocus } from '../../utils/focus-return'
 import { useMeterUnit } from '../../utils/meter-unit'
 import { pricingBindings, shownInterval } from '../../utils/pricing-bindings'
@@ -39,7 +39,9 @@ import { providePricingView, type PlanAction, type PlanTrial, type PricingSlotCo
  * A subscriber's switch to another plan or billing period asks first, in
  * one step: the price it moves to, when the switch happens (a yearly price
  * left for a monthly one waits for the paid year's end) and how the
- * period's difference is settled (`useBilling().changeOf`). The address
+ * period's difference is settled (`useBilling().changeOf`), then switches
+ * settling it at once (`proration: 'invoice'`), whatever the provider's
+ * default. The address
  * picks what shows: `?interval=year` the yearly prices, `?plan=<key>`
  * the card it marks and scrolls into view. A promotion runs by the
  * server's clock, so its window reads the same in the HTML and the browser.
@@ -340,7 +342,7 @@ const subscribe = (key: string) => run(key, () => t('checkingOut'), async () => 
 const switchTo = (key: string) => run(key, () => t('changing'), async () => {
   const plan = planByKey(key)
   if (!plan) return
-  await billing.changePlan(plan.priceAt.productId)
+  await billing.changePlan(plan.priceAt.productId, { proration: CONFIRMED_PRORATION })
   change.settle()
   emit('plan-changed', key)
   // The step went with the switch: focus moves to the card's action, else the current plan's.

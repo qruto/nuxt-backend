@@ -57,7 +57,8 @@ The panel asks for no reason. The provider keeps a cancellation's reason (`too_e
 "Change plan", and a subscriber's switch on a card of `<PricingTable>`, open one group before anything changes: the price the plan moves to, when the switch happens and how the period settles, then **Confirm switch** and **Not now**.
 
 - A switch from a yearly price to a monthly one reads "$29/mo from Mar 15, 2027. The year you paid for runs out first: the switch happens when it ends." It is scheduled, and the plan's line then reads "Plan change scheduled".
-- Any other switch reads "$29/mo from now on. The switch happens at once, and the difference for this period is settled now."
+- Any other switch reads "$29/mo from now on. The switch happens at once, and the difference for this period is settled now." The confirmation switches with `proration: 'invoice'`, so the difference is charged or credited at once whatever the organization's default proration is.
+- During a trial nothing is prorated. A switch to a plan with a trial of its own reads "$29/mo from now on. The switch happens at once and your trial carries over: nothing is charged until it ends." Polar counts the new plan's trial from the start of the current one, so a plan with no trial, or one already over, ends the trial instead: "$29/mo from now on. The switch happens at once and ends your trial, so the first payment is charged now." A switch from a yearly price to a monthly one reads "$29/mo once your trial ends: the switch happens then."
 
 Escape or **Not now** closes the group and gives focus back to the button that opened it. Once the switch goes through, focus moves to the plan's state, a status says what changed, and `<WorkspaceSettings>` emits `plan-changed` with the product. A pause emits `plan-paused` with the time it resumes. The `billing` slot gets both as `switchPlan(productId)` and `pausePlan(months)`, past their confirmation, for a section of your own.
 
@@ -132,7 +133,7 @@ A switch from a yearly price to a monthly one never happens mid-year, since the 
 
 ### Preview a change
 
-`changeOf(productId)` says what `changePlan(productId)` would do, by the same rule the server applies, so a confirmation of your own says it before it happens:
+`changeOf(productId)` says what `changePlan(productId, { proration: 'invoice' })` would do, by the same rule the server applies, so a confirmation of your own that switches the same way says it before it happens. Without `proration` the organization's default settles the switch, which may carry the difference to the next invoice or schedule the switch for the period's end, so pass it:
 
 ```vue [app/components/SwitchPlan.vue]
 <script setup lang="ts">
@@ -143,12 +144,15 @@ const change = computed(() => billing.changeOf(props.productId))
 
 <template>
   <p v-if="change?.applies === 'period_end'">
-    {{ price }} from {{ change.appliesAt?.toLocaleDateString() }}, once the year you paid for runs out.
+    {{ price }} from {{ change.appliesAt?.toLocaleDateString() }}, once the {{ change.trial ? 'trial' : 'year you paid for' }} runs out.
+  </p>
+  <p v-else-if="change?.trial">
+    {{ price }} from now on. {{ change.proration === 'none' ? 'Your trial carries over.' : 'Your trial ends, and the first payment is charged now.' }}
   </p>
   <p v-else-if="change">
     {{ price }} from now on. The difference for this period is settled now.
   </p>
-  <button v-if="change" type="button" @click="billing.changePlan(productId)">Confirm switch</button>
+  <button v-if="change" type="button" @click="billing.changePlan(productId, { proration: 'invoice' })">Confirm switch</button>
 </template>
 ```
 
@@ -162,7 +166,11 @@ const change = computed(() => billing.changeOf(props.productId))
   :::
 
   :::field{name="proration" type="'now' | 'none'"}
-  `now`: the period's difference is charged or credited at once, by the organization's proration setting or the `proration` you pass. `none`: a scheduled change settles nothing mid-period, and the new price is charged from the renewal on.
+  `now`: money changes hands at once. The period's difference is charged or credited, or, during a trial, the new plan's first period is charged, since a plan with no trial (or one already over) ends it. `none`: nothing is settled now. A scheduled change charges the new price from the renewal on, and during a trial the trial carries over to the new plan.
+  :::
+
+  :::field{name="trial" type="boolean"}
+  `true` while the subscription is in its trial: no difference is prorated, and `proration` says whether the trial carries over (`none`) or ends with a charge (`now`). A scheduled change applies when the trial ends.
   :::
 
   :::field{name="rule" type="'paid_year' | null"}
@@ -234,7 +242,7 @@ Each action takes an optional `subscriptionId`. You need it only with `setupBill
 
 ## From server code
 
-`setupBilling` returns the same operations as methods for your own actions: `billing.updateSubscription`, `cancelSubscription`, `uncancelSubscription`, `cancelPendingChange`, `pauseSubscription` and `resumeSubscription`. They check the caller the way the registered functions do, and accept the whole `proration` set: `invoice`, `prorate`, `next_period` and `reset`. A client gets only `invoice` or `prorate`, because `next_period` and `reset` hand over a new plan at once while deferring or waiving its charge.
+`setupBilling` returns the same operations as methods for your own actions: `billing.updateSubscription`, `cancelSubscription`, `uncancelSubscription`, `cancelPendingChange`, `pauseSubscription` and `resumeSubscription`. They check the caller the way the registered functions do, and accept the whole `proration` set: `invoice`, `prorate`, `next_period` and `reset`. A client gets only `invoice` or `prorate`, the two that switch at once and settle the difference (`invoice` now, `prorate` on the next invoice): `next_period` schedules the switch for the period's end, and `reset` charges the new plan in full and restarts the billing cycle.
 
 ## What happens when…
 

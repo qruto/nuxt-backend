@@ -13,11 +13,13 @@ const { default: PricingTable } = await import('../../src/runtime/vue/components
 const { default: WorkspaceSettings } = await import('../../src/runtime/vue/components/workspaces/WorkspaceSettings.vue')
 
 // A plan change, previewed and confirmed, over the backend mock: what
-// `useBilling().changeOf` says a switch does (a yearly price left for a
-// monthly one waits for the paid year's end, anything else applies at once
-// and settles the period now), and the one confirmation <PricingTable> and
-// the plan section of <WorkspaceSettings> ask before `changePlan`, plus the
-// section's pause of one to three months.
+// `useBilling().changeOf` says a switch made with `proration: 'invoice'`
+// does (a yearly price left for a monthly one waits for the paid year's
+// end, anything else applies at once and settles the period now; during a
+// trial the trial carries over, or ends with a first payment), the one
+// confirmation <PricingTable> and the plan section of <WorkspaceSettings>
+// ask before `changePlan`, which then passes that proration whatever the
+// organization's default, plus the section's pause of one to three months.
 
 enableAutoUnmount(afterEach)
 afterEach(() => resetBackendMock())
@@ -28,6 +30,15 @@ const PRODUCTS = {
   'team': { id: 'prod_team', name: 'Team', recurringInterval: 'month' },
 }
 const PERIOD_END = '2099-03-15T00:00:00.000Z'
+const DAY = 24 * 60 * 60 * 1000
+/** The products, `key`'s granting a trial of `days`. */
+const withTrial = (key: keyof typeof PRODUCTS, days: number) => ({ ...PRODUCTS, [key]: { ...PRODUCTS[key], trialInterval: 'day', trialIntervalCount: days } })
+/** A subscription in a 14-day trial that started `daysAgo` days ago. */
+const trialing = (daysAgo: number) => {
+  const start = Date.now() - daysAgo * DAY
+  const end = new Date(start + 14 * DAY).toISOString()
+  return { status: 'trialing', trialStart: new Date(start).toISOString(), trialEnd: end, currentPeriodEnd: end }
+}
 
 const price = (productId: string, amount: number, interval: 'month' | 'year') => ({ productId, amount, currency: 'usd', monthly: interval === 'year' ? amount / 12 : amount })
 const plan = (key: string, name: string, prices: PricedPlan['prices']): PricedPlan => ({ key, name, description: null, retired: false, prices, features: [], featureKeys: [] })
@@ -42,12 +53,12 @@ const PRICING: Pricing = {
 }
 
 /** A billing manager on `productId`, its period ending on PERIOD_END. */
-function subscribedTo(productId: string, fields: Record<string, unknown> = {}): BackendMock {
+function subscribedTo(productId: string, fields: Record<string, unknown> = {}, products: Record<string, unknown> = PRODUCTS): BackendMock {
   const key = Object.entries(PRODUCTS).find(([, product]) => product.id === productId)![0]
   return createBackendMock({
     user: {},
     queries: {
-      'billing:getConfiguredProducts': PRODUCTS,
+      'billing:getConfiguredProducts': products,
       'billing:getBillingAccess': { canManage: true },
       'billing:getCurrentSubscription': { id: 'sub_1', status: 'active', productId, productKey: key, recurringInterval: PRODUCTS[key as keyof typeof PRODUCTS].recurringInterval, currentPeriodEnd: PERIOD_END, cancelAtPeriodEnd: false, pendingChange: null, resumesAt: null, ...fields },
       'billing:getFeatures': { plans: [productId], benefits: [] },
@@ -85,6 +96,7 @@ describe('useBilling().changeOf', () => {
       applies: 'period_end',
       appliesAt: new Date(PERIOD_END),
       proration: 'none',
+      trial: false,
       rule: 'paid_year',
     })
     expect(billing.changeOf('prod_pro')).toMatchObject({ plan: 'pro', applies: 'period_end', rule: 'paid_year' })
@@ -93,8 +105,28 @@ describe('useBilling().changeOf', () => {
   it('applies any other change at once, settling the period now', async () => {
     subscribedTo('prod_pro')
     const billing = await billingState()
-    expect(billing.changeOf('prod_pro_year')).toEqual({ productId: 'prod_pro_year', plan: 'pro', interval: 'year', fromInterval: 'month', applies: 'now', appliesAt: null, proration: 'now', rule: null })
-    expect(billing.changeOf('prod_team')).toMatchObject({ applies: 'now', proration: 'now', rule: null })
+    expect(billing.changeOf('prod_pro_year')).toEqual({ productId: 'prod_pro_year', plan: 'pro', interval: 'year', fromInterval: 'month', applies: 'now', appliesAt: null, proration: 'now', trial: false, rule: null })
+    expect(billing.changeOf('prod_team')).toMatchObject({ applies: 'now', proration: 'now', trial: false, rule: null })
+  })
+
+  it('carries a trial over to a plan with a trial of its own, settling nothing', async () => {
+    subscribedTo('prod_pro', trialing(3), withTrial('team', 14))
+    const billing = await billingState()
+    expect(billing.changeOf('prod_team')).toMatchObject({ applies: 'now', appliesAt: null, proration: 'none', trial: true, rule: null })
+  })
+
+  it('ends a trial with a first payment on a plan with no trial, or one counted from the trial\'s start that is over', async () => {
+    subscribedTo('prod_pro', trialing(3))
+    expect((await billingState()).changeOf('prod_team')).toMatchObject({ applies: 'now', proration: 'now', trial: true })
+    // A 7-day trial counted from a start 10 days ago ran out already.
+    subscribedTo('prod_pro', trialing(10), withTrial('team', 7))
+    expect((await billingState()).changeOf('prod_team')).toMatchObject({ applies: 'now', proration: 'now', trial: true })
+  })
+
+  it('waits for a trial\'s end from a yearly price to a monthly one', async () => {
+    const trial = trialing(3)
+    subscribedTo('prod_pro_year', trial, withTrial('team', 14))
+    expect((await billingState()).changeOf('prod_team')).toMatchObject({ applies: 'period_end', appliesAt: new Date(trial.currentPeriodEnd), proration: 'none', trial: true, rule: 'paid_year' })
   })
 
   it('has nothing to preview for the product it is on, the free plan, a gifted pass, or no subscription', async () => {
@@ -123,7 +155,7 @@ describe('<PricingTable>\'s switch confirmation', () => {
   }
   const card = (wrapper: VueWrapper, name: string) => wrapper.findAll('[data-pricing="plan"]').find(entry => entry.find('[data-pricing="plan-name"]').text().startsWith(name))!
 
-  it('asks first: the price, that the switch happens now and settles the period, then switches on "Confirm switch"', async () => {
+  it('asks first: the price, that the switch happens now and settles the period, then switches on "Confirm switch", settling it at once', async () => {
     const backend = subscribedTo('prod_pro')
     const wrapper = await table()
     const button = card(wrapper, 'Team').find('[data-pricing="plan-action"]')
@@ -141,7 +173,8 @@ describe('<PricingTable>\'s switch confirmation', () => {
     expect(backend.callsTo('billing:updateSubscription')).toEqual([])
     await part(wrapper, 'pricing', 'confirm-change').trigger('click')
     await flushPromises()
-    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ subscriptionId: undefined, productId: 'prod_team', proration: undefined }])
+    // The difference is charged now, as the confirmation says, whatever the organization's default.
+    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ subscriptionId: undefined, productId: 'prod_team', proration: 'invoice' }])
     expect(wrapper.emitted('plan-changed')).toEqual([['team']])
     expect(part(wrapper, 'pricing', 'change-confirm').exists()).toBe(false)
   })
@@ -153,6 +186,21 @@ describe('<PricingTable>\'s switch confirmation', () => {
     expect(part(wrapper, 'pricing', 'change-confirm').attributes('data-applies')).toBe('period_end')
     const date = new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(new Date(PERIOD_END))
     expect(part(wrapper, 'pricing', 'change-when').text()).toBe(`$29/mo from ${date}. The year you paid for runs out first: the switch happens when it ends.`)
+  })
+
+  it('says a switch during a trial carries the trial over, or ends it with a first payment', async () => {
+    const backend = subscribedTo('prod_pro', trialing(3), withTrial('team', 14))
+    const wrapper = await table()
+    await card(wrapper, 'Team').find('[data-pricing="plan-action"]').trigger('click')
+    expect(part(wrapper, 'pricing', 'change-when').text()).toBe('$29/mo from now on. The switch happens at once and your trial carries over: nothing is charged until it ends.')
+    await part(wrapper, 'pricing', 'confirm-change').trigger('click')
+    await flushPromises()
+    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ subscriptionId: undefined, productId: 'prod_team', proration: 'invoice' }])
+    wrapper.unmount()
+    subscribedTo('prod_pro', trialing(3))
+    const ends = await table()
+    await card(ends, 'Team').find('[data-pricing="plan-action"]').trigger('click')
+    expect(part(ends, 'pricing', 'change-when').text()).toBe('$29/mo from now on. The switch happens at once and ends your trial, so the first payment is charged now.')
   })
 
   it('names the billing period on the plan\'s own card, and closes on "Not now" or Escape with focus back on its button', async () => {
@@ -195,7 +243,7 @@ describe('the plan section\'s switch and pause', () => {
     expect(part(wrapper, 'settings', 'change-when').text()).toContain('The switch happens at once')
     await part(wrapper, 'settings', 'confirm-change').trigger('click')
     await flushPromises()
-    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ subscriptionId: undefined, productId: 'prod_pro_year', proration: undefined }])
+    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ subscriptionId: undefined, productId: 'prod_pro_year', proration: 'invoice' }])
     expect(wrapper.emitted('plan-changed')).toEqual([['prod_pro_year']])
     expect(part(wrapper, 'settings', 'message').text()).toBe('The plan is now Pro, billed yearly.')
     expect(part(wrapper, 'settings', 'switch-picker').exists()).toBe(false)
@@ -211,6 +259,14 @@ describe('the plan section\'s switch and pause', () => {
     await part(wrapper, 'settings', 'confirm-change').trigger('click')
     await flushPromises()
     expect(part(wrapper, 'settings', 'message').text()).toBe(`On ${date}, the plan switches to Team, billed monthly.`)
+  })
+
+  it('says a yearly plan\'s switch to monthly during its trial waits for the trial\'s end', async () => {
+    subscribedTo('prod_pro_year', trialing(3))
+    const wrapper = await section()
+    await part(wrapper, 'settings', 'change-plan').trigger('click')
+    await part(wrapper, 'settings', 'switch-select').setValue('prod_team')
+    expect(part(wrapper, 'settings', 'change-when').text()).toBe('$29/mo once your trial ends: the switch happens then.')
   })
 
   it('closes the switch and the pause on Escape, focus back on the button that opened each', async () => {

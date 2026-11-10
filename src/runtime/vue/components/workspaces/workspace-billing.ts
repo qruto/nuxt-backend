@@ -6,7 +6,7 @@ import type { UseFeaturesReturn } from '../../composables/use-features'
 import type { UseLabelsReturn } from '../../composables/use-labels'
 import { type CancelConfirm, createCancelConfirm } from '../../utils/cancel-confirm'
 import { returnFocus } from '../../utils/focus-return'
-import { createPlanChangeConfirm, type PlanChangeConfirm, type PlanChangeTarget } from '../../utils/plan-change-confirm'
+import { CONFIRMED_PRORATION, createPlanChangeConfirm, type PlanChangeConfirm, type PlanChangeTarget } from '../../utils/plan-change-confirm'
 
 /** How many months a pause from the section lasts, at most: the lengths it offers are 1 to this. */
 export const PAUSE_MONTHS = [1, 2, 3] as const
@@ -190,7 +190,7 @@ export function createBillingSection(context: BillingSectionContext): BillingSec
     const preview = billing.changeOf(productId)
     const plan = option?.plan ?? context.productName(productId) ?? t('unknownPlan')
     return run('switch', () => t('switchingPlan'), async () => {
-      await billing.changePlan(productId)
+      await billing.changePlan(productId, { proration: CONFIRMED_PRORATION })
       switchOpen.value = false
       change.settle()
       void nextTick(() => returnFocus(stateLine.value))
