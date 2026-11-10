@@ -57,6 +57,20 @@ class FakeOffscreenCanvas {
   }
 }
 
+/** The browser's FileReader, reading a file as a `data:` URL. */
+class FakeFileReader {
+  result: string | null = null
+  error: DOMException | null = null
+  onload: (() => void) | null = null
+  onerror: (() => void) | null = null
+  readAsDataURL(file: Blob) {
+    void file.arrayBuffer().then((bytes) => {
+      this.result = `data:${file.type || 'application/octet-stream'};base64,${Buffer.from(bytes).toString('base64')}`
+      this.onload?.()
+    })
+  }
+}
+
 /** A decoded bitmap of a size, as `createImageBitmap` hands one back. */
 const bitmap = (width: number, height: number) => ({ width, height, close: vi.fn() })
 
@@ -66,6 +80,7 @@ beforeEach(() => {
   canvases = []
   heicTo.mockReset()
   vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas)
+  vi.stubGlobal('FileReader', FakeFileReader)
   vi.stubGlobal('createImageBitmap', vi.fn(async () => bitmap(4000, 3000)))
 })
 
@@ -185,19 +200,21 @@ describe('preparePhoto', () => {
     }
   })
 
-  it('falls back to an <img> where the bitmap decoder can\'t open a photo, and lets go of its URL', async () => {
+  it('falls back to an <img> where the bitmap decoder can\'t open a photo, loaded from a data: URL the security headers allow', async () => {
+    // Chrome before 112 and Safari 15 refuse 'from-image' as an imageOrientation.
     vi.mocked(createImageBitmap).mockRejectedValueOnce(new TypeError('imageOrientation is not supported'))
     const image = { naturalWidth: 3000, naturalHeight: 3000, decoding: '', src: '', decode: vi.fn(async () => {}) }
     vi.stubGlobal('Image', function FakeImage() {
       return image
     })
-    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:photo')
+    const objectUrl = vi.spyOn(URL, 'createObjectURL')
 
     await preparePhoto(jpeg())
-    expect(image.src).toBe('blob:photo')
+    // img-src is 'self' data: and the deployment's origins: a blob: URL would never load.
+    expect(image.src).toBe(`data:image/jpeg;base64,${Buffer.from([0xFF, 0xD8, 0xFF]).toString('base64')}`)
+    expect(objectUrl).not.toHaveBeenCalled()
+    objectUrl.mockRestore()
     expect(canvases).toEqual([expect.objectContaining({ width: 2048, height: 2048, drew: image })])
-    expect(revoke).toHaveBeenCalledWith('blob:photo')
   })
 
   it('refuses a photo that neither decoder opens as unreadable', async () => {
@@ -205,8 +222,6 @@ describe('preparePhoto', () => {
     vi.stubGlobal('Image', function FakeImage() {
       return { decode: async () => Promise.reject(new DOMException('no', 'EncodingError')) }
     })
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:photo')
-    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
     await expect(preparePhoto(jpeg())).rejects.toMatchObject({ reason: 'unreadable' })
   })
 

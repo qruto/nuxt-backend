@@ -123,19 +123,28 @@ async function decodeHeic(file: Blob, signal: AbortSignal | undefined): Promise<
   })
 }
 
-/** The file as an `<img>`, for an engine whose `createImageBitmap` can't open it but whose images still honour EXIF. */
+/**
+ * The file as an `<img>`, for an engine whose `createImageBitmap` can't
+ * open it but whose images still honour EXIF. It loads from a `data:` URL:
+ * the security headers' `img-src` allows `data:`, and refuses `blob:`.
+ */
 async function decodeImage(file: Blob): Promise<HTMLImageElement> {
-  const url = URL.createObjectURL(file)
-  try {
-    const image = new Image()
-    image.decoding = 'async'
-    image.src = url
-    await image.decode()
-    return image
-  }
-  finally {
-    URL.revokeObjectURL(url)
-  }
+  const image = new Image()
+  image.decoding = 'async'
+  image.src = await dataUrlOf(file)
+  await image.decode()
+  return image
+}
+
+/** The file's bytes as a `data:` URL, of the type the file says it is. */
+function dataUrlOf(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    // readAsDataURL leaves a string in `result`.
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error ?? new Error('The file could not be read.'))
+    reader.readAsDataURL(file)
+  })
 }
 
 /**
