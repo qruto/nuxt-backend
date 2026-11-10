@@ -1,32 +1,40 @@
 // Money as the billing provider states it: an integer in the currency's
-// smallest unit. Most currencies have two digits after the point (cents),
-// but not all: JPY and KRW have none, KWD and BHD three. Shared by the
+// smallest unit. The provider counts every currency in hundredths except a
+// fixed few: the ones it counts in whole units (JPY, KRW) and the dinars
+// its payment processor counts in thousandths (KWD, BHD). Shared by the
 // pages, which format prices, and the emails, which state them.
+//
+// A fixed table, never `Intl`'s digits: the CLDR data behind `Intl` writes
+// HUF, ISK, IDR, COP and PKR with no decimals while the provider still
+// states them in hundredths (a 5 000 Ft plan arrives as 500000), and it
+// differs between ICU versions, so the server, the Convex runtime and each
+// browser could disagree. The lists are Polar's own
+// (`get_currency_decimal_factor` in its `server/polar/kit/currency.py`):
+// Stripe's zero-decimal currencies but UGX, which Stripe still takes in
+// hundredths, as it does ISK; and Stripe's three-decimal currencies
+// (docs.stripe.com/currencies), none of which Polar sells yet. The renewal
+// reminder email restates them, since an ejected email imports only from
+// `nuxt-backend/email`; test/unit/billing-money.test.ts holds the two
+// together.
 
-const DIGITS = new Map<string, number>()
+/** The currencies the provider states in whole units: `1500` JPY is ¥1,500. */
+const WHOLE_UNITS = new Set(['BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'])
+
+/** The currencies stated in thousandths: `1999` KWD is 1.999 KWD. */
+const THOUSANDTHS = new Set(['BHD', 'JOD', 'KWD', 'OMR', 'TND'])
 
 /**
- * How many digits after the point `currency` (ISO 4217, either case) is
- * written with, which is also how many its smallest unit is below its main
- * one: 2 for USD and EUR, 0 for JPY, 3 for KWD. A code `Intl` does not know
- * counts as 2, the provider's own default.
+ * How many digits below its main unit the provider states `currency`
+ * (ISO 4217, either case) in: 2 for USD, EUR, HUF and ISK, 0 for JPY and
+ * KRW, 3 for KWD. Any other code counts as 2, the provider's own default.
+ * The same answer on every runtime: it reads no locale data.
  */
 export function minorUnitDigits(currency: string): number {
   const code = currency.toUpperCase()
-  const known = DIGITS.get(code)
-  if (known !== undefined) return known
-  let digits = 2
-  try {
-    digits = new Intl.NumberFormat('en', { style: 'currency', currency: code }).resolvedOptions().maximumFractionDigits ?? 2
-  }
-  catch {
-    // Not a currency code `Intl` knows: two digits, as the provider assumes.
-  }
-  DIGITS.set(code, digits)
-  return digits
+  return WHOLE_UNITS.has(code) ? 0 : THOUSANDTHS.has(code) ? 3 : 2
 }
 
-/** An amount in `currency`'s smallest unit, in its main one: 1999 USD cents are 19.99, 1999 JPY are 1999. */
+/** An amount in `currency`'s smallest unit, in its main one: 1999 USD cents are 19.99, 1999 JPY are 1999, 500000 HUF are 5000. */
 export function toMajorUnits(amount: number, currency: string): number {
   return amount / 10 ** minorUnitDigits(currency)
 }

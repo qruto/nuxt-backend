@@ -23,10 +23,11 @@ export function toBillingDate(value: unknown): Date | null {
  * Money the way the provider states it — a minor-unit integer plus an ISO
  * currency code — rendered in `locale`, else the app's active
  * `@nuxtjs/i18n` locale, else English: never the visitor's own, so a server
- * render and the browser write it alike. The minor unit is the
- * currency's own: cents for USD and EUR (`1999` is $19.99), the yen itself
- * for JPY (`1999` is ¥1,999), a fils for KWD (three digits). A whole amount
- * shows no decimals. Without a currency the amount counts in cents; an
+ * render and the browser write it alike. The minor unit is the one the
+ * provider states the currency in: cents for USD and EUR (`1999` is
+ * $19.99), hundredths for HUF and ISK too (`500000` is HUF 5,000), the yen
+ * itself for JPY (`1999` is ¥1,999), a fils for KWD (three digits). A whole
+ * amount shows no decimals. Without a currency the amount counts in cents; an
  * unknown code falls back to the bare amount rather than throwing mid-render.
  */
 export function formatBillingAmount(amount: number, currency?: string | null, locale: string | undefined = activeIntlLocale()): string {

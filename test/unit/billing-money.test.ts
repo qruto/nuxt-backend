@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { PresentmentCurrency } from '@polar-sh/sdk/models/components/presentmentcurrency.js'
 import { minorUnitDigits, toMajorUnits } from '../../src/convex/money'
 import { formatBillingAmount, formatBillingDate, formatUnitPrice } from '../../src/runtime/vue/composables/billing-format'
 import { inRuntimeLocale } from '../helpers/runtime-locale'
@@ -6,9 +7,11 @@ import { renewalReminder } from '../../src/convex/emails/renewal-reminder'
 import type { EmailRenderContext } from '../../src/convex/email-templates'
 
 // Money the provider states as an integer in the currency's smallest unit:
-// cents for USD and EUR, the yen itself for JPY, a fils (a thousandth) for
-// KWD. A price formats, and an email states it, by the currency's own
-// digits, never by a fixed hundred.
+// cents for USD and EUR, hundredths for HUF and ISK too, the yen itself for
+// JPY, a fils (a thousandth) for KWD. A price formats, and an email states
+// it, by the provider's digits for the currency: never a fixed hundred,
+// and never the digits `Intl` writes it with, which say none for HUF and
+// ISK and differ between ICU versions.
 
 describe('the minor unit of a currency', () => {
   it('has the currency\'s own digits: two for USD and EUR, none for JPY, three for KWD', () => {
@@ -18,8 +21,23 @@ describe('the minor unit of a currency', () => {
     expect(minorUnitDigits('kwd')).toBe(3)
   })
 
-  it('counts two digits for a code Intl does not know', () => {
+  it('counts hundredths for HUF, ISK, IDR, COP, PKR, UGX and TWD, which Intl writes with fewer digits', () => {
+    for (const code of ['huf', 'isk', 'idr', 'cop', 'pkr', 'ugx', 'twd']) expect(minorUnitDigits(code), code).toBe(2)
+    expect(minorUnitDigits('krw')).toBe(0)
+  })
+
+  it('counts two digits for a code it does not list, without asking Intl', () => {
     expect(minorUnitDigits('not-a-code')).toBe(2)
+    const original = Intl.NumberFormat
+    Intl.NumberFormat = (() => {
+      throw new Error('read no locale data')
+    }) as unknown as typeof Intl.NumberFormat
+    try {
+      expect([minorUnitDigits('usd'), minorUnitDigits('jpy'), minorUnitDigits('kwd')]).toEqual([2, 0, 3])
+    }
+    finally {
+      Intl.NumberFormat = original
+    }
   })
 
   it('turns an amount into the main unit by those digits', () => {
@@ -27,6 +45,8 @@ describe('the minor unit of a currency', () => {
     expect(toMajorUnits(1999, 'eur')).toBe(19.99)
     expect(toMajorUnits(1999, 'jpy')).toBe(1999)
     expect(toMajorUnits(1999, 'kwd')).toBe(1.999)
+    expect(toMajorUnits(500000, 'huf')).toBe(5000)
+    expect(toMajorUnits(70000, 'isk')).toBe(700)
   })
 })
 
@@ -41,6 +61,13 @@ describe('formatBillingAmount', () => {
   it('formats JPY from the yen itself: no hundredfold shrink, no decimals', () => {
     expect(formatBillingAmount(1500, 'jpy', 'en-US')).toBe('¥1,500')
     expect(formatBillingAmount(1500, 'JPY', 'ja-JP')).toBe('￥1,500')
+  })
+
+  it('formats HUF and ISK from hundredths: a 5 000 Ft plan is never 500 000 Ft', () => {
+    expect(formatBillingAmount(500000, 'huf', 'en-US')).toBe('HUF\u00A05,000')
+    expect(formatBillingAmount(500000, 'huf', 'hu-HU')).toBe('5000\u00A0Ft')
+    expect(formatBillingAmount(500050, 'huf', 'en-US')).toBe('HUF\u00A05,000.5')
+    expect(formatBillingAmount(70000, 'isk', 'en-US')).toBe('ISK\u00A0700')
   })
 
   it('counts cents without a currency, and falls back to the bare amount for an unknown one', () => {
@@ -94,5 +121,22 @@ describe('the renewal reminder\'s price', () => {
   it('states USD from cents and JPY from the yen', () => {
     expect(renewalReminder(data(9900, 'usd') as never, context).text).toContain('"price":"$99.00"')
     expect(renewalReminder(data(9900, 'jpy') as never, context).text).toContain('"price":"¥9,900"')
+  })
+
+  it('states HUF and ISK from hundredths', () => {
+    expect(renewalReminder(data(500000, 'huf') as never, context).text).toContain('"price":"HUF\u00A05,000"')
+    expect(renewalReminder(data(70000, 'isk') as never, context).text).toContain('"price":"ISK\u00A0700"')
+  })
+
+  // The email restates money.ts's lists (an ejected copy imports only from
+  // nuxt-backend/email): for every currency the provider sells, and the
+  // three-decimal ones it may add, the two read an amount alike.
+  it('reads every currency the provider sells as money.ts does', () => {
+    const codes = [...Object.values(PresentmentCurrency), 'bhd', 'jod', 'kwd', 'omr', 'tnd']
+    expect(codes).toEqual(expect.arrayContaining(['usd', 'huf', 'isk', 'jpy', 'ugx']))
+    for (const code of codes) {
+      const expected = new Intl.NumberFormat('en-US', { style: 'currency', currency: code.toUpperCase() }).format(toMajorUnits(123400, code))
+      expect(renewalReminder(data(123400, code) as never, context).text, code).toContain(`"price":"${expected}"`)
+    }
   })
 })
