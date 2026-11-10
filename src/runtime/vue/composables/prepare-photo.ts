@@ -79,12 +79,34 @@ export function isPhotoFile(file: Blob): boolean {
 type Drawable = ImageBitmap | HTMLImageElement
 
 /**
- * How long a HEIC may take to open, in milliseconds, its decoder's first
- * load included, before it is refused as `unreadable`. A decoder whose
- * worker never started answers no call, and `heic-to` keeps that worker for
- * every later one: without a limit, a photo would wait forever.
+ * How long the HEIC decoder may take to answer for one photo, in
+ * milliseconds, before the photo is refused as `unreadable`. Loading the
+ * decoder is not counted: a slow connection is not a stalled decoder. A
+ * decoder whose worker never started answers no call, and `heic-to` keeps
+ * that worker for every later one: without a limit, a photo would wait
+ * forever.
  */
 const HEIC_DECODE_TIMEOUT = 60_000
+
+/**
+ * Whether the HEIC decoder left a photo unanswered past
+ * {@link HEIC_DECODE_TIMEOUT}. `heic-to` sends every later photo to the
+ * same worker, where each would wait a minute of its own and stay pending
+ * with its bytes, and it has no way to end that worker. So until the
+ * decoder answers anything again, a HEIC is not sent to it.
+ */
+let heicDecoderStalled = false
+
+/** The work, or the signal's reason as soon as the signal aborts. */
+async function untilAborted<T>(work: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) return await work
+  signal.throwIfAborted()
+  return await new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason)
+    signal.addEventListener('abort', onAbort, { once: true })
+    void work.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort))
+  })
+}
 
 /**
  * The HEIC decoder, loaded the first time a HEIC arrives; never on the
@@ -92,15 +114,16 @@ const HEIC_DECODE_TIMEOUT = 60_000
  * under a content security policy without `'unsafe-eval'`: libheif compiled
  * to plain JavaScript, in a worker started from a `blob:` URL, which the
  * module lets through `worker-src` (src/nuxt/photos.ts). It stops when
- * `signal` aborts, with the signal's reason, and fails after
- * {@link HEIC_DECODE_TIMEOUT}; a bitmap that arrives after either is let go.
+ * `signal` aborts, with the signal's reason, and fails when the decoder has
+ * not answered within {@link HEIC_DECODE_TIMEOUT}, or has left an earlier
+ * photo unanswered; a bitmap that arrives after either is let go.
  */
 async function decodeHeic(file: Blob, signal: AbortSignal | undefined): Promise<ImageBitmap> {
-  const decoding = (async () => {
-    const decoder = import.meta.server ? null : await import('heic-to/csp')
-    if (!decoder) throw new PhotoPrepError('unreadable')
-    return await decoder.heicTo({ blob: file, type: 'bitmap', options: { imageOrientation: 'from-image' } })
-  })()
+  if (heicDecoderStalled) throw new Error('The HEIC decoder has not answered an earlier photo.')
+  const decoder = import.meta.server ? null : await untilAborted(import('heic-to/csp'), signal)
+  if (!decoder) throw new PhotoPrepError('unreadable')
+  signal?.throwIfAborted()
+  const decoding = decoder.heicTo({ blob: file, type: 'bitmap', options: { imageOrientation: 'from-image' } })
   return await new Promise<ImageBitmap>((resolve, reject) => {
     let settled = false
     const settle = (done: () => void) => {
@@ -111,14 +134,21 @@ async function decodeHeic(file: Blob, signal: AbortSignal | undefined): Promise<
       done()
     }
     const onAbort = () => settle(() => reject(signal!.reason))
-    const timer = setTimeout(() => settle(() => reject(new DOMException('The HEIC decoder did not answer in time.', 'TimeoutError'))), HEIC_DECODE_TIMEOUT)
+    const timer = setTimeout(() => {
+      heicDecoderStalled = true
+      settle(() => reject(new DOMException('The HEIC decoder did not answer in time.', 'TimeoutError')))
+    }, HEIC_DECODE_TIMEOUT)
     signal?.addEventListener('abort', onAbort, { once: true })
     decoding.then(
       (bitmap) => {
+        heicDecoderStalled = false
         if (settled) bitmap.close()
         else settle(() => resolve(bitmap))
       },
-      (error: unknown) => settle(() => reject(error)),
+      (error: unknown) => {
+        heicDecoderStalled = false
+        settle(() => reject(error))
+      },
     )
   })
 }
@@ -150,8 +180,9 @@ function dataUrlOf(file: Blob): Promise<string> {
 /**
  * Decode a file the way this browser can: `createImageBitmap` first, turned
  * upright (Safari opens HEIC so), then a HEIC through `heic-to`, an optional
- * peer loaded only when one arrives, then an `<img>`. An abort meanwhile
- * throws the signal's reason, never a refusal.
+ * peer loaded only when one arrives, then an `<img>`, which opens a HEIC in
+ * Safari when the others could not. An abort meanwhile throws the signal's
+ * reason, never a refusal.
  */
 async function decode(file: Blob, signal: AbortSignal | undefined): Promise<Drawable> {
   try {
@@ -160,14 +191,27 @@ async function decode(file: Blob, signal: AbortSignal | undefined): Promise<Draw
   catch {
     // The next decoder may open it.
   }
+  const heic = isHeic(file)
+  let heicFailure: unknown
+  if (heic) {
+    try {
+      return await decodeHeic(file, signal)
+    }
+    catch (cause) {
+      signal?.throwIfAborted()
+      heicFailure = cause
+    }
+  }
   try {
-    if (isHeic(file)) return await decodeHeic(file, signal)
     if (typeof Image !== 'function') throw new TypeError('No image decoder in this environment')
-    return await decodeImage(file)
+    // An untyped HEIC is named one, so its data: URL tells the <img> what it holds.
+    return await decodeImage(heic && !file.type ? new Blob([file], { type: 'image/heic' }) : file)
   }
   catch (cause) {
     signal?.throwIfAborted()
-    throw cause instanceof PhotoPrepError ? cause : new PhotoPrepError('unreadable', { cause })
+    // For a HEIC, the decoder's failure says more than the <img>'s.
+    const failure = heicFailure ?? cause
+    throw failure instanceof PhotoPrepError ? failure : new PhotoPrepError('unreadable', { cause: failure })
   }
 }
 

@@ -183,21 +183,52 @@ describe('preparePhoto', () => {
     expect(canvases).toEqual([])
   })
 
-  it('refuses a HEIC as unreadable once the decoder has not answered for a minute, as one whose worker never started', async () => {
+  it('refuses a HEIC once the decoder has not answered for a minute, and sends it no other until it answers', async () => {
     vi.useFakeTimers()
     try {
       vi.mocked(createImageBitmap).mockRejectedValue(new DOMException('no', 'InvalidStateError'))
-      heicTo.mockReturnValue(new Promise(() => {}))
-      const preparing = preparePhoto(new File([new Uint8Array([0])], 'photo.heic', { type: 'image/heic' })).catch((failure: unknown) => failure)
-      await vi.waitFor(() => expect(heicTo).toHaveBeenCalled())
+      // A worker that never started: heic-to keeps it, and sends it every later photo.
+      let answer!: (bitmap: unknown) => void
+      heicTo.mockReturnValueOnce(new Promise((resolve) => {
+        answer = resolve
+      }))
+      const heic = () => new File([new Uint8Array([0])], 'photo.heic', { type: 'image/heic' })
+      const preparing = preparePhoto(heic()).catch((failure: unknown) => failure)
+      await vi.waitFor(() => expect(heicTo).toHaveBeenCalledOnce())
       await vi.advanceTimersByTimeAsync(60_000)
       const error = await preparing
       expect(error).toBeInstanceOf(PhotoPrepError)
       expect(error).toMatchObject({ reason: 'unreadable', cause: { name: 'TimeoutError' } })
+
+      // The decoder still owes that answer: the next HEIC is refused at once, never sent to it.
+      expect(await preparePhoto(heic()).catch((failure: unknown) => failure)).toMatchObject({ reason: 'unreadable', cause: { message: expect.stringMatching(/earlier photo/) } })
+      expect(heicTo).toHaveBeenCalledOnce()
+
+      // It answers at last: the late bitmap is let go, and the decoder is asked again.
+      const late = bitmap(3024, 4032)
+      answer(late)
+      await vi.waitFor(() => expect(late.close).toHaveBeenCalled())
+      heicTo.mockResolvedValueOnce(bitmap(3024, 4032))
+      expect((await preparePhoto(heic())).type).toBe('image/jpeg')
+      expect(heicTo).toHaveBeenCalledTimes(2)
     }
     finally {
       vi.useRealTimers()
     }
+  })
+
+  it('opens a HEIC in an <img> where the decoder can\'t, as Safari does, before refusing it', async () => {
+    vi.mocked(createImageBitmap).mockRejectedValueOnce(new DOMException('no', 'InvalidStateError'))
+    heicTo.mockRejectedValueOnce(new Error('heic-to is not installed'))
+    const image = { naturalWidth: 3024, naturalHeight: 4032, decoding: '', src: '', decode: vi.fn(async () => {}) }
+    vi.stubGlobal('Image', function FakeImage() {
+      return image
+    })
+    // Untyped, as a device may send it: its data: URL names it HEIC.
+    const blob = await preparePhoto(new File([new Uint8Array([0, 0, 0, 24])], 'IMG_0001.HEIC', { type: '' }))
+    expect(image.src).toMatch(/^data:image\/heic;base64,/)
+    expect(canvases).toEqual([expect.objectContaining({ width: 1536, height: 2048, drew: image })])
+    expect(blob.type).toBe('image/jpeg')
   })
 
   it('falls back to an <img> where the bitmap decoder can\'t open a photo, loaded from a data: URL the security headers allow', async () => {
@@ -275,6 +306,41 @@ describe('preparePhoto', () => {
     await expect(preparePhoto(jpeg(), { longEdge: 10.5 })).rejects.toThrow(/whole number of pixels/)
     await expect(preparePhoto(jpeg(), { quality: 2 })).rejects.toThrow(/quality is from 0 to 1/)
     await expect(preparePhoto(jpeg(), { type: 'image/gif' as never })).rejects.toThrow(/type is 'image\/jpeg'/)
+  })
+})
+
+describe('preparePhoto\'s HEIC decoder, loading', () => {
+  it('does not count loading the decoder against the minute: a slow connection is not a stalled decoder', async () => {
+    vi.useFakeTimers()
+    let loaded!: () => void
+    const loading = new Promise<void>((resolve) => {
+      loaded = resolve
+    })
+    vi.resetModules()
+    vi.doMock('heic-to/csp', async () => {
+      await loading
+      return { heicTo }
+    })
+    try {
+      const fresh = await import('../../src/runtime/vue/composables/prepare-photo')
+      vi.mocked(createImageBitmap).mockRejectedValue(new DOMException('no', 'InvalidStateError'))
+      heicTo.mockResolvedValueOnce(bitmap(3024, 4032))
+      let settled = false
+      const preparing = fresh.preparePhoto(new File([new Uint8Array([0])], 'photo.heic', { type: 'image/heic' })).finally(() => {
+        settled = true
+      })
+      // The decoder's 3 MB take a minute and a half to arrive.
+      await vi.advanceTimersByTimeAsync(90_000)
+      expect(settled).toBe(false)
+      expect(heicTo).not.toHaveBeenCalled()
+      loaded()
+      expect((await preparing).type).toBe('image/jpeg')
+    }
+    finally {
+      vi.doMock('heic-to/csp', () => ({ heicTo }))
+      vi.resetModules()
+      vi.useRealTimers()
+    }
   })
 })
 
