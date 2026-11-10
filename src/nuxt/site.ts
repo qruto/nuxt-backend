@@ -1,6 +1,9 @@
+import { addPlugin, hasNuxtModule, type Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 
-// The site config an app's SEO modules read (nuxt-site-config, which
+// What search engines are told of the app's pages: the `noindex` meta tag
+// on the private pages when no @nuxtjs/robots answers their rule, and the
+// site config an app's SEO modules read (nuxt-site-config, which
 // @nuxtjs/robots, @nuxtjs/sitemap and @nuxtjs/seo install), from the kind of
 // deploy the build is for. Left alone, nuxt-site-config takes the deployment's
 // own URL (`VERCEL_URL`) for every build, and indexes whatever builds with
@@ -61,4 +64,18 @@ export function registerDeploySiteConfig(nuxt: Nuxt, env: Readonly<Record<string
   hook('site-config:resolve', () => {
     (nuxt as unknown as { _siteConfig?: SiteConfigStack })._siteConfig?.push(entry)
   })
+}
+
+/**
+ * What search engines are told of the app's pages. Without @nuxtjs/robots
+ * to answer the private pages' `robots: false` rule, the pages carry the
+ * `noindex` meta tag themselves, decided once every module is installed,
+ * whichever order they are listed in; and a preview build is a site of its
+ * own ({@link registerDeploySiteConfig}).
+ */
+export function registerSearchIndexing(resolver: Resolver, nuxt: Nuxt): void {
+  nuxt.hook('modules:done', () => {
+    if (!hasNuxtModule('@nuxtjs/robots', nuxt)) addPlugin(resolver.resolve('./runtime/vue/plugins/noindex'))
+  })
+  registerDeploySiteConfig(nuxt)
 }
