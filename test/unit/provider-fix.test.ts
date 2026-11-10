@@ -207,6 +207,16 @@ describe('syncEmailOnFix', () => {
     expect(inboxToo.deps.planInbound).toHaveBeenCalledWith('/nowhere', { prod: false, dryRun: true })
   })
 
+  it('syncs when the provider has it all but the deployment lacks its ids, or still runs a flow the code dropped', async () => {
+    // A new deployment on an account that has the topics: found by name, their ids not stored yet.
+    const ids = run({ plan: { ...synced, ids: [{ kind: 'topic', key: 'product' }] } as EmailSyncReport })
+    expect(await ids.outcome).toBe('applied')
+    expect(ids.asked).toEqual(['Sync the dev email provider account: store the provider\'s id for the topic product on the deployment.'])
+    const retired = run({ plan: { ...synced, flows: { declared: ['welcome'], unsynced: [], retired: ['winBack'] } } as EmailSyncReport })
+    expect(await retired.outcome).toBe('applied')
+    expect(retired.asked).toEqual(['Sync the dev email provider account: stop the flow winBack, which backend/email.ts no longer declares.'])
+  })
+
   it('plans the support inbox too, and syncs when only it would change', async () => {
     const inbox = run({ plan: synced, inbound: { ...inboxInPlace, inbox: 'would-create', webhook: { state: 'would-update', id: 'wh_1', added: ['inbox.email.received'] } } })
     expect(await inbox.outcome).toBe('applied')

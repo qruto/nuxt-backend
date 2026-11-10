@@ -150,15 +150,19 @@ export async function fixProviderSettings(rootDir: string, { prod, confirm, prin
 export type EmailSyncFixOutcome = 'applied' | 'unchanged' | 'declined' | 'skipped' | 'failed'
 
 /**
- * What a dry-run sync would change: an entry to create or update, the
- * webhook (a new one's signing secret stored on the deployment), or a flow
- * the deployment does not run as declared.
+ * What a dry-run sync would change: an entry to create or update, a
+ * provider id to store on the deployment for one it found, the webhook (a
+ * new one's signing secret stored on the deployment), or a flow the
+ * deployment does not run as declared, a removed one it still runs among
+ * them. A backend older than `ids` and `flows.retired` reports neither.
  */
 function emailSyncPlans(report: EmailSyncReport): string[] {
   const entries = report.log.filter(entry => entry.action === 'would-create' || entry.action === 'would-update').map(entry => `${entry.action === 'would-create' ? 'create' : 'update'} the ${entry.kind} ${entry.key}`)
+  const ids = (report.ids ?? []).map(id => `store the provider's id for the ${id.kind} ${id.key} on the deployment`)
   const webhook = report.webhook.action === 'would-create' ? [`create the webhook ${report.webhook.url} and store its signing secret on the deployment as EMAIL_WEBHOOK_SECRET`] : report.webhook.action === 'would-update' ? [`give the webhook ${report.webhook.missingEvents.join(', ')}`] : []
   const flows = (report.flows?.unsynced ?? []).map(flow => `configure the flow ${flow}`)
-  return [...entries, ...webhook, ...flows]
+  const retired = (report.flows?.retired ?? []).map(flow => `stop the flow ${flow}, which backend/email.ts no longer declares`)
+  return [...entries, ...ids, ...webhook, ...flows, ...retired]
 }
 
 /**

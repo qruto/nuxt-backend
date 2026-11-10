@@ -57,6 +57,14 @@ export interface EmailSyncReport {
   /** The key's reach: `full` manages topics and contacts, `restricted` only sends, `missing` is no key. */
   key: 'full' | 'restricted' | 'missing'
   log: EmailSyncLogEntry[]
+  /**
+   * The provider ids the sync stores on the deployment (on a dry run, would
+   * store) for the topics and the segment it found or made: one found by
+   * name, or a topic whose words changed since its id was stored. A dry run
+   * that finds everything at the provider may still have ids to store.
+   * Absent on a sync asked for the webhook alone.
+   */
+  ids?: Array<{ kind: 'topic' | 'segment', key: string }>
   webhook: {
     url: string | null
     action: 'created' | 'updated' | 'exists' | 'would-create' | 'would-update' | 'skipped' | 'missing'
@@ -74,8 +82,13 @@ export interface EmailSyncReport {
   /** How many topics `setupEmail` declares, and whether the brand has a postal address. */
   topics: number
   postalAddress: boolean
-  /** The lifecycle flows `setupEmail` turns on, and those the deployment does not run as the code declares them: `email sync` has not run since they changed. */
-  flows: { declared: string[], unsynced: string[] }
+  /**
+   * The lifecycle flows `setupEmail` turns on, those the deployment does not
+   * run as the code declares them, and those it still runs that the code no
+   * longer declares (`retired`): `email sync` has not run since they
+   * changed. `retired` is absent from a backend older than it.
+   */
+  flows: { declared: string[], unsynced: string[], retired?: string[] }
 }
 
 interface SyncRefs {
@@ -473,17 +486,20 @@ function unsyncedFlows(declared: FlowSettings[], kept: FlowSettings[] | undefine
 
 /**
  * The flows' settings the deployment keeps, against the code's: the flows it
- * does not run as declared, and `keep`, which writes the code's settings
- * when they differ at all (a flow turned off included) and answers the
+ * does not run as declared, those it runs that the code no longer declares
+ * (`retired`), and `keep`, which writes the code's settings when they
+ * differ at all (a flow turned off or removed included) and answers the
  * flows left unsynced, none.
  */
-async function flowSettings(ctx: Pick<GenericActionCtx<GenericDataModel>, 'runQuery' | 'runMutation'>, refs: SyncRefs['lifecycle'], declared: LifecycleSyncDeclared | undefined): Promise<{ unsynced: string[], keep: () => Promise<string[]> }> {
-  if (!refs || !declared) return { unsynced: [], keep: async () => [] }
+async function flowSettings(ctx: Pick<GenericActionCtx<GenericDataModel>, 'runQuery' | 'runMutation'>, refs: SyncRefs['lifecycle'], declared: LifecycleSyncDeclared | undefined): Promise<{ unsynced: string[], retired: string[], keep: () => Promise<string[]> }> {
+  if (!refs || !declared) return { unsynced: [], retired: [], keep: async () => [] }
   const kept = await ctx.runQuery(refs.settings, {})
   const unsynced = unsyncedFlows(declared.flows, kept?.flows, { declared: declared.caps, kept: kept?.caps })
+  const retired = (kept?.flows ?? []).filter(flow => !declared.flows.some(entry => entry.flow === flow.flow)).map(flow => flow.flow)
   const stale = unsynced.length > 0 || (kept?.flows.length ?? 0) !== declared.flows.length
   return {
     unsynced,
+    retired,
     keep: async () => {
       if (stale) await ctx.runMutation(refs.configure, { flows: declared.flows, caps: declared.caps })
       return []
@@ -556,6 +572,7 @@ export async function syncEmail(
   // The flows run on the deployment from the settings kept here: read now, written only once their templates and automations exist.
   const flows = await flowSettings(ctx, refs.lifecycle, declared.lifecycle)
   report.flows.unsynced = flows.unsynced
+  report.flows.retired = flows.retired
   const apiKey = readEnv('EMAIL_API_KEY')
   if (!apiKey) return report
   const resend = paced(new Resend(apiKey))
@@ -568,9 +585,10 @@ export async function syncEmail(
   const only = webhookOnly(args)
   if (only) return { ...report, key: 'full', webhook: url ? await only(run, url) : report.webhook }
   await syncDeclared(run, declared, listed.data ?? [])
+  report.ids = run.save.map(({ kind, key }) => ({ kind, key }))
   if (run.save.length > 0 && !dryRun) await ctx.runMutation(refs.saveProviderIds, { ids: run.save })
   // Every flow's template and automation exists now (a refusal threw above), so a flow kept here starts something.
-  if (!dryRun) report.flows.unsynced = await flows.keep()
+  if (!dryRun) Object.assign(report.flows, { unsynced: await flows.keep(), retired: [] })
   if (url) report.webhook = await syncWebhook(run, url)
   report.senders = await readSenders(resend, fetcher)
   report.region.actual = report.senders.find(sender => sender.variable === 'EMAIL_FROM')?.region ?? null

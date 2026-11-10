@@ -459,7 +459,7 @@ npx nuxt-backend email sync --webhook off
 - **The senders.** Each of `EMAIL_FROM` and `EMAIL_MARKETING_FROM` is listed with its domain's sending region and DMARC policy, and a region that differs from `EMAIL_REGION` is reported.
 - **One email account per app and stage.** The provider sends every event of an account to each of its webhooks, so a dev or demo app syncs to an account of its own ([Develop with real sandboxes](/docs/develop/sandboxes#email-on-resends-test-addresses)).
 
-`doctor` reports what the provider lacks (`email-topics`, `email-webhook-events`, `email-key-permission`), and `doctor --fix` runs `email sync` once you confirm its dry run at a terminal, or with `--yes`. The question names every change: a new webhook's signing secret stored on the deployment, and what the support inbox's own dry run would create or add. When neither dry run finds one, it asks nothing. [Let people choose their emails](/docs/build/email/preferences) covers the topics it creates.
+`doctor` reports what the provider lacks (`email-topics`, `email-webhook-events`, `email-key-permission`), and `doctor --fix` runs `email sync` once you confirm its dry run at a terminal, or with `--yes`. The question names every change: a new webhook's signing secret stored on the deployment, the provider ids it would store for topics it finds there, a lifecycle flow the deployment still runs though `backend/email.ts` dropped it, and what the support inbox's own dry run would create or add. When neither dry run finds one, it asks nothing. [Let people choose their emails](/docs/build/email/preferences) covers the topics it creates.
 
 ## `inbox`
 
