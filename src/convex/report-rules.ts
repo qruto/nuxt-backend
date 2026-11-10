@@ -16,3 +16,19 @@ export const REMOVAL_DEADLINE_MS = 48 * 60 * 60 * 1000
 
 /** Where the appeal token travels in the `report` page's address: its fragment, never sent to a server. */
 export const APPEAL_FRAGMENT = 'appeal='
+
+/**
+ * The appeal token an address's fragment carries (`#appeal=<token>`), or
+ * `null` for none. A fragment that is not percent-encoded right (`%E0`,
+ * from a link cut short) carries none either, rather than throwing.
+ */
+export function appealTokenOf(hash: string): string | null {
+  let fragment: string
+  try {
+    fragment = decodeURIComponent(hash.replace(/^#/, '')).trim()
+  }
+  catch {
+    return null
+  }
+  return fragment.startsWith(APPEAL_FRAGMENT) ? fragment.slice(APPEAL_FRAGMENT.length) || null : null
+}

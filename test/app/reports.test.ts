@@ -197,6 +197,18 @@ describe('useReportAppeal', () => {
     expect(backend.callsTo('admin:appealDecision')).toEqual([{ token: 'b'.repeat(43), text: 'The fox is mine.' }])
   })
 
+  it('reads a fragment that is not percent-encoded right, from a link cut short, as no token, and never throws', async () => {
+    const { appealTokenOf } = await import('../../src/convex/report-rules')
+    expect(appealTokenOf('#appeal=%E0%A4%A')).toBeNull()
+    expect(appealTokenOf(`#appeal=${'d'.repeat(43)}`)).toBe('d'.repeat(43))
+    expect(appealTokenOf('#appeal=')).toBeNull()
+    expect(appealTokenOf('#top')).toBeNull()
+    createBackendMock().stub('admin:getAppeal', () => decision)
+    const appeal = await mounted(undefined, '#appeal=%E0%A4%A')
+    expect(appeal.token.value).toBeNull()
+    expect(appeal.state.value).toBe('none')
+  })
+
   it('reads none without a token, unknown for a link that names no decision, expired past six months, and an appeal\'s outcome', async () => {
     const backend = createBackendMock()
     backend.stub('admin:getAppeal', ({ token }: { token: string }) => ({ old: { ...decision, until: Date.now() - HOUR }, sent: { ...decision, appeal: { status: 'reversed', createdAt: Date.now(), reason: 'Fair.' } } } as Record<string, unknown>)[token] ?? null)

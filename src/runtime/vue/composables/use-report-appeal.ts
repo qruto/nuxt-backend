@@ -2,7 +2,7 @@ import type { FunctionReference } from 'convex/server'
 import { computed, type ComputedRef, type MaybeRefOrGetter, onMounted, ref, type Ref, toValue } from 'vue'
 import { useMutation } from 'nuxt-convex-module/client'
 import type { AppealView } from '../../../convex/integrations/reports.js'
-import { APPEAL_FRAGMENT } from '../../../convex/report-rules.js'
+import { appealTokenOf } from '../../../convex/report-rules.js'
 import { type BackendError, failureOf } from '../utils/backend-error'
 import { absentQuery, useLiveQuery } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
@@ -57,12 +57,6 @@ export interface UseReportAppealReturn {
   labels: UseLabelsReturn<'report'>
 }
 
-/** The token a `#appeal=<token>` fragment carries, or `null`. */
-function fragmentToken(hash: string): string | null {
-  const fragment = decodeURIComponent(hash.replace(/^#/, '')).trim()
-  return fragment.startsWith(APPEAL_FRAGMENT) ? fragment.slice(APPEAL_FRAGMENT.length) || null : null
-}
-
 /**
  * The appeal of a content decision, without its markup: the decision a
  * `#appeal=<token>` link names, the appeal's state, and sending it once.
@@ -102,7 +96,7 @@ export function useReportAppeal(token?: MaybeRefOrGetter<string | null | undefin
   const fromPage = ref<string | null>(null)
   if (token === undefined) {
     onMounted(() => {
-      fromPage.value = fragmentToken(window.location.hash)
+      fromPage.value = appealTokenOf(window.location.hash)
     })
   }
   const current = computed(() => (token === undefined ? fromPage.value : toValue(token) || null))
