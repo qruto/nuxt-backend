@@ -158,9 +158,9 @@ async function render(head: string[], nonce?: string): Promise<string[]> {
 
 describe('the recovery in the rendered head', () => {
   it('goes first, right after the charset, with the request\'s nonce once', async () => {
-    const [head] = await render(['<meta charset="utf-8">\n<meta name="viewport" content="width=device-width"><script type="module" src="/_nuxt/entry.js"></script>'], 'n0nce')
-    expect(head!.startsWith('<meta charset="utf-8"><script nonce="n0nce">(function(){')).toBe(true)
-    expect(head!.indexOf('nonce="n0nce"')).toBeLessThan(head!.indexOf('/_nuxt/entry.js"'))
+    const [head] = await render(['<meta charset="utf-8">\n<meta name="viewport" content="width=device-width"><script type="module" src="/_nuxt/entry.js"></script>'], 'abc123')
+    expect(head!.startsWith('<meta charset="utf-8"><script nonce="abc123">(function(){')).toBe(true)
+    expect(head!.indexOf('nonce="abc123"')).toBeLessThan(head!.indexOf('/_nuxt/entry.js"'))
     const recovery = head!.match(/<script\b[^>]*>\(function\(\)\{/)![0]
     expect(recovery.match(/\bnonce=/g)).toHaveLength(1)
   })
