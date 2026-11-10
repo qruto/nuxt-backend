@@ -21,16 +21,19 @@ function sourcesOf(value: unknown): string[] | null {
  * policy sets, so it applies where the browser looks. When that is a
  * fallback (`default-src`), the directive itself is written, from the
  * fallback's sources and the origin, so nothing else the fallback governs
- * is opened. A chain the policy never sets already allows it.
+ * is opened. `child-src` takes the origin in place, unless `ownDirective`
+ * asks for the directive itself there too: frames and workers both fall
+ * back to it, so a source only workers need stays out of frames. A chain
+ * the policy never sets already allows it.
  */
-export function allowOrigin(policy: Record<string, unknown>, chain: readonly string[], origin: string): void {
+export function allowOrigin(policy: Record<string, unknown>, chain: readonly string[], origin: string, { ownDirective = false }: { ownDirective?: boolean } = {}): void {
   const [own] = chain
   for (const name of chain) {
     const sources = sourcesOf(policy[name])
     if (!sources) continue
     if (new Set(sources).has(origin)) return
     // `'none'` stands alone: with an origin beside it, it would be ignored anyway.
-    policy[name === 'child-src' ? name : own!] = [...sources.filter(source => source !== '\'none\''), origin]
+    policy[name === 'child-src' && !ownDirective ? name : own!] = [...sources.filter(source => source !== '\'none\''), origin]
     return
   }
 }

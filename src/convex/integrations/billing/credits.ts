@@ -140,7 +140,10 @@ export function createCredits(
       unwrapProvider(await eventsIngest(provider.polar, { events }), 'usage report')
     }
     catch (error) {
-      if (reservation.reserved) await ctx.runMutation(cache.release, { userId: reservation.entityId, externalId: reservation.externalId })
+      // Kept, what it would charge stays held in the same transaction that
+      // lets the rest go: a release and a fresh hold would leave a moment in
+      // which another spend could take the credits a retry then bills.
+      if (reservation.reserved) await ctx.runMutation(cache.release, { userId: reservation.entityId, externalId: reservation.externalId, ...(options.keepReservation ? { keep: value } : {}) })
       throw error
     }
     if (reservation.reserved) await closeSpent(ctx, reservation, value)

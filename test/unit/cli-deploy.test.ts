@@ -7,7 +7,9 @@ import { buildCmd, PREVIEW_PRODUCT_SYNC, runBuild } from '../../src/cli/deploy/b
 import { EMAIL_WEBHOOK_EVENTS, ensureEmailWebhook, type EmailWebhookClient } from '../../src/cli/deploy/email-webhook'
 import { buildCommandAdvice, deployHost, vercelEnvNames, type DeployHost } from '../../src/cli/deploy/host'
 import { packageManagerOf, type PackageManager } from '../../src/cli/deploy/package-manager'
-import { productionOrigin, runDeploy, type DeployDeps, type DeployReport } from '../../src/cli/deploy/run'
+import { migrationsOutcome, productionOrigin, runDeploy, type DeployDeps, type DeployReport } from '../../src/cli/deploy/run'
+import type { DeploymentMigrations } from '../../src/cli/upgrade/data'
+import { PACKAGE_MIGRATIONS, type PackageMigrationStatus } from '../../src/convex/package-migrations'
 import { ALL_EMAIL_EVENTS } from '../../src/convex/integrations/email'
 import type { BackendEnvironment } from '../../src/convex/environment'
 import { finding } from '../../src/findings'
@@ -21,6 +23,23 @@ const BILLING_TOKEN = 'polar_oat_secret-token'
 const EMAIL_KEY = 're_secret-key'
 const WEBHOOK_SECRET = 'whsec_secret'
 const DEPLOY_KEY = 'prod:happy-otter-123|secret-deploy-key'
+
+/** Production's migrations, each in `state` (a failed one with its error), and the workpool backfill started on the app's pool. */
+function migrated(state: PackageMigrationStatus['state'] = 'done', pools: DeploymentMigrations['pools'] = { state: 'started', pools: ['workpool'], failed: [] }): DeploymentMigrations {
+  const overall = state === 'done' ? 'done' : state === 'failed' ? 'failed' : state
+  return {
+    data: { deployment: 'production', state: overall, migrations: PACKAGE_MIGRATIONS.map(({ name, since, does }) => ({ name, since, does, state, processed: 0, ...(state === 'failed' ? { error: 'a row did not parse' } : {}) })) },
+    pools,
+  }
+}
+
+/** What the migrations report when production did not answer `migrations:status`: failed under --prod, with none of them read. */
+function unanswered(): DeploymentMigrations {
+  return {
+    data: { deployment: 'production', state: 'failed', reason: 'the production deployment did not answer: convex run timed out', migrations: PACKAGE_MIGRATIONS.map(({ name, since, does }) => ({ name, since, does, state: 'pending', processed: 0 })) },
+    pools: { state: 'skipped', pools: [], failed: [], reason: 'the production deployment did not answer: convex run timed out' },
+  }
+}
 
 /** A production deployment in memory: its env, and every call the run made. */
 function fakeProduction({ exists = true, names = [] as string[], environment = undefined as BackendEnvironment | null | undefined } = {}) {
@@ -96,6 +115,7 @@ function deps(production: ReturnType<typeof fakeProduction>, overrides: Partial<
     region: { expected: null, actual: null },
     postalAddress: true,
   }) as never)
+  const migrate = vi.fn<NonNullable<DeployDeps['migrate']>>(async () => migrated())
   const value: DeployDeps = {
     backend: production.backend,
     host: fakeHost().host,
@@ -103,12 +123,13 @@ function deps(production: ReturnType<typeof fakeProduction>, overrides: Partial<
     billingSync,
     emailWebhook,
     emailSync,
+    migrate,
     doctor,
     buildAdvice: null,
     print: line => printed.push(line),
     ...overrides,
   }
-  return { deps: value, printed, billingSync, emailWebhook, emailSync, doctor }
+  return { deps: value, printed, billingSync, emailWebhook, emailSync, migrate, doctor }
 }
 
 /** A person at a terminal, answering the question whether to create production. */
@@ -135,6 +156,7 @@ describe('nuxt-backend deploy', () => {
       'protection-secret': 'done',
       'backend': 'done',
       'billing-catalog': 'done',
+      'data-migrations': 'done',
       'email-webhook': 'done',
       'email-sync': 'done',
       'app-env': 'done',
@@ -333,12 +355,71 @@ describe('nuxt-backend deploy', () => {
   })
 })
 
+describe('the data migrations on deploy', () => {
+  it('run on production after the last push, and say what they did', async () => {
+    const production = fakeProduction({ names: ['AUTH_SECRET', 'SITE_URL'], environment: 'production' })
+    const run = deps(production)
+    let pushedBefore = -1
+    run.migrate.mockImplementationOnce(async () => {
+      pushedBefore = production.calls.push
+      return migrated()
+    })
+    const { exitCode, report } = await runDeploy({ dryRun: false, sandbox: false }, run.deps)
+    expect(exitCode).toBe(0)
+    expect(run.migrate).toHaveBeenCalledWith({ dryRun: false })
+    expect(pushedBefore).toBe(1)
+    const step = report.steps.find(entry => entry.id === 'data-migrations')!
+    expect(step).toMatchObject({ capability: 'data', outcome: 'done', detail: 'every data migration done; the workpool backfill started on workpool' })
+  })
+
+  it('read where they stand on a dry run, and wait for a push that did not go', async () => {
+    const production = fakeProduction({ names: ['AUTH_SECRET', 'SITE_URL'], environment: 'production' })
+    const dry = deps(production)
+    dry.migrate.mockImplementationOnce(async () => migrated('pending', { state: 'pending', pools: [], failed: [] }))
+    const planned = await runDeploy({ dryRun: true, sandbox: false }, dry.deps)
+    expect(dry.migrate).toHaveBeenCalledWith({ dryRun: true })
+    expect(planned.report.steps.find(step => step.id === 'data-migrations')).toMatchObject({ outcome: 'planned', detail: expect.stringContaining(`would run ${PACKAGE_MIGRATIONS[0]!.name}`) })
+
+    const waiting = deps(fakeProduction({ names: ['AUTH_SECRET'], environment: 'production' }), { env: {} })
+    const skipped = await runDeploy({ dryRun: false, sandbox: false }, waiting.deps)
+    expect(outcomes(skipped.report)).toMatchObject({ 'backend': 'skipped', 'data-migrations': 'skipped' })
+    expect(waiting.migrate).not.toHaveBeenCalled()
+  })
+
+  it('fail the deploy when one fails, naming it, and leave the rest running', async () => {
+    const failing = deps(fakeProduction({ names: ['AUTH_SECRET', 'SITE_URL'], environment: 'production' }))
+    failing.migrate.mockImplementationOnce(async () => migrated('failed'))
+    const failed = await runDeploy({ dryRun: false, sandbox: false }, failing.deps)
+    expect(failed.exitCode).toBe(1)
+    expect(failed.report.steps.find(step => step.id === 'data-migrations')).toMatchObject({ outcome: 'failed', detail: expect.stringMatching(new RegExp(`^${PACKAGE_MIGRATIONS[0]!.name} failed \\(a row did not parse\\).*: fix it, then run npx nuxt-backend upgrade --prod --yes$`)) })
+    // The gate still runs: the rest of the deploy is not held back.
+    expect(failing.doctor).toHaveBeenCalled()
+    expect(migrationsOutcome(migrated('running', { state: 'none', pools: [], failed: [] }), false)).toMatchObject({ outcome: 'done', detail: expect.stringContaining('still running on production\'s scheduler') })
+  })
+
+  it('skip the step, and fail nothing, when production does not answer them or a pool refuses the backfill', async () => {
+    const quiet = deps(fakeProduction({ names: ['AUTH_SECRET', 'SITE_URL'], environment: 'production' }))
+    quiet.migrate.mockImplementationOnce(async () => unanswered())
+    const run = await runDeploy({ dryRun: false, sandbox: false }, quiet.deps)
+    expect(run.exitCode).toBe(0)
+    expect(run.report.steps.find(step => step.id === 'data-migrations')).toMatchObject({ outcome: 'skipped', detail: 'the production deployment did not answer: convex run timed out: the deploy goes on; run npx nuxt-backend upgrade --prod --yes to finish them' })
+
+    const throwing = deps(fakeProduction({ names: ['AUTH_SECRET', 'SITE_URL'], environment: 'production' }))
+    throwing.migrate.mockRejectedValueOnce(new Error('convex run exited with code 1'))
+    expect((await runDeploy({ dryRun: false, sandbox: false }, throwing.deps)).report.steps.find(step => step.id === 'data-migrations')).toMatchObject({ outcome: 'skipped', detail: expect.stringContaining('convex run exited with code 1') })
+
+    expect(migrationsOutcome(migrated('done', { state: 'failed', pools: [], failed: [{ component: 'workpool', reason: 'boom' }] }), false)).toMatchObject({ outcome: 'skipped', detail: expect.stringContaining('workpool (boom)') })
+    expect(migrationsOutcome({ ...migrated(), data: { deployment: 'production', state: 'needs-push', reason: 'production runs an older backend', migrations: [] } }, false).outcome).toBe('skipped')
+  })
+})
+
 describe('deploy --build', () => {
   const build = (env: Record<string, string>, names: string[] = [], packageManager: PackageManager = 'npm') => {
     const production = fakeProduction({ names })
     const convexDeploy = vi.fn(async () => 0)
+    const migrate = vi.fn(async () => migrated())
     const printed: string[] = []
-    return { production, convexDeploy, printed, run: () => runBuild({ backend: production.backend, convexDeploy, env, packageManager, print: line => printed.push(line) }) }
+    return { production, convexDeploy, migrate, printed, run: () => runBuild({ backend: production.backend, convexDeploy, env, packageManager, migrate, print: line => printed.push(line) }) }
   }
 
   it('puts the env the first push needs on production, then ships both halves', async () => {
@@ -393,6 +474,41 @@ describe('deploy --build', () => {
     expect(await prod.run()).toBe(0)
     expect(prod.convexDeploy).toHaveBeenCalledWith(['deploy', '--cmd', production, '--cmd-url-env-var-name', 'NUXT_PUBLIC_BACKEND_URL'])
     expect(buildCmd(true, {}, manager)).toBe(preview)
+  })
+
+  it('runs production\'s data migrations once the push is up, and fails the build only when one fails', async () => {
+    const prod = build({ CONVEX_DEPLOY_KEY: DEPLOY_KEY }, ['AUTH_SECRET', 'SITE_URL'])
+    expect(await prod.run()).toBe(0)
+    expect(prod.migrate).toHaveBeenCalledTimes(1)
+    expect(prod.migrate.mock.invocationCallOrder[0]).toBeGreaterThan(prod.convexDeploy.mock.invocationCallOrder[0]!)
+    expect(prod.printed).toEqual(['[nuxt-backend] deploy --build: the data migrations: every data migration done; the workpool backfill started on workpool'])
+
+    const failing = build({ CONVEX_DEPLOY_KEY: DEPLOY_KEY }, ['AUTH_SECRET', 'SITE_URL'])
+    failing.migrate.mockImplementationOnce(async () => migrated('failed'))
+    expect(await failing.run()).toBe(1)
+
+    // The backend is up already: a production that did not answer, or a pool
+    // that refused the backfill, warns, and the app built against it ships.
+    const quiet = build({ CONVEX_DEPLOY_KEY: DEPLOY_KEY }, ['AUTH_SECRET', 'SITE_URL'])
+    quiet.migrate.mockImplementationOnce(async () => unanswered())
+    expect(await quiet.run()).toBe(0)
+    expect(quiet.printed).toEqual(['[nuxt-backend] deploy --build: the data migrations (warning): the production deployment did not answer: convex run timed out: the deploy goes on; run npx nuxt-backend upgrade --prod --yes to finish them'])
+    const refused = build({ CONVEX_DEPLOY_KEY: DEPLOY_KEY }, ['AUTH_SECRET', 'SITE_URL'])
+    refused.migrate.mockImplementationOnce(async () => migrated('done', { state: 'failed', pools: ['workpool'], failed: [{ component: 'resend/workpool', reason: 'boom' }] }))
+    expect(await refused.run()).toBe(0)
+    const throwing = build({ CONVEX_DEPLOY_KEY: DEPLOY_KEY }, ['AUTH_SECRET', 'SITE_URL'])
+    throwing.migrate.mockRejectedValueOnce(new Error('convex run exited with code 1'))
+    expect(await throwing.run()).toBe(0)
+
+    const unpushed = build({ CONVEX_DEPLOY_KEY: DEPLOY_KEY }, ['AUTH_SECRET', 'SITE_URL'])
+    unpushed.convexDeploy.mockResolvedValueOnce(2)
+    expect(await unpushed.run()).toBe(2)
+    expect(unpushed.migrate).not.toHaveBeenCalled()
+
+    // A preview starts from its own data: nothing to migrate there.
+    const preview = build({ CONVEX_DEPLOY_KEY: 'preview:team:app|secret', BILLING_ACCESS_TOKEN: 'polar_oat_sandbox' })
+    expect(await preview.run()).toBe(0)
+    expect(preview.migrate).not.toHaveBeenCalled()
   })
 
   it('refuses a build with no deploy key, or a dev one', async () => {

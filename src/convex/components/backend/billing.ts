@@ -367,27 +367,41 @@ export const attachReleaseJob = mutation({
  * Also the target of the scheduled auto-release an abandoned stream leaves
  * behind ({@link attachReleaseJob}) — hence the deliberate no-op when the
  * reservation is already settled or released: whichever happens first wins.
+ *
+ * With `keep`, it releases only what the reservation holds above `keep`,
+ * and the rest stays held under the same id until the same time, in this
+ * one transaction: a settle the provider refused, which its caller tries
+ * again, keeps what it would charge without a moment in which another
+ * spend could take it.
  */
 export const release = mutation({
-  args: { userId: v.string(), externalId: v.string() },
+  args: {
+    userId: v.string(),
+    externalId: v.string(),
+    /** Credits that stay held: the reservation drops to this much, never above what it held. Absent or zero: it is released whole. */
+    keep: v.optional(v.number()),
+  },
   returns: v.null(),
-  handler: async (ctx, { userId, externalId }) => {
+  handler: async (ctx, { userId, externalId, keep }) => {
+    if (keep !== undefined) assertAmount(keep, 'release: `keep`', { orZero: true })
     const row = await entitlementOf(ctx, userId)
     if (!row) return null
     const now = Date.now()
     const pending = activePendings(row.pendingSpends, now)
     const entry = pending.find(candidate => candidate.externalId === externalId)
     if (!entry) return null
+    const kept = Math.min(keep ?? 0, entry.amount)
+    const back = entry.amount - kept
     const meters = row.meters.map(meter => meter.meterId === entry.meterId
       ? {
           ...meter,
-          balance: meter.balance + entry.amount,
-          consumedUnits: Math.max(0, meter.consumedUnits - entry.amount),
+          balance: meter.balance + back,
+          consumedUnits: Math.max(0, meter.consumedUnits - back),
         }
       : meter)
     await ctx.db.patch('billingEntitlements', row._id, {
       meters,
-      pendingSpends: pending.filter(candidate => candidate.externalId !== externalId),
+      pendingSpends: pending.flatMap(candidate => candidate.externalId !== externalId ? [candidate] : kept > 0 ? [{ ...candidate, amount: kept }] : []),
       updatedAt: now,
     })
     return null

@@ -129,6 +129,8 @@ It names each change it would make, and applies one only once you confirm it at 
 npx nuxt-backend doctor --fix --yes    # unattended
 ```
 
+The same goes for the email sync `doctor --fix` runs: it shows the sync as a dry run first, and a CI run without `--yes` prints what it would change at Resend and runs none of it.
+
 The changes it may make:
 
 - **Trial abuse prevention** on, when a plan has a trial, so one customer cannot start the same trial again.

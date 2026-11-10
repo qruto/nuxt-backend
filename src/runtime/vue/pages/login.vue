@@ -1,29 +1,29 @@
 <script setup lang="ts">
 import { watch } from 'vue'
-import { resolveAuthRedirect } from 'nuxt-convex-module/better-auth/client'
-import { navigateTo, useRoute, useRuntimeConfig } from '#imports'
+import { navigateTo } from '#imports'
 import { useAuthTitle } from '../components/auth/auth-form'
 import PageFrame from '../components/shell/PageFrame.vue'
 import type { LoginStep } from '../composables/use-login-flow'
+import { useReturnPath } from '../composables/use-return-path'
 import { useAuthSession } from '../utils/auth-session'
 
 /**
  * The ready-made sign-in page, registered by the module at `/login` (module
  * option `pages.login`). Renders `<AuthForm>`; after sign-in it returns the
  * visitor to the `?redirect=` path the page guard appended when it names a
- * page of this site, else to `redirects.afterSignIn` (`/` by default).
+ * page of this site other than this one, else to `redirects.afterSignIn`
+ * (`/` by default): {@link useReturnPath}. The way there replaces this page
+ * in the history, so Back never returns to a sign-in that is done.
  * Already-signed-in visitors are sent along immediately.
  */
 defineOptions({ name: 'BackendLoginPage' })
 
-const route = useRoute()
 const { isAuthenticated, isLoading } = useAuthSession()
 // The same heading <AuthForm> renders (as the page's h1), as the document title.
 const title = useAuthTitle()
 
-const runtimeConfig = useRuntimeConfig()
-const afterSignIn = (runtimeConfig.public.backend as { redirects?: { afterSignIn?: string } } | undefined)?.redirects?.afterSignIn ?? '/'
-const destination = () => resolveAuthRedirect(route.query.redirect, afterSignIn)
+const back = useReturnPath()
+const destination = () => back.value
 
 // One way out, taken once: the session watcher and the form's `success` can
 // both fire for the same sign-in.
@@ -31,7 +31,7 @@ let leaving = false
 function leave(to: string): void {
   if (leaving) return
   leaving = true
-  void navigateTo(to)
+  void navigateTo(to, { replace: true })
 }
 
 // A sign-in made with the form is the form's to finish: after a code it

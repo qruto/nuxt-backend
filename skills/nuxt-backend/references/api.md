@@ -48,6 +48,9 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useWaitlistAdmin()` | The admin console's Waitlist tab, as data: the waiting people (the oldest first, narrowed by a filter) with a count per status, and the changes an administrator makes, through `backend/waitlist.ts`. |
 | `useShareLink()` | One row's share link: whether it has a live one and since when, read live, and the actions that turn it on (or mint a new one) and off, through `getShareLink`, `enableShareLink` and `revokeShareLink` of `backend/storage.ts`. |
 | `useUploadField()` | The upload field without its markup: pick a file (by the button or by dropping it), run your `prepare` on it, upload it with the base module's `useUploadQueue` through the upload URL `setupStorage` mints, then hand the storage id to your `claim`, where the deployment checks it. |
+| `preparePhoto()` | Make one photo ready to send, in the browser: decoded (a HEIC through `heic-to` when this browser can't open it, loaded only then), turned upright by its EXIF orientation, scaled down to `longEdge`, and re-encoded as `type` (JPEG by default) on a canvas, which keeps the pixels and drops every metadata tag, GPS included. |
+| `isPhotoFile()` | Whether a file picked, dropped or pasted is worth preparing as a photo: an image type other than SVG and GIF, or a HEIC the device left untyped. |
+| `PhotoPrepError()` | A photo `preparePhoto` could not make ready, as the refusal it is: `invalid_input` on `file`, with `reason`. |
 | `useNotifications()` | The signed-in account's in-app notifications, live: newest first, paged with `loadMore`, with the unread count and the actions that mark them read. |
 | `useNotificationInbox()` | `<NotificationInbox>` without its markup: the notifications, where the inbox is, the button's name with the unread count in it, and the bindings for a button and a list that open on the browser's own popover. |
 | `useEmailPreferences()` | The email topics the signed-in person receives and their notification channels, kind by kind, live, and the actions that change them: the same choices as the profile's Email section, the unsubscribe page and the provider's own page, which all stay in step. |
@@ -68,7 +71,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useBackendConfig()` | `appConfig.backend` with the package defaults merged in — the shipped components read content (plan catalog, labels, brand) through this, so a partial user config is always safe to destructure. |
 | `useLabels()` | The labels of one packaged component's group, resolved for the person reading them. |
 | `useBackendPagePath()` | Where a ready-made page lives, for a link to it: the path the module mounted it at (the `pages` module option, else its default), in the active locale when the app uses `@nuxtjs/i18n` (through its `localePath`, so `/pricing` reads `/fr/pricing` under a prefix strategy). |
-| `useReturnPath()` | Where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere), else where sign-in lands (`redirects.afterSignIn`, `/` without it). |
+| `useReturnPath()` | Where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere, and never to the sign-in page, which would ask them to sign in again), else where sign-in lands (`redirects.afterSignIn`, `/` without it). |
 | `useEmailStatus()` | Reactive delivery status for a sent email. |
 | `useSandboxInbox()` | The mail a test address received within the last hour, refreshed while the page is open — so a demo, a preview deployment or an e2e run can finish an email-code sign-in without a real mailbox. |
 | `useWorkflowStatus()` | Reactively track a durable Workflow's status. |
@@ -339,9 +342,10 @@ Types: `WorkflowId`, `WorkflowStatus`, `WorkflowComponents`, `EmailSequenceStep`
 | `MODERATION_CATEGORIES` | Every category, in the order a statement of reasons lists them. |
 | `defineJobQueue()` | Declare the app's generation queue, once, in `backend/jobs.ts`: kinds of jobs (`jobs.define`) run their steps (`jobs.step`) in a fair line with tiers from plan features, each model under a limit that adapts to `429`s, credits held while a job waits, charged when it starts and refunded when it fails, and each job's cost reported to the billing provider. |
 | `vJobEnd` | How a job ended, as `onJobEnd` receives it: use these as your function's `args` (`internalMutation({ args: vJobEnd, handler })`). |
+| `vOwedCharge` | How an owed charge ended, as `onOwedCharge` receives it: use these as your function's `args` (`internalMutation({ args: vOwedCharge, handler })`). |
 | `retryable()` | An error a job step throws for a failure another attempt may not meet, such as a model that answered with no image: the queue waits and runs the step again, up to 4 attempts, as for a provider's passing error, instead of failing the job at once. |
 
-Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBalanceEvent`, `AiCreditsConfig`, `AiModel`, `AiGateway`, `ModelRoutes`, `InferenceRegion`, `MeteredModel`, `ModelStatus`, `SetupAiConfig`, `AiGuestConfig`, `GuestClaim`, `MeteredUsage`, `FinalizedCost`, `ReportedCost`, `MeteredCost`, `MeteredContext`, `MeteredActionConfig`, `MeteredStreamConfig`, `PersonCost`, `AiCosts`, `AiApi`, `Ai`, `ModelPrice`, `TokenPriceTable`, `TokenUsage`, `GeneratedImage`, `ImageStoreContext`, `JobProvenance`, `ProvenanceConfig`, `StoreImageOptions`, `Chat`, `ChatConfig`, `ChatMessage`, `ChatReply`, `ChatThread`, `AiEmbeddingModel`, `Knowledge`, `KnowledgeAddCost`, `KnowledgeApi`, `KnowledgeConfig`, `KnowledgeDocument`, `KnowledgePassage`, `ModerationConfig`, `ModerationCtx`, `ModerationFlag`, `ModerationInput`, `ModerationLog`, `ModerationStatement`, `ModerationSubject`, `ModerationVerdict`, `AzureContentSafetyOptions`, `KnownAbuseProvider`, `ModerationImage`, `ModerationProvider`, `ProviderEnv`, `ProviderInput`, `CategoryScore`, `ModerationCategory`, `ProviderReading`, `AdminJobView`, `CancelOptions`, `DefineJobQueueOptions`, `EnqueueOptions`, `GuestJobs`, `JobContext`, `JobDefinition`, `JobEnd`, `JobModelLimit`, `JobProgress`, `JobRecord`, `JobQueue`, `JobQueueApi`, `JobQueueComponents`, `JobStepContext`, `JobStepDefinition`, `JobTier`, `JobView`, `OnJobEnd`, `QueueChange`, `StepResult`, `AiImageModel`.
+Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBalanceEvent`, `AiCreditsConfig`, `AiModel`, `AiGateway`, `ModelRoutes`, `InferenceRegion`, `MeteredModel`, `ModelStatus`, `SetupAiConfig`, `AiGuestConfig`, `GuestClaim`, `MeteredUsage`, `FinalizedCost`, `ReportedCost`, `MeteredCost`, `MeteredContext`, `MeteredActionConfig`, `MeteredStreamConfig`, `PersonCost`, `AiCosts`, `AiApi`, `Ai`, `ModelPrice`, `TokenPriceTable`, `TokenUsage`, `GeneratedImage`, `ImageStoreContext`, `JobProvenance`, `ProvenanceConfig`, `StoreImageOptions`, `Chat`, `ChatConfig`, `ChatMessage`, `ChatReply`, `ChatThread`, `AiEmbeddingModel`, `Knowledge`, `KnowledgeAddCost`, `KnowledgeApi`, `KnowledgeConfig`, `KnowledgeDocument`, `KnowledgePassage`, `ModerationConfig`, `ModerationCtx`, `ModerationFlag`, `ModerationInput`, `ModerationLog`, `ModerationStatement`, `ModerationSubject`, `ModerationVerdict`, `AzureContentSafetyOptions`, `KnownAbuseProvider`, `ModerationImage`, `ModerationProvider`, `ProviderEnv`, `ProviderInput`, `CategoryScore`, `ModerationCategory`, `ProviderReading`, `AdminJobView`, `CancelOptions`, `DefineJobQueueOptions`, `EnqueueOptions`, `GuestJobs`, `JobContext`, `JobDefinition`, `JobChargeOptions`, `JobEnd`, `JobModelLimit`, `JobOwed`, `JobProgress`, `JobRecord`, `JobQueue`, `JobQueueApi`, `JobQueueComponents`, `JobStepContext`, `JobStepDefinition`, `JobTier`, `JobView`, `OnJobEnd`, `OnOwedCharge`, `OwedCharge`, `QueueChange`, `StepJob`, `StepResult`, `AiImageModel`.
 
 ### `nuxt-backend/storage`
 
@@ -355,7 +359,7 @@ Types: `AiRateLimiter`, `AiComponents`, `AiBudget`, `AiSpendLimit`, `CreditsBala
 | `sniffContentType()` | The type a file is, read from its signature (its first bytes), or `null` for one the package does not recognise. |
 | `stripImageMetadata()` | An image's bytes without its EXIF, XMP, IPTC and GPS data, its container rewritten and its pixels untouched, so quality is unchanged: JPEG, PNG and WebP. |
 
-Types: `FileOwner`, `StoredFile`, `ResolvedShareLink`, `ShareLinkState`, `MintedShareLink`, `StorageApi`, `StorageReadCtx`, `StorageWriteCtx`, `ShareCtx`, `ShareMutationCtx`, `EnabledShareLink`, `ShareableOptions`, `StorageQuota`, `SetupStorageOptions`, `Storage`, `StorageComponents`.
+Types: `FileOwner`, `StoredFile`, `ResolvedShareLink`, `ShareLinkState`, `MintedShareLink`, `StorageApi`, `StorageReadCtx`, `StorageWriteCtx`, `ShareCtx`, `ShareMutationCtx`, `EnabledShareLink`, `ShareableOptions`, `UploadSafety`, `AcceptUploadOptions`, `StorageQuota`, `SetupStorageOptions`, `Storage`, `StorageComponents`.
 
 ### `nuxt-backend/notifications`
 
@@ -405,6 +409,7 @@ Types: `BackendPaths`, `DefineBackendAuthConfigOptions`.
 | `defineBackendTestApp()` | Your app under test: a fresh convex-test instance per call, with the `backend` component and every component the scaffolded `convex.config.ts` mounts (the action cache, aggregate, migrations, persistent text streaming, the billing provider, the rate limiter, the sharded counter, workflows and the workpool) registered under the names it mounts them by, and the Agent and RAG components (`agent`, `rag`) when the app installs them. |
 | `TEST_PNG` | A valid 2 × 2 PNG: what the storage check sniffs, strips and serves. |
 | `upload()` | Send a file into the `backend` component's storage, claimed by nobody, as the browser leaves it after posting to an upload URL, and return its storage id. |
+| `fileExists()` | Whether a file is in the `backend` component's storage, by its storage id: what a test of a deletion, a sweep or an erasure checks. |
 | `TEST_STORAGE_URL` | Where convex-test's `ctx.storage.getUrl` points: a deployment that does not exist. |
 | `stubStorageFetch()` | Answer `fetch` for the files your functions stored, with their bytes and type, as the deployment's storage would: a model handed a photo by URL, or a signed URL's route reading the file, gets the real file under test. |
 | `drain()` | Run every scheduled function to the end, one at a time: storage checks, the job queue and its steps, workflows, deliveries and retries. |
@@ -415,9 +420,11 @@ Types: `BackendPaths`, `DefineBackendAuthConfigOptions`.
 | `TEST_FAINT()` | The marker that finds a category faintly, just under its threshold. |
 | `TEST_KNOWN_ABUSE` | The marker the known-abuse fake matches. |
 | `TEST_UNSAFE()` | The marker that finds a category at full strength. |
+| `TEST_UNSAFE_CODE()` | The marker that has the mock safety classifier answer chosen Llama Guard codes: `TEST_UNSAFE_CODE('S7')` is `[[unsafe:S7]]`, answered `unsafe\nS7`; several codes join with a comma (`'S1,S10'`). |
+| `stubBillingProvider()` | Answer the billing provider's usage-event ingest in `fetch`, as its API would: every charge, refund and cost report the package's billing sends is taken and kept once by its idempotency key, and reported back in `events`, `charges` and `refunds`. |
 | `default` | The default export. |
 
-Types: `ComponentTestKit`, `BackendTestAppOptions`, `TestFile`, `TestUploadOptions`, `BackendTestApp`, `StubStorageFetchOptions`, `TestTimers`, `TestBilling`, `TestUserOptions`, `TestUser`.
+Types: `ComponentTestKit`, `BackendTestAppOptions`, `TestFile`, `TestUploadOptions`, `BackendTestApp`, `StubStorageFetchOptions`, `TestTimers`, `DrainOptions`, `TestBilling`, `TestUserOptions`, `TestUser`, `StubBillingProviderOptions`, `TestBillingProvider`, `TestUsageEvent`.
 
 ### `nuxt-backend/test-utils`
 
@@ -436,7 +443,7 @@ Types: `RenderEmailOptions`, `BackendMock`, `BackendMockCall`, `BackendMockInit`
 | Export | What it is |
 |---|---|
 | `BACKEND_ESLINT_RULES` | The rules the preset turns on, at the levels of the plugin's own recommended config. |
-| `backendEslint()` | Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to the functions directory (tests excluded), and `nuxt-backend:generated` ignores every `_generated` folder in it. |
+| `backendEslint()` | Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to the functions directory (tests excluded), and `nuxt-backend:generated` ignores every `_generated` folder in it and the files the module generates there (brand, paths, labels and the billing id map). |
 
 Types: `BackendEslintOptions`.
 
@@ -469,8 +476,8 @@ Check the project + deployment configuration.
 
 - `--cwd`: Project directory
 - `--json`: Machine-readable output
-- `--fix`: Repair what doctor can: restore missing scaffold files, add missing mounts and routes, push env (`env push`), at a terminal make the first administrator, and apply the provider settings the billing findings recommend and turn a webhook endpoint back on, each after you confirm it
-- `--yes`: With --fix: apply the provider changes without asking (for a script or CI)
+- `--fix`: Repair what doctor can: restore missing scaffold files, add missing mounts and routes, push env (`env push`), at a terminal make the first administrator, then, each after you confirm it, run `email sync`, apply the provider settings the billing findings recommend and turn a webhook endpoint back on
+- `--yes`: With --fix: run `email sync` and apply the provider changes without asking (for a script or CI; without it and without a terminal, they are listed and skipped)
 - `--prod`: Check the production deployment: missing email/billing config becomes a failure, its switches and email are read, and its live site is probed
 - `--only`: Check only these capabilities, comma-separated: auth, data, jobs, billing, email, notifications, ai, protection, monitoring, flags, analytics, hosting
 
@@ -611,7 +618,7 @@ Copy a part's, a page's or an email's packaged source into the app, stamped with
 
 ### `npx nuxt-backend deploy`
 
-Take production from nothing to a passing doctor --prod: link or create the production deployment, push its env, push the backend, sync the billing catalog, register both webhooks, write the app's env into the Vercel project, then run doctor --prod. Safe to run again.
+Take production from nothing to a passing doctor --prod: link or create the production deployment, push its env, push the backend, sync the billing catalog, run the package's data migrations, register both webhooks, write the app's env into the Vercel project, then run doctor --prod. Safe to run again.
 
 - `--cwd`: Project directory
 - `--dry-run`: Print every step it would take, and change nothing
@@ -709,6 +716,7 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `convex-config` | data | Mounts and routes |
 | `function-contract` | data | Function contract |
 | `agent-files` | data | Agent files |
+| `env-example` | data | .env.example |
 | `name-collisions` | data | Name collisions |
 | `bundle-duplicates` | data | Duplicate packages in the Convex bundle |
 | `billing-access` | billing | Billing access |

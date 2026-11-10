@@ -1481,6 +1481,17 @@ export const jobTables = {
      */
     refundOwed: v.optional(v.union(v.literal('pending'), v.literal('given_up'))),
     refundAt: v.optional(v.number()),
+    /**
+     * A kind charged by output whose charge the provider refused
+     * (`job.charge`): `pending` while it is tried again in the background
+     * (the next try due at `chargeAt`), `given_up` after the last one
+     * failed, or at once for a refusal no try changes. Cleared once charged. `price` is what it owes, its hold stays
+     * taken while it is pending, and `chargeMetadata` is what `job.charge`
+     * put on the usage event.
+     */
+    chargeOwed: v.optional(v.union(v.literal('pending'), v.literal('given_up'))),
+    chargeAt: v.optional(v.number()),
+    chargeMetadata: v.optional(v.record(v.string(), v.string())),
     workflowId: v.optional(v.string()),
     /** Attempts of its steps, the throttled ones included. */
     attempts: v.number(),

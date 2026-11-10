@@ -1,6 +1,7 @@
 import { deployKeyType } from '../../env-push'
 import { execBinary, type PackageManager, runScript } from './package-manager'
-import { generateSecret, productionOrigin, type DeployBackend } from './run'
+import type { DeploymentMigrations } from '../upgrade/data'
+import { generateSecret, migrationsOutcome, migrationsUnanswered, productionOrigin, type DeployBackend } from './run'
 
 // `nuxt-backend deploy --build`: the host's build command for an app that
 // starts on the host, such as the deploy template. The Convex Marketplace
@@ -9,7 +10,10 @@ import { generateSecret, productionOrigin, type DeployBackend } from './run'
 // that env there, then runs the build command every host uses: the backend
 // first, then the app against it, with the project's own package manager.
 // A new preview deployment also loads the provider's products, so its
-// pricing renders before any product webhook reaches it.
+// pricing renders before any product webhook reaches it; production runs the
+// package's data migrations and the workpool backfill on the backend it
+// pushed, as `upgrade --prod --yes` does, and fails the build only on a
+// migration that failed.
 
 /** What a new preview runs once its functions are pushed: the products table filled from the provider. */
 export const PREVIEW_PRODUCT_SYNC = 'billing:syncProducts'
@@ -21,6 +25,8 @@ export interface BuildDeps {
   env: Readonly<Record<string, string | undefined>>
   /** The project's package manager: what runs the app's build and the package's CLI. */
   packageManager: PackageManager
+  /** Production's data migrations and workpool backfill, once the push is up. Absent: not run. */
+  migrate?: () => Promise<DeploymentMigrations>
   print: (line: string) => void
 }
 
@@ -88,5 +94,29 @@ export async function runBuild(deps: BuildDeps): Promise<number> {
       return 1
     }
   }
-  return deps.convexDeploy(['deploy', '--cmd', buildCmd(preview, deps.env, deps.packageManager), '--cmd-url-env-var-name', 'NUXT_PUBLIC_BACKEND_URL', ...preview ? previewRun(deps.env, deps.print) : []])
+  const code = await deps.convexDeploy(['deploy', '--cmd', buildCmd(preview, deps.env, deps.packageManager), '--cmd-url-env-var-name', 'NUXT_PUBLIC_BACKEND_URL', ...preview ? previewRun(deps.env, deps.print) : []])
+  if (code !== 0 || preview || !deps.migrate) return code
+  return migrateProduction(deps.migrate, deps.print)
+}
+
+/**
+ * Production's data migrations, after `convex deploy` pushed the backend
+ * that runs them and built the app against it. The new backend is live by
+ * now whatever they answer, so a failed build holds back only the app: the
+ * host keeps the previous one, against the new backend. A production that
+ * did not answer, or a pool that refused the backfill, is a warning, then:
+ * the build passes and `upgrade --prod --yes` finishes them. A migration
+ * that reports it failed still fails the build, as it needs a person, and a
+ * failed build is where the host shows one.
+ */
+async function migrateProduction(migrate: () => Promise<DeploymentMigrations>, print: (line: string) => void): Promise<number> {
+  let outcome: ReturnType<typeof migrationsOutcome>
+  try {
+    outcome = migrationsOutcome(await migrate(), false)
+  }
+  catch (error) {
+    outcome = migrationsUnanswered(error instanceof Error ? error.message : String(error))
+  }
+  print(`[nuxt-backend] deploy --build: the data migrations${outcome.outcome === 'skipped' ? ' (warning)' : ''}: ${outcome.detail}`)
+  return outcome.outcome === 'failed' ? 1 : 0
 }

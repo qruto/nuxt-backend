@@ -98,6 +98,10 @@
           "to": "/docs/reference/cli/diagnostics#agent-files"
         },
         {
+          "name": "env-example",
+          "to": "/docs/reference/cli/diagnostics#env-example"
+        },
+        {
           "name": "name-collisions",
           "to": "/docs/reference/cli/diagnostics#name-collisions"
         },
@@ -1115,6 +1119,18 @@
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
+          "name": "preparePhoto",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "isPhotoFile",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "PhotoPrepError",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "getBackendError",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -1559,9 +1575,9 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "65 in all",
+          "name": "68 in all",
           "to": "/docs/reference/nuxt/composables",
-          "label": "65 composables in all"
+          "label": "68 composables in all"
         }
       ]
     },
@@ -1609,9 +1625,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "108 in all",
+          "name": "109 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "108 findings in all"
+          "label": "109 findings in all"
         }
       ]
     }
@@ -1966,6 +1982,18 @@
         },
         {
           "name": "useUploadField",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "preparePhoto",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "isPhotoFile",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "PhotoPrepError",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {

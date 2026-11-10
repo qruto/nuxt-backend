@@ -27,7 +27,7 @@ vi.hoisted(() => {
 type Overrides = NonNullable<Parameters<typeof loadNuxt>[0]['overrides']>
 
 /** Boot the fixture once for the suite, everything the module logs while it sets up kept in `written`. */
-function useBoot(overrides: Record<string, unknown>, { dev }: { dev: boolean }) {
+function useBoot(overrides: Record<string, unknown>, { dev, envName }: { dev: boolean, envName?: string }) {
   const written: string[] = []
   let nuxt: Nuxt
   beforeAll(async () => {
@@ -36,7 +36,8 @@ function useBoot(overrides: Record<string, unknown>, { dev }: { dev: boolean }) 
       return true
     }))
     try {
-      nuxt = await loadNuxt({ cwd: fixtureDir, dev, ready: true, overrides: { telemetry: false, ...overrides } as Overrides })
+      // `envName`: the `$<env>` config block that applies (under the test runner, `$test`'s).
+      nuxt = await loadNuxt({ cwd: fixtureDir, dev, ...(envName ? { envName } : {}), ready: true, overrides: { telemetry: false, ...overrides } as Overrides })
     }
     finally {
       for (const stream of streams) stream.mockRestore()
@@ -119,16 +120,40 @@ describe('a nuxt dev boot', () => {
   })
 })
 
-describe('a nuxt dev boot of an app that sets its own limiter and HSTS', () => {
+type SecurityView = { rateLimiter: unknown, headers: { strictTransportSecurity: unknown, contentSecurityPolicy: Record<string, unknown> } }
+
+// A limiter tuned for production at the top level used to turn the limiter back on in `nuxt dev`.
+describe('a nuxt dev boot of an app that sets its own limiter and HSTS for production', () => {
   const rateLimiter = { tokensPerInterval: 2000, interval: 300_000 }
   const strictTransportSecurity = { maxAge: 60 }
-  const boot = useBoot({ test: false, security: { rateLimiter, headers: { strictTransportSecurity } } }, { dev: true })
+  const boot = useBoot({ test: false, security: { rateLimiter, headers: { strictTransportSecurity, contentSecurityPolicy: { 'img-src': ['\'self\'', 'blob:'] } } } }, { dev: true })
 
-  it('keeps them: the app\'s own value wins over the package\'s development default', () => {
-    const security = boot.nuxt().options.security as unknown as { rateLimiter: unknown, headers: { strictTransportSecurity: unknown, contentSecurityPolicy: Record<string, unknown> } }
+  it('keeps all three off in development, and the rest of the app\'s options as they are', () => {
+    const security = boot.nuxt().options.security as unknown as SecurityView
+    expect(security.rateLimiter).toBe(false)
+    expect(security.headers.strictTransportSecurity).toBe(false)
+    expect(security.headers.contentSecurityPolicy).toMatchObject({ 'upgrade-insecure-requests': false, 'img-src': ['\'self\'', 'blob:'] })
+  })
+})
+
+describe('a nuxt dev boot of an app that sets its own limiter and HSTS under $development', () => {
+  const rateLimiter = { tokensPerInterval: 50, interval: 60_000 }
+  const strictTransportSecurity = { maxAge: 60 }
+  const boot = useBoot({ test: false, $development: { security: { rateLimiter, headers: { strictTransportSecurity } } } }, { dev: true, envName: 'development' })
+
+  it('keeps them: the app\'s own value for development wins over the package\'s default', () => {
+    const security = boot.nuxt().options.security as unknown as SecurityView
     expect(security.rateLimiter).toMatchObject(rateLimiter)
     expect(security.headers.strictTransportSecurity).toMatchObject(strictTransportSecurity)
     expect(security.headers.contentSecurityPolicy['upgrade-insecure-requests']).toBe(false)
+  })
+})
+
+describe('a nuxt dev boot of an app that turned the headers off', () => {
+  const boot = useBoot({ test: false, security: { headers: false } }, { dev: true })
+
+  it('leaves them off: no development override turns them back on', () => {
+    expect((boot.nuxt().options.security as unknown as { headers: unknown }).headers).toBe(false)
   })
 })
 

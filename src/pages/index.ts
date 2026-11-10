@@ -161,11 +161,39 @@ interface PageLike {
   children?: PageLike[]
 }
 
+/** A segment that is one whole parameter: its name, its pattern (`.*`, `\\d+`, none) and its modifier (`?`, `*`, `+`). */
+const WHOLE_PARAMETER = /^:\w+(?:\(([^/]*)\))?([?*+]?)$/
+
 /**
- * Every absolute path an app already registered, children included (relative
- * child paths joined onto the parent), trailing slashes normalized — the set
- * the module checks before mounting a default page, so app pages always
- * shadow module pages.
+ * A path as the router tells two apart, for override detection: trailing
+ * slashes off, and each segment that is one whole parameter written without
+ * its name, as Nuxt spelled it or not: a plain one is `:`, so `[code].vue`
+ * (`/r/:code()`) or `[id].vue` replaces the ready-made page at `/r/:code`.
+ * One with a pattern or a modifier of its own keeps them (`:(.*)*`, `:?`,
+ * `:(\\d+)`), so it replaces only a page of the same kind: a catch-all
+ * (`[...slug].vue`, `:slug(.*)*`) or an optional parameter (`[[code]].vue`,
+ * `:code?`) answers more addresses than `/r/:code`, and the router ranks the
+ * ready-made page above it, so both stay, as a pattern of its own
+ * (`:id(\\d+)`), which answers fewer, does. In a partial segment
+ * (`:id()-draft`) only the empty `()` goes.
+ *
+ * @internal
+ */
+export function pagePathShape(path: string): string {
+  return normalizePagePath(path).split('/').map((segment) => {
+    const parameter = WHOLE_PARAMETER.exec(segment)
+    if (!parameter) return segment.replace(/(:\w+)\(\)/g, '$1')
+    const [, pattern, modifier] = parameter
+    return `:${pattern ? `(${pattern})` : ''}${modifier}`
+  }).join('/')
+}
+
+/**
+ * Every path an app already registered, children included (relative child
+ * paths joined onto the parent), as {@link pagePathShape} writes it: the set
+ * the module checks a default page's path against before mounting it, so
+ * app pages always shadow module pages, a page file with a parameter
+ * (`app/pages/r/[code].vue`, which Nuxt registers as `/r/:code()`) included.
  */
 export function collectExistingPagePaths(pages: PageLike[], parent = ''): Set<string> {
   const paths = new Set<string>()
@@ -174,7 +202,7 @@ export function collectExistingPagePaths(pages: PageLike[], parent = ''): Set<st
       ? page.path
       : `${parent}/${page.path}`
     const normalized = normalizePagePath(absolute)
-    paths.add(normalized)
+    paths.add(pagePathShape(normalized))
     if (page.children?.length) {
       for (const child of collectExistingPagePaths(page.children, normalized === '/' ? '' : normalized)) {
         paths.add(child)

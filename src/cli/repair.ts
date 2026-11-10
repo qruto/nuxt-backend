@@ -17,12 +17,16 @@ import { adoptBackendDevScript } from './dev'
  * something else (what the module does on its next start), and the brand and labels files from app.config. `nuxt-backend upgrade` runs exactly this,
  * and the upgrade fixture runs it on an older starter. Resolves with the
  * files it wrote and the changes it made, one line each.
+ *
+ * `configRoot` is where nuxt.config and app.config are read from, `rootDir`
+ * by default: `upgrade --dry-run` repairs a scratch copy that holds no
+ * config, so it reads the app's own and writes the copy.
  */
-export async function repairProjectFiles(rootDir: string, print: (line: string) => void = () => {}): Promise<{ written: string[], changes: string[] }> {
+export async function repairProjectFiles(rootDir: string, print: (line: string) => void = () => {}, { configRoot = rootDir }: { configRoot?: string } = {}): Promise<{ written: string[], changes: string[] }> {
   const written = scaffoldBackendFiles(rootDir, { log: print })
   const changes = await fixConvexConfig(rootDir)
   for (const change of changes) print(`[nuxt-backend] doctor --fix: ${change}`)
-  const config = await loadConfig(rootDir)
+  const config = await loadConfig(configRoot)
   const source = config ? pathsSourceOf(config) : null
   if (source && syncPathsFile(rootDir, backendPathsOf(source)) === 'written') {
     const line = `${pathsFileLocation(rootDir).name} → the paths nuxt.config declares`

@@ -49,7 +49,7 @@ describe('BACKEND_ESLINT_RULES', () => {
 describe('backendEslint', () => {
   it('scopes the rules to the functions directory and ignores its codegen', () => {
     const [generated, convex] = backendEslint()
-    expect(generated).toEqual({ name: 'nuxt-backend:generated', ignores: ['backend/**/_generated/**'] })
+    expect(generated).toEqual({ name: 'nuxt-backend:generated', ignores: ['backend/**/_generated/**', 'backend/brand.generated.ts', 'backend/paths.generated.ts', 'backend/labels.generated.ts', 'backend/billing.generated.ts'] })
     expect(convex).toMatchObject({
       name: 'nuxt-backend:convex',
       files: ['backend/**/*.ts'],

@@ -4,17 +4,20 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Nuxt } from '@nuxt/schema'
 import contentWasmPlugin, { WASM_SOURCE } from '../../src/runtime/server/content-wasm'
+import photoDecoderSecurityPlugin, { BLOB_WORKER_SOURCE } from '../../src/runtime/server/photo-decoder-csp'
+import type { SecurityNitroApp } from '../../src/runtime/server/csp'
 import { appBrandLogoPath, brandLogoPath } from '../../src/nuxt/brand'
 import { allowCrossOriginResources, OG_IMAGE_ROUTE } from '../../src/nuxt/security'
 
-// The security headers' exceptions: resources other sites load and Content's
-// WebAssembly. The module wiring is in test/module/dev-server-boot.test.ts,
+// The security headers' exceptions: resources other sites load, Content's
+// WebAssembly and the HEIC decoder's worker. The module wiring is in
+// test/module/dev-server-boot.test.ts and test/unit/prepare-photo.test.ts,
 // and the headers a built app answers with in test/e2e/starter.test.ts.
 
 /** The app-wide policy after the plugin's hook ran on it. */
-function afterHook(csp: Record<string, unknown>) {
+function afterHook(csp: Record<string, unknown>, plugin: (nitroApp: SecurityNitroApp) => void = contentWasmPlugin) {
   let run: ((rules: Record<string, unknown>) => void) | undefined
-  contentWasmPlugin({ hooks: { hook: (_name, fn) => (run = fn) } })
+  plugin({ hooks: { hook: (_name, fn) => (run = fn) } })
   const rules = { '/**': { headers: { contentSecurityPolicy: csp } } }
   run!(rules)
   return rules['/**'].headers.contentSecurityPolicy
@@ -33,6 +36,21 @@ describe('Content\'s WebAssembly', () => {
 
   it('leaves a policy alone that governs no script', () => {
     expect(afterHook({ 'img-src': ['\'self\''] })).toEqual({ 'img-src': ['\'self\''] })
+  })
+})
+
+describe('the HEIC decoder\'s worker', () => {
+  const decoder = (csp: Record<string, unknown>) => afterHook(csp, photoDecoderSecurityPlugin)
+  const scripts = ['\'self\'', '\'strict-dynamic\'', '\'nonce-{{nonce}}\'']
+
+  it('joins the package\'s worker-src, only once, and leaves script-src as it was: no eval, no WebAssembly', () => {
+    expect(decoder({ 'worker-src': ['\'self\''], 'script-src': scripts })).toEqual({ 'worker-src': ['\'self\'', BLOB_WORKER_SOURCE], 'script-src': scripts })
+    expect(decoder({ 'worker-src': '\'self\' blob:' })).toEqual({ 'worker-src': '\'self\' blob:' })
+  })
+
+  it('writes a worker-src of its own from the fallback of a policy with none, leaving child-src to the frames', () => {
+    expect(decoder({ 'child-src': ['\'self\''] })).toEqual({ 'child-src': ['\'self\''], 'worker-src': ['\'self\'', BLOB_WORKER_SOURCE] })
+    expect(decoder({ 'script-src': scripts, 'default-src': ['\'self\''] })).toEqual({ 'script-src': scripts, 'default-src': ['\'self\''], 'worker-src': [...scripts, BLOB_WORKER_SOURCE] })
   })
 })
 

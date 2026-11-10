@@ -326,6 +326,9 @@ const ADMIN_LABELS = {
       cancelRefund: 'Cancel and refund',
       retry: 'Retry',
       discard: 'Discard',
+      retryCharge: 'Retry the charge',
+      owed: '{status}, {credits} credits owed',
+      owedGivenUp: '{status}, {credits} credits never charged',
     },
     status: {
       queued: 'Waiting',

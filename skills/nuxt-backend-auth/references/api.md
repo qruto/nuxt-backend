@@ -13,7 +13,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 |---|---|
 | `useAuth()` | Who is signed in: the session, the app-wide role, whether an administrator is visiting, and signing out. |
 | `useLoginFlow()` | The headless login flow behind `<AuthForm>` — bring your own markup and wire these refs/actions to it. |
-| `useReturnPath()` | Where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere), else where sign-in lands (`redirects.afterSignIn`, `/` without it). |
+| `useReturnPath()` | Where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere, and never to the sign-in page, which would ask them to sign in again), else where sign-in lands (`redirects.afterSignIn`, `/` without it). |
 | `useEmailChange()` | The headless email change behind `<ProfileSettings>`: a code from the current address proves the person asking still holds it, a code from the new address proves they hold that one too. |
 | `useWorkspace()` | Workspace state and actions: the list, the switch, the members and the full invitation flow (invite / accept / decline / cancel — the packaged `AcceptInvitation` component and `/accept-invitation` page build on these). |
 | `usePasskeys()` | Passkey management over the auth client — list, register, rename, remove. |

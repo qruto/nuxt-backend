@@ -280,8 +280,15 @@ export interface Billing {
    * (a week at most): a queued job's credits, held until it starts.
    */
   reserveCredits: (ctx: RunWriteCtx & { auth?: Auth }, event: SpendCreditsEvent & { allowRefresh?: boolean, hold?: number }) => Promise<SpendReservation>
-  /** Ingest the provider event for a reservation and finalize the spend. */
-  settleSpend: (ctx: RunWriteCtx, reservation: SpendReservation, options?: { name?: string, metadata?: Record<string, string | number | boolean>, timestamp?: Date, finalAmount?: number }) => Promise<void>
+  /**
+   * Ingest the provider event for a reservation and finalize the spend. A
+   * refused event releases the reservation and rethrows; with
+   * `keepReservation`, it keeps what the settle would have charged held
+   * instead, under the same id, and lets only the rest go, in one
+   * transaction, for a caller that tries the settle again under the same
+   * key: let it go with {@link Billing.releaseSpend} once you stop trying.
+   */
+  settleSpend: (ctx: RunWriteCtx, reservation: SpendReservation, options?: { name?: string, metadata?: Record<string, string | number | boolean>, timestamp?: Date, finalAmount?: number, keepReservation?: boolean }) => Promise<void>
   /** Undo a reservation whose work failed — nothing is charged. */
   releaseSpend: (ctx: RunWriteCtx, reservation: SpendReservation) => Promise<void>
   /**

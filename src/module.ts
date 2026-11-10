@@ -1,4 +1,4 @@
-import { defineNuxtModule, addNitroPlugin, addPlugin, addServerHandler, createResolver, hasNuxtModule } from '@nuxt/kit'
+import { defineNuxtModule, addNitroPlugin, addPlugin, addServerHandler, createResolver } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { dependencyRange, moduleDir, packageVersion, runsFromSource } from './dirs'
@@ -22,8 +22,11 @@ import { registerPathsFile } from './nuxt/paths'
 import { hideBaseBrandNames, registerBackendApi, registerBaseComponentAliases, registerPageAccess, registerSaasComposables } from './nuxt/registry'
 import { imageDependency } from './nuxt/image'
 import { registerStyles } from './nuxt/styles'
+import { registerPhotoDecoder } from './nuxt/photos'
 import { registerProtection } from './nuxt/protection'
-import { registerSecurityRules, securityDefaults, securityDisabled } from './nuxt/security'
+import { registerSecurityRules, securityDefaults, securityDevOverrides, securityDisabled } from './nuxt/security'
+import { keepDevModulesUncached } from './nuxt/development'
+import { registerSearchIndexing } from './nuxt/site'
 
 // The module definition; the helpers setup calls live in nuxt/, one file
 // per concern.
@@ -93,6 +96,25 @@ export interface ModuleOptions {
    * See {@link InstallableOptions}.
    */
   installable?: InstallableOptions | false
+  /**
+   * Reload a page once when its code fails to load before the app has
+   * started, its first page rendered in full, hydration included (default
+   * `true`): a module script or stylesheet from `app.buildAssetsDir` that
+   * fails before the page has loaded, or a dynamic import that fails before
+   * the first render resolves, as a flaky connection or a deploy that
+   * replaced the chunks under an open page leaves it. An inline script
+   * first in the head of a production build, with the request's nonce, and
+   * a guard of its own in `sessionStorage`, so a page reloads once, never
+   * in a loop. `false` leaves it out.
+   *
+   * With `security: false` the package sends no Content-Security-Policy, and
+   * the script carries no nonce. A policy of the app's own must then allow
+   * it, with `'unsafe-inline'` in `script-src` or a nonce of its own put on
+   * every script in the head, or the browser blocks it and reports a
+   * violation on every page; such an app sets `chunkRecovery: false`
+   * otherwise.
+   */
+  chunkRecovery?: boolean
 }
 
 /** The install and upgrade steps a published build declares (see `runsFromSource`). */
@@ -179,8 +201,11 @@ export default defineNuxtModule<ModuleOptions>({
       // set up before the base module looks for it. `security: false` in
       // nuxt.config still disables it outright (nuxt-security's own switch).
       // Its defaults add the nonce and, in a production build, Trusted Types; in
-      // development they turn off what breaks a local server (src/nuxt/security.ts).
-      ...(securityDisabled(nuxt) ? {} : { 'nuxt-security': { version: dependencyRange('nuxt-security'), defaults: securityDefaults(nuxt.options.dev) } }),
+      // development its overrides keep off what breaks a local server, unless the
+      // app turns one on under `$development` (src/nuxt/security.ts).
+      ...(securityDisabled(nuxt)
+        ? {}
+        : { 'nuxt-security': { version: dependencyRange('nuxt-security'), defaults: securityDefaults(nuxt.options.dev), ...(nuxt.options.dev ? { overrides: securityDevOverrides(nuxt) } : {}) } }),
       // <NuxtImg provider="backend"> once the app adds @nuxt/image: the
       // provider and the deployment's file hosts as its defaults.
       ...imageDependency(resolver, [backend.url ?? process.env.NUXT_PUBLIC_BACKEND_URL ?? derived?.url, resolveSiteUrl({ url: backend.url, env: process.env, derived })]),
@@ -242,6 +267,9 @@ export default defineNuxtModule<ModuleOptions>({
     // folder (same targets as the base module's `#convex/*`).
     registerBackendAliases(nuxt, resolver.resolve('./runtime'))
     registerBackendApi(resolver, nuxt)
+    // In development, no module of the dev server stays in the browser's
+    // cache, where Safari mixed old copies of Vue with new ones.
+    keepDevModulesUncached(nuxt)
 
     // The content layer: `appConfig.backend` (plan catalog, labels, brand).
     // defu keeps user `app.config.ts` values winning and HMR-reactive. Cast:
@@ -272,12 +300,9 @@ export default defineNuxtModule<ModuleOptions>({
 
     // The page guard, the one way a page says who may open it: `definePageMeta({ auth })`.
     registerPageAccess(resolver, nuxt)
-    // Without @nuxtjs/robots to answer the private pages' `robots: false`
-    // rule, the pages carry the `noindex` meta tag themselves. Decided once
-    // every module is installed, whichever order they are listed in.
-    nuxt.hook('modules:done', () => {
-      if (!hasNuxtModule('@nuxtjs/robots', nuxt)) addPlugin(resolver.resolve('./runtime/vue/plugins/noindex'))
-    })
+    // The noindex meta tag without @nuxtjs/robots, and a preview build's own
+    // site for the app's SEO modules, never indexable (src/nuxt/site.ts).
+    registerSearchIndexing(resolver, nuxt)
     // Off a guarded page to sign-in when the session ends under it.
     addPlugin({ src: resolver.resolve('./runtime/vue/plugins/session-ended'), mode: 'client' })
     // A new account to its first run at /welcome, once.
@@ -294,6 +319,13 @@ export default defineNuxtModule<ModuleOptions>({
     if (!securityDisabled(nuxt)) addPlugin({ src: resolver.resolve('./runtime/vue/plugins/trusted-types.client'), mode: 'client' })
     // The headers' exceptions for what other sites load, and Content's WebAssembly.
     registerSecurityRules(resolver, nuxt)
+    // One reload for a page whose code failed to load before the app started (production
+    // builds): the inline script, and the client plugin that tells it the app started.
+    if (!nuxt.options.dev && options.chunkRecovery !== false) {
+      const chunkRecovery = resolver.resolve('./runtime/server/chunk-recovery')
+      addNitroPlugin({ nitro2: chunkRecovery, nitro3: chunkRecovery })
+      addPlugin({ src: resolver.resolve('./runtime/vue/plugins/chunk-recovery.client'), mode: 'client' })
+    }
     registerBaseComponentAliases(resolver, nuxt)
     hideBaseBrandNames(nuxt)
 
@@ -307,6 +339,8 @@ export default defineNuxtModule<ModuleOptions>({
 
     // After the pages: it adds to the public runtime config they publish.
     registerProtection(resolver, nuxt)
+    // preparePhoto's HEIC decoder, an optional peer: a stand-in when the app has none.
+    registerPhotoDecoder(resolver, nuxt)
     // Error reports, cron check-ins and the health route (the monitoring layer).
     registerMonitoring(resolver, nuxt)
     // The visitor's address for the billing provider's local pricing: a checkout is created on the deployment.

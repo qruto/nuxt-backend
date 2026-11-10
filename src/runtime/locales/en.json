@@ -472,7 +472,8 @@
         "job": {
           "queue_changed": "{actor} changed the job queue",
           "canceled": "{actor} canceled a job",
-          "retried": "{actor} put a failed job back in line"
+          "retried": "{actor} put a failed job back in line",
+          "charge_retried": "{actor} tried a job's owed charge again"
         },
         "ai": {
           "spend_limit_reached": "{actor} paused AI: today's spend limit was reached"
@@ -835,7 +836,10 @@
           "cancel": "Cancel",
           "cancelRefund": "Cancel and refund",
           "retry": "Retry",
-          "discard": "Discard"
+          "discard": "Discard",
+          "retryCharge": "Retry the charge",
+          "owed": "{status}, {credits} credits owed",
+          "owedGivenUp": "{status}, {credits} credits never charged"
         },
         "status": {
           "queued": "Waiting",
@@ -2071,6 +2075,10 @@
           "why": "Keeps the prompt hidden for the time the app sets. Without preferences allowed, it is kept for the tab only.",
           "lasts": "The app's cool-down, a year at most."
         },
+        "chunkReload": {
+          "why": "Keeps that page from reloading again for a minute, so a failure that persists never turns into a loop.",
+          "lasts": "Until the tab closes."
+        },
         "pushSubscription": {
           "why": "The push subscription lets the app send that device notifications. The service worker, where the browser needs one, shows them and opens the app on a click; it caches nothing.",
           "lasts": "Until the person turns notifications off on the device or takes back the site's permission."
@@ -2562,6 +2570,7 @@
       "invalid_input_unsupported_type": "That type of file isn't accepted. Pick another one.",
       "invalid_input_upload_gone": "That upload is gone. Upload the file again.",
       "invalid_input_upload_claimed": "That upload was already used. Upload the file again.",
+      "invalid_input_unreadable": "This photo won't open here. Try a JPEG or PNG.",
       "invalid_input_appeal_expired": "This decision can no longer be appealed.",
       "invalid_input_appealed_already": "This decision was appealed already.",
       "invalid_input_removed_copy": "This file was removed from the app and can't be uploaded again.",
