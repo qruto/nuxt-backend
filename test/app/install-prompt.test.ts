@@ -124,7 +124,34 @@ describe('useInstallPrompt', () => {
     const install = await mounted()
     expect(install.canInstall.value).toBe(false)
     expect(install.installed.value).toBe(false)
+    expect(install.needsShareMenu.value).toBe(false)
     expect(await install.prompt()).toBe('unavailable')
+  })
+
+  it('sends an iPhone or iPad to the Share menu, until the app is on its Home Screen', async () => {
+    const device = (userAgent: string, maxTouchPoints = 0) => {
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(userAgent)
+      vi.spyOn(navigator, 'maxTouchPoints', 'get').mockReturnValue(maxTouchPoints)
+    }
+    try {
+      device('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/131.0 Mobile/15E148 Safari/604.1')
+      expect((await mounted()).needsShareMenu.value).toBe(true)
+      // iPadOS reads as a Mac with touch; a Mac has none.
+      device('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15', 5)
+      expect((await mounted()).needsShareMenu.value).toBe(true)
+      device('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15')
+      expect((await mounted()).needsShareMenu.value).toBe(false)
+      // Opened from the Home Screen: installed, nothing to say.
+      device('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148')
+      Object.defineProperty(navigator, 'standalone', { configurable: true, value: true })
+      const home = await mounted()
+      expect(home.installed.value).toBe(true)
+      expect(home.needsShareMenu.value).toBe(false)
+    }
+    finally {
+      Reflect.deleteProperty(navigator, 'standalone')
+      vi.restoreAllMocks()
+    }
   })
 
   it('reads the app as installed in its own window, on the Home Screen, and once the browser installed it', async () => {

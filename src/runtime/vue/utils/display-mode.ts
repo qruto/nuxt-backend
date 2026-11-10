@@ -16,3 +16,10 @@ export function isInstalled(): boolean {
   if ((navigator as Navigator & { standalone?: boolean }).standalone === true) return true
   return INSTALLED_MODES.some(mode => window.matchMedia?.(`(display-mode:${mode})`).matches === true)
 }
+
+/** An iPhone or iPad browser, which installs from Share → Add to Home Screen (iPadOS reads as a Mac with touch). `false` on the server. */
+export function isAppleMobile(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const { userAgent, maxTouchPoints } = navigator
+  return /iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1)
+}

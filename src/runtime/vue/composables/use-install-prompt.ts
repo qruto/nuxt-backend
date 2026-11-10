@@ -1,5 +1,5 @@
 import { computed, type ComputedRef, onMounted, ref, shallowRef } from 'vue'
-import { isInstalled } from '../utils/display-mode'
+import { isAppleMobile, isInstalled } from '../utils/display-mode'
 import { useHydrated } from '../utils/hydrated'
 
 /**
@@ -30,6 +30,17 @@ export interface UseInstallPromptReturn {
    * which a browser tab in fullscreen can't be told from.
    */
   installed: ComputedRef<boolean>
+  /**
+   * The install is Share → Add to Home Screen, which no page can open: an
+   * iPhone or iPad where the app is not installed, in Safari, and from iOS
+   * 16.4 in Chrome, Edge or Firefox too. Say where to look. `false` on the
+   * server, while the page hydrates, and everywhere else: Chrome and Edge
+   * before they hand the dialog over or once it was answered (their address
+   * bar and menu still install), Safari on a Mac (File → Add to Dock),
+   * Firefox on Android (its menu), and Firefox on desktop, which installs no
+   * apps.
+   */
+  needsShareMenu: ComputedRef<boolean>
   /**
    * Open the browser's install dialog. Call it from a click: the browser
    * shows it only in answer to a gesture, and only once per event it fired.
@@ -79,30 +90,31 @@ export function listenForInstallPrompt(): void {
  * browser handed over its install dialog, whether the app is installed,
  * and the action that opens the dialog.
  *
- * Only Chrome and Edge hand the dialog over. Safari on macOS installs from
- * File → Add to Dock, iPhone and iPad from Share → Add to Home Screen, so
- * where `canInstall` stays `false` and `installed` is `false`, say where to
- * look. The module's manifest, or one of the app's own, is what makes the
- * app installable ([Make the app installable](https://nuxt-backend.dev/docs/build/email/notifications/installable)).
+ * Only Chrome and Edge hand the dialog over. iPhone and iPad install from
+ * Share → Add to Home Screen, which no page can open: `needsShareMenu`
+ * says when to tell people so. The module's manifest, or one of the app's
+ * own, is what makes the app installable ([Make the app installable](https://nuxt-backend.dev/docs/build/email/notifications/installable)).
  *
  * @example
  * ```vue
  * <script setup lang="ts">
- * const { canInstall, installed, prompt } = useInstallPrompt()
+ * const { canInstall, needsShareMenu, prompt } = useInstallPrompt()
  * </script>
  * <template>
  *   <button v-if="canInstall" type="button" @click="prompt">Install the app</button>
- *   <p v-else-if="!installed">Add the app from your browser's menu: Share, then Add to Home Screen.</p>
+ *   <p v-else-if="needsShareMenu">To install the app, tap Share, then Add to Home Screen.</p>
  * </template>
  * ```
  */
 export function useInstallPrompt(): UseInstallPromptReturn {
   const hydrated = useHydrated()
-  // The display mode is the browser's, fixed for the window: read once mounted.
+  // The display mode and the device are the browser's, fixed for the window: read once mounted.
   const standalone = ref(false)
+  const appleMobile = ref(false)
   onMounted(() => {
     listenForInstallPrompt()
     standalone.value = isInstalled()
+    appleMobile.value = isAppleMobile()
   })
 
   const installed = computed(() => hydrated.value && (standalone.value || installedHere.value))
@@ -128,6 +140,7 @@ export function useInstallPrompt(): UseInstallPromptReturn {
   return {
     canInstall: computed(() => hydrated.value && deferred.value !== null && !installed.value),
     installed,
+    needsShareMenu: computed(() => hydrated.value && appleMobile.value && !installed.value),
     prompt,
   }
 }
