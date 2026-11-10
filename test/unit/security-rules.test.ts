@@ -48,8 +48,8 @@ describe('the HEIC decoder\'s worker', () => {
     expect(decoder({ 'worker-src': '\'self\' blob:' })).toEqual({ 'worker-src': '\'self\' blob:' })
   })
 
-  it('follows the fallback of a policy with no worker-src: child-src when set, else a worker-src of its own', () => {
-    expect(decoder({ 'child-src': ['\'self\''] })).toEqual({ 'child-src': ['\'self\'', BLOB_WORKER_SOURCE] })
+  it('writes a worker-src of its own from the fallback of a policy with none, leaving child-src to the frames', () => {
+    expect(decoder({ 'child-src': ['\'self\''] })).toEqual({ 'child-src': ['\'self\''], 'worker-src': ['\'self\'', BLOB_WORKER_SOURCE] })
     expect(decoder({ 'script-src': scripts, 'default-src': ['\'self\''] })).toEqual({ 'script-src': scripts, 'default-src': ['\'self\''], 'worker-src': [...scripts, BLOB_WORKER_SOURCE] })
   })
 })
