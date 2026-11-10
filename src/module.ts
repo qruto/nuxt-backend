@@ -1,4 +1,4 @@
-import { defineNuxtModule, addNitroPlugin, addPlugin, addServerHandler, createResolver, hasNuxtModule } from '@nuxt/kit'
+import { defineNuxtModule, addNitroPlugin, addPlugin, addServerHandler, createResolver } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleDependencies, Nuxt } from '@nuxt/schema'
 import { dependencyRange, moduleDir, packageVersion, runsFromSource } from './dirs'
@@ -24,6 +24,7 @@ import { imageDependency } from './nuxt/image'
 import { registerStyles } from './nuxt/styles'
 import { registerProtection } from './nuxt/protection'
 import { registerSecurityRules, securityDefaults, securityDisabled } from './nuxt/security'
+import { registerSearchIndexing } from './nuxt/site'
 
 // The module definition; the helpers setup calls live in nuxt/, one file
 // per concern.
@@ -272,12 +273,9 @@ export default defineNuxtModule<ModuleOptions>({
 
     // The page guard, the one way a page says who may open it: `definePageMeta({ auth })`.
     registerPageAccess(resolver, nuxt)
-    // Without @nuxtjs/robots to answer the private pages' `robots: false`
-    // rule, the pages carry the `noindex` meta tag themselves. Decided once
-    // every module is installed, whichever order they are listed in.
-    nuxt.hook('modules:done', () => {
-      if (!hasNuxtModule('@nuxtjs/robots', nuxt)) addPlugin(resolver.resolve('./runtime/vue/plugins/noindex'))
-    })
+    // The noindex meta tag without @nuxtjs/robots, and a preview build's own
+    // site for the app's SEO modules, never indexable (src/nuxt/site.ts).
+    registerSearchIndexing(resolver, nuxt)
     // Off a guarded page to sign-in when the session ends under it.
     addPlugin({ src: resolver.resolve('./runtime/vue/plugins/session-ended'), mode: 'client' })
     // A new account to its first run at /welcome, once.

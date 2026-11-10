@@ -77,7 +77,7 @@ export const email = setupEmail(components, {
 export const { getEmailStatus, submitContactMessage, getInboxConsole, replyToInbox, syncInbound, previewEmails, sendEmailPreview } = email.api
 ```
 
-`email sync` prints the inbox, its domain, the webhook's inbound events and what is left to do, and its `--json` carries them as `inbound`. Without the re-export it says so in one line and syncs the rest. A dry run leaves the inbox alone.
+`email sync` prints the inbox, its domain, the webhook's inbound events and what is left to do, and its `--json` carries them as `inbound`. Without the re-export it says so in one line and syncs the rest. A dry run leaves the inbox alone. `doctor --fix` asks `syncInbound` for its own dry run (`{ dryRun: true }`), so the inbox it would create and the events it would add are among the changes you confirm before the sync runs.
 
 Then:
 
