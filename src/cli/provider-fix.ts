@@ -90,9 +90,14 @@ async function fixBilling(rootDir: string, { prod, confirm, print, report, probe
   }
 }
 
-/** The email half: the webhook back on, once its route answers the probe. Its events are `email sync`'s, which ran before. */
+/**
+ * The email half: the webhook back on, once its route answers the probe,
+ * and nothing else. Its events and what `backend/email.ts` declares are
+ * `email sync`'s, a step of `doctor --fix` confirmed on its own, so a sync
+ * declined there is not made here.
+ */
 async function fixEmail(rootDir: string, { prod, confirm, print, report, probe, emailSync }: { prod: boolean, confirm: ConfirmChange, print: (line: string) => void, report: ProviderFixReport, probe: typeof probeWebhookRoute, emailSync: typeof runEmailSync }): Promise<void> {
-  const read = await emailSync(rootDir, { prod, dryRun: true }).catch(() => null)
+  const read = await emailSync(rootDir, { prod, dryRun: true, enableWebhook: true }).catch(() => null)
   const url = read?.webhook.url
   if (!read || !url || read.webhook.enabled !== false) return
   if ((await probe(url)).state !== 'mounted') {

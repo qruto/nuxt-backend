@@ -98,7 +98,8 @@ describe('fixProviderSettings', () => {
     })
     const lines: string[] = []
     const report = await fixProviderSettings('/nowhere', { prod: false, confirm: async () => true, print: line => lines.push(line), billing: false }, { probe: async () => ({ state: 'mounted' }), emailSync })
-    expect(asked).toEqual([{ prod: false, dryRun: true }, { prod: false, enableWebhook: true }])
+    // The read and the change are both the webhook's alone: no topic, segment or flow is made here.
+    expect(asked).toEqual([{ prod: false, dryRun: true, enableWebhook: true }, { prod: false, enableWebhook: true }])
     expect(report).toEqual({ applied: ['email-webhook-enabled'], skipped: [], reenabled: ['email'] })
     expect(lines.join('\n')).toContain('replay')
   })

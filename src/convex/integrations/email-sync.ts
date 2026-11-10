@@ -91,7 +91,11 @@ interface SyncRefs {
 export interface EmailSyncArgs {
   dryRun: boolean
   webhook: 'auto' | 'off' | string
-  /** Turn the webhook back on when the provider turned it off (`doctor --fix`, once the route answers its probe). */
+  /**
+   * Turn the webhook back on when the provider turned it off, and do
+   * nothing else (`doctor --fix`, once the route answers its probe): its
+   * events and what `setupEmail` declares are the plain sync's.
+   */
   enableWebhook?: boolean
   /**
    * Rotate the webhook's signing secret and do nothing else
@@ -310,9 +314,9 @@ async function syncProperties(run: SyncRun, declared: Readonly<Record<string, Em
 }
 
 /** The webhook at `url`, with every event the deployment's copies read: found and completed, or made (its secret goes back to the CLI). */
-async function syncWebhook(run: SyncRun, url: string, enable = false): Promise<EmailSyncReport['webhook']> {
+async function syncWebhook(run: SyncRun, url: string): Promise<EmailSyncReport['webhook']> {
   const hook = await findWebhook(run, url)
-  return hook ? completeWebhook(run, url, hook, enable) : createWebhook(run, url)
+  return hook ? completeWebhook(run, url, hook) : createWebhook(run, url)
 }
 
 /** A new webhook at `url` with every event (none on a dry run); its secret goes back to the CLI. */
@@ -323,22 +327,36 @@ async function createWebhook(run: SyncRun, url: string): Promise<EmailSyncReport
   return { url, action: 'created', missingEvents: [], secret: made.data.signing_secret }
 }
 
-/** The webhook found at `url`, given the events it lacks and, with `enable`, turned back on. */
-async function completeWebhook(run: SyncRun, url: string, hook: { id: string, status: string, events: string[] | null }, enable: boolean): Promise<EmailSyncReport['webhook']> {
-  const events = new Set<string>(hook.events ?? [])
-  const missing = REQUIRED_EMAIL_WEBHOOK_EVENTS.filter(event => !events.has(event))
+/** The events the webhook lacks of those the deployment's copies read. */
+const missingEvents = (hook: { events: string[] | null }) => REQUIRED_EMAIL_WEBHOOK_EVENTS.filter(event => !(hook.events ?? []).includes(event))
+
+/** The webhook found at `url`, given the events it lacks; one the provider turned off stays off. */
+async function completeWebhook(run: SyncRun, url: string, hook: { id: string, status: string, events: string[] | null }): Promise<EmailSyncReport['webhook']> {
+  const missing = missingEvents(hook)
   const enabled = hook.status !== 'disabled'
-  // Only ever turned on, never off: a webhook the provider turned off after failed deliveries.
-  const switching = enable && !enabled
-  if (missing.length === 0 && !switching) return { url, action: 'exists', missingEvents: [], enabled }
-  const changed = switching ? { changed: run.dryRun ? 'would-enable' as const : 'enabled' as const } : {}
-  if (run.dryRun) return { url, action: missing.length > 0 ? 'would-update' : 'exists', missingEvents: missing, enabled, ...changed }
-  await updateWebhook(run, hook.id, { events: missing.length > 0 ? [...new Set([...events, ...REQUIRED_EMAIL_WEBHOOK_EVENTS])] : null, enable: switching })
-  return { url, action: missing.length > 0 ? 'updated' : 'exists', missingEvents: [], enabled: true, ...changed }
+  if (missing.length === 0) return { url, action: 'exists', missingEvents: [], enabled }
+  if (run.dryRun) return { url, action: 'would-update', missingEvents: missing, enabled }
+  await updateWebhook(run, hook.id, { events: [...new Set([...hook.events ?? [], ...REQUIRED_EMAIL_WEBHOOK_EVENTS])] })
+  return { url, action: 'updated', missingEvents: [], enabled }
+}
+
+/**
+ * Turn the webhook at `url` back on, when the provider turned it off after
+ * its deliveries kept failing, and change nothing else: its events are left
+ * as they are, for the plain sync to complete. Only ever on, never off.
+ */
+async function turnWebhookOn(run: SyncRun, url: string): Promise<EmailSyncReport['webhook']> {
+  const hook = await findWebhook(run, url)
+  if (!hook) return { url, action: 'missing', missingEvents: [...REQUIRED_EMAIL_WEBHOOK_EVENTS] }
+  const missing = missingEvents(hook)
+  if (hook.status !== 'disabled') return { url, action: 'exists', missingEvents: missing, enabled: true }
+  if (run.dryRun) return { url, action: 'exists', missingEvents: missing, enabled: false, changed: 'would-enable' }
+  await updateWebhook(run, hook.id, { enable: true })
+  return { url, action: 'exists', missingEvents: missing, enabled: true, changed: 'enabled' }
 }
 
 /** Give a webhook more events, or turn it back on. */
-async function updateWebhook(run: SyncRun, id: string, { events, enable }: { events: string[] | null, enable: boolean }): Promise<void> {
+async function updateWebhook(run: SyncRun, id: string, { events, enable = false }: { events?: string[], enable?: boolean }): Promise<void> {
   const updated = await run.resend.webhooks.update(id, { ...(events ? { events: events as never } : {}), ...(enable ? { status: 'enabled' as const } : {}) })
   if (updated.error) throw refused(enable ? 'turn the webhook back on' : 'update the webhook\'s events', updated.error)
 }
@@ -511,6 +529,16 @@ function startingReport(declared: { topics: EmailTopics, address: string | undef
 }
 
 /**
+ * The one change of the webhook's a sync was asked to make alone: a
+ * rotation touches its secret and nothing else, turning it back on its
+ * delivery switch. `null` for a plain sync.
+ */
+function webhookOnly({ enableWebhook, rotateWebhookSecret: rotate }: EmailSyncArgs): ((run: SyncRun, url: string) => Promise<EmailSyncReport['webhook']>) | null {
+  if (rotate) return rotateWebhookSecret
+  return enableWebhook ? turnWebhookOn : null
+}
+
+/**
  * Sync what `setupEmail` declares to the provider.
  *
  * @internal
@@ -519,9 +547,10 @@ export async function syncEmail(
   ctx: Pick<GenericActionCtx<GenericDataModel>, 'runQuery' | 'runMutation'>,
   refs: SyncRefs,
   declared: { topics: EmailTopics, contactProperties: Readonly<Record<string, EmailContactProperty>>, address: string | undefined, lifecycle?: LifecycleSyncDeclared },
-  { dryRun, webhook, enableWebhook, rotateWebhookSecret: rotate }: EmailSyncArgs,
+  args: EmailSyncArgs,
   fetcher: typeof fetch = fetch,
 ): Promise<EmailSyncReport> {
+  const { dryRun, webhook } = args
   const url = webhookUrl(webhook)
   const report = startingReport(declared, url, dryRun)
   // The flows run on the deployment from the settings kept here: read now, written only once their templates and automations exist.
@@ -536,13 +565,13 @@ export async function syncEmail(
     throw refused('list the topics', listed.error)
   }
   const run: SyncRun = { resend, dryRun, kept: await ctx.runQuery(refs.providerIds, {}), save: [], log: report.log }
-  // A rotation touches the webhook's secret and nothing else.
-  if (rotate) return { ...report, key: 'full', webhook: url ? await rotateWebhookSecret(run, url) : report.webhook }
+  const only = webhookOnly(args)
+  if (only) return { ...report, key: 'full', webhook: url ? await only(run, url) : report.webhook }
   await syncDeclared(run, declared, listed.data ?? [])
   if (run.save.length > 0 && !dryRun) await ctx.runMutation(refs.saveProviderIds, { ids: run.save })
   // Every flow's template and automation exists now (a refusal threw above), so a flow kept here starts something.
   if (!dryRun) report.flows.unsynced = await flows.keep()
-  if (url) report.webhook = await syncWebhook(run, url, enableWebhook === true)
+  if (url) report.webhook = await syncWebhook(run, url)
   report.senders = await readSenders(resend, fetcher)
   report.region.actual = report.senders.find(sender => sender.variable === 'EMAIL_FROM')?.region ?? null
   return { ...report, key: 'full' }

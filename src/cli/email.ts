@@ -47,7 +47,7 @@ export interface EmailSyncCommandOptions {
   dryRun?: boolean
   /** The webhook's URL; `off` leaves it alone; unset is `<site>/email/events`. */
   webhook?: string
-  /** Turn the webhook back on when the provider turned it off. */
+  /** Turn the webhook back on when the provider turned it off, and nothing else. */
   enableWebhook?: boolean
   /** Rotate the webhook's signing secret, and nothing else. */
   rotateWebhookSecret?: boolean
