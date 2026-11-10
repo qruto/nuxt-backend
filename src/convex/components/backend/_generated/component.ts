@@ -4861,6 +4861,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         boolean,
         Name
       >;
+      chargeWaits: FunctionReference<
+        "mutation",
+        "internal",
+        { jobId: string },
+        boolean,
+        Name
+      >;
       claimCharge: FunctionReference<
         "mutation",
         "internal",

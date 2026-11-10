@@ -651,6 +651,24 @@ export const claimCharge = mutation({
 })
 
 /**
+ * A claimed charge that waits for billing to sync (`not_ready`) before it
+ * is tried again: nothing is on its way to the provider while it waits, so
+ * the claim is let go, and an end meanwhile lets the job's hold go. The
+ * next try claims it again. Answers whether the job still runs: the hold
+ * of a job that ended before the wait is the app's to let go.
+ */
+export const chargeWaits = mutation({
+  args: { jobId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { jobId }) => {
+    const job = await jobOf(ctx, jobId)
+    if (job?.status !== 'running' || job.charged) return false
+    await ctx.db.patch('jobs', job._id, { charging: undefined })
+    return true
+  },
+})
+
+/**
  * Note that a job's credits were charged. A job that ended while its charge
  * was on its way, failed or canceled with a refund, owes them back at once:
  * `refund` says so.

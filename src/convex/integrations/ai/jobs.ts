@@ -1177,6 +1177,9 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   /** A refusal that waits: billing has not synced the balance (`not_synced`) or the customer (`no_customer`) yet. */
   const isUnsynced = (error: unknown): boolean => getBackendError(error)?.code === 'not_ready'
 
+  /** Whether a hold's or a charge's refusal is waited out ({@link billingRefused}): billing not synced yet, with waits left. */
+  const waitsForBilling = (error: unknown, attempt: number): boolean => isUnsynced(error) && attempt < BILL_WAITS
+
   /**
    * A refusal a charge by output waits out as an owed charge: billing not
    * synced yet, or a provider failure that may pass (no answer, a `408`,
@@ -1397,7 +1400,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
    * else is thrown, and tried again.
    */
   const billingRefused = async (ctx: ActionCtx, job: JobRow, error: unknown, attempt: number): Promise<BillOutcome> => {
-    if (isUnsynced(error) && attempt < BILL_WAITS) {
+    if (waitsForBilling(error, attempt)) {
       const wait = billWait(attempt)
       await ctx.runMutation(queue.touch, { jobId: job._id, until: lease() + wait, lastError: errorText(error) })
       logBackend('warn', 'ai.job_billing_wait', `Job ${job._id}: billing is not synced for its owner yet; trying again in ${wait / 1000}s.`, error)
@@ -1458,7 +1461,9 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
    * provider never bills what the cached balance still shows. Charged by
    * output (`amount`), a refusal that may pass ({@link isPassingRefusal})
    * leaves the charge owed instead of failing a job that made what it
-   * charges for.
+   * charges for. Charged at start, billing not synced yet is waited out
+   * with the hold still taken, so the try after the wait never finds its
+   * credits spent elsewhere.
    */
   const charge = async (ctx: ActionCtx, job: JobRow, amount?: number, metadata?: Record<string, string>, attempt = 0): Promise<BillOutcome | undefined> => {
     const hold = reservationOf(job)
@@ -1479,13 +1484,25 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
       await billing.settleSpend(ctx as never, held, defined({ finalAmount: price, metadata: chargeTags(job, metadata), keepReservation: true }))
     }
     catch (error) {
-      if (price !== undefined && isPassingRefusal(error)) return await oweCharge(ctx, job, held ?? hold, price, metadata, error)
-      await billing.releaseSpend(ctx as never, released(held ?? hold))
-      return await billingRefused(ctx, job, error, attempt)
+      return await chargeRefused(ctx, job, held ?? hold, { price, metadata, attempt }, error)
     }
     // A job that ended while its charge was on its way gets it back at once.
     const { refund: owed } = await ctx.runMutation(queue.mark, defined({ jobId: job._id, charged: true as const, price }))
     if (owed) await scheduleRefund(ctx, job._id)
+  }
+
+  /**
+   * A refused charge: owed, for a kind charged by output and a refusal
+   * that may pass; waited out with the hold the refused settle kept, for
+   * billing not synced yet, so no other spend takes its credits meanwhile;
+   * else its hold let go and the refusal recorded ({@link billingRefused}).
+   */
+  const chargeRefused = async (ctx: ActionCtx, job: JobRow, hold: SpendReservation, tried: { price?: number, metadata?: Record<string, string>, attempt: number }, error: unknown): Promise<BillOutcome | undefined> => {
+    const { price, metadata, attempt } = tried
+    if (price !== undefined && isPassingRefusal(error)) return await oweCharge(ctx, job, hold, price, metadata, error)
+    const kept = waitsForBilling(error, attempt) && await ctx.runMutation(queue.chargeWaits, { jobId: job._id })
+    if (!kept) await billing.releaseSpend(ctx as never, released(hold))
+    return await billingRefused(ctx, job, error, attempt)
   }
 
   /**

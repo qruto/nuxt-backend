@@ -137,6 +137,7 @@ const ref = {
   start: makeFunctionReference<'mutation', { kind: 'print' | 'misprint' | 'cover', comicId: string, pages?: number }, string>('comics:start'),
   read: makeFunctionReference<'query', { jobId: string }, Record<string, unknown> | null>('comics:read'),
   getJob: makeFunctionReference<'query', { jobId: string }, Record<string, unknown> | null>('jobs:getJob'),
+  cancelJob: makeFunctionReference<'mutation', { jobId: string, refund?: boolean }, null>('jobs:cancelJob'),
   retryJob: makeFunctionReference<'mutation', { jobId: string }, null>('jobs:retryJob'),
   listJobs: makeFunctionReference<'query', { paginationOpts: { numItems: number, cursor: string | null } }, { page: Array<Record<string, unknown>> }>('jobs:listJobs'),
   listModerationFlags: makeFunctionReference<'query', { paginationOpts: { numItems: number, cursor: string | null } }, { page: Array<Record<string, unknown>> } | null>('ai:listModerationFlags'),
@@ -149,6 +150,8 @@ async function balanceOf(t: App, entityId: string): Promise<number | undefined> 
 
 const job = (t: App, jobId: string) => t.query(ref.read, { jobId })
 const rows = <Table extends 'ends' | 'owedCharges' | 'steps'>(t: App, table: Table) => t.run(ctx => ctx.db.query(table).collect())
+/** The job's row as the queue keeps it. */
+const row = async (t: App, jobId: string) => await t.query(backend.jobs.get as unknown as FunctionReference<'query'>, { jobId }) as Record<string, unknown> | null
 
 let provider: TestBillingProvider
 
@@ -317,13 +320,49 @@ describe('billing not synced yet', () => {
     await seedBilling(t, ada.workspaceId!, { credits: { [METER_ID]: 10 } })
 
     const jobId = await ada.mutation(ref.start, { kind: 'cover', comicId: 'cover-1' })
-    await drain(t, vi, { until: async () => (await t.query(backend.jobs.get as unknown as FunctionReference<'query'>, { jobId }) as { lastError?: string } | null)?.lastError?.includes('No billing customer') === true })
+    await drain(t, vi, { until: async () => (await row(t, jobId) as { lastError?: string } | null)?.lastError?.includes('No billing customer') === true })
     expect(await job(t, jobId)).toMatchObject({ status: 'running', charged: 0 })
 
-    await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 8 } })
+    // The provider's balance is as it was: nothing reached it yet, and the cache subtracts the hold itself.
+    await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 10 } })
     await drain(t, vi)
     expect(await job(t, jobId)).toMatchObject({ status: 'done', charged: 2 })
     expect(provider.charges).toEqual([expect.objectContaining({ value: 2, customer: ada.workspaceId })])
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(8)
+  })
+
+  test('a charge at start that waits for the customer keeps its hold: no other spend takes its credits meanwhile', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    // Exactly one cover's credits, and no customer yet.
+    await seedBilling(t, ada.workspaceId!, { credits: { [METER_ID]: 2 } })
+    const jobId = await ada.mutation(ref.start, { kind: 'cover', comicId: 'cover-3' })
+    await drain(t, vi, { until: async () => (await row(t, jobId) as { lastError?: string } | null)?.lastError?.includes('No billing customer') === true })
+
+    // While it waits, its two credits stay held: a second cover is refused at the door.
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(0)
+    await expect(ada.mutation(ref.start, { kind: 'cover', comicId: 'cover-4' })).rejects.toThrow(/Insufficient credits/)
+
+    await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 2 } })
+    await drain(t, vi)
+    expect(await job(t, jobId)).toMatchObject({ status: 'done', charged: 2 })
+    expect(provider.charges).toEqual([expect.objectContaining({ value: 2 })])
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(0)
+  })
+
+  test('a job canceled while its charge waits for the customer gets its hold back', async () => {
+    const t = testApp()
+    const ada = await asUser(t)
+    await seedBilling(t, ada.workspaceId!, { credits: { [METER_ID]: 10 } })
+    const jobId = await ada.mutation(ref.start, { kind: 'cover', comicId: 'cover-5' })
+    await drain(t, vi, { until: async () => (await row(t, jobId) as { lastError?: string } | null)?.lastError?.includes('No billing customer') === true })
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(8)
+
+    await ada.mutation(ref.cancelJob, { jobId })
+    await drain(t, vi)
+    expect(await job(t, jobId)).toMatchObject({ status: 'canceled', charged: 0 })
+    expect(provider.events).toEqual([])
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(10)
   })
 
   test('a customer that never comes fails the job as not ready, never as short of credits', async () => {
@@ -345,10 +384,14 @@ describe('billing not synced yet', () => {
     const jobId = await ada.mutation(ref.start, { kind: 'print', comicId: 'comic-4', pages: 2 })
     await drain(t, vi, { until: async () => (await job(t, jobId))?.status === 'done' })
     expect(await job(t, jobId)).toMatchObject({ status: 'done', owed: { credits: 2, givenUp: false } })
-    await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 8 } })
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(8)
+    // The customer is made; the provider has seen no charge yet, so it still reads 10.
+    await seedBilling(t, ada.workspaceId!, { customer: true, credits: { [METER_ID]: 10 } })
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(8)
     await drain(t, vi)
     expect(await job(t, jobId)).toMatchObject({ status: 'done', charged: 2 })
     expect(provider.charges).toEqual([expect.objectContaining({ value: 2, metadata: expect.objectContaining({ comicId: 'comic-4' }) })])
+    expect(await balanceOf(t, ada.workspaceId!)).toBe(8)
   })
 })
 
