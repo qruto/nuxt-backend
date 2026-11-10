@@ -163,6 +163,14 @@ describe('doctor --fix\'s first administrator', () => {
     expect(lines).toEqual([])
   })
 
+  it('says it could not check, without a terminal, when the deployment\'s accounts do not answer', async () => {
+    // Neither true nor false: a read that failed, timed out or ran out of accounts to look through.
+    deployment.hasAdmin = 'null'
+    const lines: string[] = []
+    expect(await firstAdministratorOnFix(rootDir, { prod: false, interactive: false, ask: vi.fn(), print: line => lines.push(line) })).toBeNull()
+    expect(lines).toEqual(['[nuxt-backend] doctor --fix: could not check for a first administrator: the deployment\'s accounts did not answer, or hold more than doctor reads. If none holds the admin role, run `npx nuxt-backend doctor --fix` at a terminal, or `npx convex run functions:setUserRole \'{"email":"you@example.com","role":"admin"}\'`.'])
+  })
+
   it('asks at a terminal', async () => {
     const ask = vi.fn(async () => 'ada@example.com')
     expect(await firstAdministratorOnFix(rootDir, { prod: false, interactive: true, ask, print: vi.fn() })).toBe('ada@example.com')
