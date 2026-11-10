@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { renderEnvExample } from './capabilities'
+import { capabilityOfEnv, renderEnvExample, type CapabilityName } from './capabilities'
 import { BACKEND_ENV } from './env-registry'
+import { readEnvFiles } from './env-push'
 import { finding, type PreflightFinding } from './findings'
 import { readTextIfPresent } from './source-text'
 
@@ -9,7 +10,9 @@ import { readTextIfPresent } from './source-text'
 // package's own (`init` writes it, src/capabilities/env-example.ts) lists,
 // and against what reads them. It drifts both ways as the package moves on:
 // a release adds a name the app's copy never gets, and a name an earlier
-// release (or the app itself) stopped reading stays listed.
+// release (or the app itself) stopped reading stays listed. Only the
+// capabilities the app uses are asked for: one that dropped billing is not
+// told for ever that it lacks the billing names.
 
 /** A name a line of a dotenv file sets, or lists commented out: `NAME=`, `# NAME=`, `export NAME=`. */
 const LISTED = /^[\t ]*(?:#[\t ]*)?(?:export[\t ]+)?([A-Z][A-Z0-9_]*)[\t ]*=/gm
@@ -26,13 +29,16 @@ export function listedEnvNames(text: string): string[] {
  */
 const READ_ELSEWHERE = /^(?:CONVEX|NUXT|NITRO|VERCEL|NETLIFY|CF|SENTRY|NODE|NPM)_|^(?:PORT|HOST|DEBUG|CI|TZ)$/
 
-/** The folders no source of the app's lives in: dependencies, build output, codegen, dotfolders. */
+/** The folders no source of the app's lives in: dependencies, build output, codegen, and dotfolders but these. */
 const SKIPPED = new Set(['node_modules', 'dist', 'coverage', '_generated'])
+
+/** The dotfolders the walk reads: `.github`, whose workflows set names for the build and the deploy. */
+const READ_DOTFOLDERS = new Set(['.github'])
 
 /** The files the app's code and config live in. */
 const SOURCE = /\.(?:[cm]?[jt]s|vue|json|jsonc|ya?ml|toml|sh)$/
 
-/** Every source file under `dir`, dependencies, build output and dotfolders aside. */
+/** Every source file under `dir`, dependencies, build output and dotfolders but `.github` aside. */
 function sourceFiles(dir: string): string[] {
   let entries
   try {
@@ -42,7 +48,7 @@ function sourceFiles(dir: string): string[] {
     return []
   }
   return entries.flatMap((entry) => {
-    if (entry.name.startsWith('.') || SKIPPED.has(entry.name)) return []
+    if ((entry.name.startsWith('.') && !READ_DOTFOLDERS.has(entry.name)) || SKIPPED.has(entry.name)) return []
     const path = join(dir, entry.name)
     if (entry.isDirectory()) return sourceFiles(path)
     return entry.isFile() && SOURCE.test(entry.name) && !entry.name.endsWith('.d.ts') ? [path] : []
@@ -73,6 +79,22 @@ function namesTheAppMentions(rootDir: string, candidates: readonly string[]): Se
   return found
 }
 
+/**
+ * The capabilities the app uses, as far as its files tell: the backend's
+ * own (`data`), and each one whose names its `.env.example` lists or the
+ * env here (`.env`, `.env.local`, the shell) sets. A capability with
+ * none of its names in either was dropped, or never taken up.
+ */
+function capabilitiesInUse(rootDir: string, listed: readonly string[]): Set<CapabilityName> {
+  const env: Record<string, string | undefined> = { ...readEnvFiles(rootDir), ...process.env }
+  const used = new Set<CapabilityName>(['data'])
+  for (const name of [...listed, ...Object.keys(env).filter(name => env[name])]) {
+    const capability = capabilityOfEnv(name)
+    if (capability) used.add(capability)
+  }
+  return used
+}
+
 /** What `.env.example` lacks and lists in vain, as the finding's sentences. */
 function drift(missing: readonly string[], unread: readonly string[]): string {
   return [
@@ -93,17 +115,19 @@ function readEnvExample(rootDir: string): string | undefined | { unreadable: str
 
 /**
  * The app's `.env.example` against the package's: the names the package's
- * lists and the app's lacks, and the names the app's lists that neither the
- * package, the platform nor the app's own files read. No finding without a
- * `.env.example`; one that cannot be read (a folder of that name, a file
- * this user may not read) warns, and doctor's other checks still run.
+ * lists for a capability the app uses and the app's lacks, and the names
+ * the app's lists that neither the package, the platform nor the app's own
+ * files read. No finding without a `.env.example`; one that cannot be read
+ * (a folder of that name, a file this user may not read) warns, and
+ * doctor's other checks still run.
  */
 export function envExampleFinding(rootDir: string): PreflightFinding[] {
   const text = readEnvExample(rootDir)
   if (text === undefined) return []
   if (typeof text !== 'string') return [finding('env-example', 'warn', `Could not read .env.example (${text.unreadable}): its names were not checked.`, 'Make .env.example a file you can read, then run doctor again.')]
   const listed = listedEnvNames(text)
-  const missing = listedEnvNames(renderEnvExample()).filter(name => !listed.includes(name))
+  const used = capabilitiesInUse(rootDir, listed)
+  const missing = listedEnvNames(renderEnvExample()).filter(name => !listed.includes(name) && used.has(capabilityOfEnv(name) ?? 'data'))
   const others = listed.filter(name => !(name in BACKEND_ENV) && !READ_ELSEWHERE.test(name))
   const mentioned = namesTheAppMentions(rootDir, others)
   const unread = others.filter(name => !mentioned.has(name))
