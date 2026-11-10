@@ -8,11 +8,12 @@ import { useLabels } from '../composables/use-labels'
  * (module option `pages.waitlist`): a status link opens it with the signed
  * token in its fragment, and it shows the person's place in the line, live,
  * with the link to share and a way to leave, asking for no sign-in code.
- * Without one, in early access, it is the join (`<WaitlistForm>`), and it
- * writes the status link into the address once the code checks. It follows
- * the launch phase and a signed-in visitor. A status link is a key to one
- * person's place, so the page stays out of search results. An app page at
- * the same path replaces it; build one with `useWaitlist`.
+ * Without one, in early access, it is the join (`<WaitlistForm>`). The
+ * token leaves the address on arrival and the tab keeps it, with a join's,
+ * through a reload. It follows the launch phase and a signed-in visitor. A
+ * status link is a key to one person's place, so the page stays out of
+ * search results. An app page at the same path replaces it; build one with
+ * `useWaitlist`.
  */
 defineOptions({ name: 'WaitlistPage' })
 const { t } = useLabels('waitlist')

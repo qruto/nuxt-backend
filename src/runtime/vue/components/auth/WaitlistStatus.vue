@@ -3,16 +3,19 @@
  * What the `/waitlist` page shows, by the launch phase and the visitor:
  *
  * - a status link (`/waitlist#<token>`): the person's place, read from the
- *   signed token in the fragment (kept there, so the link can be
- *   bookmarked), live as the list moves; a link that was not signed here,
- *   or an entry that is gone, says so above the join;
+ *   signed token in the fragment, live as the list moves; a link that was
+ *   not signed here, or an entry that is gone, says so above the join;
  * - in early access, without one: `<WaitlistForm>`, whose friend's link
- *   opens this page, and the status link written into the address once
- *   the code checks, so a bookmark keeps the place;
+ *   opens this page;
  * - invite only: the place a status link holds still stands, and a new
  *   visitor is sent to the invite page;
  * - public: no line, and the way to sign up;
  * - signed in: nothing to wait for.
+ *
+ * The status token reads the place and leaves the list, so it never stays
+ * in the address, beside the link to share: a status link's leaves it on
+ * arrival, and the tab keeps it, with a join's, so a reload still shows the
+ * place. The email's status link is the way back from another tab.
  *
  * Internal: the page's body, built on `useWaitlist`; the place is the
  * `WaitlistPlace` part and the join `<WaitlistForm>`, so an app's
@@ -27,6 +30,7 @@ import { useBackendPagePath } from '../../composables/use-backend-page-path'
 import { useLabels } from '../../composables/use-labels'
 import { useReturnPath } from '../../composables/use-return-path'
 import { useWaitlist, type WaitlistPlace } from '../../composables/use-waitlist'
+import { takeFragment, tabKeep } from '../../utils/tab-keep'
 
 // The place behind a status link: the link's own, never a friend's code.
 const waitlist = useWaitlist({ ref: null })
@@ -42,26 +46,14 @@ const opened = ref(false)
 const hadToken = ref(false)
 // The person left the list, here or through the form: the page says so above the join.
 const left = ref(false)
-
-/** The status token in the address; a mangled link is one that opens nothing. */
-function addressToken(): string {
-  const hash = window.location.hash.replace(/^#/, '')
-  try {
-    return decodeURIComponent(hash).trim()
-  }
-  catch {
-    return hash.trim()
-  }
-}
-
-/** Write the address's fragment, or clear it, without a navigation. */
-function writeFragment(token: string | null): void {
-  const { pathname, search } = window.location
-  window.history.replaceState(window.history.state, '', token ? `${pathname}${search}#${encodeURIComponent(token)}` : `${pathname}${search}`)
-}
+// The status token this tab keeps, out of the address.
+const kept = tabKeep('nuxt-backend:waitlist')
 
 onMounted(() => {
-  const token = addressToken()
+  // A status link's token leaves the address at once; a reload reads the one the tab keeps.
+  const taken = takeFragment()
+  if (taken) kept.keep(taken)
+  const token = taken ?? kept.read()
   if (token) {
     hadToken.value = true
     waitlist.status(token)
@@ -69,25 +61,25 @@ onMounted(() => {
   opened.value = true
 })
 
-// Leave took the entry behind the link: a reload must not read the old token as a dead link.
+// Leave took the entry behind the token: a reload must not read it as a dead link.
 watch(() => waitlist.step.value, (step, before) => {
   if (before !== 'status' || step !== 'join') return
   left.value = true
   hadToken.value = false
-  writeFragment(null)
+  kept.drop()
 })
 
-/** A join made here: its status link in the address, for a bookmark, over a dead one. */
+/** A join made here: its status token kept for the tab, over a dead one. */
 function joined(place: WaitlistPlace) {
   left.value = false
   hadToken.value = false
-  if (place.token) writeFragment(place.token)
+  if (place.token) kept.keep(place.token)
 }
 
-/** A place left through the form: the address no longer holds it. */
+/** A place left through the form: the tab no longer keeps it. */
 function leftForm() {
   left.value = true
-  writeFragment(null)
+  kept.drop()
 }
 
 /** The `data-state` of the page: what the person reads now. */

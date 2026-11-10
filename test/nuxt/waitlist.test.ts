@@ -110,6 +110,7 @@ beforeEach(() => {
   serverRequest.current = null
   launch.value = 'early-access'
   window.history.replaceState(null, '', '/waitlist')
+  window.sessionStorage.clear()
 })
 afterEach(() => {
   for (const wrapper of mounted.splice(0)) wrapper.unmount()
@@ -433,16 +434,23 @@ describe('<WaitlistForm>', () => {
 })
 
 describe('the /waitlist page', () => {
-  it('reads a place from the link\'s token, keeps the token in the address and offers a link to share', async () => {
+  it('reads a place from the link\'s token, takes the token off the address for the tab to keep, and offers a link to share', async () => {
     answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), VIEW)
     window.location.hash = '#entry.signature'
     const wrapper = render(WaitlistStatus)
     await flushPromises()
-    expect(window.location.hash).toBe('#entry.signature')
+    // A key to the place and to leaving: never in an address bar copied beside the share field.
+    expect(window.location.hash).toBe('')
     expect(wrapper.find('[data-waitlist="position"]').text()).toBe('You\'re #48 of 1,204')
     expect((wrapper.find('[data-waitlist="share-link"]').element as HTMLInputElement).value).toBe(`${window.location.origin}/waitlist?ref=ABCD2345`)
     expect(wrapper.find('[data-waitlist="share-intro"]').text()).toContain('moves you up')
     expect(wrapper.find('[data-waitlist="friends"]').text()).toBe('2 friends have joined with your link.')
+    wrapper.unmount()
+    // A reload: the tab kept the token.
+    const reloaded = render(WaitlistStatus)
+    await flushPromises()
+    expect(reloaded.find('[data-waitlist="page"]').attributes('data-state')).toBe('ready')
+    expect(reloaded.find('[data-waitlist="position"]').text()).toBe('You\'re #48 of 1,204')
   })
 
   it('says a link that names nobody does not work', async () => {
@@ -473,12 +481,15 @@ describe('the /waitlist page', () => {
     await flushPromises()
     expect(leaveCall).toHaveBeenCalledWith({ token: 'entry.signature' })
     expect(wrapper.find('[data-waitlist="page"]').attributes('data-state')).toBe('left')
-    // The old token leaves the address, and the join is offered again.
-    expect(window.location.hash).toBe('')
+    // The join is offered again, and the tab keeps the old token no longer: a reload offers the join, not a dead link.
     expect(wrapper.find('[data-waitlist="join"]').exists()).toBe(true)
+    wrapper.unmount()
+    const reloaded = render(WaitlistStatus)
+    await flushPromises()
+    expect(reloaded.find('[data-waitlist="page"]').attributes('data-state')).toBe('join')
   })
 
-  it('joins without a token in early access, and writes the status link into the address once the code checks', async () => {
+  it('joins without a token in early access, and keeps the status token for the tab, never in the address, once the code checks', async () => {
     route.query = { ref: 'FRND2345' }
     const wrapper = render(WaitlistStatus)
     await flushPromises()
@@ -494,10 +505,15 @@ describe('the /waitlist page', () => {
     await wrapper.find('[data-waitlist="input-code"]').setValue('123456')
     await wrapper.find('[data-waitlist="verify"]').trigger('submit')
     await flushPromises()
-    expect(window.location.hash).toBe('#entry.signature')
+    expect(window.location.hash).toBe('')
     expect(wrapper.find('[data-waitlist="position"]').text()).toBe('You\'re #48 of 1,204')
     // A friend's link opens this page, where the join is.
     expect((wrapper.find('[data-waitlist="share-link"]').element as HTMLInputElement).value).toBe(`${window.location.origin}/waitlist?ref=ABCD2345`)
+    wrapper.unmount()
+    // A reload shows the place the join took.
+    const reloaded = render(WaitlistStatus)
+    await flushPromises()
+    expect(reloaded.find('[data-waitlist="page"]').attributes('data-state')).toBe('ready')
   })
 
   it('offers the join again under a link that does not work', async () => {
