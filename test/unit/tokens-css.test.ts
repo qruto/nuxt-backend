@@ -177,6 +177,20 @@ describe('component tokens', () => {
     }
   })
 
+  it('sets no tracking on a button or a link drawn as one while --bk-tracking-control is unset, so each keeps the page\'s, its reset\'s or the browser\'s', () => {
+    // `normal` would override Tailwind's `letter-spacing: inherit` on buttons
+    // (in `base`, below the package's layer) and a link's inherited tracking.
+    // `revert-layer` takes the layer's declaration back: what stood before it stands.
+    let reads = 0
+    for (const [name, css] of stylesheets) {
+      for (const [, fallback] of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/var\(--bk-tracking-control(?:, ([^)]*))?\)/g)) {
+        reads++
+        expect(fallback, name).toBe('revert-layer')
+      }
+    }
+    expect(reads).toBeGreaterThan(30)
+  })
+
   it('draws every outline from the surface or the control width, falling back to --bk-border-width', () => {
     for (const [name, css] of stylesheets) {
       if (name === 'tokens.css') continue
@@ -198,7 +212,7 @@ describe('component tokens', () => {
           expect(body, `${name} ${selector!.trim()}`).toContain('translate: var(--_bk-press-offset);')
         }
         if (body!.includes('font-family: var(--bk-font-control, var(--bk-font));'))
-          expect(body, `${name} ${selector!.trim()}`).toContain('letter-spacing: var(--bk-tracking-control, normal);')
+          expect(body, `${name} ${selector!.trim()}`).toContain('letter-spacing: var(--bk-tracking-control, revert-layer);')
         if (/box-shadow: none;/.test(body!))
           expect(body, `${name} ${selector!.trim()}`).toContain('translate: none;')
       }

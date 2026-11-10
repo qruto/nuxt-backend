@@ -40,7 +40,7 @@
     color: var(--bk-on-accent);
     font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
-    letter-spacing: var(--bk-tracking-control, normal);
+    letter-spacing: var(--bk-tracking-control, revert-layer);
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;

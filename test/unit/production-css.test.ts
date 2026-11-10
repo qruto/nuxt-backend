@@ -125,3 +125,14 @@ describe('the stylesheet in a production build', () => {
     }
   })
 })
+
+describe('the shared rules in a production build', () => {
+  const shared = readFileSync(fileURLToPath(new URL('../../src/runtime/vue/components/shared.css', import.meta.url)), 'utf8')
+
+  it('keeps a button\'s tracking fallback a keyword the browser reverts the layer with', () => {
+    // A minifier that dropped or rewrote it would set a tracking on every button with the token unset.
+    const built = build(shared)
+    expect(built).toContain('letter-spacing:var(--bk-tracking-control,revert-layer)')
+    expect(built).not.toMatch(/--bk-tracking-control,normal/)
+  })
+})

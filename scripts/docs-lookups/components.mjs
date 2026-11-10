@@ -304,7 +304,7 @@ const TOKEN_ROLES = {
   '--bk-font-heading': 'The face of headings, falling back to `--bk-font`',
   '--bk-font-control': 'The face of buttons, falling back to `--bk-font`',
   '--bk-tracking-heading': 'The letter-spacing of headings, the page\'s own while unset',
-  '--bk-tracking-control': 'The letter-spacing of buttons, `normal` while unset',
+  '--bk-tracking-control': 'The letter-spacing of buttons and links drawn as buttons, left to the page, its reset and the browser while unset',
   '--bk-border-width': 'The width of every outline: controls, fields, cards and dialogs',
   '--bk-border-width-surface': 'The outline of cards, banners, panels and dialogs, falling back to `--bk-border-width`',
   '--bk-border-width-control': 'The outline of buttons, fields and chips, falling back to `--bk-border-width`',

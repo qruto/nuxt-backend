@@ -62,9 +62,10 @@
     --bk-font-control: inherit;
 
     /* The tracking of headings and of buttons. `inherit` leaves a heading
-       the page's own and a button the browser's `normal`; a heading that
-       sets a tracking of its own (a page title, an uppercase section label)
-       keeps it until the token is set. */
+       the page's own, and a button, or a link drawn as one, what the page,
+       its reset and the browser give it; a heading that sets a tracking of
+       its own (a page title, an uppercase section label) keeps it until the
+       token is set. */
     --bk-tracking-heading: inherit;
     --bk-tracking-control: inherit;
 

@@ -58,7 +58,7 @@
     translate: var(--_bk-press-offset);
     font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
-    letter-spacing: var(--bk-tracking-control, normal);
+    letter-spacing: var(--bk-tracking-control, revert-layer);
     border-radius: var(--bk-radius-control);
     color: inherit;
     font-weight: 600;

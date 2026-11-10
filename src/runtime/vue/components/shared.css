@@ -9,7 +9,10 @@
    and page. Its text reads `--bk-font`, its headings `--bk-font-heading`
    and `--bk-tracking-heading`; each component's button rule reads
    `--bk-font-control` and `--bk-tracking-control`. With a token
-   unset, `var()` leaves the face inherited: the page's. These rules sit
+   unset, `var()` leaves the face inherited: the page's. A button's
+   tracking falls back to `revert-layer`, so while the token is unset the
+   rule sets none, and a button or a link drawn as one keeps what the page,
+   its reset and the browser give it. These rules sit
    in `nuxt-backend-tokens`, the lowest layer, beside the tokens: a rule of
    the app's in any layer, such as a heading face in Tailwind's `base`, wins
    over them, token set or not. */
@@ -60,7 +63,7 @@
     color: inherit;
     font: inherit;
     font-family: var(--bk-font-control, var(--bk-font));
-    letter-spacing: var(--bk-tracking-control, normal);
+    letter-spacing: var(--bk-tracking-control, revert-layer);
     font-weight: 600;
     cursor: pointer;
   }

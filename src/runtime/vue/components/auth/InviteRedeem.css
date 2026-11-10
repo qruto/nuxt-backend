@@ -33,6 +33,6 @@
     box-shadow: var(--_bk-press-shadow, var(--bk-shadow-control));
     translate: var(--_bk-press-offset);
     font-family: var(--bk-font-control, var(--bk-font));
-    letter-spacing: var(--bk-tracking-control, normal);
+    letter-spacing: var(--bk-tracking-control, revert-layer);
   }
 }
