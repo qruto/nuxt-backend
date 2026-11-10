@@ -1,5 +1,5 @@
 import { defineNuxtRouteMiddleware, useNuxtApp, useRequestEvent, useRequestFetch, useRuntimeConfig } from '#imports'
-import { pageAccessRules, samePagePath } from '../utils/page-rules'
+import { pageAccessRules, samePagePath, signInPath } from '../utils/page-rules'
 
 /**
  * The page guard: `definePageMeta({ auth: true })`, or
@@ -24,8 +24,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (import.meta.client && nuxtApp.isHydrating && serverRendered && !prerenderedAt && samePagePath(to.path, rendered)) return
   const backend = useRuntimeConfig().public.backend as { pages?: { login?: string | false }, authRoute?: string } | undefined
   const context = {
-    // A packaged sign-in page turned off (`pages.login: false`) leaves the app's own at /login.
-    loginPath: backend?.pages?.login || '/login',
+    loginPath: signInPath(backend?.pages),
     authRoute: backend?.authRoute ?? '/api/auth',
     event: import.meta.server ? useRequestEvent() : undefined,
     fetch: useRequestFetch() as (url: string) => Promise<unknown>,
