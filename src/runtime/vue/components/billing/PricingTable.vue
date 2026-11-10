@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useId, type Ref } from 'vue'
+import { computed, nextTick, onMounted, ref, useId, type Ref } from 'vue'
 import { useRoute } from '#imports'
 import { formatBillingAmount, formatBillingDate, formatUnitPrice } from '../../composables/billing-format'
 import { useBackendConfig } from '../../composables/use-backend-config'
@@ -9,11 +9,12 @@ import { useCampaign } from '../../composables/use-campaign'
 import { useCredits } from '../../composables/use-credits'
 import { useExperimentDiscount } from '../../composables/use-experiment'
 import { refusalText, useLabels, type BackendLabels, type LabelKey, type LabelOverrides } from '../../composables/use-labels'
-import { usePricing, type PricedOffer, type PricedPlan, type PricedPromotion, type PricingInterval, type UsePricingReturn } from '../../composables/use-pricing'
+import { usePricing, type PricedOffer, type PricedPlan, type PricingInterval, type PricingSuccessUrls, type UsePricingReturn } from '../../composables/use-pricing'
 import { busyAttributes } from '../../a11y'
 import { useAuthSession } from '../../utils/auth-session'
 import { getBackendError } from '../../utils/backend-error'
 import { createCancelConfirm } from '../../utils/cancel-confirm'
+import { CONFIRMED_PRORATION, createPlanChangeConfirm, type PlanChangeTarget } from '../../utils/plan-change-confirm'
 import { returnFocus } from '../../utils/focus-return'
 import { useMeterUnit } from '../../utils/meter-unit'
 import { pricingBindings, shownInterval } from '../../utils/pricing-bindings'
@@ -35,6 +36,21 @@ import { providePricingView, type PlanAction, type PlanTrial, type PricingSlotCo
  * same-named component of the app's replaces; every element carries a
  * `data-pricing` attribute, and each region has its slot.
  *
+ * A subscriber's switch to another plan or billing period asks first, in
+ * one step: the price it moves to, when the switch happens (a yearly price
+ * left for a monthly one waits for the paid year's end) and how the
+ * period's difference is settled (`useBilling().changeOf`), then switches
+ * settling it at once (`proration: 'invoice'`), whatever the provider's
+ * default. The price it states is in the subscription's own currency,
+ * which the provider keeps on a switch, and a plan with no price in it is
+ * offered no switch. A gifted plan's holder is asked too: their switch is
+ * a checkout of the new plan, which ends the gift in its place. The address
+ * picks what shows: `?interval=year` the yearly prices, `?plan=<key>`
+ * the card it marks and scrolls into view. A promotion runs by the
+ * server's clock while the page hydrates, so its window reads the same in
+ * the HTML and the browser, then by the browser's from the moment the page
+ * is on screen or is entered again.
+ *
  * Signed-out visitors get a sign-in link that returns to this very address
  * (a campaign link's discount and UTM included) instead of checkout
  * actions, a checkout carries the address's campaign (`useCampaign`), a
@@ -51,7 +67,7 @@ const props = withDefaults(defineProps<{
   packs?: CreditPack[]
   /** A contact card after the plans; `null` hides the configured one. Default: `appConfig.backend.billing.contact`. */
   contact?: PricingContact | null
-  /** The interval the plans show (`v-model:interval`). Default: monthly, when a plan is priced by the month. */
+  /** The interval the plans show (`v-model:interval`). Default: the address's `?interval=` when a plan sells at it, else monthly, when a plan is priced by the month. */
   interval?: PricingInterval
   /** A heading above the table; none by default. The shipped page passes the `pricing.title` label. */
   title?: string
@@ -75,6 +91,12 @@ const props = withDefaults(defineProps<{
    * test shows the person (an experiment's `discounts`).
    */
   discount?: string
+  /**
+   * Where a checkout returns once paid, per kind: `{ plan: '/welcome', pack:
+   * '/credits' }`, or a function of the plan or pack bought. A path is on the site.
+   * Default: back to this page.
+   */
+  successUrl?: PricingSuccessUrls
   /** Copy for this table, over `appConfig.backend.labels.pricing` and the translations. */
   labels?: LabelOverrides<BackendLabels['pricing']>
 }>(), {
@@ -88,6 +110,7 @@ const props = withDefaults(defineProps<{
   showPortal: true,
   redirect: true,
   discount: undefined,
+  successUrl: undefined,
   labels: undefined,
 })
 
@@ -107,7 +130,29 @@ const credits = useCredits()
 const campaign = useCampaign()
 // A price test's promotion for the person's variant, when the address carries no campaign code.
 const experimentDiscount = useExperimentDiscount()
-const pricing = usePricing({ discount: () => props.discount ?? campaign.discountCode.value ?? experimentDiscount.value, actions: false })
+const pricing = usePricing({
+  discount: () => props.discount ?? campaign.discountCode.value ?? experimentDiscount.value,
+  actions: false,
+  // Read when a checkout starts, so a changed prop counts.
+  successUrl: {
+    get plan() { return props.successUrl?.plan },
+    get pack() { return props.successUrl?.pack },
+  },
+})
+// A subscriber's switch keeps the subscription's currency (the provider's
+// rule), so its confirmation states the price in it: read apart, in the
+// browser, only while the page shows another one.
+const subscriptionCurrency = computed(() => {
+  const currency = billing.subscription.value?.currency
+  return typeof currency === 'string' && currency !== '' ? currency.toLowerCase() : undefined
+})
+const switchPricing = usePricing({
+  server: false,
+  actions: false,
+  currency: () => subscriptionCurrency.value,
+  enabled: () => billing.isSubscribed.value && billing.pass.value === null && subscriptionCurrency.value !== undefined
+    && pricing.currency.value !== undefined && subscriptionCurrency.value !== pricing.currency.value,
+})
 const route = useRoute()
 const { isAuthenticated } = useAuthSession()
 const config = useBackendConfig()
@@ -124,10 +169,10 @@ const progress: Ref<(() => string) | null> = ref(null)
 const error: Ref<(() => string) | null> = ref(null)
 
 // The interval shown: the parent's (`v-model:interval`), else the one
-// picked here, else monthly when a plan is priced by the month.
+// picked here, else the address's (`?interval=year`) when a plan sells at
+// it, else monthly when a plan is priced by the month.
 const picked = ref<PricingInterval | null>(null)
-const interval = computed<PricingInterval>(() =>
-  props.interval ?? picked.value ?? (pricing.intervals.value.includes('month') ? 'month' : pricing.intervals.value[0] ?? 'month'))
+const interval = computed<PricingInterval>(() => props.interval ?? picked.value ?? pricing.interval.value)
 const setInterval = (next: PricingInterval) => {
   picked.value = next
   emit('update:interval', next)
@@ -139,16 +184,9 @@ const planCards = computed(() => props.plans ?? (config.billing.plans.length > 0
 const packCards = computed(() => props.packs ?? (config.billing.packs.length > 0 ? config.billing.packs : (pricing.packs.value ?? []).map(pack => ({ key: pack.key }))))
 const contact = computed(() => (props.contact === undefined ? config.billing.contact ?? null : props.contact))
 
-/** Whether a promotion runs at `now`: started, and not ended. */
-const runs = (promotion: PricedPromotion, now: number) =>
-  !(promotion.startsAt && Date.parse(promotion.startsAt) > now) && !(promotion.endsAt && Date.parse(promotion.endsAt) <= now)
-// The promotion that runs now, by the page's own clock: the read never
-// depends on the time, and a page that outlives the end stops saying it.
-const renderedAt = Date.now()
-const promotion = computed(() => {
-  const named = pricing.promotion.value
-  return named && runs(named, renderedAt) ? named : undefined
-})
+// The promotion that runs now, by the page's clock: the server's while
+// hydrating, so the HTML and the hydrated page agree on it, then the browser's.
+const promotion = computed(() => pricing.activePromotion.value)
 
 const subscribedId = computed(() => billing.subscription.value?.productId)
 // The plan a link asked for (`?plan=<key>`, as `<UpgradePrompt>` sends it): its card is marked.
@@ -317,15 +355,56 @@ const optOut = () => (showsEmailOptOut.value ? { emailOptOut: emailOptOut.value 
 const subscribe = (key: string) => run(key, () => t('checkingOut'), async () => {
   const plan = planByKey(key)
   if (!plan) return
-  const url = await withCampaign(Boolean(plan.promotion), options => billing.checkout(plan.priceAt.productId, { redirect: props.redirect, ...payIn(plan.priceAt.currency), ...optOut(), ...options }))
+  const url = await withCampaign(Boolean(plan.promotion), options => billing.checkout(plan.priceAt.productId, { redirect: props.redirect, ...payIn(plan.priceAt.currency), ...optOut(), ...returnTo('plan', key), ...options }))
   if (!props.redirect && url) emit('checkout', url)
 })
+/** A gifted plan's holder moves to another plan by checking it out: the checkout replaces the pass in place. */
+async function checkOutFromPass(key: string): Promise<void> {
+  await subscribe(key)
+  if (error.value === null) change.settle()
+}
 const switchTo = (key: string) => run(key, () => t('changing'), async () => {
   const plan = planByKey(key)
   if (!plan) return
-  await billing.changePlan(plan.priceAt.productId)
+  await billing.changePlan(plan.priceAt.productId, { proration: CONFIRMED_PRORATION })
+  change.settle()
   emit('plan-changed', key)
+  // The step went with the switch: focus moves to the card's action, else the current plan's.
+  void nextTick(() => returnFocus(root.value?.querySelector<HTMLElement>(`[aria-labelledby="${uid}-plan-${key}"] [data-pricing="plan-action"]`)
+    ?? root.value?.querySelector<HTMLElement>('[data-pricing="plan"][data-current] [data-pricing="plan-action"]')))
 })
+
+/** Where a checkout of this kind returns, when the `successUrl` prop names it. */
+function returnTo(kind: 'plan' | 'pack', key: string): { successUrl?: string } {
+  const url = pricing.successUrlFor(kind, key)
+  return url ? { successUrl: url } : {}
+}
+
+/**
+ * The price a switch to a card's plan is about. A subscriber's is in the
+ * subscription's currency: `null` while that price is read, `undefined`
+ * when the plan has none in it, which no switch can move to. A gifted
+ * plan's holder checks out, in the card's own.
+ */
+function changeTarget(plan: ResolvedPlan): PlanChangeTarget | null | undefined {
+  const price = billing.pass.value === null ? priceInSubscriptionCurrency(plan) : plan.price
+  if (price === null) return null
+  if (price === '') return undefined
+  // Their own plan at the other period is named with it: "Pro, billed yearly".
+  const name = plan.isCurrent ? t(`billedAt.${plan.interval}` as LabelKey<BackendLabels['pricing']>, { plan: plan.name }) : plan.name
+  return { key: plan.key, productId: plan.priceAt.productId, plan: name, price: `${price}${t(`period.${plan.interval}` as LabelKey<BackendLabels['pricing']>)}` }
+}
+
+/** A card's price in the subscription's currency, formatted: `null` while it is read, `''` when the product has no price in it. */
+function priceInSubscriptionCurrency(plan: ResolvedPlan): string | null {
+  const currency = subscriptionCurrency.value
+  if (!currency || plan.priceAt.currency === currency) return plan.price
+  const offers = switchPricing.plans.value
+  if (offers === undefined) return null
+  const at = offers.find(entry => entry.key === plan.key)?.prices[plan.interval]
+  // A product with no price in it comes back in the catalog's currency.
+  return at?.productId === plan.priceAt.productId && at.currency === currency ? formatBillingAmount(at.amount, at.currency, locale.value) : ''
+}
 const root = ref<HTMLElement | null>(null)
 // Cancelling the current plan takes one step: its button opens what ends
 // when and the one button that cancels, nothing else.
@@ -337,6 +416,20 @@ const confirm = createCancelConfirm({
   confirm: () => currentPlan.value && cancelPlan(currentPlan.value.key),
   t,
   endsOn: () => formatBillingDate(billing.subscription.value?.currentPeriodEnd, { dateStyle: 'medium' }, locale.value) || null,
+})
+// A subscriber's switch takes one step too: the price it moves to, when,
+// and how the period's difference is settled, then the button that switches.
+// A gifted plan's holder reads that theirs is a checkout that ends the gift.
+const change = createPlanChangeConfirm({
+  family: 'pricing',
+  titleTag: 'p',
+  partId: part => `${uid}-change-${part}`,
+  isBusy: () => pending.value !== null && pending.value === change.target.value?.key,
+  preview: productId => billing.changeOf(productId),
+  confirm: target => (billing.pass.value === null ? switchTo(target.key) : checkOutFromPass(target.key)),
+  t,
+  date: value => formatBillingDate(value, { dateStyle: 'medium' }, locale.value) || null,
+  gifted: target => (billing.pass.value === null ? null : t('changeGifted', { price: target.price })),
 })
 function cancelPlan(key: string): Promise<void> {
   return run(key, () => t('canceling'), async () => {
@@ -354,7 +447,7 @@ const uncancelPlan = (key: string) => run(key, () => t('uncanceling'), async () 
 const buyPack = (key: string) => run(key, () => t('checkingOut'), async () => {
   const pack = resolvedPacks.value.find(item => item.key === key)
   if (!pack) return
-  const url = await withCampaign(Boolean(pack.promotion), options => credits.topUp(pack.offer.productId, { redirect: props.redirect, ...payIn(pack.offer.currency), ...optOut(), ...options }))
+  const url = await withCampaign(Boolean(pack.promotion), options => credits.topUp(pack.offer.productId, { redirect: props.redirect, ...payIn(pack.offer.currency), ...optOut(), ...returnTo('pack', key), ...options }))
   if (!props.redirect && url) emit('checkout', url)
   emit('topped-up', key)
 })
@@ -384,7 +477,8 @@ const table: UsePricingReturn = {
     act: (plan) => {
       const resolved = planByKey(plan.key)
       if (!resolved) return
-      return billing.isSubscribed.value ? switchTo(resolved.key) : subscribe(resolved.key)
+      // A gifted plan is no subscription the provider switches: its holder checks the plan out.
+      return billing.isSubscribed.value && billing.pass.value === null ? switchTo(resolved.key) : subscribe(resolved.key)
     },
     planLabel: plan => planByKey(plan.key)?.name ?? plan.name,
   }),
@@ -440,16 +534,24 @@ function planAction(plan: ResolvedPlan): PlanAction {
   if (plan.scheduledFor) return { kind: 'note', hook: 'plan-scheduled', text: t('scheduled', { date: formatBillingDate(plan.scheduledFor, { dateStyle: 'medium' }, locale.value) }) }
   if (billing.isSubscribed.value) {
     // Their own plan at the other interval is a switch of billing period; a
-    // retired one is never switched to.
-    if (plan.isCurrent) {
-      return plan.isRetired
-        ? { kind: 'none' }
-        : { kind: 'button', intent: 'switch', idle: t(`switchInterval.${plan.interval}` as LabelKey<BackendLabels['pricing']>), busy: t('changing'), run: () => switchTo(plan.key) }
-    }
+    // retired one is never switched to. A switch asks first: a subscriber's
+    // what `changeOf` previews, a gifted plan's holder's that it is a
+    // checkout; one the preview cannot describe goes at once. One to a plan
+    // with no price in the subscription's currency is none the provider
+    // makes; one whose price in it is still being read waits.
+    const target = changeTarget(plan)
+    if (target === undefined) return { kind: 'none' }
+    const asks = billing.pass.value !== null || billing.changeOf(plan.priceAt.productId) !== null
+    const switching = (intent: string, idle: string): PlanAction => target === null
+      ? { kind: 'button', intent, idle, busy: t('changing'), run: () => {}, unavailable: true }
+      : asks
+        ? { kind: 'change', intent, idle, busy: t('changing'), target }
+        : { kind: 'button', intent, idle, busy: t('changing'), run: () => switchTo(plan.key) }
+    if (plan.isCurrent) return plan.isRetired ? { kind: 'none' } : switching('switch', t(`switchInterval.${plan.interval}` as LabelKey<BackendLabels['pricing']>))
     // Name the direction when the prices say which way it goes; fall back
     // to a neutral "switch" when the current price is unknown.
     const intent = plan.isUpgrade ? 'upgrade' : plan.isDowngrade ? 'downgrade' : 'switch'
-    return { kind: 'button', intent, idle: t(intent, { plan: plan.name }), busy: t('changing'), run: () => switchTo(plan.key) }
+    return switching(intent, t(intent, { plan: plan.name }))
   }
   const trial = unknownPlan.value ? null : plan.trial
   // Unavailable, not busy, while the plan is unknown: nothing may start a plan until the current one is known.
@@ -501,7 +603,18 @@ providePricingView({
   },
   manages,
   confirm,
+  change,
   offersTrial: plan => plan.trial != null && !plan.isCurrent && billing.isFree.value,
+})
+
+// The card a link asked for (`?plan=<key>`) comes into view, gently unless motion is reduced.
+onMounted(() => {
+  if (!requested.value) return
+  void nextTick(() => {
+    const card = root.value?.querySelector<HTMLElement>('[data-pricing="plan"][data-requested]')
+    const reduced = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    card?.scrollIntoView?.({ block: 'center', behavior: reduced ? 'auto' : 'smooth' })
+  })
 })
 
 const listsPacks = computed(() => onSale.value && props.showPacks && resolvedPacks.value.length > 0)

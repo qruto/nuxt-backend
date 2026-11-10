@@ -345,7 +345,7 @@ Each names the billing entity: a workspace's id, or an account's with
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="saveoffers-1"></a> `saveOffers` | \{ `id`: `string`; `entityId`: `string`; `subscriptionId`: `string`; `reason`: `string`; `kind`: `"downgrade"` \| `"discount"` \| `"pause"`; `months`: `number` \| `null`; `plan`: `string` \| `null`; `discount`: `string` \| `null`; `madeAt`: `number`; `acceptedAt`: `number` \| `null`; \}[] | The save offers the cancel flow made: for which reason, what, and whether it was taken. | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
+| <a id="saveoffers-1"></a> `saveOffers` | \{ `id`: `string`; `entityId`: `string`; `subscriptionId`: `string`; `reason`: `string`; `kind`: `"downgrade"` \| `"pause"` \| `"discount"`; `months`: `number` \| `null`; `plan`: `string` \| `null`; `discount`: `string` \| `null`; `madeAt`: `number`; `acceptedAt`: `number` \| `null`; \}[] | The save offers the cancel flow made: for which reason, what, and whether it was taken. | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
 | <a id="withdrawals"></a> `withdrawals` | \{ `entityId`: `string`; `subscriptionId`: `string`; `userId`: `string`; `plan`: `string`; `at`: `number`; \}[] | The EU withdrawals: who withdrew from which plan, and when. | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
 | <a id="consents"></a> `consents` | \{ `entityId`: `string`; `subscriptionId`: `string` \| `null`; `userId`: `string` \| `null`; `plan`: `string`; `amount`: `number`; `currency`: `string`; `interval`: `string`; `intervalCount`: `number`; `termsVersion`: `string` \| `null`; `consentedAt`: `number`; \}[] | The confirmed renewal consent proofs: what the checkout showed (the plan, the price and its interval, the terms version), who agreed and when. | [src/convex/integrations/billing/types/lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/lifecycle.ts) |
 
@@ -1119,7 +1119,7 @@ A save offer's terms as the component keeps them.
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="kind-2"></a> `kind` | `"downgrade"` \| `"discount"` \| `"pause"` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="kind-2"></a> `kind` | `"downgrade"` \| `"pause"` \| `"discount"` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="months-5"></a> `months?` | `number` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="resumesat-1"></a> `resumesAt?` | `number` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="plan-1"></a> `plan?` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |

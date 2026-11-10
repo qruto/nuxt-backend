@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h, ref, type Ref } from 'vue'
 import { enableAutoUnmount, flushPromises } from '@vue/test-utils'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { clearNuxtData, useRouter, useState } from '#app'
+import { clearNuxtData, useNuxtApp, useRouter, useState } from '#app'
 import { backendError } from '../../src/convex/errors'
 import type { PricedPack, PricedPlan, Pricing } from '../../src/convex/integrations/billing/types/records'
 import { createBackendMock, resetBackendMock, type BackendMock } from '../../src/runtime/test-utils'
 import { usePricing, type UsePricingOptions, type UsePricingReturn } from '../../src/runtime/vue/composables/use-pricing'
+import { usePageClock } from '../../src/runtime/vue/utils/pricing-bindings'
 import { diagnostics } from '../../src/runtime/vue/utils/live-query'
 
 // Where the provider's page opens: nowhere, here.
@@ -235,17 +236,28 @@ describe('usePricing\'s plan actions', () => {
     const pricing = await read()
     expect(pricing.interval.value).toBe('month')
     await press(pricing, 'team')
-    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ productId: 'prod_team_year' }])
+    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ productId: 'prod_team_year', proration: 'invoice' }])
   })
 
-  it('changes a subscriber\'s plan instead of checking out', async () => {
+  it('changes a subscriber\'s plan instead of checking out, settling it at once as the packaged confirmations do', async () => {
     const backend = backendWith({}, PRICING, { 'billing:getCurrentSubscription': subscribedTo('prod_pro'), 'billing:getBillingAccess': { canManage: true } })
     backend.stub('billing:updateSubscription', () => null)
     const pricing = await read()
     pricing.setInterval('year')
     await press(pricing, 'team')
-    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ productId: 'prod_team_year' }])
+    // The switch `useBilling().changeOf` describes, whatever the organization's default proration.
+    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ productId: 'prod_team_year', proration: 'invoice' }])
     expect(backend.callsTo('billing:generateCheckoutLink')).toEqual([])
+  })
+
+  it('checks a gifted plan\'s holder out, since the provider switches no pass', async () => {
+    const pass = { ...subscribedTo('prod_pass'), pass: { plan: 'pro', months: 3, startedAt: 0, endsAt: Date.parse('2099-01-01T00:00:00.000Z') } }
+    const backend = backendWith({}, PRICING, { 'billing:getCurrentSubscription': pass, 'billing:getBillingAccess': { canManage: true } })
+    backend.stub('billing:generateCheckoutLink', () => ({ url: 'https://checkout.example.com/pro' }))
+    const pricing = await read()
+    await press(pricing, 'pro')
+    expect(backend.callsTo('billing:updateSubscription')).toEqual([])
+    expect(backend.callsTo('billing:generateCheckoutLink')).toEqual([expect.objectContaining({ productIds: ['prod_pro'] })])
   })
 
   it('runs one action at a time, busy on its own button, and frees it when the action fails', async () => {
@@ -308,5 +320,98 @@ describe('usePricing without getPricing', () => {
     await pricing.refresh()
     expect(pricing.currency.value).toBeUndefined()
     expect(warn.mock.calls.map(call => String(call[0]))).toContainEqual(expect.stringContaining('the backend exports no `getPricing`'))
+  })
+})
+
+describe('usePricing: the address, the offer window and where a checkout returns', () => {
+  it('shows the interval the address asks for, when a plan sells at it, until another is picked', async () => {
+    backendWith()
+    const yearly = await read({}, '/pricing?interval=year')
+    expect(yearly.interval.value).toBe('year')
+    yearly.setInterval('month')
+    expect(yearly.interval.value).toBe('month')
+    clearNuxtData()
+    backendWith(undefined, { ...PRICING, plans: [plan('pro', { month: price('prod_pro', 900) })] })
+    // Nothing sells by the year: the address cannot ask for it.
+    expect((await read({}, '/pricing?interval=year')).interval.value).toBe('month')
+    clearNuxtData()
+    backendWith()
+    expect((await read({}, '/pricing?interval=weekly')).interval.value).toBe('month')
+  })
+
+  it('reads the plan the address asks for, when the pricing has it', async () => {
+    backendWith()
+    expect((await read({}, '/pricing?plan=pro')).requested.value).toBe('pro')
+    clearNuxtData()
+    backendWith()
+    expect((await read({}, '/pricing?plan=unknown')).requested.value).toBeUndefined()
+  })
+
+  const promotion = { key: 'launch', name: 'Launch', percentOff: 20, duration: 'once' as const }
+
+  it('runs a promotion between its start and its end', async () => {
+    backendWith(undefined, { ...PRICING, promotion: { ...promotion, endsAt: '2020-01-01T00:00:00.000Z' } })
+    const ended = await read({ discount: 'launch' })
+    expect(ended.promotion.value?.key).toBe('launch')
+    expect(ended.activePromotion.value).toBeUndefined()
+    clearNuxtData()
+    backendWith(undefined, { ...PRICING, promotion: { ...promotion, startsAt: '2020-01-01T00:00:00.000Z', endsAt: '2099-01-01T00:00:00.000Z' } })
+    expect((await read({ discount: 'launch' })).activePromotion.value?.key).toBe('launch')
+  })
+
+  it('reads the server\'s clock while the page hydrates, then the browser\'s once it is on screen', async () => {
+    // The clock the server rendered at, as the payload carries it.
+    useState('backend:now').value = 1000
+    const nuxtApp = useNuxtApp()
+    const seen: number[] = []
+    let clock!: Ref<number>
+    nuxtApp.isHydrating = true
+    try {
+      await mountSuspended(defineComponent({
+        setup() {
+          clock = usePageClock()
+          seen.push(clock.value)
+          return () => h('div')
+        },
+      }))
+    }
+    finally {
+      nuxtApp.isHydrating = false
+    }
+    expect(seen).toEqual([1000])
+    expect(clock.value).toBeGreaterThan(Date.parse('2026-01-01T00:00:00.000Z'))
+  })
+
+  it('reads the time a page is entered at: a return without a reload shows a promotion that started since, and hides one that ended', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      const pricing = { ...PRICING, promotion: { ...promotion, startsAt: '2099-02-01T00:00:00.000Z', endsAt: '2099-03-01T00:00:00.000Z' } }
+      const visitAt = async (at: string) => {
+        vi.setSystemTime(Date.parse(at))
+        clearNuxtData()
+        backendWith(undefined, pricing)
+        return (await read({ discount: 'launch' })).activePromotion.value?.key
+      }
+      expect(await visitAt('2099-01-15T00:00:00.000Z')).toBeUndefined()
+      expect(await visitAt('2099-02-15T00:00:00.000Z')).toBe('launch')
+      expect(await visitAt('2099-03-15T00:00:00.000Z')).toBeUndefined()
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('answers where each kind of checkout returns, a path on the site made absolute, and checks a plan out to it', async () => {
+    const backend = backendWith({}, PRICING, { 'billing:getCurrentSubscription': null, 'billing:getBillingAccess': { canManage: true } })
+    backend.stub('billing:generateCheckoutLink', () => ({ url: 'https://checkout.example.com/4' }))
+    const pricing = await read({ successUrl: { plan: chosen => `/welcome?plan=${chosen.key}`, pack: 'https://app.example.com/credits' } })
+    expect(pricing.successUrlFor('plan', 'pro')).toBe(`${window.location.origin}/welcome?plan=pro`)
+    expect(pricing.successUrlFor('pack', 'small')).toBe('https://app.example.com/credits')
+    expect(pricing.successUrlFor('plan', 'unknown')).toBeUndefined()
+    await press(pricing, 'pro')
+    expect(backend.callsTo('billing:generateCheckoutLink')).toEqual([expect.objectContaining({ productIds: ['prod_pro'], successUrl: `${window.location.origin}/welcome?plan=pro` })])
+    clearNuxtData()
+    backendWith()
+    expect((await read()).successUrlFor('plan', 'pro')).toBeUndefined()
   })
 })

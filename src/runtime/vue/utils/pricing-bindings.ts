@@ -1,5 +1,8 @@
+import { tryOnMounted } from '@vueuse/core'
 import type { Ref } from 'vue'
-import type { PricedPlan } from '../../../convex/integrations/billing/types/records.js'
+import { tryUseNuxtApp, useState } from '#imports'
+import { CATALOG_INTERVALS } from '../../../convex/catalog.js'
+import type { PricedPlan, PricedPromotion } from '../../../convex/integrations/billing/types/records.js'
 import { busyAttributes } from '../a11y'
 
 /** An interval a plan is priced at. */
@@ -87,4 +90,40 @@ export function pricingBindings(context: PricingBindingsContext): PricingBinding
       'aria-label': context.packLabel?.(pack) ?? pack.name,
     }),
   }
+}
+
+/**
+ * The time a page shows what depends on it by — a promotion's window, the
+ * first day a gift may be dated: the server's, carried to the browser in
+ * the payload so the hydration renders what the server did, then the
+ * browser's own once the page is on screen. A page entered later, by a
+ * client-side visit, reads the time it is entered at, never the time the
+ * app first rendered.
+ *
+ * @internal
+ */
+export function usePageClock(): Ref<number> {
+  const now = useState('backend:now', () => Date.now())
+  // A client-side visit has no server render to agree with: the time now, from its first render on.
+  if (import.meta.client && !tryUseNuxtApp()?.isHydrating) now.value = Date.now()
+  tryOnMounted(() => {
+    now.value = Date.now()
+  })
+  return now
+}
+
+/** Whether a promotion runs at `now`: started, and not ended. */
+export function promotionRuns(promotion: PricedPromotion, now: number): boolean {
+  return !(promotion.startsAt && Date.parse(promotion.startsAt) > now) && !(promotion.endsAt && Date.parse(promotion.endsAt) <= now)
+}
+
+/** A return address on the site: a path made absolute on its origin, a full URL as it is. */
+export function onSite(url: string): string {
+  if (!url.startsWith('/') || url.startsWith('//') || typeof window === 'undefined') return url
+  return `${window.location.origin}${url}`
+}
+
+/** The interval an address asks for (`?interval=year`), when it is one. */
+export function askedInterval(value: unknown): Interval | undefined {
+  return typeof value === 'string' && (CATALOG_INTERVALS as readonly string[]).includes(value) ? value as Interval : undefined
 }

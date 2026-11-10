@@ -4,6 +4,7 @@ import type { UseCreditsReturn } from '../../composables/use-credits'
 import type { UseLabelsReturn } from '../../composables/use-labels'
 import type { PricedCredits, PricedOffer, PricedPack, PricedPlan, PricedPlanPrice, PricedPromotion, PricedTrial, PricingInterval, UsePricingReturn } from '../../composables/use-pricing'
 import type { CancelConfirm } from '../../utils/cancel-confirm'
+import type { PlanChangeConfirm, PlanChangeTarget } from '../../utils/plan-change-confirm'
 import type { CreditPack, PricingContact, PricingPlan } from '../../../config'
 
 /** A free trial the live product offers, as the provider configured it. */
@@ -97,6 +98,7 @@ export interface PricingSlotContext {
   /** The sign-in page, returning here — query and all, so a campaign link survives. */
   loginPath: string
   subscribe: (key: string) => Promise<void>
+  /** Switch a subscriber to the plan's price at once. The card's own button asks first, in one step (`useBilling().changeOf` says what it will do). */
   switchTo: (key: string) => Promise<void>
   /** Cancel the plan at the period's end at once. The card's own button asks first, in one step. */
   cancelPlan: (key: string) => Promise<void>
@@ -153,6 +155,7 @@ export type PlanAction
     | { kind: 'none' }
     | { kind: 'note', hook: 'plan-returns' | 'plan-scheduled', text: string }
     | { kind: 'cancel' }
+    | { kind: 'change', intent: string, idle: string, busy: string, target: PlanChangeTarget }
     | { kind: 'button', intent: string, idle: string, busy: string, run: () => unknown, trial?: boolean, unavailable?: boolean }
 
 /** What `<PricingTable>` hands its packaged parts beside their props. */
@@ -179,6 +182,8 @@ export interface PricingView {
   manages: () => boolean
   /** The current plan's one-step cancellation. */
   confirm: CancelConfirm
+  /** A subscriber's one-step switch to another price: what changes, when, then the button that switches. */
+  change: PlanChangeConfirm
   /** Whether a plan card offers its trial: only to someone who could still start one. */
   offersTrial: (plan: ResolvedPlan) => boolean
 }

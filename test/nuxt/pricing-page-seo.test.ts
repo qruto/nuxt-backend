@@ -75,6 +75,12 @@ describe('pricingStructuredData', () => {
     expect(graph[0]!.offers.map(offer => offer.priceSpecification?.billingDuration)).toEqual(['P1M'])
   })
 
+  it('states a price in the currency\'s main unit, with its own digits: none for JPY', () => {
+    const yen: PricedPack = { ...PACKS[0]!, amount: 1500, currency: 'jpy' }
+    const graph = pricingStructuredData({ plans: [], packs: [yen] })['@graph'] as Array<{ offers: Array<{ price: string, priceCurrency: string }> }>
+    expect(graph[0]!.offers[0]).toMatchObject({ price: '1500', priceCurrency: 'JPY' })
+  })
+
   it('describes each plan on sale and each pack as a product, with an offer per price', () => {
     expect(pricingStructuredData({ plans: PLANS, packs: PACKS })).toEqual({
       '@context': 'https://schema.org',

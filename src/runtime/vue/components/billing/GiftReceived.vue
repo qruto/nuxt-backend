@@ -47,12 +47,20 @@ defineEmits<{ claim: [] }>()
         v-if="workspaces.length > 0"
         data-gift="entry-target"
       >
-        <span>{{ t('claimInto') }}</span>
-        <select v-model="target">
-          <option value="">{{ t('personalWorkspace') }}</option>
+        <span data-gift="entry-target-label">{{ t('claimInto') }}</span>
+        <select
+          v-model="target"
+          data-gift="entry-target-select"
+          :aria-describedby="nameId"
+        >
+          <option
+            data-gift="entry-target-option"
+            value=""
+          >{{ t('personalWorkspace') }}</option>
           <option
             v-for="workspace in workspaces"
             :key="workspace.id"
+            data-gift="entry-target-option"
             :value="workspace.id"
           >{{ workspace.name }}</option>
         </select>

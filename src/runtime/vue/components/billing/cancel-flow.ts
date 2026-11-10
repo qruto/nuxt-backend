@@ -1,5 +1,6 @@
 import { computed, type ComputedRef, inject, nextTick, ref, type Ref, useId } from 'vue'
 import { ConvexAuthStateKey } from 'nuxt-convex-module/client'
+import { toMajorUnits } from '../../../../convex/money.js'
 import { busyAttributes } from '../../a11y'
 import { type BillingApi, type CancellationReason, type SaveOffer, useBilling } from '../../composables/use-billing'
 import { refusalText, useLabels, type BackendLabels, type LabelOverrides, type UseLabelsReturn } from '../../composables/use-labels'
@@ -98,9 +99,9 @@ export interface UseCancelFlowReturn {
   busy: (action: 'continue' | 'cancel' | 'accept' | 'keep') => Record<string, string | undefined>
 }
 
-/** A money amount in the reader's words. */
+/** A money amount in the reader's words, from the currency's smallest unit. */
 function money(amount: number, currency: string, locale: string | undefined): string {
-  return new Intl.NumberFormat(locale, { style: 'currency', currency: currency.toUpperCase() }).format(amount / 100)
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: currency.toUpperCase() }).format(toMajorUnits(amount, currency))
 }
 
 /**

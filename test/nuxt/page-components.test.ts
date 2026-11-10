@@ -53,6 +53,8 @@ const billing = {
   isPastDue: computed(() => subscription.value?.status === 'past_due'),
   isFinishingCheckout: computed(() => finishingCheckout.value),
   pendingChange: computed(() => pendingChange.value),
+  // A switch the preview cannot describe goes at once: the cards here keep their one-press buttons.
+  changeOf: () => null,
   isPending: computed(() => false),
   canManage: computed(() => canManage.value),
   error: computed(() => billingError.value),
@@ -136,6 +138,20 @@ const pricing = {
   currency: computed(() => pricingCurrency.value),
   currencies: computed(() => pricingCurrencies.value),
   promotion: computed(() => pricingPromotion.value),
+  // The promotion while it runs, by the clock of the render, as usePricing reads the server's.
+  activePromotion: computed(() => {
+    const offer = pricingPromotion.value
+    const now = Date.now()
+    return offer && !(offer.startsAt && Date.parse(offer.startsAt) > now) && !(offer.endsAt && Date.parse(offer.endsAt) <= now) ? offer : undefined
+  }),
+  requested: computed(() => (typeof route.query.plan === 'string' ? route.query.plan : undefined)),
+  successUrlFor: () => undefined,
+  // The interval shown: the address's when a plan sells at it, else monthly when one does.
+  interval: computed(() => {
+    const sold = (['month', 'year'] as const).filter(at => (pricingPlans.value ?? []).some(plan => !plan.retired && plan.prices[at]))
+    const asked = route.query.interval
+    return sold.find(at => at === asked) ?? (sold.includes('month') ? 'month' : sold[0] ?? 'month')
+  }),
   launched: computed(() => pricingLaunched.value),
   setCurrency: vi.fn((currency: string) => {
     pricingCurrency.value = currency
@@ -266,6 +282,8 @@ vi.mock('../../src/runtime/vue/composables/use-pricing', () => ({ usePricing: (o
   pricingReads.push(options)
   return pricing
 } }))
+/** The pricing table's own read, the one with its promotion: its second, in the subscription's currency, carries none. */
+const tableRead = () => [...pricingReads].reverse().find(read => 'discount' in read)
 vi.mock('../../src/runtime/vue/composables/use-features', () => ({ useFeatures: () => features }))
 const orderList = ref<Array<Record<string, unknown>> | undefined>([
   { id: 'ord_1', createdAt: '2026-08-01T10:00:00.000Z', status: 'paid', totalAmount: 900, currency: 'EUR', isInvoiceGenerated: true, product: { id: 'prod_pro', name: 'Pro' } },
@@ -454,7 +472,7 @@ describe('PricingTable', () => {
     expect(down.text()).toContain('Downgrade to Starter')
     await down.trigger('click')
     await flushPromises()
-    expect(billing.changePlan).toHaveBeenCalledWith('prod_starter')
+    expect(billing.changePlan).toHaveBeenCalledWith('prod_starter', { proration: 'invoice' })
     expect(switching.emitted('plan-changed')).toBeTruthy()
   })
 
@@ -890,7 +908,7 @@ describe('PricingTable: yearly prices, retired plans, campaign links', () => {
     expect(own.text()).toBe('Switch to monthly billing')
     await own.trigger('click')
     await flushPromises()
-    expect(billing.changePlan).toHaveBeenCalledWith('prod_pro')
+    expect(billing.changePlan).toHaveBeenCalledWith('prod_pro', { proration: 'invoice' })
   })
 
   it('shows a retired plan to its subscribers alone, and switches nobody to it', () => {
@@ -997,7 +1015,7 @@ describe('PricingTable: yearly prices, retired plans, campaign links', () => {
     withPromotion()
     const wrapper = mount(PricingTable, { props: { discount: 'launch' } })
     // The page asked getPricing for it.
-    expect(toValue(pricingReads.at(-1)?.discount)).toBe('launch')
+    expect(toValue(tableRead()?.discount)).toBe('launch')
     const [starter, pro] = wrapper.findAll('[data-pricing="plan"]')
     expect(starter!.find('[data-pricing="plan-promotion"]').exists()).toBe(false)
     expect(pro!.attributes('data-promotion')).toBeDefined()
@@ -1044,7 +1062,7 @@ describe('PricingTable: yearly prices, retired plans, campaign links', () => {
     route.query = { discount: 'PARTNER5' }
     const wrapper = mount(PricingTable, { props: { discount: 'launch' } })
     // The table's promotion is the one shown.
-    expect(toValue(pricingReads.at(-1)?.discount)).toBe('launch')
+    expect(toValue(tableRead()?.discount)).toBe('launch')
     const [starter, pro] = wrapper.findAll('[data-pricing="plan"] [data-intent="subscribe"]')
     await starter!.trigger('click')
     await flushPromises()
@@ -1058,7 +1076,7 @@ describe('PricingTable: yearly prices, retired plans, campaign links', () => {
     route.query = { discount: 'LAUNCH20' }
     withPromotion()
     const wrapper = mount(PricingTable)
-    expect(toValue(pricingReads.at(-1)?.discount)).toBe('LAUNCH20')
+    expect(toValue(tableRead()?.discount)).toBe('LAUNCH20')
     expect(wrapper.find('[data-pricing="plan-promotion"]').exists()).toBe(true)
     subscription.value = { id: 'sub1', status: 'active', productId: 'prod_pro' }
     expect(mount(PricingTable).find('[data-pricing="plan"][data-current] [data-pricing="plan-promotion"]').exists()).toBe(false)

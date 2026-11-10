@@ -724,6 +724,8 @@ export const GENERATED_SECTIONS: readonly string[] = [
   '/docs/reference/components/billing#billinghistory',
   '/docs/reference/components/billing#billingportallink',
   '/docs/reference/components/billing#cancelflow',
+  '/docs/reference/components/billing#giftform',
+  '/docs/reference/components/billing#giftlist',
   '/docs/reference/components/billing#pricingtable',
   '/docs/reference/components/billing#referralcard',
   '/docs/reference/components/billing#upgradeprompt',

@@ -877,6 +877,7 @@
   "autoImports": {
     "composables": [
       "PhotoPrepError",
+      "formatBillingAmount",
       "getBackendError",
       "isPhotoFile",
       "preparePhoto",
@@ -910,6 +911,8 @@
       "useFeatures",
       "useFlag",
       "useFlagAdmin",
+      "useGiftForm",
+      "useGiftList",
       "useGifts",
       "useHumanCheck",
       "useInboxAdmin",
@@ -942,6 +945,7 @@
       "useUsage",
       "useWaitlist",
       "useWaitlistAdmin",
+      "useWithdrawal",
       "useWorkflowStatus",
       "useWorkspace"
     ],
@@ -965,6 +969,8 @@
       "ConsentPrompt",
       "ContactForm",
       "Gate",
+      "GiftForm",
+      "GiftList",
       "HowDidYouHear",
       "LegalContactPoints",
       "LegalDetail",
@@ -1022,6 +1028,7 @@
       "OnboardingTeammates",
       "OnboardingWorkspace",
       "PricingCancelConfirm",
+      "PricingChangeConfirm",
       "PricingCurrencySelect",
       "PricingEmailOptOut",
       "PricingPackCard",

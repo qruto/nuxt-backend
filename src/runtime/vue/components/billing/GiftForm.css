@@ -1,0 +1,89 @@
+/*
+ * GiftForm's default styles, on its data-* hooks. Theme through the --bk-*
+ * tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-gift='form-root'] {
+    max-width: 44rem;
+    color: var(--bk-ink);
+  }
+
+  [data-gift='form'] {
+    display: grid;
+    gap: 0.6rem;
+    padding: 1rem;
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow);
+    border-radius: var(--bk-radius);
+  }
+
+  [data-gift='form-title'] {
+    margin: 0;
+    font-size: 1.05rem;
+  }
+
+  [data-gift='kinds'],
+  [data-gift='packs'],
+  [data-gift='plans'],
+  [data-gift='lengths'] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  [data-gift='legend'] {
+    width: 100%;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  [data-gift='field'] {
+    display: grid;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  [data-gift='input-recipient'],
+  [data-gift='input-note'],
+  [data-gift='input-day'] {
+    font-weight: 400;
+  }
+
+  [data-gift='option'] {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.88rem;
+  }
+
+  [data-gift='hint'],
+  [data-gift='pass-hint'],
+  [data-gift='pay-hint'] {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--bk-muted);
+  }
+
+  [data-gift='form-error'] {
+    margin: 0;
+    color: var(--bk-error);
+    font-size: 0.85rem;
+  }
+
+  [data-gift='send'] {
+    justify-self: start;
+    background: var(--bk-accent);
+    border-color: var(--bk-accent);
+    color: var(--bk-on-accent);
+    font-weight: 600;
+  }
+
+  [data-gift='sent']:empty {
+    display: none;
+  }
+}

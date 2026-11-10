@@ -23,7 +23,7 @@ const lowerFirst = text => text.replace(/^([A-Z])(?=[a-z])/, first => first.toLo
 export const FAMILY_PAGES = {
   account: ['AuthForm', 'WaitlistForm', 'ConsentPrompt', 'ReauthenticateDialog', 'ProfileSettings', 'SecuritySettings', 'AccountData', 'OnboardingFlow', 'ActivationChecklist', 'HowDidYouHear'],
   workspaces: ['WorkspaceSettings', 'AcceptInvitation', 'AuditLog', 'AdminUsers', 'AdminWorkspaces'],
-  billing: ['PricingTable', 'BillingCheckoutLink', 'BillingPortalLink', 'BillingHistory', 'UsageHistory', 'UpgradePrompt', 'CancelFlow', 'WithdrawalButton', 'ReferralCard'],
+  billing: ['PricingTable', 'BillingCheckoutLink', 'BillingPortalLink', 'BillingHistory', 'UsageHistory', 'UpgradePrompt', 'CancelFlow', 'WithdrawalButton', 'GiftForm', 'GiftList', 'ReferralCard'],
   shell: ['Gate', 'BackendNotices', 'AccessDenied', 'ConnectionStatus', 'UploadField', 'NotificationInbox', 'ContactForm', 'AppShell', 'AiLabel', 'LegalProcessors', 'LegalStorage', 'LegalDetail', 'LegalVersion', 'LegalContactPoints', 'LegalModeration'],
 
 }

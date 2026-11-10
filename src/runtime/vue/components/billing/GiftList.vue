@@ -1,19 +1,30 @@
 <script setup lang="ts">
-// The gifts page's body: the gifts a person received, each to claim into a
-// workspace they manage, and the gifts they sent, each with what they can
-// still do until it is claimed. The logic is useGiftList.
 import { useId } from 'vue'
 import { useGiftList } from '../../composables/use-gift-list'
 import type { LabelGroupOverrides } from '../../composables/use-labels'
 import GiftReceived from './GiftReceived.vue'
 import GiftSent from './GiftSent.vue'
 
-const props = defineProps<{
-  /** Copy for this list, over app config and the translations. */
+/**
+ * The gifts a person received, each to claim into a workspace they manage,
+ * and the gifts they sent, each with what they can still do until it is
+ * claimed: resend its notice, address it to someone else, date it again,
+ * or cancel it for a refund behind a recent sign-in. Its words are the
+ * `gift` labels; the logic is `useGiftList()`.
+ *
+ * @example
+ * ```vue
+ * <GiftList />
+ * ```
+ */
+defineOptions({ name: 'GiftList' })
+const props = withDefaults(defineProps<{
+  /** Copy for this list, over `appConfig.backend.labels.gift` and the translations. */
   labels?: LabelGroupOverrides<'gift'>
-}>()
+}>(), { labels: undefined })
+defineSlots<Record<string, never>>()
 
-const list = useGiftList(() => props.labels)
+const list = useGiftList({ labels: () => props.labels })
 const { state, received, sent, workspaces, target, error, announcement, busy } = list
 const { t } = list.labels
 const uid = useId()
@@ -22,6 +33,7 @@ const id = (...parts: string[]) => [uid, ...parts].join('-')
 
 <template>
   <div
+    data-backend
     data-gift="list"
     :data-state="state"
     :aria-busy="state === 'loading' || state === 'pending' || undefined"
@@ -59,7 +71,7 @@ const id = (...parts: string[]) => [uid, ...parts].join('-')
         {{ t('receivedTitle') }}
       </h2>
       <p
-        v-if="received.length === 0"
+        v-if="received.length === 0 && state !== 'error'"
         data-gift="empty"
       >
         {{ state === 'loading' ? '' : t('receivedEmpty') }}
@@ -92,7 +104,7 @@ const id = (...parts: string[]) => [uid, ...parts].join('-')
         {{ t('sentTitle') }}
       </h2>
       <p
-        v-if="sent.length === 0"
+        v-if="sent.length === 0 && state !== 'error'"
         data-gift="empty"
       >
         {{ state === 'loading' ? '' : t('sentEmpty') }}

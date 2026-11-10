@@ -1,6 +1,8 @@
 // Billing values as the provider sends them, made displayable: timestamps
 // that arrive as ISO strings or epoch numbers, and minor-unit money.
 
+import { minorUnitDigits } from '../../../convex/money.js'
+import { activeIntlLocale } from '../utils/active-locale'
 import { inLocale } from '../utils/intl'
 
 /**
@@ -19,52 +21,63 @@ export function toBillingDate(value: unknown): Date | null {
 
 /**
  * Money the way the provider states it — a minor-unit integer plus an ISO
- * currency code — rendered in `locale` (the active `@nuxtjs/i18n` locale a
- * component passes), else the visitor's own. Unknown currency codes fall back
- * to the bare amount rather than throwing mid-render.
+ * currency code — rendered in `locale`, else the app's active
+ * `@nuxtjs/i18n` locale, else English: never the visitor's own, so a server
+ * render and the browser write it alike. The minor unit is the one the
+ * provider states the currency in: cents for USD and EUR (`1999` is
+ * $19.99), hundredths for HUF and ISK too (`500000` is HUF 5,000), the yen
+ * itself for JPY (`1999` is ¥1,999), a fils for KWD (three digits). A whole
+ * amount shows no decimals. Without a currency the amount counts in cents; an
+ * unknown code falls back to the bare amount rather than throwing mid-render.
  */
-export function formatBillingAmount(amount: number, currency?: string | null, locale?: string): string {
-  const value = amount / 100
+export function formatBillingAmount(amount: number, currency?: string | null, locale: string | undefined = activeIntlLocale()): string {
+  const digits = currency ? minorUnitDigits(currency) : 2
+  const value = amount / 10 ** digits
+  const whole = amount % 10 ** digits === 0
   if (currency) {
     try {
       return inLocale(locale, tag => new Intl.NumberFormat(tag, {
         style: 'currency',
         currency,
-        maximumFractionDigits: value % 1 ? 2 : 0,
+        // Both bounds set: the default ones come from the runtime's CLDR data, which writes HUF
+        // with two decimals in one ICU and none in the next, so a server render and the browser would differ.
+        minimumFractionDigits: whole ? 0 : digits,
+        maximumFractionDigits: whole ? 0 : digits,
       }).format(value))
     }
     catch {
       // Unknown currency code — fall through to the bare amount.
     }
   }
-  return value % 1 ? value.toFixed(2) : String(value)
+  return whole ? String(value) : value.toFixed(digits)
 }
 
 /**
  * A price per unit — one credit's share of a pack, a fraction of a cent —
- * in minor units, with as many decimals as it takes (up to four) to tell
- * two packs apart.
+ * in minor units, with as many decimals as it takes (two past the
+ * currency's own) to tell two packs apart.
  *
  * @internal
  */
-export function formatUnitPrice(amount: number, currency: string, locale?: string): string {
-  const value = amount / 100
+export function formatUnitPrice(amount: number, currency: string, locale: string | undefined = activeIntlLocale()): string {
+  const digits = minorUnitDigits(currency)
+  const value = amount / 10 ** digits
   try {
-    return inLocale(locale, tag => new Intl.NumberFormat(tag, { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(value))
+    return inLocale(locale, tag => new Intl.NumberFormat(tag, { style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: digits + 2 }).format(value))
   }
   catch {
-    return value.toFixed(4).replace(/0{1,2}$/, '')
+    return value.toFixed(digits + 2).replace(/0{1,2}$/, '')
   }
 }
 
 /**
- * A provider timestamp the way the active locale (else the visitor) writes
- * it: the raw string if it will not parse, and its ISO form if `Intl`
+ * A provider timestamp the way `locale`, else the app's active locale, else
+ * English writes it: the raw string if it will not parse, and its ISO form if `Intl`
  * cannot format it at all (the date alone when `options` show no time).
  *
  * @internal
  */
-export function formatBillingDate(value: unknown, options: Intl.DateTimeFormatOptions, locale?: string): string {
+export function formatBillingDate(value: unknown, options: Intl.DateTimeFormatOptions, locale: string | undefined = activeIntlLocale()): string {
   const date = toBillingDate(value)
   if (!date) return typeof value === 'string' ? value : ''
   try {
