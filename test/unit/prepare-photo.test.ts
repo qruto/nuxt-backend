@@ -76,6 +76,31 @@ const bitmap = (width: number, height: number) => ({ width, height, close: vi.fn
 
 const jpeg = (name = 'photo.jpg') => new File([new Uint8Array([0xFF, 0xD8, 0xFF])], name, { type: 'image/jpeg' })
 
+const be16 = (n: number) => [(n >>> 8) & 0xFF, n & 0xFF]
+const be32 = (n: number) => [(n >>> 24) & 0xFF, (n >>> 16) & 0xFF, (n >>> 8) & 0xFF, n & 0xFF]
+const le24 = (n: number) => [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF]
+const latin = (text: string) => [...text].map(char => char.charCodeAt(0))
+
+/** Headers alone, of a declared size: what a phone writes before the pixels. */
+const headerOf = {
+  png: (width: number, height: number) => new File([new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, ...latin('IHDR'), ...be32(width), ...be32(height), 8, 6, 0, 0, 0])], 'photo.png', { type: 'image/png' }),
+  // EXIF and an ICC profile first, with a fill byte, then the progressive frame header.
+  jpeg: (width: number, height: number) => new File([new Uint8Array([
+    0xFF, 0xD8,
+    0xFF, 0xE1, ...be16(2 + 2000), ...Array.from({ length: 2000 }, () => 0),
+    0xFF, 0xE2, ...be16(2 + 600), ...Array.from({ length: 600 }, () => 0),
+    0xFF, 0xFF, 0xC2, ...be16(17), 8, ...be16(height), ...be16(width), 3, ...Array.from({ length: 9 }, () => 0),
+    0xFF, 0xDA,
+  ])], 'photo.jpg', { type: 'image/jpeg' }),
+  webp: (width: number, height: number) => new File([new Uint8Array([...latin('RIFF'), 0, 0, 0, 0, ...latin('WEBPVP8X'), 10, 0, 0, 0, 0, 0, 0, 0, ...le24(width - 1), ...le24(height - 1), 0, 0])], 'photo.webp', { type: 'image/webp' }),
+  // Lossy and lossless WebP, with no extended header.
+  vp8: (width: number, height: number) => new File([new Uint8Array([...latin('RIFF'), 0, 0, 0, 0, ...latin('WEBPVP8 '), 0, 0, 0, 0, 0, 0, 0, 0x9D, 0x01, 0x2A, width & 0xFF, width >>> 8, height & 0xFF, height >>> 8, 0, 0])], 'lossy.webp', { type: 'image/webp' }),
+  vp8l: (width: number, height: number) => {
+    const bits = ((width - 1) | ((height - 1) << 14)) >>> 0
+    return new File([new Uint8Array([...latin('RIFF'), 0, 0, 0, 0, ...latin('WEBPVP8L'), 0, 0, 0, 0, 0x2F, bits & 0xFF, (bits >>> 8) & 0xFF, (bits >>> 16) & 0xFF, bits >>> 24, 0, 0, 0, 0, 0, 0, 0])], 'lossless.webp', { type: 'image/webp' })
+  },
+}
+
 beforeEach(() => {
   canvases = []
   heicTo.mockReset()
@@ -130,6 +155,21 @@ describe('preparePhoto', () => {
       { width: 800, height: 1200, fill: '#fff', drew: decoded, encoded: { type: 'image/jpeg', quality: 0.7 } },
     ])
     expect(decoded.close).toHaveBeenCalledOnce()
+  })
+
+  it('refuses a photo too large to open as too_large, from its header alone, before decoding it', async () => {
+    // A 200-megapixel phone mode, and a file of a few bytes that declares 1.6 GB of pixels.
+    for (const file of [headerOf.jpeg(16320, 12240), headerOf.png(20000, 20000), headerOf.webp(15000, 10000), headerOf.vp8(15000, 10000), headerOf.vp8l(15000, 10000)]) {
+      const error = await preparePhoto(file).catch((failure: unknown) => failure)
+      expect(error, file.name).toBeInstanceOf(PhotoPrepError)
+      expect(getBackendError(error), file.name).toMatchObject({ code: 'invalid_input', data: { field: 'file', reason: 'too_large' }, message: 'That file is too large. Pick a smaller one.' })
+    }
+    expect(createImageBitmap).not.toHaveBeenCalled()
+
+    // A 48-megapixel photo opens, in each format.
+    const opened = [headerOf.jpeg(8064, 6048), headerOf.png(8064, 6048), headerOf.webp(8064, 6048), headerOf.vp8(8064, 6048), headerOf.vp8l(8064, 6048)]
+    for (const file of opened) expect((await preparePhoto(file)).type, file.name).toBe('image/jpeg')
+    expect(createImageBitmap).toHaveBeenCalledTimes(opened.length)
   })
 
   it('refuses a file that is no picture as the catalog\'s invalid_input, a ConvexError the upload queues read as refused', async () => {

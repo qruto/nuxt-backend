@@ -36,8 +36,8 @@ export interface PreparePhotoOptions {
   signal?: AbortSignal
 }
 
-/** Why a photo could not be made ready: not a picture (`unsupported_type`), or one this browser could not open (`unreadable`). */
-export type PhotoPrepReason = 'unsupported_type' | 'unreadable'
+/** Why a photo could not be made ready: not a photo (`unsupported_type`), one too large to open here (`too_large`), or one this browser could not open (`unreadable`). */
+export type PhotoPrepReason = 'unsupported_type' | 'too_large' | 'unreadable'
 
 /**
  * A photo {@link preparePhoto} could not make ready, as the refusal it is:
@@ -47,7 +47,7 @@ export type PhotoPrepReason = 'unsupported_type' | 'unreadable'
  * refused rather than failed: another file is needed, not a retry.
  */
 export class PhotoPrepError extends ConvexError<{ code: 'invalid_input', field: 'file', reason: PhotoPrepReason }> {
-  /** Why: `unsupported_type` for a file that is no picture, `unreadable` for one this browser could not open. */
+  /** Why: `unsupported_type` for a file that is no photo, `too_large` for one with more pixels than a tab can be counted on to open, `unreadable` for one this browser could not open. */
   readonly reason: PhotoPrepReason
 
   constructor(reason: PhotoPrepReason, options?: { cause?: unknown }) {
@@ -85,6 +85,82 @@ export function isPhotoFile(file: Blob): boolean {
 }
 
 type Drawable = ImageBitmap | HTMLImageElement
+
+/**
+ * The most pixels a photo may have to be opened here: 100 million, more
+ * than any phone or camera takes but a few high-resolution modes. Opened,
+ * that is 400 MB for the pixels alone, about as much as a phone's tab can
+ * be counted on for. A photo with more, or a small file whose header
+ * declares more, is refused as `too_large` before it is decoded.
+ */
+const MAX_PHOTO_PIXELS = 100_000_000
+
+/** Up to `length` bytes of a file, from `at`. */
+async function bytesAt(file: Blob, at: number, length: number): Promise<Uint8Array> {
+  return new Uint8Array(await file.slice(at, at + length).arrayBuffer())
+}
+
+const ascii = (bytes: Uint8Array, at: number, length: number): string => String.fromCharCode(...bytes.subarray(at, at + length))
+
+/**
+ * The width times the height a JPEG's frame header declares, found by
+ * stepping over the segments before it (EXIF, XMP, ICC, thumbnails), a few
+ * bytes read from each. `null` when the scan begins with no frame header.
+ */
+async function jpegPixels(file: Blob): Promise<number | null> {
+  let at = 2
+  for (let segments = 0; segments < 256 && at < file.size; segments++) {
+    const header = await bytesAt(file, at, 9)
+    if (header.length < 4 || header[0] !== 0xFF) return null
+    const marker = header[1]!
+    // A fill byte before the marker.
+    if (marker === 0xFF) {
+      at += 1
+      continue
+    }
+    // SOF0 to SOF15, but for DHT, JPG and DAC, which share the range: the
+    // precision, then the height and the width.
+    if (marker >= 0xC0 && marker <= 0xCF && marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
+      return header.length < 9 ? null : ((header[5]! << 8) | header[6]!) * ((header[7]! << 8) | header[8]!)
+    }
+    if (marker === 0xDA || marker === 0xD9) return null
+    // TEM and RST0 to RST7 carry no length.
+    at += marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7) ? 2 : 2 + ((header[2]! << 8) | header[3]!)
+  }
+  return null
+}
+
+/**
+ * The width times the height a photo's header declares, read without
+ * decoding it: JPEG, PNG and WebP, by their bytes. `null` for another type,
+ * or a header this can't read, which leaves the decision to the browser.
+ */
+async function declaredPixels(file: Blob): Promise<number | null> {
+  try {
+    const head = await bytesAt(file, 0, 32)
+    const view = new DataView(head.buffer, head.byteOffset, head.byteLength)
+    // PNG: the signature, then IHDR's width and height.
+    if (head.length >= 24 && view.getUint32(0) === 0x89504E47 && ascii(head, 12, 4) === 'IHDR') return view.getUint32(16) * view.getUint32(20)
+    if (head.length >= 30 && ascii(head, 0, 4) === 'RIFF' && ascii(head, 8, 4) === 'WEBP') {
+      const chunk = ascii(head, 12, 4)
+      // Extended: the canvas's width and height, less one, in 24 bits each.
+      if (chunk === 'VP8X') return ((head[24]! | (head[25]! << 8) | (head[26]! << 16)) + 1) * ((head[27]! | (head[28]! << 8) | (head[29]! << 16)) + 1)
+      // Lossy: 14 bits each, after the frame's start code.
+      if (chunk === 'VP8 ') return (view.getUint16(26, true) & 0x3FFF) * (view.getUint16(28, true) & 0x3FFF)
+      // Lossless: 14 bits each, less one, after the signature byte.
+      if (chunk === 'VP8L') {
+        const bits = view.getUint32(21, true)
+        return ((bits & 0x3FFF) + 1) * (((bits >>> 14) & 0x3FFF) + 1)
+      }
+      return null
+    }
+    if (head[0] === 0xFF && head[1] === 0xD8) return await jpegPixels(file)
+    return null
+  }
+  catch {
+    return null
+  }
+}
 
 /**
  * How long the HEIC decoder may take to answer for one photo, in
@@ -299,8 +375,9 @@ function checked(options: PreparePhotoOptions): Required<Omit<PreparePhotoOption
  * upright by its EXIF orientation, scaled down to `longEdge`, and
  * re-encoded as `type` (JPEG by default) on a canvas, which keeps the
  * pixels and drops every metadata tag, GPS included. A file that is no
- * photo (an SVG and a GIF are not), or one this browser can't open, is
- * refused with a {@link PhotoPrepError}.
+ * photo (an SVG and a GIF are not), one over 100 megapixels, which a tab
+ * can't be counted on to open, or one this browser can't open, is refused
+ * with a {@link PhotoPrepError}.
  *
  * Its second argument is the options, or the abort signal alone, so it is
  * `useUploadField`'s `prepare` as it is.
@@ -325,6 +402,8 @@ export async function preparePhoto(file: Blob, options: PreparePhotoOptions | Ab
   const { longEdge, quality, type } = checked(rest)
   signal?.throwIfAborted()
   if (!isPhotoFile(file)) throw new PhotoPrepError('unsupported_type')
+  if ((await declaredPixels(file) ?? 0) > MAX_PHOTO_PIXELS) throw new PhotoPrepError('too_large')
+  signal?.throwIfAborted()
   const source = await decode(file, signal)
   try {
     signal?.throwIfAborted()
