@@ -106,7 +106,7 @@ const says = (chain: readonly ErrorLike[], pattern: RegExp): boolean =>
 export const CONTENT_REFUSAL = /content[-_ ]filter|content_policy|moderation_blocked|safety[_ ]system/i
 
 /** The AI SDK's `NoImageGeneratedError`: `generateImage` got no image back, which another attempt may get. */
-const NO_IMAGE = /NoImageGeneratedError/
+export const NO_IMAGE = /NoImageGeneratedError/
 
 /** A catalog error's payload: its code and fields, as `backendError` threw it. */
 export function catalogPayload(error: unknown): Record<string, unknown> | undefined {

@@ -1,6 +1,6 @@
 import type { ImageModel } from 'ai'
 import { backendError } from '../../errors.js'
-import { CONTENT_REFUSAL } from './job-errors.js'
+import { CONTENT_REFUSAL, NO_IMAGE } from './job-errors.js'
 import {
   checkRegion,
   type GatewayLoaders,
@@ -65,7 +65,7 @@ const IMAGE_LOADERS: GatewayLoaders<ImageModelObject> = {
 const refusedCall = (id: string, error: unknown): ModelCall => {
   const code = (error as { code?: unknown } | null)?.code
   const text = error instanceof Error ? `${error.name} ${error.message} ${typeof code === 'string' ? code : ''}` : String(error)
-  const finishReason = CONTENT_REFUSAL.test(text) ? 'content-filter' : /NoImageGeneratedError/.test(text) ? 'no-image' : undefined
+  const finishReason = CONTENT_REFUSAL.test(text) ? 'content-filter' : NO_IMAGE.test(text) ? 'no-image' : undefined
   return { model: id, kind: 'image', state: 'refused', usage: { model: id, input: 0, output: 0 }, error, ...(finishReason ? { finishReason } : {}) }
 }
 

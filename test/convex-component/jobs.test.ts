@@ -9,6 +9,7 @@ import { backendError, getBackendError } from '../../src/convex/errors'
 import { defineJobQueue, setupAi } from '../../src/convex/integrations/ai'
 import type { Billing } from '../../src/convex/integrations/billing'
 import { BILLING_METERS } from '../../src/convex/integrations/billing/context'
+import { windowStartOf } from '../../src/convex/jobs-policy'
 import { setupRateLimiter } from '../../src/convex/integrations/rate-limit'
 
 // defineJobQueue end to end, the way backend/jobs.ts and a strips module use
@@ -707,6 +708,42 @@ describe('a job charged by what it made', () => {
     const again = await asUser(t, { role: 'admin' })
     await again.mutation(ref.retryJob, { jobId })
     expect(await row(t, jobId)).toMatchObject({ status: 'queued', charged: false })
+    vi.restoreAllMocks()
+  })
+
+  test('a retry that only gives the charge back counts nothing in the owner\'s budget; the one that runs the job does', async () => {
+    // Early in a UTC day: the refund's tries, about four hours, stay in one budget window.
+    vi.setSystemTime(Date.UTC(2026, 10, 10, 6))
+    const t = testApp()
+    const ada = await asUser(t)
+    await fund(t, ada.workspaceId!, 100)
+    printer.drawn = 2
+    printer.after = 'crash'
+    refundFailures = 99
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const used = async () => (await t.query(backend.jobs.ownerState as unknown as FunctionReference<'query'>, {
+      owner: ada.workspaceId,
+      windowStart: windowStartOf(Date.now(), DAY),
+      policy: { concurrency: 2, perOwner: 1, stallAfter: 60_000, tiers: [] },
+    }) as { used: number }).used
+    const { jobId } = await ada.mutation(ref.start, { kind: 'print', idea: 'Owed', panels: 3 })
+    expect(await used()).toBe(15)
+    await drain(t)
+    // Failed: its cost went back to the window, and its refund gave up.
+    expect(await row(t, jobId)).toMatchObject({ status: 'failed', refundOwed: 'given_up' })
+    expect(await used()).toBe(0)
+    refundFailures = 0
+
+    const admin = await asUser(t, { role: 'admin' })
+    await admin.mutation(ref.retryJob, { jobId })
+    expect(await row(t, jobId)).toMatchObject({ status: 'failed', refundOwed: 'pending' })
+    expect(await used()).toBe(0)
+    await drain(t)
+    const again = await asUser(t, { role: 'admin' })
+    await again.mutation(ref.retryJob, { jobId })
+    expect(await row(t, jobId)).toMatchObject({ status: 'queued', budgetCounted: 15 })
+    expect(await used()).toBe(15)
     vi.restoreAllMocks()
   })
 
