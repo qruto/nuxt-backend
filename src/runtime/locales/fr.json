@@ -472,7 +472,8 @@
         "job": {
           "queue_changed": "{actor} : modification de la file de tâches",
           "canceled": "{actor} : annulation d’une tâche",
-          "retried": "{actor} : remise en file d’une tâche échouée"
+          "retried": "{actor} : remise en file d’une tâche échouée",
+          "charge_retried": "{actor} : nouvel essai du débit en attente d’une tâche"
         },
         "ai": {
           "spend_limit_reached": "{actor} a mis l’IA en pause : la limite de dépenses du jour est atteinte"
@@ -835,7 +836,10 @@
           "cancel": "Annuler",
           "cancelRefund": "Annuler et rembourser",
           "retry": "Réessayer",
-          "discard": "Écarter"
+          "discard": "Écarter",
+          "retryCharge": "Relancer le débit",
+          "owed": "{status}, {credits} crédits dus",
+          "owedGivenUp": "{status}, {credits} crédits jamais débités"
         },
         "status": {
           "queued": "En attente",

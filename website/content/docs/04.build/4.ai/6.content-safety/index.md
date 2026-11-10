@@ -91,6 +91,18 @@ if (blocked) throw backendError('invalid_input', { field: 'title', reason: 'cont
 
 A metered call's record says `stage: 'prompt'`, a chat's `'chat'` with the thread, and a job's `'job'` with its id, unless its `moderate` returns `subject` and `stage` beside `text` and `images`.
 
+In a job's step (`jobs.step`) nobody is signed in: `ai.moderate` and `ai.requireSafe` called there name the job's starter as `userId` and the job's owner as `owner`, from `ctx.job`, unless the call names its own. A drawn page checked before it joins the comic is then recorded against the person who asked for it:
+
+```ts [backend/comics.ts]
+export const checkPage = jobs.step({
+  args: { comicId: v.id('comics'), imageId: v.string(), page: v.number() },
+  handler: async (ctx, { comicId, imageId, page }) => {
+    // The flag names ctx.job.userId and ctx.job.owner.
+    await ai.requireSafe(ctx, { images: [imageId] }, { subject: comicId, stage: `output:${page}` })
+  },
+})
+```
+
 ## Check uploads
 
 An upload is checked where your code accepts it, before you keep it. `ai.requireSafe` throws the same refusal as a flagged prompt, and `ai.moderate` returns the verdict for you to decide:
@@ -113,7 +125,7 @@ export const attach = authed.action({
 
 A classifier that answers anything but a verdict refuses the content as unchecked: `unavailable` with reason `provider_refused`, and the log line `ai.moderation_unreadable`. So does a classifier call that fails, with the log line `ai.moderation_failed` naming the provider's error when the gateway passed one on, and one that gives no answer within 30 seconds: the check stops waiting, so a hung gateway never holds your action until it times out. Both may pass when tried again. Images checked alone go to the classifier with a few neutral words beside them, which Llama Guard on the Convex AI Gateway needs to read them.
 
-In your own tests, `nuxt-backend/test` answers the classifier for you: `unsafe` for text that contains `[[unsafe]]`, `safe` for anything else, with no key and no network ([Test AI calls](/docs/develop/testing/functions#test-ai-calls)). Size and type checks are cheaper than a model call, so a file over [`maxSize`](/docs/build/data/files/checked-uploads) is better refused by the claim.
+In your own tests, `nuxt-backend/test` answers the classifier for you: `unsafe` and `S1` for text or an image whose bytes contain `[[unsafe]]`, the codes you choose for `[[unsafe:S7]]` (`TEST_UNSAFE_CODE('S7')`), `safe` for anything else, with no key and no network ([Test AI calls](/docs/develop/testing/functions#test-ai-calls)). Size and type checks are cheaper than a model call, so a file over [`maxSize`](/docs/build/data/files/checked-uploads) is better refused by the claim.
 
 ## Guard against prompt injection
 

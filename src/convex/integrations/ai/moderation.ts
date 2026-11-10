@@ -68,9 +68,9 @@ export interface ModerationVerdict {
 
 /** What a check was about, for the flag it records: who the content came from, and what and where. */
 export interface ModerationSubject {
-  /** The account the content came from. Default: who is signed in. */
+  /** The account the content came from. Default: who is signed in, or in a job's step (`jobs.step`), who started the job. */
   userId?: string
-  /** The billing entity it was checked for: a workspace, or the account under `billTo: 'user'`. */
+  /** The billing entity it was checked for: a workspace, or the account under `billTo: 'user'`. Default in a job's step: the job's owner. */
   owner?: string
   /** Your id of what was checked: a document, an upload, a job. */
   subject?: string
@@ -402,7 +402,10 @@ export function readVerdict(answer: string): { flagged: boolean, categories: str
 type ImageReader = (storageId: string) => Promise<Uint8Array | null>
 
 /** The context a check runs in: an action's, which can call a model, read a file and record what the call cost. */
-export type ModerationCtx = Pick<GenericActionCtx<GenericDataModel>, 'runAction' | 'runQuery' | 'runMutation'> & Partial<Pick<GenericActionCtx<GenericDataModel>, 'storage' | 'auth'>>
+export type ModerationCtx = Pick<GenericActionCtx<GenericDataModel>, 'runAction' | 'runQuery' | 'runMutation'> & Partial<Pick<GenericActionCtx<GenericDataModel>, 'storage' | 'auth'>> & {
+  /** The job a step runs for (`jobs.step`'s `ctx.job`): who a flag names when the check names nobody. */
+  job?: { owner?: string, userId?: string }
+}
 
 /** The backend component's storage, as a check reads an upload. */
 interface StorageBytesRef {
@@ -547,8 +550,10 @@ export function createModeration(config: { moderation?: ModerationConfig, routin
   async function storeFlag(ctx: ModerationCtx, verdict: ModerationVerdict, legalHold: boolean, about: ModerationSubject, decision: Decision): Promise<string | undefined> {
     if (policy.days === false || !flags) return undefined
     try {
-      const userId = about.userId ?? (await ctx.auth?.getUserIdentity())?.subject
-      return await ctx.runMutation(flags.record, { ...flagRecord(verdict, { ...about, userId }, decision, policyVersion), policy: policy.snapshot, ...(legalHold ? { legalHold } : {}), days: policy.days })
+      // In a job's step, nobody is signed in: the job's starter and owner, unless the check names its own.
+      const userId = about.userId ?? ctx.job?.userId ?? (await ctx.auth?.getUserIdentity())?.subject
+      const owner = about.owner ?? ctx.job?.owner
+      return await ctx.runMutation(flags.record, { ...flagRecord(verdict, { ...about, userId, owner }, decision, policyVersion), policy: policy.snapshot, ...(legalHold ? { legalHold } : {}), days: policy.days })
     }
     catch (error) {
       if (verdict.escalate) logBackend('error', 'ai.flag_unrecorded', 'An escalated check could not be recorded for the Moderation tab; its content stays blocked.', error)

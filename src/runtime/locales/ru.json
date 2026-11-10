@@ -472,7 +472,8 @@
         "job": {
           "queue_changed": "{actor}: изменение очереди задач",
           "canceled": "{actor}: отмена задачи",
-          "retried": "{actor}: возврат неудачной задачи в очередь"
+          "retried": "{actor}: возврат неудачной задачи в очередь",
+          "charge_retried": "{actor}: повторная попытка списания по задаче"
         },
         "ai": {
           "spend_limit_reached": "{actor}: ИИ приостановлен — достигнут дневной лимит расходов"
@@ -835,7 +836,10 @@
           "cancel": "Отменить",
           "cancelRefund": "Отменить и вернуть кредиты",
           "retry": "Повторить",
-          "discard": "Удалить"
+          "discard": "Удалить",
+          "retryCharge": "Повторить списание",
+          "owed": "{status}, ожидает списания: {credits}",
+          "owedGivenUp": "{status}, не списано: {credits}"
         },
         "status": {
           "queued": "Ждёт",

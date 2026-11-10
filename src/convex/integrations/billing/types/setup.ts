@@ -117,7 +117,7 @@ export interface BillingComponents {
       settle: FunctionReference<'mutation', 'internal', { userId: string, externalId: string, finalAmount?: number }, null>
       /** {@link settle}, reporting whether a reservation was still there to close. */
       finalize: FunctionReference<'mutation', 'internal', { userId: string, externalId: string, finalAmount?: number }, { settled: boolean, released: number, balance: number, balanceBefore: number, releaseJobId?: string }>
-      release: FunctionReference<'mutation', 'internal', { userId: string, externalId: string }, null>
+      release: FunctionReference<'mutation', 'internal', { userId: string, externalId: string, keep?: number }, null>
       credit: FunctionReference<'mutation', 'internal', { userId: string, meterId: string, amount: number, externalId?: string }, null>
       /**
        * Drop every in-flight spend reservation for one entity, without

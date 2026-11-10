@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { convexTest, type TestConvex } from 'convex-test'
-import { actionGeneric, componentsGeneric, type FunctionReference, type GenericSchema, type SchemaDefinition } from 'convex/server'
+import { actionGeneric, componentsGeneric, type FunctionReference, type GenericSchema, queryGeneric, type SchemaDefinition } from 'convex/server'
 import { v } from 'convex/values'
 import actionCache from '@convex-dev/action-cache/test'
 import aggregate from '@convex-dev/aggregate/test'
@@ -28,6 +28,13 @@ const testKitModule = {
   upload: actionGeneric({
     args: { bytes: v.bytes(), type: v.optional(v.string()) },
     handler: async (ctx, { bytes, type }) => ctx.storage.store(new Blob([bytes], type ? { type } : {})),
+  }),
+  exists: queryGeneric({
+    args: { storageId: v.string() },
+    handler: async (ctx, { storageId }) => {
+      const id = ctx.db.system.normalizeId('_storage', storageId)
+      return id !== null && await ctx.db.system.get('_storage', id) !== null
+    },
   }),
 }
 
@@ -124,7 +131,8 @@ export function register<Schema extends AnySchema>(
  * `@convex-dev/workflow/test`.
  *
  * Each instance also has `upload` ({@link BackendTestApp}): a file sent
- * into the `backend` component's storage, as an upload URL leaves it.
+ * into the `backend` component's storage, as an upload URL leaves it; and
+ * `fileExists`: whether a file is still in that storage.
  *
  * The aggregate's own batch worker is left out, as `@convex-dev/aggregate/test`
  * leaves it out: a test of async aggregate writes registers it from
@@ -180,7 +188,10 @@ export function defineBackendTestApp<Schema extends AnySchema>(
     workpool.register(any)
     for (const kit of optionalKits) kit?.register(any)
     for (const [mount, kit] of mounts) kit.register(any, mount)
-    return Object.assign(t, { upload: (file?: TestFile, fileOptions?: TestUploadOptions) => upload(t, file, fileOptions) })
+    return Object.assign(t, {
+      upload: (file?: TestFile, fileOptions?: TestUploadOptions) => upload(t, file, fileOptions),
+      fileExists: (storageId: string) => fileExists(t, storageId),
+    })
   }
 }
 
@@ -229,6 +240,12 @@ export type BackendTestApp<Schema extends AnySchema = AnySchema> = TestConvex<Sc
    * valid 2 × 2 PNG ({@link TEST_PNG}).
    */
   upload: (file?: TestFile, options?: TestUploadOptions) => Promise<string>
+  /**
+   * Whether a file is in the `backend` component's storage, by its
+   * storage id: `false` once it was deleted, or for an id it never held
+   * ({@link fileExists}).
+   */
+  fileExists: (storageId: string) => Promise<boolean>
 }
 
 /** The value of each deployment variable a test app reads, when the test file sets none. */
@@ -292,6 +309,34 @@ export async function upload<Schema extends AnySchema>(
         // A view's own bytes only: a small Node `Buffer` is a window on a shared 8 KB pool.
         : file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength) as ArrayBuffer
   return t.action(uploadRef(name), { bytes, ...(type ? { type } : {}) })
+}
+
+/** The test kit's existence read, by mount name, through the generic component refs. */
+function existsRef(name: string): FunctionReference<'query', 'internal', { storageId: string }, boolean> {
+  return (componentsGeneric() as unknown as Record<string, { testKit: { exists: FunctionReference<'query', 'internal', { storageId: string }, boolean> } }>)[name]!.testKit.exists
+}
+
+/**
+ * Whether a file is in the `backend` component's storage, by its storage
+ * id: what a test of a deletion, a sweep or an erasure checks. `false`
+ * once the file is deleted, and for an id the storage never held. An
+ * instance from {@link defineBackendTestApp} has it as `t.fileExists(id)`.
+ *
+ * @experimental
+ *
+ * @param t - A test instance the `backend` component is registered with.
+ * @param storageId - The file's storage id.
+ * @param name - The name the `backend` component is mounted under.
+ *
+ * @example
+ * ```ts
+ * const fileId = await t.upload()
+ * await ada.mutation(api.photos.remove, { fileId })
+ * expect(await t.fileExists(fileId)).toBe(false)
+ * ```
+ */
+export async function fileExists<Schema extends AnySchema>(t: TestConvex<Schema>, storageId: string, name: string = 'backend'): Promise<boolean> {
+  return t.query(existsRef(name), { storageId })
 }
 
 type Syscalls = {
@@ -445,13 +490,20 @@ export interface TestTimers {
  * that stores a file never runs while another commits. Needs fake timers:
  * pass `vi` after `vi.useFakeTimers()`.
  *
+ * With `until`, it stops as soon as the condition holds, checked after
+ * each step: a test that changes something midway (a provider that comes
+ * back, a cancel while a job runs) drains to that point, acts, and drains
+ * on. It throws when every scheduled function ran and the condition never
+ * held.
+ *
  * @experimental
  *
  * @param t - A test instance, e.g. from {@link defineBackendTestApp}.
  * @param timers - Vitest's `vi`, its fake timers on.
- * @param options - How many timers it fires at most before it gives up. Default 5000.
- * @param options.maxSteps - The timers fired at most.
- * @throws Error when the scheduled functions keep scheduling past `maxSteps`.
+ * @param options - How many timers it fires at most before it gives up, and when to stop early.
+ * @param options.maxSteps - The timers fired at most. Default 5000.
+ * @param options.until - Stop once this holds: a function of the test's own reads, sync or async.
+ * @throws Error when the scheduled functions keep scheduling past `maxSteps`, or, with `until`, when they all ran and it never held.
  *
  * @example
  * ```ts
@@ -459,16 +511,41 @@ export interface TestTimers {
  * await ada.action(api.photos.attach, { fileId: await t.upload() })
  * await drain(t, vi)
  * ```
+ *
+ * @example
+ * ```ts
+ * // Run the job until it starts, cancel it, then run everything else.
+ * await drain(t, vi, { until: async () => (await ada.query(api.jobs.getJob, { jobId }))?.status === 'running' })
+ * await ada.mutation(api.jobs.cancelJob, { jobId })
+ * await drain(t, vi)
+ * ```
  */
-export async function drain<Schema extends AnySchema>(t: TestConvex<Schema>, timers: TestTimers, options: { maxSteps?: number } = {}): Promise<void> {
+export async function drain<Schema extends AnySchema>(t: TestConvex<Schema>, timers: TestTimers, options: DrainOptions = {}): Promise<void> {
   if (timers.isFakeTimers?.() === false) throw new TypeError('[nuxt-backend] drain: turn fake timers on first, with vi.useFakeTimers().')
   const maxSteps = options.maxSteps ?? 5000
+  const until = options.until
   for (let step = 0; step < maxSteps; step++) {
     await t.finishInProgressScheduledFunctions()
-    if (timers.getTimerCount() === 0) return
+    if (until && await until()) return
+    if (timers.getTimerCount() === 0) {
+      if (until) throw new Error('[nuxt-backend] drain: every scheduled function ran, and `until` never held.')
+      return
+    }
     timers.advanceTimersToNextTimer()
   }
   throw new Error(`[nuxt-backend] drain: the scheduled functions still scheduled more after ${maxSteps} timers. A function that schedules itself forever never drains.`)
+}
+
+/**
+ * How {@link drain} runs.
+ *
+ * @experimental
+ */
+export interface DrainOptions {
+  /** The timers it fires at most before it gives up. Default 5000. */
+  maxSteps?: number
+  /** Stop as soon as this holds, checked after each step. */
+  until?: () => boolean | Promise<boolean>
 }
 
 /**
@@ -738,5 +815,15 @@ export async function asUser<Schema extends AnySchema>(
  * known-abuse list.
  */
 export { TEST_FAINT, TEST_KNOWN_ABUSE, TEST_UNSAFE } from './test-moderation.js'
+
+/**
+ * The marker the mock safety classifier (a Llama Guard model's id under
+ * test) answers with chosen codes: `TEST_UNSAFE_CODE('S7')` in text or an
+ * image's bytes is answered `unsafe` and `S7`. `[[unsafe]]` still
+ * answers `S1`.
+ */
+export { TEST_UNSAFE_CODE } from './test-models.js'
+
+export { stubBillingProvider, type StubBillingProviderOptions, type TestBillingProvider, type TestUsageEvent } from './test-billing.js'
 
 export default { register, schema, modules }

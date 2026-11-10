@@ -376,6 +376,13 @@ export const BACKEND_EVENTS = {
     description: 'An administrator (the actor) put a failed job of the billing entity back in line, with a new hold on its credits.',
     recordedBy: '`jobs:retryJob` (`defineJobQueue`), from the Queue tab\'s dead letters',
   },
+  'job.charge_retried': {
+    scope: 'entity',
+    data: { kind: STRING, credits: NUMBER },
+    channels: [],
+    description: 'An administrator (the actor) tried again the charge a job of the billing entity owed after its tries gave up: `kind` is its `jobs.define` export, and `credits` what it owes, held again while it is tried.',
+    recordedBy: '`jobs:retryJob` (`defineJobQueue`), from the Queue tab\'s Retry the charge',
+  },
 
   // ── AI ────────────────────────────────────────────────────────────────
   'ai.spend_limit_reached': {
