@@ -94,10 +94,10 @@ export interface UseWaitlistReturn {
   /** The person's standing once their code checked (or a status link was opened), live: `undefined` before that. */
   place: ComputedRef<WaitlistPlace | WaitlistStatusView | undefined>
   /**
-   * The link a waiting person shares: `shareTo` on the page's own origin,
-   * the same on the server and in the browser, with their code as
-   * `?ref=<shareCode>`, which a join there carries. `null` until the place
-   * is a waiting one with a code.
+   * The link a waiting person shares: `shareTo` on the page's own origin
+   * (on the server, the request's own host, never a forwarded one), with
+   * their code as `?ref=<shareCode>`, which a join there carries. `null`
+   * until the place is a waiting one with a code.
    */
   shareLink: ComputedRef<string | null>
   /** `true` while a status token's place is first read. */

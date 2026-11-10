@@ -160,12 +160,12 @@ describe('the origin a checkout returns to', () => {
 
   it('is the same whether the checkout was set up on the server or in the browser', async () => {
     for (const origin of [checkoutOrigin, giftOrigin]) {
-      // The server behind a proxy, which forwards the host the browser asked for.
-      const rendered = await origin({ path: '/pricing', headers: { 'host': '127.0.0.1:3000', 'x-forwarded-host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })
+      // The server, reached on the host the browser asked for.
+      const rendered = await origin({ path: '/pricing', headers: { 'host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })
       expect(rendered).toBe(window.location.origin)
       expect(rendered).toBe(await origin(null))
-      // An https site whose edge forwards to the server over http.
-      expect(await origin({ path: '/pricing', headers: { 'host': 'internal:3000', 'x-forwarded-host': 'panels.app', 'x-forwarded-proto': 'https' } })).toBe('https://panels.app')
+      // An https site whose edge reaches the server over http, on the same host: a host the client forwarded is never read.
+      expect(await origin({ path: '/pricing', headers: { 'host': 'panels.app', 'x-forwarded-host': 'elsewhere.example', 'x-forwarded-proto': 'https' } })).toBe('https://panels.app')
     }
   })
 })

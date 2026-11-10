@@ -51,12 +51,12 @@ async function inPage(request: typeof serverRequest.current = null): Promise<Use
 describe('useReferrals', () => {
   it('builds the same link on the server as in the browser, so it hydrates unchanged', async () => {
     signedIn()
-    // The server behind a proxy, which forwards the host the browser asked for.
-    const rendered = (await inPage({ path: '/settings', headers: { 'host': '127.0.0.1:3000', 'x-forwarded-host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })).link.value
+    // The server, reached on the host the browser asked for.
+    const rendered = (await inPage({ path: '/settings', headers: { 'host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })).link.value
     expect(rendered).toBe(`${window.location.origin}/r/ADA%20123`)
     expect(rendered).toBe((await inPage()).link.value)
-    // An https site whose edge forwards to the server over http.
-    expect((await inPage({ path: '/settings', headers: { 'host': 'internal:3000', 'x-forwarded-host': 'panels.app', 'x-forwarded-proto': 'https' } })).link.value).toBe('https://panels.app/r/ADA%20123')
+    // An https site whose edge reaches the server over http, on the same host: a host the client forwarded is never read.
+    expect((await inPage({ path: '/settings', headers: { 'host': 'panels.app', 'x-forwarded-host': 'elsewhere.example', 'x-forwarded-proto': 'https' } })).link.value).toBe('https://panels.app/r/ADA%20123')
   })
 
   it('makes the code on the first read, with the link on this site and what both sides get', async () => {

@@ -7,7 +7,7 @@ import { getRequestURL, type H3Event } from 'h3'
 // opts => requestURL(original, opts))`) and sets `serverRequest.current`
 // for a server render.
 
-/** The request a server render reads, as a proxy forwards it; `null` renders as the browser. */
+/** The request a server render reads, as it reaches the server; `null` renders as the browser. */
 export const serverRequest: { current: { path: string, headers: Record<string, string> } | null } = { current: null }
 
 /** `useRequestURL` as Nuxt runs it: the request's URL on a server render, else the browser's own. */

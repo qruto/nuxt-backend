@@ -25,7 +25,7 @@ The package has no host-specific code. The Nuxt app deploys like any Nuxt 4 app,
 | Host | Status | Nitro preset | What to know |
 |---|---|---|---|
 | Vercel | Verified: nuxt-backend.dev runs there | `vercel`, picked for you | Vercel's edge sets `x-forwarded-for` and `x-real-ip`. Bot protection runs as BotID. |
-| A Node server | Verified: CI builds the starter and serves it from `.output` on every pull request | `node-server` | A proxy of your own must set `x-forwarded-for`, or every visitor shares one rate-limit bucket. Bot protection runs as a challenge. |
+| A Node server | Verified: CI builds the starter and serves it from `.output` on every pull request | `node-server` | A proxy of your own must set `x-forwarded-for`, or every visitor shares one rate-limit bucket, and pass on the `Host` the browser asked for: a page rendered on the server builds its share and access links on the request's own host, never on `x-forwarded-host`, which any client can write. Bot protection runs as a challenge. |
 | Any other host Nitro deploys to (Netlify, Cloudflare and others) | Not checked by the package | the host's | The build command and the env split below are all it needs. Bot protection runs as a challenge. |
 
 The app's auth proxy (`/api/auth`) forwards each request to the deployment, and Convex writes the address that connects, your app's server, into `x-forwarded-for`. So the app's server signs the visitor's address (the first of `x-forwarded-for`, as your host wrote it) into the request under `PROTECTION_PROOF_SECRET`, and the deployment's per-address limits read that. Without the secret on both sides, every visitor through the app shares one address ([Rate limits](/docs/ship/security/rate-limits#privileged-routes)).

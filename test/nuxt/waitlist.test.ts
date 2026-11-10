@@ -285,14 +285,14 @@ describe('useWaitlist', () => {
       serverRequest.current = null
       return waitlist
     }
-    // The server behind a proxy, which forwards the host the browser asked for.
-    const rendered = shared({ path: '/waitlist', headers: { 'host': '127.0.0.1:3000', 'x-forwarded-host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })
+    // The server, reached on the host the browser asked for.
+    const rendered = shared({ path: '/waitlist', headers: { 'host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })
     const hydrated = shared(null)
     await nextTick()
     expect(rendered.shareLink.value).toBe(`${window.location.origin}/waitlist?ref=ABCD2345`)
     expect(rendered.shareLink.value).toBe(hydrated.shareLink.value)
-    // An https site whose edge forwards to the server over http.
-    const edge = shared({ path: '/waitlist', headers: { 'host': 'internal:3000', 'x-forwarded-host': 'panels.app', 'x-forwarded-proto': 'https' } })
+    // An https site whose edge reaches the server over http, on the same host: a host the client forwarded is never read.
+    const edge = shared({ path: '/waitlist', headers: { 'host': 'panels.app', 'x-forwarded-host': 'elsewhere.example', 'x-forwarded-proto': 'https' } })
     await nextTick()
     expect(edge.shareLink.value).toBe('https://panels.app/waitlist?ref=ABCD2345')
   })

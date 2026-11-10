@@ -292,8 +292,8 @@ export interface UseMemberTicketReturn {
   ticket: ComputedRef<MemberTicket | null | undefined>
   /**
    * The link to share once issued, `<origin>/invite#<token>` on the page's
-   * own origin, the same on the server and in the browser (the `invite`
-   * page's path), else `null`.
+   * own origin (on the server, the request's own host, never a forwarded
+   * one) and the `invite` page's path, else `null`.
    */
   link: ComputedRef<string | null>
   /** Mint the member's ticket, or answer the one they hold. Rejects on failure, which `error` holds too. */

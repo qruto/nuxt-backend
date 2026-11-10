@@ -67,12 +67,12 @@ describe('the Access tab', () => {
       wrapper.unmount()
       return text
     }
-    // The server behind a proxy, which forwards the host the browser asked for.
-    const rendered = await made({ path: '/admin', headers: { 'host': '127.0.0.1:3000', 'x-forwarded-host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })
+    // The server, reached on the host the browser asked for.
+    const rendered = await made({ path: '/admin', headers: { 'host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })
     expect(rendered).toBe(`${window.location.origin}/invite#7KQ2M-XW9PA`)
     expect(rendered).toBe(await made(null))
-    // An https site whose edge forwards to the server over http.
-    expect(await made({ path: '/admin', headers: { 'host': 'internal:3000', 'x-forwarded-host': 'panels.app', 'x-forwarded-proto': 'https' } })).toBe('https://panels.app/invite#7KQ2M-XW9PA')
+    // An https site whose edge reaches the server over http, on the same host: a host the client forwarded is never read.
+    expect(await made({ path: '/admin', headers: { 'host': 'panels.app', 'x-forwarded-host': 'elsewhere.example', 'x-forwarded-proto': 'https' } })).toBe('https://panels.app/invite#7KQ2M-XW9PA')
   })
 
   it('makes an access link that expires at the end of its day, and shows it once as an address on this site', async () => {
