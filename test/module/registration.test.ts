@@ -859,6 +859,41 @@ describe('the noindex meta tag with @nuxtjs/robots installed', () => {
   })
 })
 
+describe('robots.txt with @nuxtjs/robots\' disallowNonIndexableRoutes', () => {
+  // The app lists /profile itself: that line is the app's, whatever page answers there.
+  const getNuxt = useBoot({ modules: ['@nuxtjs/robots'], robots: { disallowNonIndexableRoutes: true, disallow: ['/profile'] } })
+
+  /** The `Disallow` lines of robots.txt's `*` groups, in every copy of the runtime config robots.txt and its header read. */
+  function disallowed(nuxt: Nuxt): string[][] {
+    const nitro = (nuxt as unknown as { _nitro?: { options: { runtimeConfig: Record<string, unknown> } } })._nitro
+    const configs = [nuxt.options.runtimeConfig, nitro?.options.runtimeConfig] as Array<Record<string, unknown> | undefined>
+    return configs.flatMap(config => [config?.['nuxt-robots'], (config?.public as Record<string, unknown> | undefined)?.['nuxt-robots']])
+      .map(robots => ((robots as { groups: Array<{ userAgent: string[], disallow: string[] }> }).groups)
+        .filter(group => group.userAgent.includes('*')).flatMap(group => group.disallow))
+  }
+
+  // It wrote each `robots: false` path into robots.txt at `modules:done`, before the pages resolved.
+  it('takes a private page\'s line off robots.txt for a public app page there, and gives it back with the rule', async () => {
+    const nuxt = getNuxt()
+    const page = (name: string, meta?: NuxtPage['meta']): NuxtPage => ({ name, path: `/${name}`, file: join(fixtureDir, `app/pages/${name}.vue`), ...(meta ? { meta } : {}) })
+    const resolve = async (...pages: NuxtPage[]) => nuxt.callHook('pages:resolved', await extendPages(nuxt, pages))
+    expect(disallowed(nuxt)).toHaveLength(4)
+    for (const lines of disallowed(nuxt)) expect(lines).toEqual(expect.arrayContaining(['/gifts', '/settings', '/profile']))
+
+    await resolve(page('gifts'), page('profile'))
+    for (const lines of disallowed(nuxt)) {
+      expect(lines).not.toContain('/gifts')
+      // Another private page keeps its line, and the app's own line stays.
+      expect(lines).toEqual(expect.arrayContaining(['/settings', '/profile']))
+    }
+
+    for (const pages of [[page('gifts', { auth: true })], []]) {
+      await resolve(...pages)
+      for (const lines of disallowed(nuxt)) expect(lines.filter(line => line === '/gifts')).toEqual(['/gifts'])
+    }
+  })
+})
+
 describe('with a DSN set and the SDK installed', () => {
   const DSN = 'https://public-key@o7.ingest.monitor.test/42'
   beforeAll(() => {

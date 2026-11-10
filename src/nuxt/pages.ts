@@ -227,7 +227,9 @@ const ROBOTS_HEADER = 'x-robots-tag'
  * A private ready-made page's path: where its rules went (`ruleKey`), the
  * index keys the app set there itself (`own`, with ROBOTS_HEADER for a
  * header of its own), and the robots header a public page took off it,
- * given back with the private rules.
+ * given back with the private rules. `robotsDisallow` is the robots.txt
+ * line @nuxtjs/robots made of the rule, when it made one the app did not
+ * write itself, and `disallowedIn` the groups a public page took it off.
  */
 interface PrivatePagePath {
   def: BackendPageDef
@@ -235,6 +237,51 @@ interface PrivatePagePath {
   ruleKey: string
   own: ReadonlySet<string>
   robotsHeader?: [name: string, value: unknown]
+  robotsDisallow?: string
+  disallowedIn: Set<RobotsGroup>
+}
+
+/** @nuxtjs/robots' options, as the app wrote them, that decide which lines its robots.txt gets. */
+interface RobotsOptions {
+  disallowNonIndexableRoutes?: boolean
+  disallow?: string | string[]
+  groups?: Array<{ disallow?: string | string[] }>
+}
+
+/** One group of robots.txt in @nuxtjs/robots' runtime config: its `Disallow` lines also answer the path's `X-Robots-Tag`. */
+interface RobotsGroup {
+  userAgent?: unknown
+  disallow?: unknown
+}
+
+/**
+ * The `Disallow` line @nuxtjs/robots writes into robots.txt for a
+ * `robots: false` rule's path, as it writes it (a parameter as `*`), when
+ * the app turned its `disallowNonIndexableRoutes` on. It writes it at
+ * `modules:done`, before the pages resolve, so like the header it outlives
+ * the rule. `undefined` with the option off, or when the app lists the
+ * line itself (`robots.disallow`, or a group's): that line is the app's.
+ */
+function robotsDisallowLine(nuxt: Nuxt, ruleKey: string): string | undefined {
+  const robots = (nuxt.options as { robots?: RobotsOptions }).robots
+  if (robots?.disallowNonIndexableRoutes !== true) return undefined
+  const line = ruleKey.split('/').map(segment => (segment.startsWith(':') ? '*' : segment)).join('/').replaceAll('**', '*')
+  const own = [robots.disallow, ...(robots.groups ?? []).map(group => group.disallow)].flatMap(lines => (lines === undefined ? [] : [lines].flat()))
+  return own.includes(line) ? undefined : line
+}
+
+/** Every `*` group in @nuxtjs/robots' runtime config (robots.txt's, and its header's), in each copy of it: Nuxt's and Nitro's, private and public. */
+function robotsWildcardGroups(configs: ReadonlyArray<Record<string, unknown> | undefined>): RobotsGroup[] {
+  const groups = new Set<RobotsGroup>()
+  for (const config of configs) {
+    for (const robots of [config?.['nuxt-robots'], (config?.public as Record<string, unknown> | undefined)?.['nuxt-robots']]) {
+      const list = (robots as { groups?: unknown } | undefined)?.groups
+      for (const group of (Array.isArray(list) ? list : []) as RobotsGroup[]) {
+        if (Array.isArray(group.userAgent) && group.userAgent.includes('*') && Array.isArray(group.disallow)) groups.add(group)
+      }
+    }
+  }
+  return [...groups]
 }
 
 /** The name a rule's headers give the robots header, in whatever case. */
@@ -256,18 +303,19 @@ function ownIndexKeys(nuxt: Nuxt, ruleKey: string): ReadonlySet<string> {
  * decides instead, once the pages resolve with their meta. One with `auth`
  * rules of its own or a parent's (`definePageMeta({ auth: true })`) keeps
  * every private rule, as protectGuardedPages would give it. A public one
- * is indexable again (`robots` and `sitemap` off its path, and the
- * `X-Robots-Tag` header @nuxtjs/robots made of that `robots`), and
- * development names the path; it keeps the cache exemption (`cache-control:
- * private, no-store`), since its render for a signed-in visitor still
- * carries the session's token. A key the app set for the path itself is
+ * is indexable again (`robots` and `sitemap` off its path, and what
+ * @nuxtjs/robots made of that `robots`: the `X-Robots-Tag` header, and
+ * with `disallowNonIndexableRoutes` the robots.txt line), and development
+ * names the path; it keeps the cache exemption (`cache-control: private,
+ * no-store`), since its render for a signed-in visitor still carries the
+ * session's token. A key or a line the app set for the path itself is
  * never touched.
  * Decided again each time the pages resolve, so a page that gains or loses
  * its `auth` rules in development takes its path's rules with it.
  */
 function decideReplacedPrivatePages(nuxt: Nuxt, files: Map<string, BackendPageDef>, paths: readonly PrivatePagePath[]): void {
   if (paths.length === 0) return
-  let nitro: { options: { routeRules: Record<string, unknown> } } | undefined
+  let nitro: { options: { routeRules: Record<string, unknown>, runtimeConfig?: Record<string, unknown> } } | undefined
   nuxt.hook('nitro:init', (instance) => {
     nitro = instance as unknown as typeof nitro
   })
@@ -285,6 +333,7 @@ function decideReplacedPrivatePages(nuxt: Nuxt, files: Map<string, BackendPageDe
       for (const table of tables) {
         if (table) setIndexRules(table, entry, isPublic)
       }
+      if (entry.robotsDisallow) setRobotsDisallow(robotsWildcardGroups([nuxt.options.runtimeConfig, nitro?.options.runtimeConfig]), entry, isPublic)
       if (isPublic && nuxt.options.dev && !warned.has(entry.path)) {
         warned.add(entry.path)
         logger.warn(`The app page at \`${entry.path}\` replaces the ready-made ${entry.def.key} page, which asks for a sign-in, and has no \`auth\` rules: it is public, so search engines may index it and sitemaps list it, and it stays out of caches (\`cache-control: private, no-store\`).`
@@ -317,6 +366,26 @@ function setIndexRules(table: Record<string, unknown>, entry: PrivatePagePath, i
     kept.headers = headers
   }
   table[entry.ruleKey] = kept
+}
+
+/**
+ * Take the private page's robots.txt line off for a public app page, or
+ * give it back: off every `*` group that has it, and back onto the ones
+ * it came off.
+ */
+function setRobotsDisallow(groups: readonly RobotsGroup[], entry: PrivatePagePath, indexable: boolean): void {
+  const line = entry.robotsDisallow
+  for (const group of groups) {
+    const lines = group.disallow as unknown[]
+    if (indexable && lines.includes(line)) {
+      group.disallow = lines.filter(other => other !== line)
+      entry.disallowedIn.add(group)
+    }
+    else if (!indexable && entry.disallowedIn.has(group) && !lines.includes(line)) {
+      group.disallow = [...lines, line]
+    }
+  }
+  if (!indexable) entry.disallowedIn.clear()
 }
 
 /** The SEO modules whose presence turns on the pricing page's Open Graph tags and structured data. */
@@ -365,7 +434,7 @@ export function registerModulePages(options: ModuleOptions, resolver: Resolver, 
   for (const def of mounting) {
     // A page with a parameter in its path (`/r/:code`) carries its rules as a pattern.
     const ruleKey = rulePattern(resolved[def.key]) ?? resolved[def.key]
-    if (def.auth) privatePaths.push({ def, path: resolved[def.key], ruleKey, own: ownIndexKeys(nuxt, ruleKey) })
+    if (def.auth) privatePaths.push({ def, path: resolved[def.key], ruleKey, own: ownIndexKeys(nuxt, ruleKey), robotsDisallow: robotsDisallowLine(nuxt, ruleKey), disallowedIn: new Set() })
     extendRouteRules(ruleKey, rulesFor(def) as Parameters<typeof extendRouteRules>[1])
   }
   warnOnCachedPrivatePages(nuxt, privatePagePaths(options.pages))
