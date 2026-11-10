@@ -665,11 +665,21 @@ describe('module registration (defaults)', () => {
 
   // Nuxt registers `app/pages/r/[code].vue` as `/r/:code()`, the referral page's `/r/:code` by another spelling.
   it('skips a page the app serves at a path with a parameter, however Nuxt spelled it', async () => {
-    for (const path of ['/r/:code()', '/r/:id()', '/r/:slug(.*)*']) {
+    for (const path of ['/r/:code()', '/r/:id()']) {
       const appReferral: NuxtPage = { name: 'r-code', path, file: join(fixtureDir, 'app/pages/r/[code].vue') }
       const pages = await extendPages(getNuxt(), [appReferral])
       expect(pages.map(page => page.name), path).not.toContain('backend-referral')
       expect(pages.filter(page => page.path.startsWith('/r/')), path).toEqual([appReferral])
+    }
+  })
+
+  // `app/pages/r/[...slug].vue` or `[[code]].vue` answers more addresses; the router ranks `/r/:code` above it, as on a page of its own.
+  it('keeps the referral page beside an app\'s catch-all or optional page under the same path', async () => {
+    for (const [path, file] of [['/r/:slug(.*)*', 'r/[...slug].vue'], ['/r/:code?', 'r/[[code]].vue']] as const) {
+      const appPage: NuxtPage = { name: 'r-any', path, file: join(fixtureDir, 'app/pages', file) }
+      const pages = await extendPages(getNuxt(), [appPage])
+      expect(pages.map(page => page.name), path).toContain('backend-referral')
+      expect(pages, path).toContain(appPage)
     }
   })
 

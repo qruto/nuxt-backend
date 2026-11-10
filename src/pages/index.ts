@@ -162,18 +162,20 @@ interface PageLike {
 }
 
 /** A segment that is one whole parameter: its name, its pattern (`.*`, `\\d+`, none) and its modifier (`?`, `*`, `+`). */
-const WHOLE_PARAMETER = /^:\w+(?:\(([^/]*)\))?[?*+]?$/
+const WHOLE_PARAMETER = /^:\w+(?:\(([^/]*)\))?([?*+]?)$/
 
 /**
  * A path as the router tells two apart, for override detection: trailing
- * slashes off, and each segment that is one whole parameter written `:`,
- * whatever its name and however Nuxt spelled it. A page file writes
- * `[code].vue` as `:code()`, `[[code]].vue` as `:code?` and
- * `[...slug].vue` as `:slug(.*)*`, and each of them answers every address
- * `/r/:code` does, so an app page there replaces the ready-made one. A
- * parameter with a pattern of its own (`:id(\\d+)`) keeps it: it answers
- * fewer addresses. In a partial segment (`:id()-draft`) only the empty `()`
- * goes.
+ * slashes off, and each segment that is one whole parameter written without
+ * its name, as Nuxt spelled it or not: a plain one is `:`, so `[code].vue`
+ * (`/r/:code()`) or `[id].vue` replaces the ready-made page at `/r/:code`.
+ * One with a pattern or a modifier of its own keeps them (`:(.*)*`, `:?`,
+ * `:(\\d+)`), so it replaces only a page of the same kind: a catch-all
+ * (`[...slug].vue`, `:slug(.*)*`) or an optional parameter (`[[code]].vue`,
+ * `:code?`) answers more addresses than `/r/:code`, and the router ranks the
+ * ready-made page above it, so both stay, as a pattern of its own
+ * (`:id(\\d+)`), which answers fewer, does. In a partial segment
+ * (`:id()-draft`) only the empty `()` goes.
  *
  * @internal
  */
@@ -181,8 +183,8 @@ export function pagePathShape(path: string): string {
   return normalizePagePath(path).split('/').map((segment) => {
     const parameter = WHOLE_PARAMETER.exec(segment)
     if (!parameter) return segment.replace(/(:\w+)\(\)/g, '$1')
-    const pattern = parameter[1]
-    return !pattern || pattern === '.*' ? ':' : `:(${pattern})`
+    const [, pattern, modifier] = parameter
+    return `:${pattern ? `(${pattern})` : ''}${modifier}`
   }).join('/')
 }
 

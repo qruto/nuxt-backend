@@ -161,12 +161,23 @@ describe('collectExistingPagePaths', () => {
 })
 
 describe('pagePathShape', () => {
-  it('writes every whole parameter alike, whatever its name and however Nuxt spelled it', () => {
+  it('writes every plain parameter alike, whatever its name and however Nuxt spelled it', () => {
     const referral = pagePathShape('/r/:code')
-    // [code].vue, a parameter of another name, [[code]].vue and [...slug].vue answer every address /r/:code does.
-    for (const path of ['/r/:code()', '/r/:id', '/r/:code?', '/r/:code()?', '/r/:slug(.*)*', '/r/:code+', '/r/:code/']) {
+    // [code].vue, a parameter of another name, a trailing slash.
+    for (const path of ['/r/:code()', '/r/:id', '/r/:id()', '/r/:code/']) {
       expect(pagePathShape(path), path).toBe(referral)
     }
+  })
+
+  // [[code]].vue and [...slug].vue answer more addresses than /r/:code, which the router ranks above them: both pages stay.
+  it('keeps an optional, repeatable or catch-all parameter apart from a plain one', () => {
+    const referral = pagePathShape('/r/:code')
+    for (const path of ['/r/:code?', '/r/:code()?', '/r/:slug(.*)*', '/r/:code+', '/r/:code*']) {
+      expect(pagePathShape(path), path).not.toBe(referral)
+    }
+    // Two of the same kind are still one shape, whatever their names.
+    expect(pagePathShape('/r/:slug(.*)*')).toBe(pagePathShape('/r/:path(.*)*'))
+    expect(pagePathShape('/r/:code?')).toBe(pagePathShape('/r/:id()?'))
   })
 
   it('keeps what tells two paths apart: static segments, their count, and a parameter\'s own pattern', () => {
