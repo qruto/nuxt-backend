@@ -109,29 +109,36 @@ describe('the invite page', () => {
     expect(part(failed, 'invite-form').exists()).toBe(true)
   })
 
-  it('checks nothing for a visitor signed in already, and leaves the link theirs to pass on', async () => {
+  it('checks and keeps nothing for a visitor signed in already, and takes the token off the address all the same', async () => {
     const backend = backendWith({ user: {} })
     window.history.replaceState(null, '', `/invite#${TOKEN}`)
     const wrapper = await page()
     expect(state(wrapper)).toBe('member')
     expect(backend.callsTo('access:checkInvite')).toEqual([])
     expect(keptInvite()).toBeNull()
-    expect(window.location.hash).toBe(`#${TOKEN}`)
+    // A bearer token: never in an address bar they copy, whoever holds the session.
+    expect(window.location.hash).toBe('')
     expect(part(wrapper, 'invite-status').text()).toBe('You\'re signed in already, so this invite stays unused. Pass it on to a friend.')
     expect(part(wrapper, 'invite-home').attributes('href')).toBe('/')
     expect(part(wrapper, 'invite-form').exists()).toBe(false)
   })
 
-  it('waits for the session before it checks anything', async () => {
+  it('waits for the session before it checks anything, with the token off the address at once and kept through a reload', async () => {
     const backend = backendWith()
     backend.state.isLoading = true
     window.history.replaceState(null, '', `/invite#${TOKEN}`)
     const wrapper = await page()
     expect(state(wrapper)).toBe('checking')
     expect(backend.callsTo('access:checkInvite')).toEqual([])
+    // Off the address before the session is known: out of the history and of an error report's URL.
+    expect(window.location.hash).toBe('')
+    wrapper.unmount()
+    // A reload while the session settles: the tab kept the token.
+    const reloaded = await page()
     backend.state.isLoading = false
     await flushPromises()
-    expect(state(wrapper)).toBe('valid')
+    expect(backend.callsTo('access:checkInvite')).toEqual([{ code: TOKEN }])
+    expect(state(reloaded)).toBe('valid')
   })
 
   it('sends a visitor the referral page sent here back to it once signed in, where they claim it themselves', async () => {

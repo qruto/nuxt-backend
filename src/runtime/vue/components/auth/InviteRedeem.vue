@@ -5,10 +5,12 @@
  * state in words, and the way on to sign in while it is valid. The token
  * stays in the tab, and the sign-in hands it over with the code. A code a
  * friend read out is typed instead, whenever no link brought one that
- * works. A visitor who is signed in already has nothing to redeem: nothing
- * is checked or kept, and the link stays theirs to pass on. A visitor the
- * referral page sent here (`?ref=`) goes back to it once signed in, to
- * claim it there.
+ * works. The token leaves the address on arrival, before the session is
+ * known, so it is never in a copied address bar, a history entry or an error
+ * report's URL, and the tab keeps it through a reload. A visitor who is
+ * signed in already has nothing to redeem: nothing is checked or kept, and
+ * the link they opened still admits a friend. A visitor the referral page
+ * sent here (`?ref=`) goes back to it once signed in, to claim it there.
  *
  * Internal: the page's body, built on `useInvite`.
  *
@@ -20,6 +22,7 @@ import { useAccessPhase, useInvite } from '../../composables/use-access'
 import { useBackendPagePath } from '../../composables/use-backend-page-path'
 import { useLabels } from '../../composables/use-labels'
 import { useReturnPath } from '../../composables/use-return-path'
+import { keepInvite, takeInviteFromAddress } from '../../utils/kept-invite'
 
 const invite = useInvite()
 const { phase } = useAccessPhase()
@@ -35,13 +38,19 @@ const checked = ref(false)
 const asked = ref(false)
 
 onMounted(() => {
+  // The link's token leaves the address at once, kept for the tab, so a reload while the session settles still has it.
+  const taken = takeInviteFromAddress()
+  if (taken) keepInvite(taken)
   // The session settles first: a signed-in visitor's link is neither checked nor kept.
   let started = false
   watch(() => auth != null && auth.isLoading.value, async (loading) => {
     if (loading || started) return
     started = true
-    if (!signedIn.value) {
-      asked.value = window.location.hash.length > 1 || invite.isKept.value
+    if (signedIn.value) {
+      invite.forget()
+    }
+    else {
+      asked.value = taken !== null || invite.isKept.value
       if (asked.value) await invite.check()
     }
     checked.value = true
