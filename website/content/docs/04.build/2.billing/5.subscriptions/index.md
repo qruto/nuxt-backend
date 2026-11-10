@@ -37,7 +37,7 @@ The buttons follow the subscription, not only the line:
 
 - **Keep plan** shows on any plan set to cancel, a failed payment set to end included. Its line then says when the plan ends.
 - **Cancel the change** shows on a scheduled change, unless the plan is set to end.
-- **Change plan** shows on a running plan that is not set to end, paused, gifted or already changing. It opens a picker of every price on sale but the one the plan is on, then the [switch's confirmation](#a-switch-says-what-it-does-first).
+- **Change plan** shows on a running plan that is not set to end, paused, gifted or already changing. It opens a picker of every price on sale but the one the plan is on, in the subscription's own currency (Polar keeps it on a plan change, wherever the subscriber is), then the [switch's confirmation](#a-switch-says-what-it-does-first).
 - **Pause plan** shows on a running plan with no pause scheduled, not set to end, not past due and not in its trial, since Polar pauses only an active subscription. It opens a group with what a pause does and its length, one to three months from the period's end, then **Confirm pause**.
 - **Cancel plan** shows unless the plan is set to end or paused, so no state offers a second cancellation the provider would refuse.
 - **Manage billing** opens the billing portal, for the payment method and the invoices, in every subscribed state. After a failed payment, **Update payment method** comes first.

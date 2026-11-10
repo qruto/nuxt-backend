@@ -249,6 +249,23 @@ describe('the plan section\'s switch and pause', () => {
     expect(part(wrapper, 'settings', 'switch-picker').exists()).toBe(false)
   })
 
+  it('prices the switch in the subscription\'s currency, which the provider keeps, not the one the visitor\'s country suggests', async () => {
+    const detected = useState<string | null>('backend:pricing:detected-currency')
+    const before = detected.value
+    detected.value = 'eur'
+    try {
+      const euros: Pricing = { ...PRICING, currency: 'eur', currencies: ['usd', 'eur'], plans: PRICING.plans.map(entry => ({ ...entry, prices: Object.fromEntries(Object.entries(entry.prices).map(([interval, at]) => [interval, { ...at, currency: 'eur', amount: at!.amount - 200 }])) })) }
+      const backend = subscribedTo('prod_pro', { currency: 'usd' })
+      backend.state.queries['billing:getPricing'] = (args: { currency?: string }) => (args.currency === 'usd' ? PRICING : euros)
+      const wrapper = await section()
+      await part(wrapper, 'settings', 'change-plan').trigger('click')
+      expect(part(wrapper, 'settings', 'switch-select').findAll('option').map(option => option.text())).toEqual(['Choose a plan', 'Pro, billed yearly · $90/yr', 'Team, billed monthly · $29/mo'])
+    }
+    finally {
+      detected.value = before
+    }
+  })
+
   it('says a yearly plan\'s switch to monthly waits for the year\'s end, and announces it as scheduled', async () => {
     subscribedTo('prod_pro_year')
     const wrapper = await section()

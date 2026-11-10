@@ -61,8 +61,14 @@ const workspace = useWorkspace()
 const billing = useBilling()
 const credits = useCredits()
 const features = useFeatures()
-// The prices a plan can switch to, read in the browser only, and only when the plan section shows.
-const pricing = usePricing({ server: false, actions: false, enabled: () => props.sections.includes('billing') })
+// The prices a plan can switch to, read in the browser only, and only when the plan section shows,
+// in the subscription's own currency: the provider keeps it on a plan change, so a
+// subscriber who pays in dollars is shown dollars wherever they are.
+const subscriptionCurrency = () => {
+  const currency = billing.subscription.value?.currency
+  return typeof currency === 'string' ? currency : undefined
+}
+const pricing = usePricing({ server: false, actions: false, currency: subscriptionCurrency, enabled: () => props.sections.includes('billing') })
 const config = useBackendConfig()
 const labels = useLabels('settings', () => props.labels)
 const { t, locale } = labels
