@@ -90,7 +90,10 @@
        on hover and while pressed (`translate` values: `-1px -2px` lifts it,
        `2px 2px` lands it). Left at `inherit`, a hover keeps the resting
        shadow and a press keeps the hover's, nothing moves, and nothing
-       transitions; `--bk-transition-control` is a `transition` value. */
+       transitions; `--bk-transition-control` is a `transition` value. Set,
+       the hover needs a pointer that hovers, and under
+       `prefers-reduced-motion: reduce` nothing moves or transitions
+       (shared.css). */
     --bk-shadow-control-hover: inherit;
     --bk-shadow-control-active: inherit;
     --bk-offset-control-hover: inherit;

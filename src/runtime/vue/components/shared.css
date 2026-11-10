@@ -39,14 +39,36 @@
     transition: var(--bk-transition-control);
   }
 
-  :where([data-backend]) :where(button, a, label, summary):where(:hover:not(:disabled, [aria-disabled='true'])) {
-    --_bk-press-shadow: var(--bk-shadow-control-hover);
-    --_bk-press-offset: var(--bk-offset-control-hover);
+  /* The state belongs to the element in it: custom properties inherit, so
+     a drawn button inside a hovered link, label or summary would read the
+     hover too. Each element below one starts from none; one in a state of
+     its own sets it again in the rules after this. */
+  :where([data-backend] :is(button, a, label, summary) *) {
+    --_bk-press-shadow: initial;
+    --_bk-press-offset: initial;
+  }
+
+  /* Only a pointer that hovers: after a tap, a touch screen keeps `:hover`
+     on what it touched, and the button would stay lifted. */
+  @media (hover: hover) {
+    :where([data-backend]) :where(button, a, label, summary):where(:hover:not(:disabled, [aria-disabled='true'])) {
+      --_bk-press-shadow: var(--bk-shadow-control-hover);
+      --_bk-press-offset: var(--bk-offset-control-hover);
+    }
   }
 
   :where([data-backend]) :where(button, a, label, summary):where(:active:not(:disabled, [aria-disabled='true'])) {
     --_bk-press-shadow: var(--bk-shadow-control-active, var(--bk-shadow-control-hover));
     --_bk-press-offset: var(--bk-offset-control-active, var(--bk-offset-control-hover));
+  }
+
+  /* Someone who asked for less motion: the shadow still changes, but
+     nothing moves and nothing transitions, whatever the tokens say. */
+  @media (prefers-reduced-motion: reduce) {
+    :where([data-backend]) :where(button, a, label, summary) {
+      --_bk-press-offset: initial;
+      transition: none;
+    }
   }
 }
 

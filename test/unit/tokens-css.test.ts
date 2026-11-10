@@ -227,6 +227,24 @@ describe('component tokens', () => {
     expect(lowest).toContain('letter-spacing: var(--bk-tracking-heading);')
   })
 
+  it('presses only the element in the state, hovers only under a pointer that hovers, and moves nothing for someone who asked for less motion', () => {
+    const lowest = shared.match(/@layer nuxt-backend-tokens \{([\s\S]*?)\n\}/)![1]!.replace(/\/\*[\s\S]*?\*\//g, '')
+    // Custom properties inherit: below a link, a label or a summary, each element starts from no state.
+    const reset = lowest.match(/:where\(\[data-backend\] :is\(button, a, label, summary\) \*\) \{\s*--_bk-press-shadow: initial;\s*--_bk-press-offset: initial;\s*\}/)
+    expect(reset).not.toBeNull()
+    // Before the states, so an element in one of its own sets it again.
+    expect(lowest.indexOf(reset![0])).toBeLessThan(lowest.indexOf(':hover'))
+    // A tap leaves `:hover` on a touch screen: the hover sets the state only under `(hover: hover)`.
+    const setsState = /:hover[^{]*\{[^}]*--_bk-press-/
+    const hover = lowest.match(/@media \(hover: hover\) \{([\s\S]*?)\n {2}\}/)
+    expect(hover?.[1]).toMatch(setsState)
+    expect(lowest.replace(hover![0], '')).not.toMatch(setsState)
+    // Last, over the hover and the press: no offset and no transition.
+    const reduce = lowest.match(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n {2}\}/)
+    expect(reduce?.[1]).toMatch(/:where\(\[data-backend\]\) :where\(button, a, label, summary\) \{\s*--_bk-press-offset: initial;\s*transition: none;\s*\}/)
+    expect(lowest.indexOf(reduce![0])).toBeGreaterThan(lowest.lastIndexOf(':active'))
+  })
+
   it('styles each component and part in a file named after it', () => {
     const named = stylesheets.map(([name]) => name).filter(name => name.includes('/'))
     expect(named.length).toBeGreaterThan(30)
