@@ -1464,17 +1464,17 @@ Everything the Inbox tab shows.
 
 Defined in: [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts)
 
-What `syncInbound` reports to `nuxt-backend email sync`.
+What `syncInbound` reports to `nuxt-backend email sync`, and to `doctor --fix`, which plans it with a dry run (`{ dryRun: true }`).
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="support-2"></a> `support` | `string` \| `null` | The support address, or `null` when `setupEmail` names none. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
-| <a id="inbox"></a> `inbox` | `"created"` \| `"found"` \| `null` | The inbox: found, made now, or `null` without a support address. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
+| <a id="inbox"></a> `inbox` | `"created"` \| `"would-create"` \| `"found"` \| `null` | The inbox: found, made now (`would-create` on a dry run), or `null` without a support address or a domain to make it on. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
 | <a id="domain-1"></a> `domain` | \| \{ `name`: `string`; `status`: `string`; `receiving`: `boolean`; \} \| `null` | The receiving domain's state at the provider, or `null` when the address names a domain the account does not hold. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
-| <a id="webhook-1"></a> `webhook` | \{ `state`: `"missing"` \| `"ok"` \| `"updated"`; `id`: `string` \| `null`; `added`: `string`[]; \} | The webhook that carries the events: found, its events completed, or missing (it needs the route's URL and secret, which only you can set). | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
-| `webhook.state` | `"missing"` \| `"ok"` \| `"updated"` | - | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
+| <a id="webhook-1"></a> `webhook` | \{ `state`: `"missing"` \| `"ok"` \| `"updated"` \| `"would-update"`; `id`: `string` \| `null`; `added`: `string`[]; \} | The webhook that carries the events: found, its events completed (`would-update` on a dry run, with the events it would add), or missing (it needs the route's URL and secret, which only you can set). | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
+| `webhook.state` | `"missing"` \| `"ok"` \| `"updated"` \| `"would-update"` | - | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
 | `webhook.id` | `string` \| `null` | - | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
 | `webhook.added` | `string`[] | - | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
 | <a id="todo"></a> `todo` | `string`[] | What is left to do by hand, in words. | [src/convex/integrations/inbound.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/inbound.ts) |
