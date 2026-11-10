@@ -1,6 +1,6 @@
 // The `backend:session-ended` hook is typed beside the watch (../utils/session-end), which this file loads.
 import { defineNuxtPlugin, useRouter, useRuntimeConfig } from '#imports'
-import { onFirstGuardedPage } from '../utils/page-rules'
+import { onFirstGuardedPage, signInPath } from '../utils/page-rules'
 
 /**
  * Sends a person to the sign-in page, with `?redirect=` back, when their
@@ -18,8 +18,7 @@ export default defineNuxtPlugin({
   name: 'nuxt-backend:session-ended',
   setup(nuxtApp) {
     const router = useRouter()
-    const pages = (useRuntimeConfig().public.backend as { pages?: { login?: string } } | undefined)?.pages
-    const loginPath = pages?.login ?? '/login'
+    const loginPath = signInPath((useRuntimeConfig().public.backend as { pages?: { login?: string | false } } | undefined)?.pages)
     onFirstGuardedPage(router, () => {
       Promise.all([import('../utils/auth-session'), import('../utils/session-end'), import('../utils/local-sign-out')])
         .then(([{ useAuthSession }, { watchSessionEnd }, { settledSessionKey }]) => nuxtApp.runWithContext(() => {

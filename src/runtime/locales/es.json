@@ -2057,6 +2057,10 @@
           "why": "Mantiene el aviso oculto durante el tiempo que fija la aplicación. Si no se permiten las preferencias, solo se conserva para la pestaña.",
           "lasts": "El periodo de espera de la aplicación, como máximo un año."
         },
+        "chunkReload": {
+          "why": "Evita que la página vuelva a recargarse durante un minuto, para que un fallo que persiste nunca se convierta en un bucle.",
+          "lasts": "Hasta que se cierra la pestaña."
+        },
         "pushSubscription": {
           "why": "La suscripción push permite a la aplicación enviar notificaciones a ese dispositivo. El service worker, cuando el navegador lo necesita, las muestra y abre la aplicación al hacer clic; no almacena nada en caché.",
           "lasts": "Hasta que la persona desactive las notificaciones en el dispositivo o retire el permiso del sitio."

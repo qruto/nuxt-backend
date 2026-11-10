@@ -147,6 +147,21 @@ describe('useLoginFlow, sign-in security', () => {
 })
 
 describe('useLoginFlow', () => {
+  // What markup of your own hides its passkey button by, as <AuthForm> does.
+  it('says whether this browser has WebAuthn once mounted, and nothing before', () => {
+    vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {})
+    let before: boolean | null | undefined
+    const flow = inSetup(() => {
+      const made = useLoginFlow()
+      before = made.webAuthnSupported.value
+      return made
+    })
+    expect(before).toBeNull()
+    expect(flow.webAuthnSupported.value).toBe(true)
+    vi.stubGlobal('PublicKeyCredential', undefined)
+    expect(inSetup(() => useLoginFlow()).webAuthnSupported.value).toBe(false)
+  })
+
   it('walks the OTP happy path: request → verify → passkey-offer → success', async () => {
     vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {})
     const onSuccess = vi.fn()
@@ -433,7 +448,7 @@ describe('AuthForm', () => {
     vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {})
     const FLOW_KEYS = [
       'addPasskey', 'age', 'bind', 'email', 'emailValid', 'error', 'goTo', 'inviteCode', 'isPending', 'lastMethod', 'otp',
-      'passkeyRequired', 'recover', 'recoveryCode', 'redeemInviteCode', 'reset', 'retryAfter', 'sendCode', 'signInWithPasskey', 'skipPasskey', 'step', 'submitAge', 'verifyCode', 'waitlist',
+      'passkeyRequired', 'recover', 'recoveryCode', 'redeemInviteCode', 'reset', 'retryAfter', 'sendCode', 'signInWithPasskey', 'skipPasskey', 'step', 'submitAge', 'verifyCode', 'waitlist', 'webAuthnSupported',
     ]
     const seen = new Map<string, string[]>()
     let flow!: UseLoginFlowReturn

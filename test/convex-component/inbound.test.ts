@@ -50,6 +50,8 @@ const inbound = { domain: 'in.panels.example', onReply: hooks.onReply, onWorkspa
 const email = setupEmail(components as never, { inbound: { ...inbound, support: 'support@panels.example' } })
 /** Only a contact mailbox: the copy goes there. */
 const copyOnly = setupEmail(components as never, { contact: { to: 'team@panels.example' } })
+/** A contact mailbox that is a test address: test mode lets the copy through. */
+const testCopy = setupEmail(components as never, { contact: { to: 'delivered@resend.dev' } })
 /** A support inbox test mode lets through. */
 const sandboxSupport = setupEmail(components as never, { inbound: { support: 'delivered+support@resend.dev' } })
 /** No destination at all. */
@@ -68,12 +70,13 @@ const deliver = actionGeneric({
     return { status: response.status }
   },
 })
-const syncRef = makeFunctionReference<'action', Record<string, never>, any>('email:syncInbound')
+const syncRef = makeFunctionReference<'action', { dryRun?: boolean }, any>('email:syncInbound')
 
 const testApp = defineBackendTestApp(defineSchema({}), {
   './_generated/api.js': () => Promise.resolve({}),
   './email.js': () => Promise.resolve({ ...email.api, makeAddress, deliver }),
   './copy.js': () => Promise.resolve({ ...copyOnly.api }),
+  './testcopy.js': () => Promise.resolve({ ...testCopy.api }),
   './sandbox.js': () => Promise.resolve({ ...sandboxSupport.api }),
   './bare.js': () => Promise.resolve({ ...bare.api }),
   './strict.js': () => Promise.resolve({ ...strict.api }),
@@ -82,6 +85,7 @@ type App = ReturnType<typeof testApp>
 
 const submit = makeFunctionReference<'action', { name?: string, email?: string, message: string, website?: string, locale?: string, human?: string | null }, { sent: true }>('email:submitContactMessage')
 const submitCopy = makeFunctionReference<'action', { name?: string, email?: string, message: string }, { sent: true }>('copy:submitContactMessage')
+const submitTestCopy = makeFunctionReference<'action', { name?: string, email?: string, message: string }, { sent: true }>('testcopy:submitContactMessage')
 const submitSandbox = makeFunctionReference<'action', { name?: string, email?: string, message: string }, { sent: true }>('sandbox:submitContactMessage')
 const submitBare = makeFunctionReference<'action', { name?: string, email?: string, message: string }, { sent: true }>('bare:submitContactMessage')
 const submitStrict = makeFunctionReference<'action', { name?: string, email?: string, message: string }, { sent: true }>('strict:submitContactMessage')
@@ -220,6 +224,27 @@ describe('the contact form', () => {
     expect(stored.delivery).toBe('support')
     const [row] = await root.run(ctx => ctx.db.query('contactMessages').collect())
     expect((await root.query(api.email.get, { emailId: row!.emailId! }))!.to).toEqual(['delivered+support@resend.dev'])
+  })
+
+  // `contact: { to: 'team@panels.example' }` on a dev deployment, where test mode would hold the team's address back.
+  test('copies a message for the contact mailbox to the sandbox inbox on a development deployment', async () => {
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'development')
+    await t.action(submitCopy, { ...stranger, email: 'mo@example.com' })
+    const admin = await asUser(t, { role: 'admin' })
+    expect((await admin.query(inboxOf, {}))!.rows).toEqual([expect.objectContaining({ from: 'mo@example.com', delivery: 'copy' })])
+  })
+
+  // `contact: { to: 'delivered@resend.dev' }` on a public demo, which publishes its dev inbox (`deploy --sandbox`): a visitor's message must not land where anyone may read it.
+  test('sends no copy to a test address a sandbox\'s public dev inbox would show, and keeps the message', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.stubEnv('BACKEND_ENVIRONMENT', 'sandbox')
+    vi.stubEnv('EMAIL_DEV_INBOX', '1')
+    await t.action(submitTestCopy, { ...stranger, email: 'mo@example.com' })
+    // A sandbox's administrator signs in with a passkey alone.
+    const admin = await asUser(t, { role: 'admin', passkeyOnly: true, signInMethod: 'passkey' })
+    expect((await admin.query(inboxOf, {}))!.rows).toEqual([expect.objectContaining({ from: 'mo@example.com', delivery: 'kept' })])
+    expect(logged(warn, 'email.contact_held')).toHaveLength(1)
+    expect(warn.mock.calls.flat().join(' ')).not.toContain('@example.com')
   })
 
   test('holds the copy back in test mode and without a key, and keeps the message', async () => {
@@ -576,6 +601,16 @@ describe('email sync', () => {
     expect(sdk.webhookUpdate).toHaveBeenCalledWith('wh_1', { events: ['email.sent', 'email.received', 'inbox.email.received'] })
     expect(report).toMatchObject({ support: 'support@panels.example', inbox: 'created', domain: { name: 'panels.example', receiving: false }, webhook: { state: 'updated', id: 'wh_1', added: ['inbox.email.received'] } })
     expect(report.todo).toEqual([expect.stringContaining('Turn on receiving for panels.example')])
+  })
+
+  test('says on a dry run what it would make, and makes none of it', async () => {
+    sdk.domains.mockResolvedValue({ data: { data: [{ name: 'panels.example', status: 'verified', capabilities: { sending: 'enabled', receiving: 'enabled' } }] }, error: null })
+    sdk.inboxGet.mockResolvedValue({ data: null, error: { name: 'not_found', message: 'no', statusCode: 404 } })
+    sdk.webhooks.mockResolvedValue({ data: { data: [{ id: 'wh_1', endpoint: 'https://panels.convex.site/email/events', events: ['email.sent'] }] }, error: null })
+    const report = await t.action(syncRef, { dryRun: true })
+    expect(report).toMatchObject({ inbox: 'would-create', domain: { name: 'panels.example', receiving: true }, webhook: { state: 'would-update', id: 'wh_1', added: ['email.received', 'inbox.email.received'] }, todo: [] })
+    expect(sdk.inboxCreate).not.toHaveBeenCalled()
+    expect(sdk.webhookUpdate).not.toHaveBeenCalled()
   })
 
   test('finds what is there and changes nothing', async () => {

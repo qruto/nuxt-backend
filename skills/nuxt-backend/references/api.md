@@ -66,7 +66,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useBackendConfig()` | `appConfig.backend` with the package defaults merged in — the shipped components read content (plan catalog, labels, brand) through this, so a partial user config is always safe to destructure. |
 | `useLabels()` | The labels of one packaged component's group, resolved for the person reading them. |
 | `useBackendPagePath()` | Where a ready-made page lives, for a link to it: the path the module mounted it at (the `pages` module option, else its default), in the active locale when the app uses `@nuxtjs/i18n` (through its `localePath`, so `/pricing` reads `/fr/pricing` under a prefix strategy). |
-| `useReturnPath()` | Where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere), else where sign-in lands (`redirects.afterSignIn`, `/` without it). |
+| `useReturnPath()` | Where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere, and never to the sign-in page, which would ask them to sign in again), else where sign-in lands (`redirects.afterSignIn`, `/` without it). |
 | `useEmailStatus()` | Reactive delivery status for a sent email. |
 | `useSandboxInbox()` | The mail a test address received within the last hour, refreshed while the page is open — so a demo, a preview deployment or an e2e run can finish an email-code sign-in without a real mailbox. |
 | `useWorkflowStatus()` | Reactively track a durable Workflow's status. |
@@ -438,7 +438,7 @@ Types: `RenderEmailOptions`, `BackendMock`, `BackendMockCall`, `BackendMockInit`
 | Export | What it is |
 |---|---|
 | `BACKEND_ESLINT_RULES` | The rules the preset turns on, at the levels of the plugin's own recommended config. |
-| `backendEslint()` | Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to the functions directory (tests excluded), and `nuxt-backend:generated` ignores every `_generated` folder in it. |
+| `backendEslint()` | Two flat-config entries: `nuxt-backend:convex` applies the Convex rules to the functions directory (tests excluded), and `nuxt-backend:generated` ignores every `_generated` folder in it and the files the module generates there (brand, paths, labels and the billing id map). |
 
 Types: `BackendEslintOptions`.
 
@@ -471,8 +471,8 @@ Check the project + deployment configuration.
 
 - `--cwd`: Project directory
 - `--json`: Machine-readable output
-- `--fix`: Repair what doctor can: restore missing scaffold files, add missing mounts and routes, push env (`env push`), at a terminal make the first administrator, and apply the provider settings the billing findings recommend and turn a webhook endpoint back on, each after you confirm it
-- `--yes`: With --fix: apply the provider changes without asking (for a script or CI)
+- `--fix`: Repair what doctor can: restore missing scaffold files, add missing mounts and routes, push env (`env push`), at a terminal make the first administrator, then, each after you confirm it, run `email sync`, apply the provider settings the billing findings recommend and turn a webhook endpoint back on
+- `--yes`: With --fix: run `email sync` and apply the provider changes without asking (for a script or CI; without it and without a terminal, they are listed and skipped)
 - `--prod`: Check the production deployment: missing email/billing config becomes a failure, its switches and email are read, and its live site is probed
 - `--only`: Check only these capabilities, comma-separated: auth, data, jobs, billing, email, notifications, ai, protection, monitoring, flags, analytics, hosting
 
@@ -613,7 +613,7 @@ Copy a part's, a page's or an email's packaged source into the app, stamped with
 
 ### `npx nuxt-backend deploy`
 
-Take production from nothing to a passing doctor --prod: link or create the production deployment, push its env, push the backend, sync the billing catalog, register both webhooks, write the app's env into the Vercel project, then run doctor --prod. Safe to run again.
+Take production from nothing to a passing doctor --prod: link or create the production deployment, push its env, push the backend, sync the billing catalog, run the package's data migrations, register both webhooks, write the app's env into the Vercel project, then run doctor --prod. Safe to run again.
 
 - `--cwd`: Project directory
 - `--dry-run`: Print every step it would take, and change nothing
@@ -711,6 +711,7 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `convex-config` | data | Mounts and routes |
 | `function-contract` | data | Function contract |
 | `agent-files` | data | Agent files |
+| `env-example` | data | .env.example |
 | `name-collisions` | data | Name collisions |
 | `bundle-duplicates` | data | Duplicate packages in the Convex bundle |
 | `billing-access` | billing | Billing access |

@@ -63,7 +63,7 @@ export interface AuthFormView {
   /** The heading, `''` for none. */
   title: ComputedRef<string>
   /** Whether this browser can run a passkey ceremony; `null` until mounted. */
-  passkeys: Ref<boolean | null>
+  passkeys: Readonly<Ref<boolean | null>>
   /** The id of the failure message, which a refused field is described by. */
   errorId: string
   /** The id of the sent-code note. */

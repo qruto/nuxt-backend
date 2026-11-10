@@ -57,9 +57,8 @@ const flow = useLoginFlow({
 // so the server render and the first client render agree. An in-app
 // browser or a plain-http origin has no WebAuthn: offering a passkey there
 // only ends in an error, so the form leaves it out and goes past the offer.
-const passkeys = ref<boolean | null>(null)
+const passkeys = flow.webAuthnSupported
 onMounted(() => {
-  passkeys.value = typeof window.PublicKeyCredential === 'function'
   // The ceremony and the auth client, loaded before the tap, which then opens the prompt in its own task.
   preparePasskeyPrompt()
 })

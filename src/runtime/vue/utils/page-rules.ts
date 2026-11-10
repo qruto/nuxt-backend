@@ -39,6 +39,16 @@ function comparablePath(path: string): string {
 }
 
 /**
+ * Where the page guard and the session-ended watch send a person to sign
+ * in: the packaged sign-in page's path from the runtime config, or
+ * `/login` when `pages.login: false` turned that page off and left the
+ * app's own there.
+ */
+export function signInPath(pages: { login?: string | false } | undefined): string {
+  return pages?.login || '/login'
+}
+
+/**
  * Whether a route's path is the page a server render was for (the payload's
  * `path`, query included): the page whose rules the server already checked.
  */

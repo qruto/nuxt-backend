@@ -33,6 +33,7 @@ import { pathsFileFinding } from './paths-sync'
 import { appBrandOf } from './brand-file'
 import { brandFileFinding } from './brand-sync'
 import { appLabelsOf } from './labels-file'
+import { envExampleFinding } from './env-example'
 import { labelsFileFinding } from './labels-sync'
 import { installableFinding, type InstallableOptions } from './installable'
 import type { BillingCatalog } from './convex/catalog'
@@ -1118,13 +1119,14 @@ function aiGatewayBudgetFinding(rootDir: string, posture: ProductionPosture, { d
   )]
 }
 
-/** The scaffold's own checks, on local files only: the generated files, the dev script, the mounts and routes, the agent files and name collisions. */
+/** The scaffold's own checks, on local files only: the generated files, the dev script, the mounts and routes, the agent files, `.env.example` and name collisions. */
 async function scaffoldFindings(rootDir: string, appConfig: () => Promise<AppConfig | null>): Promise<PreflightFinding[]> {
   return [
     ...await generatedFileFindings(rootDir, appConfig),
     ...devScriptFinding(rootDir),
     await convexConfigFinding(rootDir),
     agentFilesFinding(rootDir, installedVersion(rootDir)),
+    ...envExampleFinding(rootDir),
     nameCollisionFinding(rootDir),
     ...bundleDuplicatesFindings(rootDir),
   ]

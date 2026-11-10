@@ -88,6 +88,7 @@ Every name on this surface is brand-neutral: no export, value or type, and no re
 
 - `ModuleOptions` (`backend` in `nuxt.config`):
   - `authRoute`
+  - `chunkRecovery`
   - `css`
   - `devtools`
   - `installable`, and its keys `themeColor`, `backgroundColor`, `description`, `icons` and `maskable`
@@ -557,6 +558,7 @@ The backend component's maintenance is part of this surface by its windows: what
   - `deployment-removed-env`
   - `dev-script`
   - `env-defaults`
+  - `env-example`
   - `function-contract`
   - `labels-file`
   - `name-collisions`

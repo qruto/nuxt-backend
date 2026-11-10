@@ -120,7 +120,7 @@ describe('email sync', () => {
   test('keeps the flows\' settings, and makes each flow\'s template and automation once', async () => {
     const declared = ['welcome', 'activationNudge', 'firstResult', 'winBack']
     const dry = await t.action(syncRef, { dryRun: true })
-    expect(dry.flows).toEqual({ declared, unsynced: declared })
+    expect(dry.flows).toEqual({ declared, unsynced: declared, retired: [] })
     // Without a key, nothing is made at the provider, so nothing is kept: no flow starts.
     expect((await t.action(syncRef, { dryRun: false })).flows.unsynced).toEqual(declared)
 

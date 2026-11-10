@@ -5,6 +5,7 @@ import { v } from 'convex/values'
 import { defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { setupEmail } from '../../src/convex/integrations/email'
+import { lifecycleSettings } from '../../src/convex/integrations/email-lifecycle'
 import type { EmailSyncReport } from '../../src/convex/integrations/email-sync'
 
 // `email sync` against an account the provider pages: every listing the sync
@@ -44,7 +45,8 @@ const syncRef = makeFunctionReference<'action', { dryRun?: boolean }, EmailSyncR
 type KeptId = { kind: 'topic' | 'segment', key: string, providerId: string, version?: string }
 const saveIds = (t: App, ids: KeptId[]) => t.mutation(components.backend.preferences.saveProviderIds as unknown as FunctionReference<'mutation'>, { ids })
 const keptIds = (t: App) => t.query(components.backend.preferences.providerIds as unknown as FunctionReference<'query'>, {}) as Promise<KeptId[]>
-const flowSettings = (t: App) => t.query(components.backend.lifecycle.settings as unknown as FunctionReference<'query'>, {}) as Promise<{ syncedAt: number } | null>
+const flowSettings = (t: App) => t.query(components.backend.lifecycle.settings as unknown as FunctionReference<'query'>, {}) as Promise<{ syncedAt: number, flows: Array<{ flow: string }>, caps: unknown } | null>
+const configureFlows = (t: App, settings: { flows: unknown[], caps: unknown }) => t.mutation(components.backend.lifecycle.configure as unknown as FunctionReference<'mutation'>, settings)
 
 type Item = Record<string, unknown> & { id: string }
 interface Call { method: string, path: string, limit: string | null, after: string | null, body: Record<string, unknown> | undefined }
@@ -158,6 +160,17 @@ describe('email sync on an account with more than a page of each listing', () =>
     expect(await keptIds(t)).toContainEqual({ kind: 'segment', key: 'accounts', providerId: 'segment_accounts' })
     // A hundred to a page, the second from the first page's last.
     expect(reads('/segments').slice(-2).map(call => [call.limit, call.after])).toEqual([['100', null], ['100', 'segment_99']])
+  })
+
+  test('says on a dry run which ids it would store for what it found, though it finds everything there', async () => {
+    provider.listed['/segments'] = [{ id: 'segment_accounts', name: 'Accounts' }]
+    const dry = await t.action(syncRef, { dryRun: true })
+    expect([...entries(dry, 'topic'), ...entries(dry, 'segment')]).toEqual(['tips:exists', 'offers:exists', 'accounts:exists'])
+    expect(dry.ids).toEqual([{ kind: 'topic', key: 'tips' }, { kind: 'topic', key: 'offers' }, { kind: 'segment', key: 'accounts' }])
+    expect(await keptIds(t)).toEqual([])
+    // Stored by the sync itself, after which a dry run has none to store.
+    expect((await t.action(syncRef, {})).ids).toHaveLength(3)
+    expect((await t.action(syncRef, { dryRun: true })).ids).toEqual([])
   })
 
   test('follows the segment by the id it kept, past the first page, over another one named Accounts', async () => {
@@ -407,6 +420,17 @@ describe('email sync and the lifecycle flows', () => {
     expect(await flowSettings(t)).toBeNull()
     provider.answers = []
     expect((await t.action(syncRef, { dryRun: true })).flows.unsynced).toEqual(['welcome'])
+  })
+
+  test('names a flow the deployment still runs that the code no longer declares, and stops it on the sync', async () => {
+    await t.action(syncRef, {})
+    const kept = (await flowSettings(t))!
+    // The deployment runs winBack too, as it did before the app's code dropped it.
+    await configureFlows(t, { flows: [...kept.flows, ...lifecycleSettings({ winBack: { topic: 'offers' } }, TOPICS)], caps: kept.caps })
+    const dry = await t.action(syncRef, { dryRun: true })
+    expect(dry.flows).toEqual({ declared: ['welcome'], unsynced: [], retired: ['winBack'] })
+    expect((await t.action(syncRef, {})).flows).toEqual({ declared: ['welcome'], unsynced: [], retired: [] })
+    expect((await flowSettings(t))!.flows.map(flow => flow.flow)).toEqual(['welcome'])
   })
 
   test('writes the flows\' settings once, and leaves them as they are on a sync that finds nothing changed', async () => {

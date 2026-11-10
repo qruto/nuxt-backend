@@ -13,6 +13,19 @@ import { useNuxtApp, useRouter, useRuntimeConfig } from '#imports'
 
 const session = ref<{ data: unknown, isPending: boolean }>({ data: { session: { id: 's1' }, user: { id: 'u1' } }, isPending: false })
 const inContext = vi.hoisted(() => ({ calls: [] as boolean[] }))
+/** The sign-in path each watch the plugin starts was given. */
+const watched = vi.hoisted(() => ({ loginPaths: [] as unknown[] }))
+
+vi.mock('../../src/runtime/vue/utils/session-end', async (original) => {
+  const actual = await original<{ watchSessionEnd: (app: unknown, options: { loginPath: unknown }) => unknown }>()
+  return {
+    ...actual,
+    watchSessionEnd: (app: unknown, options: { loginPath: unknown }) => {
+      watched.loginPaths.push(options.loginPath)
+      return actual.watchSessionEnd(app, options)
+    },
+  }
+})
 
 vi.mock('nuxt-convex-module/better-auth/client', async () => {
   const { tryUseNuxtApp } = await import('#app')
@@ -71,5 +84,19 @@ describe('the session-ended plugin', () => {
     await nextTick()
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/signin'))
     expect(router.currentRoute.value.query.redirect).toBe('/account?tab=keys')
+  })
+
+  // `pages.login: false` publishes `false`: the app's own sign-in page answers at /login, as the page guard reads it.
+  it('sends a person to /login when the packaged sign-in page is off', async () => {
+    const config = useRuntimeConfig().public as Record<string, unknown>
+    config.backend = { ...(config.backend as object), pages: { login: false } }
+    session.value = { data: { session: { id: 's2' }, user: { id: 'u1' } }, isPending: false }
+    const nuxtApp = useNuxtApp()
+    const router = useRouter()
+    await router.push('/')
+    await nuxtApp.runWithContext(() => (plugin as unknown as (app: typeof nuxtApp) => unknown)(nuxtApp))
+    await router.push('/account')
+    // The auth client's chunk is warm from the case above.
+    await vi.waitFor(() => expect(watched.loginPaths).toEqual(['/signin', '/login']))
   })
 })

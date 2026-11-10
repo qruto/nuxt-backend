@@ -172,10 +172,26 @@ describe('the webhook', () => {
     expect(changes()).toEqual([])
   })
 
-  test('is turned back on and completed in one change', async () => {
+  test('is turned back on and nothing else: its events and the declared topics stay for the plain sync', async () => {
+    // A topic the sync would make, and a webhook off and missing events: the ask changes only the switch.
+    provider.listed['/topics'] = []
     provider.listed['/webhooks'] = [hook({ status: 'disabled', events: ['email.sent'] })]
-    expect((await t.action(syncRef, { webhook: HOOK, enableWebhook: true })).webhook).toEqual({ url: HOOK, action: 'updated', missingEvents: [], enabled: true, changed: 'enabled' })
-    expect(at('/webhooks/hook_ours').map(call => call.body)).toEqual([{ events: EVENTS, status: 'enabled' }])
+    const lacking = EVENTS.filter(event => event !== 'email.sent')
+    const report = await t.action(syncRef, { webhook: HOOK, enableWebhook: true })
+    expect(report).toMatchObject({ key: 'full', log: [], webhook: { url: HOOK, action: 'exists', missingEvents: lacking, enabled: true, changed: 'enabled' } })
+    expect(changes().map(call => [call.method, call.path, call.body])).toEqual([['PATCH', '/webhooks/hook_ours', { status: 'enabled' }]])
+
+    // A webhook gone since the read is reported missing, and nothing is made.
+    provider.calls = []
+    provider.listed['/webhooks'] = []
+    expect((await t.action(syncRef, { webhook: HOOK, enableWebhook: true })).webhook).toMatchObject({ url: HOOK, action: 'missing' })
+    expect(changes()).toEqual([])
+  })
+
+  test('given its events while off, stays off', async () => {
+    provider.listed['/webhooks'] = [hook({ status: 'disabled', events: ['email.sent'] })]
+    expect((await t.action(syncRef, { webhook: HOOK })).webhook).toEqual({ url: HOOK, action: 'updated', missingEvents: [], enabled: false })
+    expect(at('/webhooks/hook_ours').map(call => call.body)).toEqual([{ events: EVENTS }])
   })
 
   test('points at <site>/email/events by default, and is skipped with no site to point at, or when off', async () => {
