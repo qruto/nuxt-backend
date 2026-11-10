@@ -140,6 +140,14 @@ describe('the inline recovery', () => {
     expect(location.reload).toHaveBeenCalledOnce()
   })
 
+  // Vite's preload helper adds a `<link rel="stylesheet">` for a dynamic import's CSS, and Nuxt lets the import go on without it.
+  it('leaves a stylesheet that fails on a running app alone, while the page is still loading', () => {
+    const { fail, mount, location } = page({ readyState: 'interactive' })
+    mount()
+    fail({ tagName: 'LINK', rel: 'stylesheet', href: 'https://panels.app/_nuxt/LazyChart.css' })
+    expect(location.reload).not.toHaveBeenCalled()
+  })
+
   // A lazy component's chunk on a flaky connection, or a navigation's, which Nuxt reloads to itself.
   it('leaves a dynamic import that fails on a hydrated app to Nuxt', () => {
     const { failImport, mount, location } = page()

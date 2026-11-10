@@ -29,11 +29,15 @@ export const RELOAD_GUARD_KEY = 'nuxt-backend:reload'
 /**
  * The inline script: it reloads on a failed module script or stylesheet
  * served from `assetsDir` (the app's `app.buildAssetsDir`) before the page
- * has loaded, and on a failed dynamic import (`vite:preloadError`) before
- * the app has mounted, which the client plugin tells it (MOUNTED_EVENT).
- * Later failures keep Nuxt's handling: a reload on navigation, nothing for
- * a decoration. Without `sessionStorage` it stays put, since nothing would
- * stop a loop. It writes no DOM sink, so Trusted Types has nothing to refuse.
+ * has loaded, and on a failed dynamic import (`vite:preloadError`), both
+ * only before the app has mounted, which the client plugin tells it
+ * (MOUNTED_EVENT). The stylesheets in the head are done before the app
+ * runs, so the gate leaves out only the ones Vite adds later for a dynamic
+ * import's CSS: one of those fails on a running app, and Nuxt lets the
+ * import go on without it. Later failures keep Nuxt's handling: a reload on
+ * navigation, nothing for a decoration. Without `sessionStorage` it stays
+ * put, since nothing would stop a loop. It writes no DOM sink, so Trusted
+ * Types has nothing to refuse.
  */
 export function chunkRecoveryScript(assetsDir: string): string {
   // As a JavaScript string that cannot close the script element it sits in.
@@ -51,7 +55,7 @@ location.reload()
 }
 addEventListener('error',function(event){
 var el=event.target
-if(document.readyState==='complete'||!el||!el.tagName)return
+if(mounted||document.readyState==='complete'||!el||!el.tagName)return
 var module=el.tagName==='SCRIPT'&&el.type==='module'
 var style=el.tagName==='LINK'&&el.rel==='stylesheet'
 if((module||style)&&(el.src||el.href||'').indexOf(dir)>=0)recover()
