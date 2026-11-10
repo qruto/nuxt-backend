@@ -92,7 +92,7 @@ export default defineNuxtConfig({
 
 A browser that already stored HSTS for `localhost` keeps upgrading until that policy expires, up to 180 days with the default. Clear the stored policy, or wait it out.
 
-`convex.security: false` opts out of the Convex additions. `security: false` turns `nuxt-security` off entirely, which the package does not recommend.
+`convex.security: false` opts out of the Convex additions. `security: false` turns `nuxt-security` off entirely, which the package does not recommend. The chunk-load recovery then carries no nonce, since nothing puts one on it. A Content-Security-Policy of your own must allow it, with `'unsafe-inline'` in `script-src` or a nonce of your own on every script in the head; otherwise the browser blocks it and reports a violation on every page, so set `backend.chunkRecovery: false`.
 
 ## Resources other sites load
 

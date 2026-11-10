@@ -104,6 +104,13 @@ export interface ModuleOptions {
    * first in the head of a production build, with the request's nonce, and
    * a guard of its own in `sessionStorage`, so a page reloads once, never
    * in a loop. `false` leaves it out.
+   *
+   * With `security: false` the package sends no Content-Security-Policy, and
+   * the script carries no nonce. A policy of the app's own must then allow
+   * it, with `'unsafe-inline'` in `script-src` or a nonce of its own put on
+   * every script in the head, or the browser blocks it and reports a
+   * violation on every page; such an app sets `chunkRecovery: false`
+   * otherwise.
    */
   chunkRecovery?: boolean
 }
