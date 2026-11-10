@@ -236,17 +236,28 @@ describe('usePricing\'s plan actions', () => {
     const pricing = await read()
     expect(pricing.interval.value).toBe('month')
     await press(pricing, 'team')
-    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ productId: 'prod_team_year' }])
+    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ productId: 'prod_team_year', proration: 'invoice' }])
   })
 
-  it('changes a subscriber\'s plan instead of checking out', async () => {
+  it('changes a subscriber\'s plan instead of checking out, settling it at once as the packaged confirmations do', async () => {
     const backend = backendWith({}, PRICING, { 'billing:getCurrentSubscription': subscribedTo('prod_pro'), 'billing:getBillingAccess': { canManage: true } })
     backend.stub('billing:updateSubscription', () => null)
     const pricing = await read()
     pricing.setInterval('year')
     await press(pricing, 'team')
-    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ productId: 'prod_team_year' }])
+    // The switch `useBilling().changeOf` describes, whatever the organization's default proration.
+    expect(backend.callsTo('billing:updateSubscription')).toEqual([{ productId: 'prod_team_year', proration: 'invoice' }])
     expect(backend.callsTo('billing:generateCheckoutLink')).toEqual([])
+  })
+
+  it('checks a gifted plan\'s holder out, since the provider switches no pass', async () => {
+    const pass = { ...subscribedTo('prod_pass'), pass: { plan: 'pro', months: 3, startedAt: 0, endsAt: Date.parse('2099-01-01T00:00:00.000Z') } }
+    const backend = backendWith({}, PRICING, { 'billing:getCurrentSubscription': pass, 'billing:getBillingAccess': { canManage: true } })
+    backend.stub('billing:generateCheckoutLink', () => ({ url: 'https://checkout.example.com/pro' }))
+    const pricing = await read()
+    await press(pricing, 'pro')
+    expect(backend.callsTo('billing:updateSubscription')).toEqual([])
+    expect(backend.callsTo('billing:generateCheckoutLink')).toEqual([expect.objectContaining({ productIds: ['prod_pro'] })])
   })
 
   it('runs one action at a time, busy on its own button, and frees it when the action fails', async () => {

@@ -11,6 +11,7 @@ import { diagnostics } from '../utils/live-query'
 import { useBackendNamespace } from '../utils/namespace'
 import { askedInterval, onSite, pricingBindings, promotionRuns, shownInterval, usePageClock, type PricingBindings } from '../utils/pricing-bindings'
 import { useAuthSession } from '../utils/auth-session'
+import { CONFIRMED_PRORATION } from '../utils/plan-change-confirm'
 import { useBilling } from './use-billing'
 import { useCampaign } from './use-campaign'
 import { useBackendPagePath } from './use-backend-page-path'
@@ -181,7 +182,11 @@ export interface UsePricingReturn {
    * Attribute and handler bags for markup of your own: `periodSwitch`,
    * `planCard(plan)`, `planAction(plan)` and `packCard(pack)`. Spread
    * each with `v-bind`; they carry the accessibility attributes and the
-   * actions the packaged table has.
+   * actions the packaged table has. `planAction` asks nothing first: a
+   * subscriber's press switches at once with `proration: 'invoice'`,
+   * the switch `useBilling().changeOf` describes and the packaged
+   * confirmations make, so a step of your own before it can say what it
+   * does; a gifted plan's holder checks the plan out, which ends the gift.
    */
   bind: PricingBindings
 }
@@ -346,8 +351,11 @@ function intervalState(intervals: ComputedRef<PricingInterval[]>, query: () => u
 
 /**
  * The bindings with the actions behind `planAction`: a visitor goes to the
- * sign-in page and back, a subscriber changes plan, anyone else checks out,
- * with the address's campaign. One action at a time.
+ * sign-in page and back, a subscriber changes plan as the packaged
+ * confirmations do (`proration: 'invoice'`), anyone else checks out, with
+ * the address's campaign: a gifted plan's holder too, since the provider
+ * switches no pass, and its checkout replaces the pass in place. One
+ * action at a time.
  */
 function planActions(state: Pick<UsePricingReturn, 'interval' | 'setInterval' | 'pending'>, plans: ComputedRef<PricedPlan[] | undefined>, discount: string | undefined, successUrl: (key: string) => string | undefined): PricingBindings {
   const billing = useBilling()
@@ -371,7 +379,7 @@ function planActions(state: Pick<UsePricingReturn, 'interval' | 'setInterval' | 
     if (!price || state.pending.value !== null) return
     state.pending.value = key
     try {
-      if (billing.isSubscribed.value) await billing.changePlan(price.productId)
+      if (billing.isSubscribed.value && billing.pass.value === null) await billing.changePlan(price.productId, { proration: CONFIRMED_PRORATION })
       else {
         const back = successUrl(key)
         await billing.checkout(price.productId, { redirect: true, ...campaign.checkoutOptions.value, ...(discount ? { discount } : {}), ...(back ? { successUrl: back } : {}) })
