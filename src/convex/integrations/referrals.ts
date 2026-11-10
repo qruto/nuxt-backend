@@ -200,6 +200,18 @@ export interface Referrals {
    * for their share pages.
    */
   codeFor: (ctx: { runQuery: RunWriteCtx['runQuery'], runMutation?: RunWriteCtx['runMutation'] }, userId: string) => Promise<string | null>
+  /**
+   * Claim a new account's referral for `referrerId` from server code, in a
+   * mutation or an action: what a member's ticket does for the friend it
+   * admits (`access.memberTickets({ referrals })`). The referrer's code is
+   * made if they have none. The checks are the claim's own: the first
+   * referral claimed wins, an account older than a day is past
+   * attribution, an address that is the referrer's is refused, and the
+   * reward still waits for the first paid order and the hold. Never an
+   * error for a referral that cannot be claimed: `claimed` is `false` and
+   * `reason` says why.
+   */
+  claimFor: (ctx: RunWriteCtx, input: { referrerId: string, userId: string }) => Promise<{ claimed: true } | { claimed: false, reason: ClaimRefusal }>
   /** The program's terms as checked, with their defaults. */
   terms: ReferralTerms
 }
@@ -339,6 +351,17 @@ export function setupReferrals(components: ReferralComponents, options: SetupRef
     },
   })
 
+  /** Claim a code for an account, under the program's terms now, and record it on the referrer's activity. */
+  const claimCode = async (ctx: RunWriteCtx, code: string, userId: string): Promise<{ claimed: true } | { claimed: false, reason: ClaimRefusal }> => {
+    const claimed = await ctx.runMutation(refs.claim, { code, userId, terms: await termsFor(ctx) })
+    if (!claimed.claimed) return claimed
+    await registerSweep(ctx)
+    const referrer = await rewards.recipientOf(ctx, claimed.referrerId).catch(() => null)
+    // The app records it: the referrer's activity never names who signed up.
+    if (referrer) await options.billing.recordEvent(ctx, referrer.entityId, { type: 'referral.claimed', actor: null, targetId: claimed.id })
+    return { claimed: true }
+  }
+
   const claimReferral = mutationGeneric({
     args: { code: v.string(), fromSignIn: v.optional(v.boolean()) },
     handler: async (ctx, { code: input, fromSignIn }): Promise<{ claimed: true } | { claimed: false, reason: ClaimRefusal }> => {
@@ -348,13 +371,7 @@ export function setupReferrals(components: ReferralComponents, options: SetupRef
       if (stale) throw stale
       const code = codeFromInput(input)
       if (!code) return { claimed: false, reason: 'invalid' }
-      const claimed = await ctx.runMutation(refs.claim, { code, userId: me.userId, terms: await termsFor(ctx) })
-      if (!claimed.claimed) return claimed
-      await registerSweep(ctx)
-      const referrer = await rewards.recipientOf(ctx, claimed.referrerId).catch(() => null)
-      // The app records it: the referrer's activity never names who signed up.
-      if (referrer) await options.billing.recordEvent(ctx, referrer.entityId, { type: 'referral.claimed', actor: null, targetId: claimed.id })
-      return { claimed: true }
+      return claimCode(ctx, code, me.userId)
     },
   })
 
@@ -499,6 +516,7 @@ export function setupReferrals(components: ReferralComponents, options: SetupRef
       const found = ctx.runMutation ? await ctx.runMutation(refs.codeFor, { userId }) : await ctx.runQuery(refs.peekCode, { userId })
       return found?.sharePages ? found.code : null
     },
+    claimFor: async (ctx, { referrerId, userId }) => claimCode(ctx, (await ctx.runMutation(refs.codeFor, { userId: referrerId })).code, userId),
     terms,
   }
 }

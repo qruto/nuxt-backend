@@ -51,7 +51,14 @@
         "usedUp": "Cette invitation a déjà été utilisée.",
         "revoked": "Cette invitation n’est plus valide.",
         "unknown": "Ce lien d’invitation ne fonctionne pas. Vérifiez que vous avez ouvert le lien en entier.",
-        "continue": "Continuer vers la connexion"
+        "continue": "Continuer vers la connexion",
+        "blank": "Ouvrez le lien d’invitation que vous avez reçu, ou saisissez son code.",
+        "member": "Vous êtes déjà connecté, cette invitation reste donc inutilisée. Transmettez-la à un ami.",
+        "home": "Continuer",
+        "typeCode": "Code d’invitation",
+        "check": "Vérifier le code",
+        "noInvite": "Pas encore d’invitation ?",
+        "joinWaitlist": "Rejoindre la liste d’attente"
       },
       "challenge": "Confirmez que vous êtes une personne pour continuer."
     },
@@ -1564,7 +1571,11 @@
         "own": "C’est votre propre lien.",
         "invalid": "Ce lien ne fonctionne plus.",
         "checking": "Vérification du lien…",
-        "continue": "Continuer"
+        "continue": "Continuer",
+        "closed": "L’inscription demande une invitation pour le moment. Une fois votre compte créé, revenez à ce lien dans la journée pour en profiter.",
+        "haveInvite": "J’ai une invitation",
+        "joinWaitlist": "Rejoindre la liste d’attente",
+        "signIn": "Inscrit il y a moins d’un jour ? Connectez-vous pour en profiter"
       }
     },
     "pastDue": {
@@ -1705,9 +1716,14 @@
       "leaving": "Départ…",
       "left": "Vous avez quitté la liste d’attente. Votre adresse a été supprimée.",
       "page": {
-        "title": "Votre place",
+        "title": "Liste d’attente",
         "checking": "Vérification de votre place…",
-        "unknown": "Ce lien ne fonctionne pas. Ouvrez le lien de votre e-mail de confirmation."
+        "unknown": "Ce lien ne fonctionne pas. Ouvrez le lien de votre e-mail de confirmation, ou inscrivez-vous à nouveau.",
+        "member": "Vous êtes déjà connecté : pas de liste d’attente pour vous.",
+        "continue": "Continuer",
+        "open": "Tout le monde peut s’inscrire maintenant : il n’y a plus de liste d’attente.",
+        "closed": "La liste d’attente est fermée. L’inscription demande une invitation pour le moment.",
+        "haveInvite": "J’ai une invitation"
       }
     },
     "report": {

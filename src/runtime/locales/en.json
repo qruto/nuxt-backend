@@ -51,7 +51,14 @@
         "usedUp": "This invite has been used up.",
         "revoked": "This invite is no longer valid.",
         "unknown": "This invite link doesn't work. Check that you opened the whole link.",
-        "continue": "Continue to sign in"
+        "continue": "Continue to sign in",
+        "blank": "Open the invite link you were given, or enter its code.",
+        "member": "You're signed in already, so this invite stays unused. Pass it on to a friend.",
+        "home": "Continue",
+        "typeCode": "Invite code",
+        "check": "Check the code",
+        "noInvite": "No invite yet?",
+        "joinWaitlist": "Join the waitlist"
       },
       "challenge": "Confirm you're a person to continue."
     },
@@ -1564,7 +1571,11 @@
         "own": "This is your own link.",
         "invalid": "This link no longer works.",
         "checking": "Checking the link…",
-        "continue": "Continue"
+        "continue": "Continue",
+        "closed": "Signing up takes an invite right now. Once you have an account, come back to this link within a day to claim it.",
+        "haveInvite": "I have an invite",
+        "joinWaitlist": "Join the waitlist",
+        "signIn": "Signed up less than a day ago? Sign in to claim"
       }
     },
     "pastDue": {
@@ -1705,9 +1716,14 @@
       "leaving": "Leaving…",
       "left": "You left the waitlist. Your address is removed.",
       "page": {
-        "title": "Your place",
+        "title": "Waitlist",
         "checking": "Checking your place…",
-        "unknown": "This link doesn't work. Open the link in your confirmation email."
+        "unknown": "This link doesn't work. Open the link in your confirmation email, or join again.",
+        "member": "You're signed in already, so there's no waitlist for you.",
+        "continue": "Continue",
+        "open": "Everyone can sign up now: there's no waitlist.",
+        "closed": "The waitlist is closed. Signing up takes an invite right now.",
+        "haveInvite": "I have an invite"
       }
     },
     "report": {

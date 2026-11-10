@@ -51,7 +51,14 @@
         "usedUp": "Diese Einladung wurde bereits vollständig eingelöst.",
         "revoked": "Diese Einladung ist nicht mehr gültig.",
         "unknown": "Dieser Einladungslink funktioniert nicht. Prüfen Sie, ob Sie den vollständigen Link geöffnet haben.",
-        "continue": "Weiter zur Anmeldung"
+        "continue": "Weiter zur Anmeldung",
+        "blank": "Öffnen Sie den Einladungslink, den Sie erhalten haben, oder geben Sie seinen Code ein.",
+        "member": "Sie sind bereits angemeldet, daher bleibt diese Einladung unbenutzt. Geben Sie sie an einen Freund weiter.",
+        "home": "Weiter",
+        "typeCode": "Einladungscode",
+        "check": "Code prüfen",
+        "noInvite": "Noch keine Einladung?",
+        "joinWaitlist": "Auf die Warteliste"
       },
       "challenge": "Bestätigen Sie, dass Sie ein Mensch sind, um fortzufahren."
     },
@@ -1564,7 +1571,11 @@
         "own": "Das ist Ihr eigener Link.",
         "invalid": "Dieser Link funktioniert nicht mehr.",
         "checking": "Link wird geprüft…",
-        "continue": "Weiter"
+        "continue": "Weiter",
+        "closed": "Für die Registrierung braucht es derzeit eine Einladung. Sobald Sie ein Konto haben, öffnen Sie diesen Link innerhalb eines Tages erneut, um es einzulösen.",
+        "haveInvite": "Ich habe eine Einladung",
+        "joinWaitlist": "Auf die Warteliste",
+        "signIn": "Vor weniger als einem Tag registriert? Melden Sie sich an, um es einzulösen"
       }
     },
     "pastDue": {
@@ -1705,9 +1716,14 @@
       "leaving": "Wird verlassen…",
       "left": "Sie haben die Warteliste verlassen. Ihre Adresse wurde entfernt.",
       "page": {
-        "title": "Ihr Platz",
+        "title": "Warteliste",
         "checking": "Ihr Platz wird geprüft…",
-        "unknown": "Dieser Link funktioniert nicht. Öffnen Sie den Link in Ihrer Bestätigungs-E-Mail."
+        "unknown": "Dieser Link funktioniert nicht. Öffnen Sie den Link in Ihrer Bestätigungs-E-Mail, oder tragen Sie sich erneut ein.",
+        "member": "Sie sind bereits angemeldet, eine Warteliste gibt es für Sie nicht.",
+        "continue": "Weiter",
+        "open": "Jetzt kann sich jeder registrieren: Es gibt keine Warteliste mehr.",
+        "closed": "Die Warteliste ist geschlossen. Für die Registrierung braucht es derzeit eine Einladung.",
+        "haveInvite": "Ich habe eine Einladung"
       }
     },
     "report": {

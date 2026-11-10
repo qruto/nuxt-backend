@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { enableAutoUnmount, flushPromises } from '@vue/test-utils'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { clearNuxtData } from '#app'
 import { backendError } from '../../src/convex/errors'
 import { createBackendMock, resetBackendMock } from '../../src/runtime/test-utils'
@@ -13,10 +13,15 @@ import { forgetInvite, keepInvite, keptInvite } from '../../src/runtime/vue/util
 // function to check it, and the Access tab's data without the functions it
 // writes through.
 
+// The page's address, read on the server or in the browser (see the helper).
+const { requestURL, serverRequest } = await vi.hoisted(() => import('../helpers/request-url'))
+mockNuxtImport('useRequestURL', original => (opts?: Parameters<typeof requestURL>[1]) => requestURL(original, opts))
+
 enableAutoUnmount(afterEach)
 beforeEach(() => {
   clearNuxtData()
   forgetInvite()
+  serverRequest.current = null
 })
 afterEach(() => resetBackendMock())
 
@@ -150,6 +155,31 @@ describe('useMemberTicket', () => {
     expect(ticket.ticket.value).toEqual(issued)
     expect(ticket.link.value).toMatch(/\/invite#0123456789ABCDEFGHJKMNPQRS$/)
     expect([ticket.isLoading.value, ticket.error.value]).toEqual([false, null])
+  })
+
+  it('carries the token alone, never a referral code: the ticket says who let a friend in, not the link', async () => {
+    // A deployment from before answering a code with the ticket.
+    createBackendMock({ user: { name: 'Ada' }, queries: { 'access:getMemberTicket': { ...issued, referral: 'ADA23456' } } })
+    const ticket = await inPage(() => useMemberTicket())
+    await flushPromises()
+    expect(ticket.link.value).toBe(`${window.location.origin}/invite#0123456789ABCDEFGHJKMNPQRS`)
+  })
+
+  it('builds the same link on the server as in the browser, so it hydrates unchanged', async () => {
+    createBackendMock({ user: { name: 'Ada' }, queries: { 'access:getMemberTicket': issued } })
+    const linked = async (request: typeof serverRequest.current) => {
+      serverRequest.current = request
+      const ticket = await inPage(() => useMemberTicket())
+      serverRequest.current = null
+      await flushPromises()
+      return ticket.link.value
+    }
+    // The server, reached on the host the browser asked for.
+    const rendered = await linked({ path: '/invite', headers: { 'host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })
+    expect(rendered).toBe(`${window.location.origin}/invite#0123456789ABCDEFGHJKMNPQRS`)
+    expect(rendered).toBe(await linked(null))
+    // An https site whose edge reaches the server over http, on the same host: a host the client forwarded is never read.
+    expect(await linked({ path: '/invite', headers: { 'host': 'panels.app', 'x-forwarded-host': 'elsewhere.example', 'x-forwarded-proto': 'https' } })).toBe('https://panels.app/invite#0123456789ABCDEFGHJKMNPQRS')
   })
 
   it('mints one on issue, and shows it until the live read catches up', async () => {

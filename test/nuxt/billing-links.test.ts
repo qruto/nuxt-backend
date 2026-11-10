@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { computed, defineComponent, h, provide } from 'vue'
 import { makeFunctionReference } from 'convex/server'
 import { ConvexClientKey, ConvexVueClient } from 'nuxt-convex-module/client'
@@ -7,6 +8,11 @@ import { silentConnectLogger } from '../helpers/silent-logger'
 import { openProviderUrl } from '../../src/runtime/vue/utils/open-url'
 import type { BillingApi } from '../../src/runtime/vue/composables/use-billing'
 import { registerComponents } from '../helpers/register-components'
+import { createGiftCheckout } from '../../src/runtime/vue/composables/billing-provider'
+
+// The page's address, read on the server or in the browser (see the helper).
+const { requestURL, serverRequest } = await vi.hoisted(() => import('../helpers/request-url'))
+mockNuxtImport('useRequestURL', original => (opts?: Parameters<typeof requestURL>[1]) => requestURL(original, opts))
 
 await registerComponents('BillingCheckoutLink', 'BillingPortalLink', 'PricingEmailOptOut')
 // After the registration, as the module registers them: the checkout link renders the soft opt-in part by name.
@@ -36,6 +42,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  serverRequest.current = null
   vi.restoreAllMocks()
   vi.mocked(openProviderUrl).mockClear()
 })
@@ -113,6 +120,53 @@ describe('<BillingCheckoutLink>', () => {
     await flushPromises()
 
     expect((wrapper.vm as unknown as { errors: unknown[] }).errors).toEqual([refusal])
+  })
+})
+
+describe('the origin a checkout returns to', () => {
+  /** The `origin` a checkout sends, set up as a render of `request` (`null`: the browser), then clicked. */
+  async function checkoutOrigin(request: typeof serverRequest.current): Promise<unknown> {
+    const action = vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://checkout.test/1' })
+    serverRequest.current = request
+    const wrapper = render(BillingCheckoutLink, { productIds: ['prod_pro'] })
+    serverRequest.current = null
+    await wrapper.find('a').trigger('click')
+    await flushPromises()
+    wrapper.unmount()
+    return (action.mock.calls.at(-1)![1] as { origin: unknown }).origin
+  }
+
+  /** The `origin` a gift checkout sends, set up as a render of `request`. */
+  async function giftOrigin(request: typeof serverRequest.current): Promise<unknown> {
+    const action = vi.spyOn(client, 'action').mockResolvedValue({ url: 'https://checkout.test/gift' })
+    let send!: ReturnType<typeof createGiftCheckout>
+    serverRequest.current = request
+    const wrapper = mount(defineComponent({
+      setup() {
+        provide(ConvexClientKey, client)
+        return () => h(defineComponent({
+          setup() {
+            send = createGiftCheckout({ giftCheckout: makeFunctionReference<'action'>('billing:giftCheckout') } as unknown as BillingApi)
+            return () => null
+          },
+        }))
+      },
+    }))
+    serverRequest.current = null
+    await send('credits100', { recipientEmail: 'friend@example.com', redirect: false })
+    wrapper.unmount()
+    return (action.mock.calls.at(-1)![1] as { origin: unknown }).origin
+  }
+
+  it('is the same whether the checkout was set up on the server or in the browser', async () => {
+    for (const origin of [checkoutOrigin, giftOrigin]) {
+      // The server, reached on the host the browser asked for.
+      const rendered = await origin({ path: '/pricing', headers: { 'host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })
+      expect(rendered).toBe(window.location.origin)
+      expect(rendered).toBe(await origin(null))
+      // An https site whose edge reaches the server over http, on the same host: a host the client forwarded is never read.
+      expect(await origin({ path: '/pricing', headers: { 'host': 'panels.app', 'x-forwarded-host': 'elsewhere.example', 'x-forwarded-proto': 'https' } })).toBe('https://panels.app')
+    }
   })
 })
 

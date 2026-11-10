@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { defineComponent, reactive } from 'vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, h, provide, reactive } from 'vue'
 import { enableAutoUnmount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { makeFunctionReference } from 'convex/server'
@@ -7,12 +7,27 @@ import { backendError } from '../../src/convex/errors'
 import type { ReferralPreview } from '../../src/convex/integrations/referrals'
 import { createBackendMock, resetBackendMock, type BackendMock } from '../../src/runtime/test-utils'
 import type { UseReferralInviteOptions, UseReferralInviteReturn } from '../../src/runtime/vue/composables/use-referral-invite'
+import { BackendApiKey } from '../../src/runtime/vue/utils/namespace'
 import { registerComponents } from '../helpers/register-components'
 
 // The page a referral link opens, `/r/<code>`: the test app has no pages, so
 // the route the link opens is stood in for, with its code and query.
 const route = reactive<{ path: string, fullPath: string, params: Record<string, string | string[]>, query: Record<string, string> }>({ path: '/r/ADA123', fullPath: '/r/ADA123', params: { code: 'ADA123' }, query: {} })
 mockNuxtImport('useRoute', () => () => route)
+
+// The namespaces asked for with no fallback: in development, each one the app
+// lacks warns that its backend file is missing.
+const required = vi.hoisted(() => [] as string[])
+vi.mock('../../src/runtime/vue/utils/namespace', async (original) => {
+  const actual = await original<typeof import('../../src/runtime/vue/utils/namespace')>()
+  return {
+    ...actual,
+    useBackendNamespace: (name: string, composable: string, api?: unknown) => {
+      if (api === undefined && actual.useApiNamespace(name) === undefined) required.push(name)
+      return actual.useBackendNamespace(name, composable, api)
+    },
+  }
+})
 
 await registerComponents('ReferralLanding')
 const { default: ReferralLanding } = await import('../../src/runtime/vue/components/billing/ReferralLanding.vue')
@@ -31,8 +46,9 @@ afterEach(() => resetBackendMock())
 
 const PREVIEW: ReferralPreview = { inviter: 'Ada', program: { referred: { kind: 'discount', name: '20% off' }, referrer: { kind: 'months', months: 1 }, holdDays: 30, caps: { perReferrer: null, perMonth: null } } }
 
+/** The backend of a public app (the phase read) with this link's preview. */
 function backendWith(preview: ReferralPreview | null = PREVIEW, user?: Record<string, unknown>): BackendMock {
-  const backend = createBackendMock({ ...(user ? { user } : {}), queries: { 'referrals:previewReferral': (args: { code: string }) => (args.code === 'ADA123' ? preview : null) } })
+  const backend = createBackendMock({ ...(user ? { user } : {}), queries: { 'access:getAccessPhase': { phase: 'public' }, 'referrals:previewReferral': (args: { code: string }) => (args.code === 'ADA123' ? preview : null) } })
   backend.stub('referrals:claimReferral', () => ({ claimed: true }))
   return backend
 }
@@ -61,7 +77,7 @@ const state = (wrapper: VueWrapper) => part(wrapper, 'landing').attributes('data
 
 describe('the referral link\'s page', () => {
   it('checks the link first, as a busy status', async () => {
-    const backend = createBackendMock()
+    const backend = createBackendMock({ queries: { 'access:getAccessPhase': { phase: 'public' } } })
     const wrapper = await landing()
     expect(state(wrapper)).toBe('checking')
     expect(part(wrapper, 'landing').attributes('aria-busy')).toBe('true')
@@ -83,6 +99,117 @@ describe('the referral link\'s page', () => {
     expect(part(wrapper, 'landing-claim').exists()).toBe(false)
     // Nothing is claimed for a visitor.
     expect(backend.callsTo('referrals:claimReferral')).toEqual([])
+  })
+
+  it('tells a visitor while the app is closed that signing up takes an invite, and offers the ways in that come back here', async () => {
+    const backend = backendWith()
+    backend.state.queries['access:getAccessPhase'] = { phase: 'early-access' }
+    const wrapper = await landing()
+    expect(state(wrapper)).toBe('ready')
+    expect(part(wrapper, 'landing').attributes('data-closed')).toBe('true')
+    expect(part(wrapper, 'landing-closed').text()).toBe('Signing up takes an invite right now. Once you have an account, come back to this link within a day to claim it.')
+    // The invite page carries the code: the sign-in it leads to comes back here to claim.
+    expect(part(wrapper, 'landing-invite').attributes('href')).toBe('/invite?ref=ADA123')
+    expect(part(wrapper, 'landing-waitlist').attributes('href')).toBe('/waitlist')
+    expect(part(wrapper, 'landing-sign-in').attributes('href')).toBe(`/login?redirect=${encodeURIComponent('/r/ADA123?claim=1')}`)
+    // Only an account from the last day can still claim (`too_late` after it): the sign-in promises no more.
+    expect(part(wrapper, 'landing-sign-in').text()).toBe('Signed up less than a day ago? Sign in to claim')
+    expect(part(wrapper, 'landing-sign-up').exists()).toBe(false)
+
+    // Invite only, the waitlist takes nobody new.
+    backend.state.queries['access:getAccessPhase'] = { phase: 'invite-only' }
+    await flushPromises()
+    expect(part(wrapper, 'landing-waitlist').exists()).toBe(false)
+    expect(part(wrapper, 'landing-invite').exists()).toBe(true)
+
+    // Public, the sign-up is the way in again.
+    backend.state.queries['access:getAccessPhase'] = { phase: 'public' }
+    await flushPromises()
+    expect(part(wrapper, 'landing').attributes('data-closed')).toBeUndefined()
+    expect(part(wrapper, 'landing-sign-up').exists()).toBe(true)
+    expect(part(wrapper, 'landing-closed').exists()).toBe(false)
+  })
+
+  it('offers a visitor no way in while the phase loads, neither the sign-up nor a ticket, and says it is checking', async () => {
+    const backend = backendWith()
+    delete backend.state.queries['access:getAccessPhase']
+    const wrapper = await landing()
+    expect(state(wrapper)).toBe('ready')
+    expect(part(wrapper, 'landing-from').text()).toBe('Ada invited you.')
+    expect(part(wrapper, 'landing').attributes('aria-busy')).toBe('true')
+    // Busy with words: a screen reader hears why there is no way in yet.
+    expect(part(wrapper, 'landing-status').attributes('role')).toBe('status')
+    expect(part(wrapper, 'landing-status').text()).toBe('Checking the link…')
+    expect(part(wrapper, 'landing').attributes('data-closed')).toBeUndefined()
+    for (const name of ['landing-sign-up', 'landing-closed', 'landing-invite', 'landing-waitlist', 'landing-sign-in']) expect(part(wrapper, name).exists()).toBe(false)
+
+    backend.state.queries['access:getAccessPhase'] = { phase: 'invite-only' }
+    await flushPromises()
+    expect(part(wrapper, 'landing').attributes('aria-busy')).toBeUndefined()
+    expect(part(wrapper, 'landing-closed').exists()).toBe(true)
+    expect(part(wrapper, 'landing-sign-up').exists()).toBe(false)
+    expect(part(wrapper, 'landing-status').exists()).toBe(false)
+  })
+
+  it('offers the sign-up once the phase is still unread after a few seconds, as when it could not be read', async () => {
+    // Time still runs for the page's own ticks; the wait is skipped ahead.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true })
+    try {
+      const backend = backendWith()
+      delete backend.state.queries['access:getAccessPhase']
+      const wrapper = await landing()
+      expect(part(wrapper, 'landing-sign-up').exists()).toBe(false)
+      // A connection that never opens leaves no visitor without a way in: the sign-up's own check still holds one without a ticket.
+      await vi.advanceTimersByTimeAsync(5000)
+      await flushPromises()
+      expect(part(wrapper, 'landing').attributes('aria-busy')).toBeUndefined()
+      expect(part(wrapper, 'landing-status').exists()).toBe(false)
+      expect(part(wrapper, 'landing-sign-up').exists()).toBe(true)
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('says whether the app is closed, for a page of the app\'s own, and lets a signed-in person claim whatever the phase', async () => {
+    const backend = backendWith(PREVIEW, {})
+    delete backend.state.queries['access:getAccessPhase']
+    const invite = await withInvite()
+    // Not read yet: neither open nor closed.
+    expect(invite.closed.value).toBeUndefined()
+    backend.state.queries['access:getAccessPhase'] = { phase: 'invite-only' }
+    await flushPromises()
+    expect(invite.closed.value).toBe(true)
+    expect(invite.state.value).toBe('claimable')
+    backend.state.queries['access:getAccessPhase'] = { phase: 'public' }
+    await flushPromises()
+    expect(invite.closed.value).toBe(false)
+  })
+
+  it('reads a phase that could not be read as open, so the sign-up stays on offer', async () => {
+    const backend = backendWith()
+    delete backend.state.queries['access:getAccessPhase']
+    backend.fail('access:getAccessPhase', backendError('unavailable', { service: 'backend', reason: 'unexpected' }))
+    const wrapper = await landing()
+    expect(part(wrapper, 'landing-sign-up').exists()).toBe(true)
+    expect(part(wrapper, 'landing-closed').exists()).toBe(false)
+  })
+
+  it('offers the sign-up in an app without backend/access.ts, and warns of no missing file: such an app is open', async () => {
+    backendWith()
+    required.length = 0
+    // The app's function tree with its referral program and no access functions.
+    const api = { referrals: { previewReferral: makeFunctionReference('referrals:previewReferral'), claimReferral: makeFunctionReference('referrals:claimReferral') } }
+    const wrapper = await mountSuspended(defineComponent({
+      setup() {
+        provide(BackendApiKey, api)
+        return () => h(ReferralLanding)
+      },
+    }))
+    await flushPromises()
+    expect(part(wrapper, 'landing-sign-up').exists()).toBe(true)
+    expect(part(wrapper, 'landing-closed').exists()).toBe(false)
+    expect(required).toEqual([])
   })
 
   it('words a trial, an offer of nothing, and an inviter without a name', async () => {

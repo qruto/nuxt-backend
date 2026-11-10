@@ -150,7 +150,7 @@ The base module's, under neutral names: `<Authenticated>`, `<Unauthenticated>`, 
 | `accessibility` | `/legal/accessibility` | The accessibility statement (public): the standard the app follows, how it is checked, and where to report a barrier, filled from `appConfig.backend.legal` and marked "not legal advice". |
 | `admin` | `/admin` | The admin console: accounts, workspaces, the activity trail and the app's health (private and hidden: it answers 404 to anyone without the `admin` role). |
 | `gifts` | `/gifts` | The gifts a person sent and received, with resend, change, cancel and claim (private). |
-| `invite` | `/invite` | Where an access link lands (public, kept out of search indexes): it checks the link's token and sends the person on to sign in. |
+| `invite` | `/invite` | Where an access link lands (public, kept out of search indexes): it checks the link's token, or a code typed by hand, and sends the person on to sign in. |
 | `keepAccount` | `/account/keep` | Where the "keep my account" link of a scheduled deletion lands (public, kept out of search indexes). |
 | `login` | `/login` | The sign-in page (public, kept out of search indexes), and where the page guard sends a signed-out visitor. |
 | `pricing` | `/pricing` | The pricing page (public). |
@@ -163,7 +163,7 @@ The base module's, under neutral names: `<Authenticated>`, `<Unauthenticated>`, 
 | `subprocessors` | `/legal/subprocessors` | The subprocessor list (public): each service that processes personal data for the capabilities the app uses, what it handles, where, and its agreement; marked "not legal advice". |
 | `terms` | `/legal/terms` | The terms of service (public): the company and contact, accounts and sign-in, plans and renewal, the merchant of record's role and the content rules, filled from `appConfig.backend.legal` and the capabilities the app uses, and marked "not legal advice". |
 | `unsubscribe` | `/unsubscribe` | Where a topic email's unsubscribe link and a double opt-in's confirmation link land (public, kept out of search indexes and caches): one press leaves the topic, or confirms it. |
-| `waitlist` | `/waitlist` | Where a waitlist status link lands (public, kept out of search indexes): a person's place in the line, read from the signed token in the link's fragment. |
+| `waitlist` | `/waitlist` | The waitlist (public, kept out of search indexes): the join in early access, and a person's place in the line, read from the signed token in a status link's fragment; it follows the launch phase. |
 | `welcome` | `/welcome` | The first run a new account sees once after its first sign-in: name, workspace, teammates and a plan, with steps of your own (private). |
 
 ## Import paths

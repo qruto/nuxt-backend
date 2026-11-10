@@ -2,6 +2,7 @@ import { computed, getCurrentInstance, onMounted, ref, toValue, watch, type Ref 
 import { useAction } from 'nuxt-convex-module/client'
 import { VISITOR_IP_ROUTE } from '../../../convex/constants.js'
 import { openProviderUrl } from '../utils/open-url'
+import { usePageOrigin } from '../utils/page-origin'
 import { type BackendError, failureOf } from '../utils/backend-error'
 import type { BillingApi, BillingPage, CheckoutOptions, GiftOptions, PageFetcher, ProviderPager, ProviderPagerOptions } from './use-billing'
 
@@ -61,9 +62,9 @@ async function visitorIp(): Promise<string | undefined> {
  */
 export function createCheckout(billing: BillingApi) {
   const runCheckout = billing.generateCheckoutLink ? useAction(billing.generateCheckoutLink) : null
+  const origin = usePageOrigin()
   return async (productIds: string | string[], opts: CheckoutOptions = {}): Promise<string> => {
     if (!runCheckout) notConfigured('checkout')
-    const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const successUrl = opts.successUrl ?? (typeof window !== 'undefined' ? window.location.href : '')
     const customerIpAddress = await visitorIp()
     const { url } = await runCheckout({
@@ -226,9 +227,9 @@ export function createProviderPager<Item>(
  */
 export function createGiftCheckout(billing: BillingApi) {
   const runGiftCheckout = billing.giftCheckout ? useAction(billing.giftCheckout) : null
+  const origin = usePageOrigin()
   return async (item: string, opts: GiftOptions & { recipientEmail: string, months?: number, deliverAt?: Date | number }): Promise<string> => {
     if (!runGiftCheckout) notConfigured('gift')
-    const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const successUrl = opts.successUrl ?? (typeof window !== 'undefined' ? window.location.href : '')
     const { url } = await runGiftCheckout({
       ...(opts.months === undefined ? { pack: item } : { plan: item, months: opts.months }),

@@ -452,6 +452,7 @@ const waitlistFlow = {
   ref: ref<string | null>(null),
   dropReferral: vi.fn(),
   place: computed(() => world.waitlistPlace.value),
+  shareLink: computed(() => (world.waitlistPlace.value?.shareCode ? `/?ref=${world.waitlistPlace.value.shareCode}` : null)),
   isLoading: computed(() => false),
   signedIn: ref(false),
   // The step a press starts: the flow is busy until it settles, which it never does here.

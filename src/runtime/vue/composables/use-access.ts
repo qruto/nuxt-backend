@@ -1,14 +1,17 @@
 import type { DefaultFunctionArgs, FunctionReference } from 'convex/server'
 import { computed, inject, ref, type ComputedRef, type Ref } from 'vue'
+import { useRoute } from '#imports'
 import { ConvexAuthStateKey, useMutation } from 'nuxt-convex-module/client'
 import { useAsyncQuery } from 'nuxt-convex-module/app'
 import type { AccessConsole, AccessPhaseState, AdmitResult, MemberTicket } from '../../../convex/integrations/launch'
 import type { AccessPhase, InviteKind, InviteStatus } from '../../../convex/access-tickets'
+import { normalizeShareCode } from '../../../convex/referral-rules'
 import { useActionState } from '../utils/action-state'
 import { type BackendError, failureOf } from '../utils/backend-error'
 import { forgetInvite, keepInvite, keptInvite, takeInviteFromAddress } from '../utils/kept-invite'
 import { absentQuery, diagnostics, useLiveQuery } from '../utils/live-query'
-import { useBackendNamespace } from '../utils/namespace'
+import { useApiNamespace, useBackendNamespace } from '../utils/namespace'
+import { usePageOrigin } from '../utils/page-origin'
 import { useBackendPagePath } from './use-backend-page-path'
 
 export type { AccessConsole, AccessPhaseState, AdmitResult, MemberTicket } from '../../../convex/integrations/launch'
@@ -99,6 +102,22 @@ export interface UseInviteReturn {
   isKept: ComputedRef<boolean>
   /** Drop the kept code or token. */
   forget: () => void
+  /**
+   * The referral code the address carries, `/invite?ref=<code>`: the
+   * referral page links here with it for a visitor who holds an invite
+   * while the app is closed. `null` without one, or with no referral page
+   * to go back to. It claims nothing by itself.
+   */
+  referral: ComputedRef<string | null>
+  /**
+   * Where the way on to sign in goes: the sign-in page, which hands the kept
+   * code over; with a `referral`, returning to that referral page, where
+   * the person claims it with its button once signed in. A member's ticket
+   * of `memberTickets({ referrals })` has claimed the friend for its
+   * member by then, whatever the address says. `null` with the sign-in
+   * page turned off.
+   */
+  signInTo: ComputedRef<string | null>
 }
 
 /**
@@ -121,10 +140,20 @@ export interface UseInviteReturn {
  */
 export function useInvite(options: UseInviteOptions = {}): UseInviteReturn {
   const api = useBackendNamespace<AccessApiRefs>('access', 'useInvite', options.api)
+  const route = useRoute()
+  const loginPath = useBackendPagePath('login')
+  const landing = useBackendPagePath('referral')
+  // A referral is only carried back to a page that can claim it: the referral page, over the app's claim.
+  const claims = Boolean(landing.value && useApiNamespace<{ claimReferral?: unknown }>('referrals')?.claimReferral)
   const runCheck = api.checkInvite ? useMutation(api.checkInvite) : null
   const { isPending, failure, run } = useActionState()
   const status = ref<InviteStatus | null>(null)
   const kept = ref(keptInvite() !== null)
+  const referral = computed(() => {
+    const value = route.query.ref
+    const code = Array.isArray(value) ? value[0] : value
+    return claims && typeof code === 'string' ? normalizeShareCode(code) : null
+  })
 
   const check: UseInviteReturn['check'] = async (codeOrToken) => {
     // A link's token leaves the address at once, so it is kept first: a check
@@ -163,6 +192,14 @@ export function useInvite(options: UseInviteOptions = {}): UseInviteReturn {
       forgetInvite()
       kept.value = false
     },
+    referral,
+    signInTo: computed(() => {
+      if (!loginPath.value) return null
+      if (!referral.value || !landing.value) return loginPath.value
+      // Back to the page, never its claim: the address alone claims nothing, the person does, with the page's button.
+      const back = landing.value.replace(':code', encodeURIComponent(referral.value))
+      return `${loginPath.value}?redirect=${encodeURIComponent(back)}`
+    }),
   }
 }
 
@@ -253,7 +290,11 @@ export interface UseMemberTicketReturn {
    * signed out, `undefined` while it is read.
    */
   ticket: ComputedRef<MemberTicket | null | undefined>
-  /** The link to share once issued, `<origin>/invite#<token>` on the page's own origin in the browser (the `invite` page's path; the path alone while rendered on the server), else `null`. */
+  /**
+   * The link to share once issued, `<origin>/invite#<token>` on the page's
+   * own origin (on the server, the request's own host, never a forwarded
+   * one) and the `invite` page's path, else `null`.
+   */
   link: ComputedRef<string | null>
   /** Mint the member's ticket, or answer the one they hold. Rejects on failure, which `error` holds too. */
   issue: () => Promise<MemberTicket>
@@ -271,7 +312,8 @@ export interface UseMemberTicketReturn {
  * friends past the waitlist. `issue` mints it the first time and answers
  * the same one after, until it expires. The token rides in the link's
  * fragment, out of every server's logs, and the packaged `/invite` page
- * redeems it.
+ * redeems it. With `memberTickets({ referrals })`, each friend it admits
+ * counts as the member's referral from the moment their account is made.
  *
  * @example
  * ```vue
@@ -296,6 +338,7 @@ export function useMemberTicket(options: UseMemberTicketOptions = {}): UseMember
   // What `issue` answered, until the live read catches up with it.
   const issued = ref<MemberTicket | null>(null)
   const invitePath = useBackendPagePath('invite')
+  const origin = usePageOrigin()
   const ticket = computed<MemberTicket | null | undefined>(() => {
     if (authLoading.value) return undefined
     if (signedOut.value) return null
@@ -306,8 +349,6 @@ export function useMemberTicket(options: UseMemberTicketOptions = {}): UseMember
     link: computed(() => {
       const current = ticket.value
       if (current?.state !== 'issued' || !invitePath.value) return null
-      // The page's own origin, as the browser sees it: a server behind a proxy may know another.
-      const origin = typeof window === 'undefined' ? '' : window.location.origin
       return `${origin}${invitePath.value}#${current.token}`
     }),
     issue: () => run(async () => {

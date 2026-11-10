@@ -1,5 +1,5 @@
 import type { FunctionReference } from 'convex/server'
-import { computed, type ComputedRef, reactive, ref, type Ref, shallowRef } from 'vue'
+import { computed, type ComputedRef, type MaybeRefOrGetter, reactive, ref, type Ref, shallowRef, toValue } from 'vue'
 import { useRoute } from '#imports'
 import { useAction, useMutation } from 'nuxt-convex-module/client'
 import type { WaitlistCaps, WaitlistConsole, WaitlistPlace, WaitlistStatusView } from '../../../convex/integrations/waitlist'
@@ -14,6 +14,7 @@ import { useBackendNamespace } from '../utils/namespace'
 import { useCampaign } from './use-campaign'
 import { useHumanCheck } from './use-human-check'
 import { useLabels } from './use-labels'
+import { usePageOrigin } from '../utils/page-origin'
 
 export type { WaitlistCaps, WaitlistConsole, WaitlistEntryRow, WaitlistPlace, WaitlistStatusView } from '../../../convex/integrations/waitlist'
 export type { WaitlistStatus } from '../../../convex/waitlist-rules'
@@ -54,6 +55,11 @@ export interface UseWaitlistOptions {
   ref?: string | null
   /** Validate the address before sending a code (as `useLoginFlow` does). Default: a basic shape check. */
   validateEmail?: (email: string) => boolean | string
+  /**
+   * The page a friend's link opens, for `shareLink`: the one with the join
+   * form, as a path on this site. Default: the page this runs on.
+   */
+  shareTo?: MaybeRefOrGetter<string | undefined>
 }
 
 /** The attributes and handlers custom markup spreads on its elements. */
@@ -87,6 +93,13 @@ export interface UseWaitlistReturn {
   dropReferral: () => void
   /** The person's standing once their code checked (or a status link was opened), live: `undefined` before that. */
   place: ComputedRef<WaitlistPlace | WaitlistStatusView | undefined>
+  /**
+   * The link a waiting person shares: `shareTo` on the page's own origin
+   * (on the server, the request's own host, never a forwarded one), with
+   * their code as `?ref=<shareCode>`, which a join there carries. `null`
+   * until the place is a waiting one with a code.
+   */
+  shareLink: ComputedRef<string | null>
   /** `true` while a status token's place is first read. */
   isLoading: ComputedRef<boolean>
   /** `true` once the code signed the person in instead: they hold a ticket, or the app is no longer in early access. */
@@ -134,8 +147,8 @@ export function campaignSource(source: string, attribution: CampaignAttribution 
 }
 
 /** The `?ref=` of the page address, read once. */
-function referralFromAddress(): string | null {
-  const value = useRoute().query.ref
+function referralFromAddress(route: ReturnType<typeof useRoute>): string | null {
+  const value = route.query.ref
   const code = Array.isArray(value) ? value[0] : value
   return typeof code === 'string' && code.trim() ? code.trim() : null
 }
@@ -168,6 +181,7 @@ function referralFromAddress(): string | null {
  */
 export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn {
   const api = useBackendNamespace<WaitlistApiRefs>('waitlist', 'useWaitlist', options.api)
+  const route = useRoute()
   const auth = useAuthSession()
   const activeLocale = useActiveLocale()
   const human = useHumanCheck()
@@ -189,7 +203,7 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
   const code = ref('')
   // The key the join answered: the code check carries it, so only this browser's join applies.
   let joinKey: string | undefined
-  const ref_ = ref<string | null>(options.ref === undefined ? referralFromAddress() : options.ref)
+  const ref_ = ref<string | null>(options.ref === undefined ? referralFromAddress(route) : options.ref)
   const signedIn = ref(false)
   const pending = ref(false)
   const error = ref<BackendError | null>(null)
@@ -202,6 +216,14 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
   const token = ref<string | null>(null)
   const live = api.waitlistStatus ? useLiveQuery(api.waitlistStatus, () => (token.value ? { token: token.value } : 'skip')) : absentQuery<WaitlistStatusView | null>()
   const place = computed(() => live.data.value ?? joined.value ?? undefined)
+  const origin = usePageOrigin()
+  const shareLink = computed(() => {
+    const standing = place.value
+    const code = standing?.status === 'waiting' ? standing.shareCode : ''
+    if (!code) return null
+    const to = toValue(options.shareTo) || route.path || '/'
+    return `${origin}${to}${to.includes('?') ? '&' : '?'}ref=${encodeURIComponent(code)}`
+  })
   const asked = api.getWaitlistQuestions ? useLiveQuery(api.getWaitlistQuestions, {}) : absentQuery<WaitlistQuestions>()
 
   const trimmed = () => email.value.trim()
@@ -289,6 +311,7 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
       ref_.value = null
     },
     place,
+    shareLink,
     isLoading: computed(() => live.isLoading.value),
     signedIn,
     join,

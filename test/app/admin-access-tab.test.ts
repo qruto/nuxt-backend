@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, type VueWrapper } from '@vue/test-utils'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { backendError } from '../../src/convex/errors'
 import type { AccessConsole } from '../../src/convex/integrations/launch'
 import { createBackendMock, resetBackendMock, type BackendMock } from '../../src/runtime/test-utils'
@@ -14,8 +14,13 @@ const { default: AdminAccess } = await import('../../src/runtime/vue/components/
 // what it shows, the revocations behind a confirmation, and the invitations
 // by address from a pasted list, with what was skipped and why.
 
+// The page's address, read on the server or in the browser (see the helper).
+const { requestURL, serverRequest } = await vi.hoisted(() => import('../helpers/request-url'))
+mockNuxtImport('useRequestURL', original => (opts?: Parameters<typeof requestURL>[1]) => requestURL(original, opts))
+
 enableAutoUnmount(afterEach)
 afterEach(() => {
+  serverRequest.current = null
   resetBackendMock()
   vi.restoreAllMocks()
 })
@@ -46,6 +51,30 @@ const message = (wrapper: VueWrapper) => wrapper.find('[data-admin="message"]')
 const cells = (row: { findAll: (selector: string) => Array<{ text: () => string }> }) => row.findAll('th, td').map(cell => cell.text())
 
 describe('the Access tab', () => {
+  it('shows an access link on the same origin whether the tab was set up on the server or in the browser', async () => {
+    administrator()
+    /** The link the tab shows once made, the tab set up as a render of `request` (`null`: the browser). */
+    const made = async (request: typeof serverRequest.current) => {
+      serverRequest.current = request
+      const wrapper = await tab()
+      serverRequest.current = null
+      const form = wrapper.find('[data-admin="access-create"]')
+      await form.find('select').setValue('link')
+      await form.find('input[type="date"]').setValue('2026-12-31')
+      await form.trigger('submit')
+      await flushPromises()
+      const text = wrapper.find('[data-admin="access-secret"]').text()
+      wrapper.unmount()
+      return text
+    }
+    // The server, reached on the host the browser asked for.
+    const rendered = await made({ path: '/admin', headers: { 'host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })
+    expect(rendered).toBe(`${window.location.origin}/invite#7KQ2M-XW9PA`)
+    expect(rendered).toBe(await made(null))
+    // An https site whose edge reaches the server over http, on the same host: a host the client forwarded is never read.
+    expect(await made({ path: '/admin', headers: { 'host': 'panels.app', 'x-forwarded-host': 'elsewhere.example', 'x-forwarded-proto': 'https' } })).toBe('https://panels.app/invite#7KQ2M-XW9PA')
+  })
+
   it('makes an access link that expires at the end of its day, and shows it once as an address on this site', async () => {
     const backend = administrator()
     const wrapper = await tab()

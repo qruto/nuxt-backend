@@ -49,6 +49,10 @@ const REFERRAL_LABELS = {
     invalid: 'This link no longer works.',
     checking: 'Checking the link…',
     continue: 'Continue',
+    closed: 'Signing up takes an invite right now. Once you have an account, come back to this link within a day to claim it.',
+    haveInvite: 'I have an invite',
+    joinWaitlist: 'Join the waitlist',
+    signIn: 'Signed up less than a day ago? Sign in to claim',
   },
 } satisfies LabelTree
 

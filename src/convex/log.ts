@@ -23,6 +23,7 @@ export const LOG_CODES = {
   'consent.under_age_cookie_unset': 'An age under the minimum was refused, but the browser could not be told to remember the refusal for a day; the refusal stands.',
   'access.invitation_unsent': 'An invitation by address was made with "Email them", but its email was not sent (the provider refused it, or the address cannot receive mail here); the invitation stands.',
   'access.ticket_unrecorded': 'A new account signed up with a ticket while the app was closed, and the ticket was not recorded against it (the ledger row or the access.ticket_used event); the account was created.',
+  'access.referral_unclaimed': 'A friend a member\'s ticket admitted may not count as the member\'s referral (memberTickets({ referrals })): the referral program threw, before its claim or while recording it on the member\'s activity; the account was created.',
   'waitlist.mirror_drift': 'A launch-news contact could not be written to the email provider after its retries; its waitlist entry is flagged and the next maintenance pass tries again.',
   'waitlist.admitted_unsent': 'A waitlist entry was admitted, but its "You\'re in" email was not sent; the ticket stands.',
   'waitlist.confirmation_unsent': 'A new waitlist entry was recorded, but its confirmation email (the status link) or its join event was not sent; the entry stands.',

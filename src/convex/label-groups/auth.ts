@@ -70,6 +70,13 @@ const AUTH_LABELS = {
     revoked: 'This invite is no longer valid.',
     unknown: 'This invite link doesn\'t work. Check that you opened the whole link.',
     continue: 'Continue to sign in',
+    blank: 'Open the invite link you were given, or enter its code.',
+    member: 'You\'re signed in already, so this invite stays unused. Pass it on to a friend.',
+    home: 'Continue',
+    typeCode: 'Invite code',
+    check: 'Check the code',
+    noInvite: 'No invite yet?',
+    joinWaitlist: 'Join the waitlist',
   },
   // Over the bot check's challenge, while it asks for a click (off Vercel, with challenge keys).
   challenge: 'Confirm you\'re a person to continue.',

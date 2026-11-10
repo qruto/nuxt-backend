@@ -51,7 +51,14 @@
         "usedUp": "Esta invitación ya se ha agotado.",
         "revoked": "Esta invitación ya no es válida.",
         "unknown": "Este enlace de invitación no funciona. Comprueba que abriste el enlace completo.",
-        "continue": "Continuar al inicio de sesión"
+        "continue": "Continuar al inicio de sesión",
+        "blank": "Abre el enlace de invitación que te enviaron o escribe su código.",
+        "member": "Ya has iniciado sesión, así que esta invitación queda sin usar. Pásasela a un amigo.",
+        "home": "Continuar",
+        "typeCode": "Código de invitación",
+        "check": "Comprobar el código",
+        "noInvite": "¿Aún no tienes invitación?",
+        "joinWaitlist": "Únete a la lista de espera"
       },
       "challenge": "Confirma que eres una persona para continuar."
     },
@@ -1564,7 +1571,11 @@
         "own": "Este es tu propio enlace.",
         "invalid": "Este enlace ya no funciona.",
         "checking": "Comprobando el enlace…",
-        "continue": "Continuar"
+        "continue": "Continuar",
+        "closed": "Ahora mismo hace falta una invitación para registrarse. Cuando tengas cuenta, vuelve a este enlace en menos de un día para reclamarla.",
+        "haveInvite": "Tengo una invitación",
+        "joinWaitlist": "Únete a la lista de espera",
+        "signIn": "¿Te registraste hace menos de un día? Inicia sesión para reclamarla"
       }
     },
     "pastDue": {
@@ -1705,9 +1716,14 @@
       "leaving": "Saliendo…",
       "left": "Saliste de la lista de espera. Tu dirección se ha eliminado.",
       "page": {
-        "title": "Tu posición",
+        "title": "Lista de espera",
         "checking": "Comprobando tu posición…",
-        "unknown": "Este enlace no funciona. Abre el enlace de tu correo de confirmación."
+        "unknown": "Este enlace no funciona. Abre el enlace de tu correo de confirmación o vuelve a unirte.",
+        "member": "Ya has iniciado sesión, así que no tienes que esperar en la lista.",
+        "continue": "Continuar",
+        "open": "Ya puede registrarse cualquiera: no hay lista de espera.",
+        "closed": "La lista de espera está cerrada. Ahora mismo hace falta una invitación para registrarse.",
+        "haveInvite": "Tengo una invitación"
       }
     },
     "report": {

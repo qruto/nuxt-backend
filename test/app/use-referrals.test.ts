@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { enableAutoUnmount, flushPromises } from '@vue/test-utils'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { backendError } from '../../src/convex/errors'
 import type { ReferralProgram } from '../../src/convex/integrations/referrals'
 import { createBackendMock, resetBackendMock, type BackendMock } from '../../src/runtime/test-utils'
@@ -12,8 +12,13 @@ import { useReferrals, type UseReferralsReturn } from '../../src/runtime/vue/com
 // both sides get; copying and sharing them; and the choice to carry the code
 // on shared pages.
 
+// The page's address, read on the server or in the browser (see the helper).
+const { requestURL, serverRequest } = await vi.hoisted(() => import('../helpers/request-url'))
+mockNuxtImport('useRequestURL', original => (opts?: Parameters<typeof requestURL>[1]) => requestURL(original, opts))
+
 enableAutoUnmount(afterEach)
 afterEach(() => {
+  serverRequest.current = null
   resetBackendMock()
   vi.restoreAllMocks()
   vi.useRealTimers()
@@ -28,19 +33,32 @@ function signedIn(program: ReferralProgram = PROGRAM): BackendMock {
   return backend
 }
 
-async function inPage(): Promise<UseReferralsReturn> {
+/** useReferrals in a page; with `request`, its setup runs as a server render of that request. */
+async function inPage(request: typeof serverRequest.current = null): Promise<UseReferralsReturn> {
   let result!: UseReferralsReturn
+  serverRequest.current = request
   await mountSuspended(defineComponent({
     setup() {
       result = useReferrals()
       return () => h('div')
     },
   }))
+  serverRequest.current = null
   await flushPromises()
   return result
 }
 
 describe('useReferrals', () => {
+  it('builds the same link on the server as in the browser, so it hydrates unchanged', async () => {
+    signedIn()
+    // The server, reached on the host the browser asked for.
+    const rendered = (await inPage({ path: '/settings', headers: { 'host': window.location.host, 'x-forwarded-proto': window.location.protocol.slice(0, -1) } })).link.value
+    expect(rendered).toBe(`${window.location.origin}/r/ADA%20123`)
+    expect(rendered).toBe((await inPage()).link.value)
+    // An https site whose edge reaches the server over http, on the same host: a host the client forwarded is never read.
+    expect((await inPage({ path: '/settings', headers: { 'host': 'panels.app', 'x-forwarded-host': 'elsewhere.example', 'x-forwarded-proto': 'https' } })).link.value).toBe('https://panels.app/r/ADA%20123')
+  })
+
   it('makes the code on the first read, with the link on this site and what both sides get', async () => {
     const backend = signedIn()
     const referrals = await inPage()
