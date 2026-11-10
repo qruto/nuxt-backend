@@ -38,9 +38,11 @@ bridge: put any kit's components in slots, parts or your own markup.
    `flow`, …) and the item (`plan`). Spread the composable's `bind` bags and keep the part's
    `data-*` hook. `doctor`'s `name-collisions` lists every swapped part.
 5. **Pages**: `backend.pages` in `nuxt.config` moves a page (`pricing: '/plans'`) or turns it off
-   (`pricing: false`). An app page at a packaged path replaces it (`r/[code].vue` at `/r/:code` too);
-   it declares its own `definePageMeta({ auth })` guard, which the path does not carry. Without one,
-   a page at a private path is public: indexable, still uncached.
+   (`pricing: false`). An app page at a packaged path replaces it (`r/[code].vue` at `/r/:code` too,
+   keeping `code`, which `useReferralInvite()` reads; a catch-all there does not replace it). The
+   guard does not come with the path: a replacement that must stay private declares
+   `definePageMeta({ auth: true })`, a public one (`/pricing`) none. Without one, a page at a private
+   path is public: indexable, still uncached.
 6. **Headless**: build your own markup on the composables the parts use (`useLoginFlow`,
    `usePricing`, …), spreading their `bind` (`flow.bind.codeInput`,
    `pricing.bind.planAction(plan)`). `#backend/a11y` exports `useActionState`,
