@@ -1,5 +1,6 @@
 import { computed, type ComputedRef, ref, type Ref, useId } from 'vue'
 import { busyAttributes } from '../../a11y'
+import { formatBillingDate } from '../../composables/billing-format'
 import { useBilling, type WithdrawalPeriod } from '../../composables/use-billing'
 import { refusalText, useLabels, type BackendLabels, type LabelOverrides, type UseLabelsReturn } from '../../composables/use-labels'
 import { useWithdrawal } from '../../composables/use-withdrawal'
@@ -48,7 +49,8 @@ export function useWithdrawalButton(options: { labels?: () => LabelOverrides<Bac
   const error = ref<string | null>(null)
   const period = withdrawal.period
 
-  const format = (value: number | undefined, time = false) => value === undefined ? '' : new Intl.DateTimeFormat(locale.value, time ? { dateStyle: 'long', timeStyle: 'short' } : { dateStyle: 'long' }).format(value)
+  // In the app's language, else English, as the labels around it: never the visitor's runtime default.
+  const format = (value: number | undefined, time = false) => value === undefined ? '' : formatBillingDate(value, time ? { dateStyle: 'long', timeStyle: 'short' } : { dateStyle: 'long' }, locale.value)
 
   return {
     period,

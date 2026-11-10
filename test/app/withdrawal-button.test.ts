@@ -6,6 +6,7 @@ import { backendError } from '../../src/convex/errors'
 import { createBackendMock, resetBackendMock, type BackendMock } from '../../src/runtime/test-utils'
 import { useWithdrawal, type UseWithdrawalReturn } from '../../src/runtime/vue/composables/use-withdrawal'
 import { registerComponents } from '../helpers/register-components'
+import { inRuntimeLocale } from '../helpers/runtime-locale'
 
 await registerComponents('WithdrawalButton')
 const { default: WithdrawalButton } = await import('../../src/runtime/vue/components/billing/WithdrawalButton.vue')
@@ -89,6 +90,13 @@ describe('<WithdrawalButton>', () => {
     expect(wrapper.find(`#${confirm.attributes('aria-labelledby')}`).text()).toBe('Withdraw from your Pro purchase?')
     expect(part(wrapper, 'confirm-text').text()).toBe('Your plan ends now. We email you a receipt, and refund what is due.')
     expect(part(wrapper, 'button').exists()).toBe(false)
+  })
+
+  it('writes its dates in the app\'s language, English here, whatever the visitor\'s runtime default', async () => {
+    const endsAt = Date.now() + 10 * DAY
+    manager(endsAt)
+    const text = await inRuntimeLocale('de-DE', async () => part(await button(), 'period').text())
+    expect(text).toBe(`You can withdraw from Pro until ${long(endsAt)}.`)
   })
 
   it('goes back from the confirm step by its button and by Escape, withdrawing nothing', async () => {
