@@ -3652,7 +3652,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       release: FunctionReference<
         "mutation",
         "internal",
-        { externalId: string; userId: string },
+        { externalId: string; keep?: number; userId: string },
         null,
         Name
       >;

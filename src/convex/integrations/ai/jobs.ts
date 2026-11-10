@@ -1417,11 +1417,14 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
   }
 
   /**
-   * Take an owed charge's credits again under the job's hold id, for as long
-   * as a hold lasts: a settle the provider refused let them go, and they
-   * stay held while the charge is owed. Past the balance, as the provider
-   * bills what the job made all the same. A balance that cannot be read
-   * keeps nothing held; the charge is tried anyway.
+   * Keep an owed charge's credits held under the job's hold id while the
+   * charge is owed. A settle the provider refused kept them
+   * (`keepReservation`), what it would charge and no more, so this is a
+   * no-op while that hold stands, and no other spend ever finds them free.
+   * A hold that is gone all the same (past its week, or dropped by a
+   * provider sync after a refund) is taken again past the balance, as the
+   * provider bills what the job made all the same. A balance that cannot be
+   * read keeps nothing held; the charge is tried anyway.
    */
   const holdOwed = async (ctx: ActionCtx, job: JobRow, hold: SpendReservation, price: number): Promise<void> => {
     try {
@@ -1434,7 +1437,7 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
 
   /**
    * Owe a job's charge, for a kind charged by output whose `job.charge` the
-   * provider refused for a passing reason: its credits held again, and the
+   * provider refused for a passing reason: its credits kept held, and the
    * charge tried in the background from a minute on. The job runs on.
    */
   const oweCharge = async (ctx: ActionCtx, job: JobRow, hold: SpendReservation, price: number, metadata: Record<string, string> | undefined, error: unknown): Promise<undefined> => {
@@ -1471,7 +1474,8 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
       // A hold that lapsed is taken again for what the job charges, not its whole cost.
       held = await billing.reserveCredits(ctx as never, { userId: job.owner, meter: hold.meter, meterId: hold.meterId, value: price ?? job.cost, externalId: hold.externalId, hold: HOLD_MS })
       // The job's hold id is the event's idempotency key: a charge run again never bills twice.
-      await billing.settleSpend(ctx as never, held, defined({ finalAmount: price, metadata: chargeTags(job, metadata) }))
+      // A refused settle keeps what it charges held: below, an owed charge keeps it, and any other refusal lets it go.
+      await billing.settleSpend(ctx as never, held, defined({ finalAmount: price, metadata: chargeTags(job, metadata), keepReservation: true }))
     }
     catch (error) {
       if (price !== undefined && isPassingRefusal(error)) return await oweCharge(ctx, job, held ?? hold, price, metadata, error)
@@ -1496,8 +1500,8 @@ export function defineJobQueue(components: JobQueueComponents, options: DefineJo
     if (job.chargeOwed !== 'pending' || job.charged || !hold || job.price === undefined) return
     const price = job.price
     try {
-      // Settled from the job's hold as it was taken: a hold the last try let go is taken from the balance as the charge lands.
-      await billing.settleSpend(ctx as never, released({ ...hold, value: price }), { finalAmount: price, metadata: chargeTags(job, job.chargeMetadata) })
+      // Settled from the job's hold, which a refused try keeps; a hold that is gone is taken from the balance as the charge lands.
+      await billing.settleSpend(ctx as never, released({ ...hold, value: price }), { finalAmount: price, metadata: chargeTags(job, job.chargeMetadata), keepReservation: true })
     }
     catch (error) {
       const next = attempt + 1
