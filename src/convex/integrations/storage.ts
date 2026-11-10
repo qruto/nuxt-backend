@@ -281,9 +281,10 @@ export interface Storage<DM extends GenericDataModel = GenericDataModel> {
    * `check`, then the content check (`safety`, your `ai`), then your `keep`,
    * the mutation that claims it. A refusal of the upload itself
    * (`invalid_input`, the classifier's `content_blocked` among them, or
-   * `quota_exceeded`) discards it at once and throws; any other failure (a
-   * provider down, another workspace's row) keeps it, so the same id can be
-   * sent again. Returns what `keep` returned.
+   * `quota_exceeded`) discards it at once and throws, though a file kept
+   * already stays as it is; any other failure (a provider down, another
+   * workspace's row) keeps it, so the same id can be sent again. Returns
+   * what `keep` returned.
    *
    * @example
    * ```ts [backend/strips.ts]
