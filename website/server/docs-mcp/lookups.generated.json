@@ -1303,7 +1303,7 @@
     "formatBillingAmount": {
       "tab": "Billing",
       "tier": "stable",
-      "summary": "Money the way the provider states it — a minor-unit integer plus an ISO currency code — rendered in `locale` (the active `@nuxtjs/i18n` locale a component passes), else the visitor's own.",
+      "summary": "Money the way the provider states it — a minor-unit integer plus an ISO currency code — rendered in `locale`, else the app's active `@nuxtjs/i18n` locale, else English: never the visitor's own, so a server render and the browser write it alike.",
       "url": "/docs/reference/nuxt/composables"
     },
     "useBackendConfig": {

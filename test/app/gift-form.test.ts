@@ -8,6 +8,7 @@ import type { PricedPlan, Pricing } from '../../src/convex/integrations/billing/
 import { createBackendMock, resetBackendMock, type BackendMock } from '../../src/runtime/test-utils'
 import { useGiftForm, type UseGiftFormReturn } from '../../src/runtime/vue/composables/use-gift-form'
 import { registerComponents } from '../helpers/register-components'
+import { inRuntimeLocale } from '../helpers/runtime-locale'
 import { serverRender } from '../helpers/server-render'
 
 // Where the provider's page opens: nowhere, here.
@@ -171,6 +172,15 @@ describe('useGiftForm', () => {
     const browser = await form()
     expect(server).toBe(`<p>${choiceText(browser)}</p>`)
     expect(server).toBe('<p>pack credits100 $5</p>')
+  })
+
+  it('prices the choice alike on a server and in a browser whose default locales differ', async () => {
+    backend()
+    const price = () => h('p', useGiftForm().choice.value?.price)
+    const server = await inRuntimeLocale('en-US', () => serverRender(defineComponent({ setup: () => price })))
+    const browser = await inRuntimeLocale('de-DE', async () => (await form()).choice.value?.price)
+    expect(server).toBe(`<p>${browser}</p>`)
+    expect(browser).toBe('$5')
   })
 
   it('bounds the delivery day from today to a year ahead', async () => {

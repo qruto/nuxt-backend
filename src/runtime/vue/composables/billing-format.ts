@@ -2,6 +2,7 @@
 // that arrive as ISO strings or epoch numbers, and minor-unit money.
 
 import { minorUnitDigits } from '../../../convex/money.js'
+import { activeIntlLocale } from '../utils/active-locale'
 import { inLocale } from '../utils/intl'
 
 /**
@@ -20,14 +21,15 @@ export function toBillingDate(value: unknown): Date | null {
 
 /**
  * Money the way the provider states it — a minor-unit integer plus an ISO
- * currency code — rendered in `locale` (the active `@nuxtjs/i18n` locale a
- * component passes), else the visitor's own. The minor unit is the
+ * currency code — rendered in `locale`, else the app's active
+ * `@nuxtjs/i18n` locale, else English: never the visitor's own, so a server
+ * render and the browser write it alike. The minor unit is the
  * currency's own: cents for USD and EUR (`1999` is $19.99), the yen itself
  * for JPY (`1999` is ¥1,999), a fils for KWD (three digits). A whole amount
  * shows no decimals. Without a currency the amount counts in cents; an
  * unknown code falls back to the bare amount rather than throwing mid-render.
  */
-export function formatBillingAmount(amount: number, currency?: string | null, locale?: string): string {
+export function formatBillingAmount(amount: number, currency?: string | null, locale: string | undefined = activeIntlLocale()): string {
   const digits = currency ? minorUnitDigits(currency) : 2
   const value = amount / 10 ** digits
   const whole = amount % 10 ** digits === 0
@@ -53,7 +55,7 @@ export function formatBillingAmount(amount: number, currency?: string | null, lo
  *
  * @internal
  */
-export function formatUnitPrice(amount: number, currency: string, locale?: string): string {
+export function formatUnitPrice(amount: number, currency: string, locale: string | undefined = activeIntlLocale()): string {
   const digits = minorUnitDigits(currency)
   const value = amount / 10 ** digits
   try {
@@ -65,13 +67,13 @@ export function formatUnitPrice(amount: number, currency: string, locale?: strin
 }
 
 /**
- * A provider timestamp the way the active locale (else the visitor) writes
- * it: the raw string if it will not parse, and its ISO form if `Intl`
+ * A provider timestamp the way `locale`, else the app's active locale, else
+ * English writes it: the raw string if it will not parse, and its ISO form if `Intl`
  * cannot format it at all (the date alone when `options` show no time).
  *
  * @internal
  */
-export function formatBillingDate(value: unknown, options: Intl.DateTimeFormatOptions, locale?: string): string {
+export function formatBillingDate(value: unknown, options: Intl.DateTimeFormatOptions, locale: string | undefined = activeIntlLocale()): string {
   const date = toBillingDate(value)
   if (!date) return typeof value === 'string' ? value : ''
   try {

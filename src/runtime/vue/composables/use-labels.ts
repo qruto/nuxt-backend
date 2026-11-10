@@ -3,6 +3,7 @@ import { tryUseNuxtApp } from '#imports'
 import { findLabel, formatLabel, type LabelParams, type LabelTree } from '../../../convex/label-format.js'
 import type { BackendLabels, LabelGroup, LabelGroupOverrides, LabelKey } from '../../../convex/labels.js'
 import { translateBackendError } from '../../../convex/errors.js'
+import { intlLocaleOf } from '../utils/active-locale'
 import { failureOf, getBackendError, refusalMessage } from '../utils/backend-error'
 import { englishLabels } from '../utils/label-registry'
 import { useBackendConfig } from './use-backend-config'
@@ -60,26 +61,6 @@ interface I18nComposer {
 
 /** The `{name}` placeholders of a message. */
 const placeholders = (message: string): string[] => [...new Set([...message.matchAll(/\{(\w+)\}/g)].map(([, name]) => name!))]
-
-/**
- * A language tag `Intl` accepts, or `undefined` for one it would throw on.
- * An i18n locale code is often a tag already (`fr`, `en-GB`), sometimes
- * one written with an underscore (`pt_BR`), and sometimes no tag at all.
- *
- * @internal
- */
-export function intlLocale(tag: string | undefined): string | undefined {
-  if (!tag) return undefined
-  for (const candidate of [tag, tag.replace(/_/g, '-')]) {
-    try {
-      return Intl.getCanonicalLocales(candidate)[0]
-    }
-    catch {
-      // Not a tag; try the next spelling.
-    }
-  }
-  return undefined
-}
 
 /** The English message at `group.key`, from the groups this page loaded. */
 function englishLabel(path: string, warn = false): string | undefined {
@@ -179,11 +160,7 @@ export function useLabels<G extends LabelGroup>(group: G, overrides?: MaybeRefOr
   const currentLocale = () => typeof i18n?.locale === 'string' ? i18n.locale : i18n?.locale.value
 
   // The locale's language when `i18n.locales` names one, else its code, as a tag `Intl` takes.
-  const locale = computed(() => {
-    if (!i18n) return undefined
-    const code = typeof i18n.locale === 'string' ? i18n.locale : i18n.locale.value
-    return intlLocale(i18n.localeProperties?.value?.language) ?? intlLocale(code)
-  })
+  const locale = computed(() => intlLocaleOf(i18n))
 
   /** One label of any group, through the four sources in order; without `englishFallback`, the key when only the package's English has it. */
   const resolve = (groupName: LabelGroup, key: string, params: LabelParams, own?: LabelTree, englishFallback = true): string => {

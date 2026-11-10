@@ -48,7 +48,7 @@ export interface GiftChoice {
   amount: number
   /** Lower-case ISO 4217 code. */
   currency: string
-  /** That price, formatted in the visitor's locale. */
+  /** That price, formatted in the app's active locale (English without `@nuxtjs/i18n`), alike on the server and in the browser. */
   price: string
 }
 

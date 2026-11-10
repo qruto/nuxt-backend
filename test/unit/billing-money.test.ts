@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { minorUnitDigits, toMajorUnits } from '../../src/convex/money'
-import { formatBillingAmount, formatUnitPrice } from '../../src/runtime/vue/composables/billing-format'
+import { formatBillingAmount, formatBillingDate, formatUnitPrice } from '../../src/runtime/vue/composables/billing-format'
+import { inRuntimeLocale } from '../helpers/runtime-locale'
 import { renewalReminder } from '../../src/convex/emails/renewal-reminder'
 import type { EmailRenderContext } from '../../src/convex/email-templates'
 
@@ -46,6 +47,34 @@ describe('formatBillingAmount', () => {
     expect(formatBillingAmount(1999)).toBe('19.99')
     expect(formatBillingAmount(2000)).toBe('20')
     expect(formatBillingAmount(1999, 'not-a-code')).toBe('19.99')
+  })
+})
+
+describe('money and dates without a locale', () => {
+  // A server render and the browser run under different runtime defaults:
+  // with no locale named (no @nuxtjs/i18n), both format in the package's
+  // English, never in either default.
+  const strings = () => [
+    formatBillingAmount(123456, 'usd'),
+    formatUnitPrice(5, 'usd'),
+    formatBillingDate(Date.parse('2027-02-01T12:00:00Z'), { dateStyle: 'medium', timeZone: 'UTC' }),
+  ]
+
+  it('read the same on a server and in a browser whose default locales differ', async () => {
+    const server = await inRuntimeLocale('en-US', strings)
+    const browser = await inRuntimeLocale('de-DE', strings)
+    expect(browser).toEqual(server)
+    expect(server).toEqual(['$1,234.56', '$0.05', 'Feb 1, 2027'])
+  })
+
+  it('still format in the locale named, and in English for one Intl refuses', async () => {
+    await inRuntimeLocale('en-US', () => {
+      expect(formatBillingAmount(123456, 'eur', 'de-DE')).toBe('1.234,56\u00A0€')
+      expect(formatBillingDate(Date.parse('2027-02-01T12:00:00Z'), { dateStyle: 'medium', timeZone: 'UTC' }, 'fr')).toBe('1 févr. 2027')
+    })
+    await inRuntimeLocale('de-DE', () => {
+      expect(formatBillingAmount(123456, 'usd', 'not a tag')).toBe('$1,234.56')
+    })
   })
 })
 

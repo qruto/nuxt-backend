@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, defineComponent, h, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { ConvexError } from 'convex/values'
+import { inRuntimeLocale } from '../helpers/runtime-locale'
 
 // <GiftList>, the gifts page's body, over a stand-in for useGifts: what a
 // person received, to claim into a workspace they manage, and what they
@@ -203,6 +204,19 @@ describe('<GiftList>', () => {
     await expect(list.claim('in-1')).resolves.toBeNull()
     expect(list.announcement.value).toBe('')
     expect(list.error.value).not.toBeNull()
+  })
+
+  it('dates the gifts alike on a server and in a browser whose default locales differ', async () => {
+    received.value = [waiting]
+    sent.value = [scheduled, delivered, claimed]
+    const dates = () => {
+      const list = giftList()
+      return [...list.received.value, ...list.sent.value].map(gift => gift.dateText)
+    }
+    const server = await inRuntimeLocale('en-US', dates)
+    const browser = await inRuntimeLocale('de-DE', dates)
+    expect(browser).toEqual(server)
+    expect(server[0]).toBe('Feb 1, 2027')
   })
 
   it('names each button by the gift it acts on', () => {
