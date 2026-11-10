@@ -1201,7 +1201,7 @@
     "isPhotoFile": {
       "tab": "Data",
       "tier": "stable",
-      "summary": "Whether a file picked, dropped or pasted is worth preparing as a photo: an image type, or a HEIC the device left untyped.",
+      "summary": "Whether a file picked, dropped or pasted is worth preparing as a photo: an image type other than SVG and GIF, or a HEIC the device left untyped.",
       "url": "/docs/reference/nuxt/composables"
     },
     "PhotoPrepError": {
