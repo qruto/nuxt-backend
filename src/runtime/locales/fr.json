@@ -1522,7 +1522,7 @@
         "closed": "L’inscription demande une invitation pour le moment. Une fois votre compte créé, revenez à ce lien dans la journée pour en profiter.",
         "haveInvite": "J’ai une invitation",
         "joinWaitlist": "Rejoindre la liste d’attente",
-        "signIn": "Déjà un compte ? Connectez-vous pour en profiter"
+        "signIn": "Inscrit il y a moins d’un jour ? Connectez-vous pour en profiter"
       }
     },
     "pastDue": {

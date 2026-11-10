@@ -112,6 +112,8 @@ describe('the referral link\'s page', () => {
     expect(part(wrapper, 'landing-invite').attributes('href')).toBe('/invite?ref=ADA123')
     expect(part(wrapper, 'landing-waitlist').attributes('href')).toBe('/waitlist')
     expect(part(wrapper, 'landing-sign-in').attributes('href')).toBe(`/login?redirect=${encodeURIComponent('/r/ADA123?claim=1')}`)
+    // Only an account from the last day can still claim (`too_late` after it): the sign-in promises no more.
+    expect(part(wrapper, 'landing-sign-in').text()).toBe('Signed up less than a day ago? Sign in to claim')
     expect(part(wrapper, 'landing-sign-up').exists()).toBe(false)
 
     // Invite only, the waitlist takes nobody new.
