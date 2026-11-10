@@ -1,5 +1,59 @@
 # Changelog
 
+## v0.4.0
+
+[compare changes](https://github.com/qruto/nuxt-backend/compare/v0.3.0...v0.4.0)
+
+### 🚀 Enhancements
+
+#### AI
+
+- Jobs that bill like a print shop ([#234](https://github.com/qruto/nuxt-backend/pull/234))
+
+#### Billing
+
+- Buy gifts from a form, confirm plan changes, and read pricing from the address ([#236](https://github.com/qruto/nuxt-backend/pull/236))
+
+#### UI
+
+- Tracking, press and border tokens, an install prompt, and refusals worded by service ([#237](https://github.com/qruto/nuxt-backend/pull/237))
+
+#### Uploads
+
+- Accept a checked upload in one call, and prepare photos in the browser ([#235](https://github.com/qruto/nuxt-backend/pull/235))
+
+#### Access
+
+- Tickets carry the referral, and the growth pages follow the launch phase ([#238](https://github.com/qruto/nuxt-backend/pull/238))
+
+### 🩹 Fixes
+
+#### CLI
+
+- Read the real config in upgrade --dry-run, confirm email sync, migrate on deploy ([#232](https://github.com/qruto/nuxt-backend/pull/232))
+
+#### Nuxt module
+
+- App pages decide what a replaced page keeps, and safe defaults for dev and a failed chunk ([#233](https://github.com/qruto/nuxt-backend/pull/233))
+
+### 🏡 Chore
+
+- Take nuxt-convex-module 0.14.1 and explain the glob alert after 0.3.0 ([#229](https://github.com/qruto/nuxt-backend/pull/229))
+
+### ✅ Tests
+
+#### Upgrade
+
+- Upgrade from the 0.3.0 starter, and drift the repair tests' own copy ([#231](https://github.com/qruto/nuxt-backend/pull/231))
+
+### 🤖 CI
+
+- Run e2e in its own job, retry registry lag, give lychee more time ([#230](https://github.com/qruto/nuxt-backend/pull/230))
+
+### ❤️ Contributors
+
+- Slava Razum ([@slavarazum](https://github.com/slavarazum))
+
 ## v0.3.0
 
 [compare changes](https://github.com/qruto/nuxt-backend/compare/v0.2.1...v0.3.0)
