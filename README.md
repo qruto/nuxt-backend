@@ -176,7 +176,7 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useUsage` — consumption history for a credit meter, read from the provider's events API — the events your server ingested when it spent credits
 - `useWaitlist` — join the waitlist, and read a place in it, on markup of your own: the steps `<WaitlistForm>` runs
 - `useWaitlistAdmin` — the admin console's Waitlist tab, as data: the waiting people (the oldest first, narrowed by a filter) with a count per status, and the changes an administrator makes, through `backend/waitlist.ts`
-- `useWithdrawal` — the EU withdrawal window (Consumer Rights Directive Art. 11a): whether the signed-in billing manager's purchase is still inside its 14 days, until when, and the withdrawal itself — what `<WithdrawalButton>` is built on, for a section of your own around it
+- `useWithdrawal` — the EU withdrawal window: whether the signed-in billing manager's purchase is still inside the 14 days of the Consumer Rights Directive's Art. 9, until when, and the withdrawal itself, the withdrawal function of its Art. 11a — what `<WithdrawalButton>` is built on, for a section of your own around it
 - `useWorkflowStatus` — reactively track a durable [Workflow](https://www.convex.dev/components/workflow)'s status (experimental)
 - `useWorkspace` — workspace state and actions: the list, the switch, the members and the full invitation flow (invite / accept / decline / cancel — the packaged `AcceptInvitation` component and `/accept-invitation` page build on these)
 

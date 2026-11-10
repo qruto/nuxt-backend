@@ -1067,7 +1067,7 @@
     "useWithdrawal": {
       "tab": "Billing",
       "tier": "stable",
-      "summary": "The EU withdrawal window (Consumer Rights Directive Art. 11a): whether the signed-in billing manager's purchase is still inside its 14 days, until when, and the withdrawal itself — what `<WithdrawalButton>` is built on, for a section of your own around it.",
+      "summary": "The EU withdrawal window: whether the signed-in billing manager's purchase is still inside the 14 days of the Consumer Rights Directive's Art. 9, until when, and the withdrawal itself, the withdrawal function of its Art. 11a — what `<WithdrawalButton>` is built on, for a section of your own around it.",
       "url": "/docs/reference/nuxt/composables"
     },
     "useReferrals": {

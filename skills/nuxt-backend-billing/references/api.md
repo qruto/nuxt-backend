@@ -17,7 +17,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `usePricing()` | The app's plans and credit packs as a pricing page shows them — every plan with its monthly and yearly price, what a year saves, its trial and the credits it grants per cycle; every pack with its price per credit and which is the best value — read through the scaffolded `getPricing`, in the visitor's currency where the catalog prices it. |
 | `useOrders()` | The signed-in customer's billing history — past charges straight from the provider's orders API, plus the per-order invoice link. |
 | `useUsage()` | Consumption history for a credit meter, read from the provider's events API — the events your server ingested when it spent credits. |
-| `useWithdrawal()` | The EU withdrawal window (Consumer Rights Directive Art. 11a): whether the signed-in billing manager's purchase is still inside its 14 days, until when, and the withdrawal itself — what `<WithdrawalButton>` is built on, for a section of your own around it. |
+| `useWithdrawal()` | The EU withdrawal window: whether the signed-in billing manager's purchase is still inside the 14 days of the Consumer Rights Directive's Art. 9, until when, and the withdrawal itself, the withdrawal function of its Art. 11a — what `<WithdrawalButton>` is built on, for a section of your own around it. |
 | `formatBillingAmount()` | Money the way the provider states it — a minor-unit integer plus an ISO currency code — rendered in `locale`, else the app's active `@nuxtjs/i18n` locale, else English: never the visitor's own, so a server render and the browser write it alike. |
 
 ## Components
