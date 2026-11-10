@@ -694,7 +694,7 @@ describe('module registration (defaults)', () => {
     }
   })
 
-  it('puts the chunk-load recovery in a production build\'s pages, with the client plugin that tells it the app mounted', () => {
+  it('puts the chunk-load recovery in a production build\'s pages, with the client plugin that tells it the app started', () => {
     const nuxt = getNuxt()
     expect(nitroPlugins(nuxt).filter(plugin => /[\\/]runtime[\\/]server[\\/]chunk-recovery(?:\.ts)?$/.test(plugin))).toHaveLength(1)
     expect(nuxt.options.plugins.filter(plugin => typeof plugin !== 'string' && /[\\/]plugins[\\/]chunk-recovery\.client(?:\.ts)?$/.test(plugin.src))).toEqual([expect.objectContaining({ mode: 'client' })])

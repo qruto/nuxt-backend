@@ -4,9 +4,9 @@ import { pathToFileURL } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 
 // The inline script a production build puts first in the head: one reload
-// for a page whose code failed to load before the app mounted, under a guard
+// for a page whose code failed to load before the app started, under a guard
 // of its own. Each case runs the script itself in a page of stubs, with the
-// client plugin that tells it the app mounted, and the Nitro plugin over a
+// client plugin that tells it the app started, and the Nitro plugin over a
 // render's HTML.
 
 const runtimeConfig = vi.hoisted(() => ({ app: { buildAssetsDir: '/_nuxt/' } }))
@@ -14,9 +14,12 @@ vi.mock('nitropack/runtime', () => ({ defineNitroPlugin: (plugin: unknown) => pl
 vi.mock('#imports', () => ({ defineNuxtPlugin: (plugin: unknown) => plugin }))
 
 const { chunkRecoveryScript, default: chunkRecoveryPlugin, headWithScript, RELOAD_GUARD_KEY, RELOAD_GUARD_MS } = await import('../../src/runtime/server/chunk-recovery')
-const { default: mountedPlugin } = await import('../../src/runtime/vue/plugins/chunk-recovery.client')
+const { default: startedPlugin } = await import('../../src/runtime/vue/plugins/chunk-recovery.client')
 
 type Listener = (event: { target?: unknown }) => void
+
+/** Nuxt's start-up on the client, in order: `app:mounted` right after `vueApp.mount()`, then `app:suspense:resolve` once the first page rendered in full, hydration included. */
+const STARTUP = ['app:mounted', 'app:suspense:resolve'] as const
 
 /** The inline script in a page of its own: a stub for each global it reads. */
 function page(options: { path?: string, readyState?: string, storage?: Partial<Storage>, assetsDir?: string } = {}) {
@@ -37,11 +40,12 @@ function page(options: { path?: string, readyState?: string, storage?: Partial<S
   return {
     fail: (target: unknown) => listeners.error!({ target }),
     failImport: () => listeners['vite:preloadError']!({}),
-    // Nuxt's `app:mounted`, through the client plugin, on the same page.
-    mount: () => {
+    // Nuxt's start-up up to `until`, through the client plugin's hooks, on the same page.
+    start: (until: typeof STARTUP[number] = 'app:suspense:resolve') => {
       vi.stubGlobal('window', { dispatchEvent: (event: Event) => listeners[event.type]?.(event) })
       try {
-        (mountedPlugin.hooks!['app:mounted'] as () => void)()
+        const hooks = startedPlugin.hooks as Record<string, (() => void) | undefined>
+        for (const name of STARTUP.slice(0, STARTUP.indexOf(until) + 1)) hooks[name]?.()
       }
       finally {
         vi.unstubAllGlobals()
@@ -132,7 +136,7 @@ describe('the inline recovery', () => {
     expect(location.reload).not.toHaveBeenCalled()
   })
 
-  it('reloads for a dynamic import that fails before the app mounts, under the same guard', () => {
+  it('reloads for a dynamic import that fails before the app starts, under the same guard', () => {
     const { fail, failImport, location } = page()
     failImport()
     failImport()
@@ -142,16 +146,24 @@ describe('the inline recovery', () => {
 
   // Vite's preload helper adds a `<link rel="stylesheet">` for a dynamic import's CSS, and Nuxt lets the import go on without it.
   it('leaves a stylesheet that fails on a running app alone, while the page is still loading', () => {
-    const { fail, mount, location } = page({ readyState: 'interactive' })
-    mount()
+    const { fail, start, location } = page({ readyState: 'interactive' })
+    start()
     fail({ tagName: 'LINK', rel: 'stylesheet', href: 'https://panels.app/_nuxt/LazyChart.css' })
     expect(location.reload).not.toHaveBeenCalled()
   })
 
+  // Until the first page has hydrated, Nuxt's error handler is the app's: a lazy component whose chunk fails then swaps the page for the error page.
+  it('reloads for a dynamic import that fails while the first page hydrates, after the app mounted', () => {
+    const { failImport, start, location } = page()
+    start('app:mounted')
+    failImport()
+    expect(location.reload).toHaveBeenCalledOnce()
+  })
+
   // A lazy component's chunk on a flaky connection, or a navigation's, which Nuxt reloads to itself.
   it('leaves a dynamic import that fails on a hydrated app to Nuxt', () => {
-    const { failImport, mount, location } = page()
-    mount()
+    const { failImport, start, location } = page()
+    start()
     failImport()
     failImport()
     expect(location.reload).not.toHaveBeenCalled()

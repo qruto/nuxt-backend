@@ -95,14 +95,15 @@ export interface ModuleOptions {
    */
   installable?: InstallableOptions | false
   /**
-   * Reload a page once when its code fails to load before the app mounts
-   * (default `true`): a module script or stylesheet from
-   * `app.buildAssetsDir` that fails before the page has loaded, or a
-   * dynamic import that fails before the app mounts, as a flaky connection
-   * or a deploy that replaced the chunks under an open page leaves it. An
-   * inline script first in the head of a production build, with the
-   * request's nonce, and a guard of its own in `sessionStorage`, so a page
-   * reloads once, never in a loop. `false` leaves it out.
+   * Reload a page once when its code fails to load before the app has
+   * started, its first page rendered in full, hydration included (default
+   * `true`): a module script or stylesheet from `app.buildAssetsDir` that
+   * fails before the page has loaded, or a dynamic import that fails before
+   * the first render resolves, as a flaky connection or a deploy that
+   * replaced the chunks under an open page leaves it. An inline script
+   * first in the head of a production build, with the request's nonce, and
+   * a guard of its own in `sessionStorage`, so a page reloads once, never
+   * in a loop. `false` leaves it out.
    */
   chunkRecovery?: boolean
 }
@@ -312,8 +313,8 @@ export default defineNuxtModule<ModuleOptions>({
     if (!securityDisabled(nuxt)) addPlugin({ src: resolver.resolve('./runtime/vue/plugins/trusted-types.client'), mode: 'client' })
     // The headers' exceptions for what other sites load, and Content's WebAssembly.
     registerSecurityRules(resolver, nuxt)
-    // One reload for a page whose code failed to load before it mounted (production
-    // builds): the inline script, and the client plugin that tells it the app mounted.
+    // One reload for a page whose code failed to load before the app started (production
+    // builds): the inline script, and the client plugin that tells it the app started.
     if (!nuxt.options.dev && options.chunkRecovery !== false) {
       const chunkRecovery = resolver.resolve('./runtime/server/chunk-recovery')
       addNitroPlugin({ nitro2: chunkRecovery, nitro3: chunkRecovery })
