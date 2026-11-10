@@ -150,11 +150,14 @@ const keepCover = mutationGeneric({
   },
 })
 const acceptCover = actionGeneric({
-  args: { id: v.id('strips'), fileId: v.string(), unchecked: v.optional(v.boolean()), misconfigured: v.optional(v.boolean()) },
-  handler: async (ctx, { id, fileId, unchecked, misconfigured }) => {
+  // `answer`: a check that returns it, in place of checkCover's throw.
+  args: { id: v.id('strips'), fileId: v.string(), unchecked: v.optional(v.boolean()), misconfigured: v.optional(v.boolean()), answer: v.optional(v.boolean()) },
+  handler: async (ctx, { id, fileId, unchecked, misconfigured, answer }) => {
     const owner = await caller(ctx)
     return storage.acceptUpload(ctx, fileId, {
-      check: () => ctx.runQuery(makeFunctionReference<'query'>('strips:checkCover'), { id, workspaceId: owner.workspaceId }),
+      check: answer === undefined
+        ? () => ctx.runQuery(makeFunctionReference<'query'>('strips:checkCover'), { id, workspaceId: owner.workspaceId })
+        : async () => answer,
       safety: misconfigured ? undefined as never : unchecked ? false : fakeAi,
       about: { subject: id },
       keep: () => ctx.runMutation(makeFunctionReference<'mutation', Record<string, unknown>, { fileId: string }>('strips:keepCover'), { id, fileId, ...owner }),
@@ -626,6 +629,22 @@ describe('acceptUpload', () => {
     expect(await refusal(stranger.action(ref.acceptCover, { id, fileId }))).toMatchObject({ code: 'forbidden', data: { reason: 'other_workspace' } })
     expect(safety.read).toEqual([])
     expect(await exists(t, fileId)).toBe(true)
+  })
+
+  test('reads a check that returns false as a refusal of the upload: discarded, unchecked, never kept', async () => {
+    const t = appUnderTest()
+    const author = await asUser(t)
+    const id = await author.mutation(ref.create, { title: 'Monday' })
+    const fileId = await upload(t, png())
+    expect(await refusal(author.action(ref.acceptCover, { id, fileId, answer: false }))).toMatchObject({ code: 'invalid_input', data: { field: 'file' } })
+    expect(safety.read).toEqual([])
+    expect(await exists(t, fileId)).toBe(false)
+    expect(await coverOf(t, id)).toBeUndefined()
+
+    // Any other answer passes.
+    const other = await upload(t, png())
+    expect(await author.action(ref.acceptCover, { id, fileId: other, answer: true })).toEqual({ fileId: other })
+    expect(await coverOf(t, id)).toBe(other)
   })
 
   test('never discards a kept file, though a second accept of it is refused', async () => {

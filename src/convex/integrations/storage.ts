@@ -187,16 +187,18 @@ export interface AcceptUploadOptions<Kept> {
   /**
    * Your check that the upload may go where it is headed, before the
    * content check reads it: the caller's row, room on it, not a file kept
-   * already. A check that refuses here costs no classifier call.
+   * already. A check that refuses here costs no classifier call. Refuse by
+   * throwing, or by returning `false`, which refuses the upload as
+   * `invalid_input` on `file`; anything else it returns passes.
    *
    * @guarantee
    * - Runs: in the action that calls `acceptUpload`, through the `ctx` your callback closed over (an internal query of yours, a rate limit)
    * - Delivery: once per `acceptUpload`; a person's retry calls `acceptUpload` again, and with it this
    * - Order: first, before the content check and `keep`
-   * - When it throws: `acceptUpload` throws its error, and neither the content check nor `keep` runs; an `invalid_input` or `quota_exceeded` refusal discards the upload, any other error keeps it for a retry
+   * - When it throws: `acceptUpload` throws its error, and neither the content check nor `keep` runs; an `invalid_input` or `quota_exceeded` refusal discards the upload, any other error keeps it for a retry. A check that returns `false` is refused as `invalid_input` on `file`, so the upload is discarded
    * - Idempotency: a check: it may run again for the same upload, so it should write nothing a second run would trip over
    */
-  check?: () => unknown
+  check?: () => boolean | null | void | Promise<boolean | null | void> // eslint-disable-line @typescript-eslint/no-invalid-void-type -- a check that returns nothing passes; `() => void` alone would admit any return, a rate limit's `{ ok: false }` included
   /** The content check: your `ai` (`setupAi`), whose `requireSafe` reads the upload. `false` keeps the upload with no content check. */
   safety: UploadSafety | false
   /** What the content check records about the upload, for its flag: `{ subject, stage }`, and `userId` or `owner` when it is not the signed-in person's. Default stage `'upload'`. */
@@ -555,7 +557,8 @@ export function setupStorage<DM extends GenericDataModel = GenericDataModel>(com
     if (safety !== false && typeof safety?.requireSafe !== 'function') throw new TypeError('[nuxt-backend] storage.acceptUpload: safety is your ai (setupAi), whose requireSafe checks the upload, or false to keep it with no content check.')
     if (check !== undefined && typeof check !== 'function') throw new TypeError('[nuxt-backend] storage.acceptUpload: check is a function, run before the content check.')
     try {
-      await check?.()
+      // `false` is a refusal as much as a throw: a check that answers it is never read as a pass.
+      if (await check?.() === false) throw backendError('invalid_input', { field: 'file' }, '[nuxt-backend] storage.acceptUpload: your check returned false, so the upload is refused.')
       if (safety) await safety.requireSafe(ctx, { images: [storageId] }, { ...about, stage: about?.stage ?? 'upload' })
       return await keep()
     }
