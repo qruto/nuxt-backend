@@ -540,6 +540,20 @@ describe('the /waitlist page', () => {
     expect(held.find('[data-waitlist="position"]').exists()).toBe(true)
   })
 
+  it('confirms a leave while invite only, and offers the invite page there, not a join', async () => {
+    launch.value = 'invite-only'
+    answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), VIEW)
+    window.location.hash = '#entry.signature'
+    const wrapper = render(WaitlistStatus)
+    await flushPromises()
+    await wrapper.find('[data-waitlist="leave"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-waitlist="page"]').attributes('data-state')).toBe('left')
+    expect(wrapper.find('[data-waitlist="status"]').text()).toBe('You left the waitlist. Your address is removed.')
+    expect(wrapper.find('[data-waitlist="join"]').exists()).toBe(false)
+    expect(wrapper.find('[data-waitlist="page-invite"]').attributes('href')).toBe('/invite')
+  })
+
   it('has no line once the app is public, only the way to sign up, whatever the link', async () => {
     launch.value = 'public'
     answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), VIEW)

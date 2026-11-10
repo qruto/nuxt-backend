@@ -90,8 +90,9 @@ const state = computed(() => {
   // Open to all, the line is over; invite only, a place already held stands.
   if (phase.value === 'public') return 'open'
   if (hadToken.value && waitlist.place.value !== undefined) return 'ready'
-  if (phase.value === 'invite-only') return 'closed'
+  // A leave is confirmed whatever the phase: invite only, the way on is the invite page, not the join.
   if (left.value) return 'left'
+  if (phase.value === 'invite-only') return 'closed'
   // A token that names no entry: the link does not work.
   return hadToken.value ? 'unknown' : 'join'
 })
@@ -175,7 +176,18 @@ const state = computed(() => {
       >
         {{ t('left') }}
       </p>
+      <!-- Invite only, the list takes nobody new: the way on is the invite page. -->
+      <template v-if="state === 'left' && phase === 'invite-only'">
+        <a
+          v-if="invitePath"
+          data-waitlist="page-invite"
+          :href="invitePath"
+        >
+          {{ t('page.haveInvite') }}
+        </a>
+      </template>
       <WaitlistForm
+        v-else
         source="waitlist"
         @joined="joined"
         @left="leftForm"
