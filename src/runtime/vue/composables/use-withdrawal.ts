@@ -45,21 +45,25 @@ export interface UseWithdrawalReturn {
 }
 
 /**
- * The EU withdrawal window (Consumer Rights Directive Art. 11a): whether
- * the signed-in billing manager's purchase is still inside its 14 days,
- * until when, and the withdrawal itself — what `<WithdrawalButton>` is
- * built on, for a section of your own around it. Reads `getWithdrawal`,
- * live, and runs `withdraw`; the read never throws and the action rejects.
+ * The EU withdrawal window: whether the signed-in billing manager's
+ * purchase is still inside the 14 days of the Consumer Rights Directive's
+ * Art. 9, until when, and the withdrawal itself, the withdrawal function of
+ * its Art. 11a — what `<WithdrawalButton>` is built on, for a section of
+ * your own around it. Reads `getWithdrawal`, live, and runs `withdraw`;
+ * the read never throws and the action rejects.
  *
  * @example
  * ```vue
  * <script setup lang="ts">
  * const withdrawal = useWithdrawal()
+ * // The app's language, not the visitor's, so the server's HTML and the browser's agree.
+ * const { locale } = useLabels('withdrawal')
+ * const day = (date: Date) => new Intl.DateTimeFormat(locale.value ?? 'en', { dateStyle: 'long' }).format(date)
  * </script>
  * <template>
  *   <section v-if="withdrawal.isOpen.value">
  *     <h2>Changed your mind?</h2>
- *     <p>You can withdraw until {{ withdrawal.endsAt.value?.toLocaleDateString() }}.</p>
+ *     <p>You can withdraw until {{ withdrawal.endsAt.value && day(withdrawal.endsAt.value) }}.</p>
  *     <WithdrawalButton />
  *   </section>
  * </template>

@@ -54,10 +54,11 @@ The panel asks for no reason. The provider keeps a cancellation's reason (`too_e
 
 ### A switch says what it does first
 
-"Change plan", and a subscriber's switch on a card of `<PricingTable>`, open one group before anything changes: the price the plan moves to, when the switch happens and how the period settles, then **Confirm switch** and **Not now**.
+"Change plan", and a subscriber's switch on a card of `<PricingTable>`, open one group before anything changes: the price the plan moves to, when the switch happens and how the period settles, then **Confirm switch** and **Not now**. The price is in the subscription's own currency, which Polar keeps on a switch, so a dollar subscriber reading the page in euros is told dollars. Polar switches only to a product priced in that currency, so neither offers a switch to one that is not.
 
 - A switch from a yearly price to a monthly one reads "$29/mo from Mar 15, 2027. The year you paid for runs out first: the switch happens when it ends." It is scheduled, and the plan's line then reads "Plan change scheduled".
 - Any other switch reads "$29/mo from now on. The switch happens at once, and the difference for this period is settled now." The confirmation switches with `proration: 'invoice'`, so the difference is charged or credited at once whatever the organization's default proration is.
+- A gifted [plan pass](/docs/build/growth/offers/plan-passes) is no subscription Polar switches: its holder's switch on a card of `<PricingTable>` is a checkout of the new plan, which replaces the pass in place. The group reads "$29/mo from checkout on. Your gifted plan stops once you check out, and the time left on it does not carry over.", and **Confirm switch** opens the checkout.
 - During a trial nothing is prorated. A switch to a plan with a trial of its own reads "$29/mo from now on. The switch happens at once and your trial carries over: nothing is charged until it ends." Polar counts the new plan's trial from the start of the current one, so a plan with no trial, or one already over, ends the trial instead: "$29/mo from now on. The switch happens at once and ends your trial, so the first payment is charged now." A switch from a yearly price to a monthly one reads "$29/mo once your trial ends: the switch happens then."
 
 Escape or **Not now** closes the group and gives focus back to the button that opened it. Once the switch goes through, focus moves to the plan's state, a status says what changed, and `<WorkspaceSettings>` emits `plan-changed` with the product. A pause emits `plan-paused` with the time it resumes. The `billing` slot gets both as `switchPlan(productId)` and `pausePlan(months)`, past their confirmation, for a section of your own.
@@ -140,11 +141,14 @@ A switch from a yearly price to a monthly one never happens mid-year, since the 
 const props = defineProps<{ productId: string, price: string }>()
 const billing = useBilling()
 const change = computed(() => billing.changeOf(props.productId))
+// The app's language, not the visitor's, so the server's HTML and the browser's agree.
+const { locale } = useLabels('settings')
+const day = (date: Date) => new Intl.DateTimeFormat(locale.value ?? 'en', { dateStyle: 'medium' }).format(date)
 </script>
 
 <template>
   <p v-if="change?.applies === 'period_end'">
-    {{ price }} from {{ change.appliesAt?.toLocaleDateString() }}, once the {{ change.trial ? 'trial' : 'year you paid for' }} runs out.
+    {{ price }} from {{ change.appliesAt ? day(change.appliesAt) : 'the end of the period' }}, once the {{ change.trial ? 'trial' : 'year you paid for' }} runs out.
   </p>
   <p v-else-if="change?.trial">
     {{ price }} from now on. {{ change.proration === 'none' ? 'Your trial carries over.' : 'Your trial ends, and the first payment is charged now.' }}
