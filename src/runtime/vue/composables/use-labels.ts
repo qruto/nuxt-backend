@@ -60,10 +60,11 @@ interface I18nComposer {
 
 /**
  * Where a label is looked up: every source in order (`all`), the app's
- * overrides alone (`overrides`: the component's `labels` prop and app
- * config), or the active locale's messages alone (`messages`: the app's,
- * and the package's in a language it translates). The last two never read
- * the package's English.
+ * overrides alone (`overrides`: the component's `labels` prop where the
+ * caller passes one, and app config; `errorMessage` passes none), or the
+ * active locale's messages alone (`messages`: the app's, and the package's
+ * in a language it translates). The last two never read the package's
+ * English.
  */
 type LabelSources = 'all' | 'overrides' | 'messages'
 
