@@ -165,6 +165,7 @@ describe('component tokens', () => {
     for (const token of [
       '--bk-tracking-heading',
       '--bk-tracking-control',
+      '--bk-tracking-label',
       '--bk-border-width-surface',
       '--bk-border-width-control',
       '--bk-shadow-control-hover',
@@ -189,6 +190,21 @@ describe('component tokens', () => {
       }
     }
     expect(reads).toBeGreaterThan(30)
+  })
+
+  it('tracks every uppercase label from --bk-tracking-label, apart from the headings, each keeping its own while unset', () => {
+    // A large title tightens (-0.02em) and a small uppercase label opens up
+    // (0.06em): a display face's heading tracking would squeeze the labels.
+    let labels = 0
+    for (const [name, css] of stylesheets) {
+      for (const [, selector, body] of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (!/text-transform: uppercase/.test(body!)) continue
+        labels++
+        expect(body, `${name} ${selector!.trim()}`).toMatch(/letter-spacing: var\(--bk-tracking-label, -?[\d.]+em\);/)
+        expect(body, `${name} ${selector!.trim()}`).not.toContain('--bk-tracking-heading')
+      }
+    }
+    expect(labels).toBeGreaterThanOrEqual(9)
   })
 
   it('draws every outline from the surface or the control width, falling back to --bk-border-width', () => {

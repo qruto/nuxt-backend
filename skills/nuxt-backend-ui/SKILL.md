@@ -18,7 +18,7 @@ bridge: put any kit's components in slots, parts or your own markup.
    re-themes every component, with no specificity to match. Restyle elements outside layers (or
    in a layer after `nuxt-backend`): `theme`, `base` and `reset` sit below the package's rules. Faces
    (`--bk-font`, `--bk-font-heading`, `--bk-font-control`), tracking (`--bk-tracking-heading`,
-   `--bk-tracking-control`), outline widths (`--bk-border-width`, `-surface`, `-control`), shadows
+   `--bk-tracking-control`, `--bk-tracking-label`), outline widths (`--bk-border-width`, `-surface`, `-control`), shadows
    (`--bk-shadow`, `--bk-shadow-control`, `--bk-shadow-overlay`) and the press (`--bk-shadow-control-hover`
    and `-active`, `--bk-offset-control-hover` and `-active`, `--bk-transition-control`) are tokens too.
    `[data-backend]` marks every packaged component's outermost element: one selector for all of

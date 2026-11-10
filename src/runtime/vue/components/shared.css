@@ -7,7 +7,8 @@
 /* ── The faces ──────────────────────────────────────────────────────────────
    `data-backend` marks the outermost element of every packaged component
    and page. Its text reads `--bk-font`, its headings `--bk-font-heading`
-   and `--bk-tracking-heading`; each component's button rule reads
+   and `--bk-tracking-heading` (an uppercase label reads
+   `--bk-tracking-label` in its own rule); each component's button rule reads
    `--bk-font-control` and `--bk-tracking-control`. With a token
    unset, `var()` leaves the face inherited: the page's. A button's
    tracking falls back to `revert-layer`, so while the token is unset the
@@ -159,7 +160,7 @@
     margin: 0 0 0.6rem;
     font-size: 0.8rem;
     font-weight: 600;
-    letter-spacing: var(--bk-tracking-heading, 0.06em);
+    letter-spacing: var(--bk-tracking-label, 0.06em);
     text-transform: uppercase;
     color: var(--bk-muted);
   }

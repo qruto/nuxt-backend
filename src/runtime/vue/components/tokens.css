@@ -61,13 +61,16 @@
     --bk-font-heading: inherit;
     --bk-font-control: inherit;
 
-    /* The tracking of headings and of buttons. `inherit` leaves a heading
-       the page's own, and a button, or a link drawn as one, what the page,
-       its reset and the browser give it; a heading that sets a tracking of
-       its own (a page title, an uppercase section label) keeps it until the
-       token is set. */
+    /* The tracking of headings, of buttons, and of the small uppercase
+       labels (a section's title, a badge, the "or" between two choices),
+       which want a wider one than a large title's: one token can't hold
+       both. `inherit` leaves a heading the page's own, a button, or a link
+       drawn as one, what the page, its reset and the browser give it, and
+       a heading or a label that sets a tracking of its own (a page title's
+       -0.02em, a label's 0.06em) keeps it until its token is set. */
     --bk-tracking-heading: inherit;
     --bk-tracking-control: inherit;
+    --bk-tracking-label: inherit;
 
     /* The width of every outline the components draw: a control's, a
        field's, a card's, a dialog's. A divider on one side stays a hairline. */

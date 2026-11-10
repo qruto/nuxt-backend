@@ -16,7 +16,7 @@
     color: var(--bk-muted);
     font-size: 0.8rem;
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--bk-tracking-label, 0.04em);
     text-transform: uppercase;
   }
 
