@@ -1,5 +1,5 @@
 import type { DefaultFunctionArgs, FunctionReference } from 'convex/server'
-import { computed, inject, ref, type ComputedRef, type Ref } from 'vue'
+import { computed, getCurrentInstance, inject, onMounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import { useRoute } from '#imports'
 import { ConvexAuthStateKey, useMutation } from 'nuxt-convex-module/client'
 import { useAsyncQuery } from 'nuxt-convex-module/app'
@@ -80,6 +80,16 @@ export function useAccessPhase(options: UseAccessPhaseOptions = {}): UseAccessPh
 export interface UseInviteOptions {
   /** Override the injected `api.access` namespace. */
   api?: AccessApiRefs
+  /**
+   * Open the access link the page was reached by (default `false`), for the
+   * page an access link opens: `/invite`, or an app's own page there. Once
+   * the page mounts, the token leaves the address's fragment (`#<token>`)
+   * at once and the tab keeps it, so a reload while the session settles
+   * still has it. Once the session settles, a signed-in visitor's is
+   * forgotten, as there is no sign-up to hand it to, and anyone else's, or
+   * the one the tab kept, is checked. `linkChecked` says when that is done.
+   */
+  fromAddress?: boolean
 }
 
 export interface UseInviteReturn {
@@ -102,6 +112,14 @@ export interface UseInviteReturn {
   isKept: ComputedRef<boolean>
   /** Drop the kept code or token. */
   forget: () => void
+  /**
+   * `true` once the access link has been opened: with `fromAddress`, once
+   * the page mounted and the session settled (the server cannot read the
+   * fragment); from the start without it.
+   */
+  linkChecked: Readonly<Ref<boolean>>
+  /** Whether a ticket was asked about at all: a link brought one, the tab kept one, or a code was checked. */
+  asked: Readonly<Ref<boolean>>
   /**
    * The referral code the address carries, `/invite?ref=<code>`: the
    * referral page links here with it for a visitor who holds an invite
@@ -149,6 +167,8 @@ export function useInvite(options: UseInviteOptions = {}): UseInviteReturn {
   const { isPending, failure, run } = useActionState()
   const status = ref<InviteStatus | null>(null)
   const kept = ref(keptInvite() !== null)
+  const linkChecked = ref(!options.fromAddress)
+  const asked = ref(false)
   const referral = computed(() => {
     const value = route.query.ref
     const code = Array.isArray(value) ? value[0] : value
@@ -164,6 +184,7 @@ export function useInvite(options: UseInviteOptions = {}): UseInviteReturn {
       status.value = 'unknown'
       return status.value
     }
+    asked.value = true
     keepInvite(code)
     kept.value = true
     try {
@@ -182,16 +203,43 @@ export function useInvite(options: UseInviteOptions = {}): UseInviteReturn {
     }
   }
 
+  const forget = () => {
+    forgetInvite()
+    kept.value = false
+  }
+
+  if (options.fromAddress) {
+    const auth = inject(ConvexAuthStateKey, null)
+    const open = () => {
+      // The link's token leaves the address at once, kept for the tab, so a reload while the session settles still has it.
+      const taken = takeInviteFromAddress()
+      if (taken) {
+        keepInvite(taken)
+        kept.value = true
+      }
+      // The session settles first: a signed-in visitor's link is neither checked nor kept.
+      let started = false
+      watch(() => auth != null && auth.isLoading.value, async (loading) => {
+        if (loading || started) return
+        started = true
+        if (auth?.isAuthenticated.value) forget()
+        else if (kept.value) await check()
+        linkChecked.value = true
+      }, { immediate: true })
+    }
+    if (getCurrentInstance()) onMounted(open)
+    else if (typeof window !== 'undefined') open()
+  }
+
   return {
     check,
     status,
     isPending,
     error: computed(() => failure.value),
     isKept: computed(() => kept.value),
-    forget: () => {
-      forgetInvite()
-      kept.value = false
-    },
+    forget,
+    linkChecked,
+    asked,
     referral,
     signInTo: computed(() => {
       if (!loginPath.value) return null
