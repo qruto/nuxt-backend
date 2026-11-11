@@ -426,8 +426,6 @@ function planActions(
   packs: ComputedRef<PricedPack[] | undefined>,
   sale: PlanSale,
 ): Pick<UsePricingReturn, 'bind' | 'checkout'> {
-  const { discount } = sale
-  const successUrl = (key: string) => sale.successUrl('plan', key)
   const billing = useBilling()
   const campaign = useCampaign()
   const auth = useAuthSession()
@@ -440,6 +438,16 @@ function planActions(
     const at = shownInterval(plan, state.interval.value, billing.subscription.value?.productId)
     return at && plan.prices[at]
   }
+  const { payIn, withCampaign } = pricingCheckout({ campaign, asked: sale.asked, active: sale.active, currencies: sale.currencies })
+  /** One checkout of `productId`, shown in `currency`: the campaign's discount, unless `options` name one of their own. */
+  const start = (kind: 'plan' | 'pack', key: string, price: { productId: string, currency: string, promotion?: unknown }, offered: boolean, options: CheckoutOptions) => {
+    const own = options.discount !== undefined || options.discountCode !== undefined
+    const back = sale.successUrl(kind, key)
+    return withCampaign(offered && !own, (campaignOptions) => {
+      const { discount: _discount, discountCode: _code, ...attribution } = campaignOptions
+      return billing.checkout(price.productId, { redirect: true, ...payIn(price.currency), ...(back ? { successUrl: back } : {}), ...(own ? attribution : campaignOptions), ...options })
+    })
+  }
   const act = async ({ key }: { key: string }) => {
     if (!auth.isAuthenticated.value) {
       if (login.value) await navigateTo(`${login.value}?redirect=${encodeURIComponent(route.fullPath)}`)
@@ -450,10 +458,8 @@ function planActions(
     state.pending.value = key
     try {
       if (billing.isSubscribed.value && billing.pass.value === null) await billing.changePlan(price.productId, { proration: CONFIRMED_PRORATION })
-      else {
-        const back = successUrl(key)
-        await billing.checkout(price.productId, { redirect: true, ...campaign.checkoutOptions.value, ...(discount ? { discount } : {}), ...(back ? { successUrl: back } : {}) })
-      }
+      // A gifted plan's holder checks out with the address's campaign too: one discount, as `checkout` sends it.
+      else await start('plan', key, price, price.promotion !== undefined && sale.active() !== undefined, {})
     }
     catch {
       // The failure is in `useBilling().error`; the button is free again.
@@ -461,16 +467,6 @@ function planActions(
     finally {
       state.pending.value = null
     }
-  }
-  const { payIn, withCampaign } = pricingCheckout({ campaign, asked: sale.asked, active: sale.active, currencies: sale.currencies })
-  /** One checkout of `productId`, shown in `currency`: the campaign's discount, unless `options` name one of their own. */
-  const start = (kind: 'plan' | 'pack', key: string, price: { productId: string, currency: string, promotion?: unknown }, offered: boolean, options: CheckoutOptions) => {
-    const own = options.discount !== undefined || options.discountCode !== undefined
-    const back = sale.successUrl(kind, key)
-    return withCampaign(offered && !own, (campaignOptions) => {
-      const { discount: _discount, discountCode: _code, ...attribution } = campaignOptions
-      return billing.checkout(price.productId, { redirect: true, ...payIn(price.currency), ...(back ? { successUrl: back } : {}), ...(own ? attribution : campaignOptions), ...options })
-    })
   }
   const checkout = async (kind: 'plan' | 'pack', key: string, options: CheckoutOptions = {}): Promise<string> => {
     if (kind === 'pack') {
