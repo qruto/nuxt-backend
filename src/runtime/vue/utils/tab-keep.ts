@@ -60,7 +60,9 @@ export function tabKeep(key: string): TabKeep {
 /**
  * The token in the address's fragment (`#<token>`), taken off the address
  * at once, so it is neither bookmarked nor copied with it. A fragment that
- * is no valid encoding is read as it stands. `null` without one.
+ * is no valid encoding is read as it stands. `null` without one, and for
+ * one that names an element of the page: an in-page link (`#how-it-works`),
+ * left for the browser to scroll to.
  */
 export function takeFragment(): string | null {
   if (typeof window === 'undefined') return null
@@ -72,7 +74,7 @@ export function takeFragment(): string | null {
   catch {
     token = hash.trim()
   }
-  if (!token) return null
+  if (!token || document.getElementById(token) !== null) return null
   window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
   return token
 }

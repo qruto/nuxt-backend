@@ -1,5 +1,5 @@
 import type { DefaultFunctionArgs, FunctionReference } from 'convex/server'
-import { computed, getCurrentInstance, inject, onMounted, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, inject, ref, watch, type ComputedRef, type Ref } from 'vue'
 import { useRoute } from '#imports'
 import { ConvexAuthStateKey, useMutation } from 'nuxt-convex-module/client'
 import { useAsyncQuery } from 'nuxt-convex-module/app'
@@ -9,6 +9,7 @@ import { normalizeShareCode } from '../../../convex/referral-rules'
 import { useActionState } from '../utils/action-state'
 import { type BackendError, failureOf } from '../utils/backend-error'
 import { forgetInvite, keepInvite, keptInvite, takeInviteFromAddress } from '../utils/kept-invite'
+import { onPageOpen } from '../utils/page-open'
 import { absentQuery, diagnostics, useLiveQuery } from '../utils/live-query'
 import { useApiNamespace, useBackendNamespace } from '../utils/namespace'
 import { usePageOrigin } from '../utils/page-origin'
@@ -217,18 +218,18 @@ export function useInvite(options: UseInviteOptions = {}): UseInviteReturn {
         keepInvite(taken)
         kept.value = true
       }
-      // The session settles first: a signed-in visitor's link is neither checked nor kept.
+      // The session settles first: a signed-in visitor's link is neither checked nor kept. Once is enough.
       let started = false
-      watch(() => auth != null && auth.isLoading.value, async (loading) => {
+      const stop = watch(() => auth != null && auth.isLoading.value, async (loading) => {
         if (loading || started) return
         started = true
+        queueMicrotask(() => stop())
         if (auth?.isAuthenticated.value) forget()
         else if (kept.value) await check()
         linkChecked.value = true
       }, { immediate: true })
     }
-    if (getCurrentInstance()) onMounted(open)
-    else if (typeof window !== 'undefined') open()
+    onPageOpen(open)
   }
 
   return {

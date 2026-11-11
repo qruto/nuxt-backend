@@ -53,9 +53,9 @@ onMounted(() => {
   hadToken.value = waitlist.step.value === 'status'
 })
 
-// Leave took the entry behind the token; useWaitlist dropped what the tab kept.
-watch(() => waitlist.step.value, (step, before) => {
-  if (before !== 'status' || step !== 'join') return
+// Leave took the entry behind the token (useWaitlist().left); it dropped what the tab kept.
+watch(() => waitlist.left.value, (now) => {
+  if (!now) return
   left.value = true
   hadToken.value = false
 })

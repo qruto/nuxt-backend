@@ -297,6 +297,26 @@ describe('useWaitlist', () => {
     expect(window.location.hash).toBe('')
   })
 
+  it('leaves an in-page link to the browser: a fragment naming an element of the page is no token', async () => {
+    const section = document.createElement('section')
+    section.id = 'how-it-works'
+    document.body.append(section)
+    try {
+      window.sessionStorage.setItem('nuxt-backend:waitlist', 'kept.signature')
+      answers.set(key('waitlist:waitlistStatus', { token: 'kept.signature' }), VIEW)
+      window.history.replaceState(null, '', '/waitlist#how-it-works')
+      const waitlist = inSetup(() => useWaitlist({ statusLink: true }))
+      await nextTick()
+      expect(window.location.hash).toBe('#how-it-works')
+      // The tab's own token still opens, never overwritten by the anchor.
+      expect(waitlist.step.value).toBe('status')
+      expect(window.sessionStorage.getItem('nuxt-backend:waitlist')).toBe('kept.signature')
+    }
+    finally {
+      section.remove()
+    }
+  })
+
   it('leaves the address and the tab alone without statusLink, and has nothing to check', async () => {
     window.history.replaceState(null, '', '/waitlist#entry.signature')
     const waitlist = inSetup(() => useWaitlist())

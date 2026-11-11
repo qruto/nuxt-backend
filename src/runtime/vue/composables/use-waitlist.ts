@@ -1,5 +1,5 @@
 import type { FunctionReference } from 'convex/server'
-import { computed, type ComputedRef, getCurrentInstance, type MaybeRefOrGetter, onMounted, reactive, ref, type Ref, shallowRef, toValue } from 'vue'
+import { computed, type ComputedRef, type MaybeRefOrGetter, reactive, ref, type Ref, shallowRef, toValue } from 'vue'
 import { useRoute } from '#imports'
 import { useAction, useMutation } from 'nuxt-convex-module/client'
 import type { WaitlistCaps, WaitlistConsole, WaitlistPlace, WaitlistStatusView } from '../../../convex/integrations/waitlist'
@@ -15,6 +15,7 @@ import { useCampaign } from './use-campaign'
 import { useHumanCheck } from './use-human-check'
 import { useLabels } from './use-labels'
 import { usePageOrigin } from '../utils/page-origin'
+import { onPageOpen } from '../utils/page-open'
 import { takeFragment, type TabKeep, tabKeep } from '../utils/tab-keep'
 
 export type { WaitlistCaps, WaitlistConsole, WaitlistEntryRow, WaitlistPlace, WaitlistStatusView } from '../../../convex/integrations/waitlist'
@@ -331,8 +332,7 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
       if (found) status(found)
       linkChecked.value = true
     }
-    if (getCurrentInstance()) onMounted(open)
-    else if (typeof window !== 'undefined') open()
+    onPageOpen(open)
   }
 
   const leave = async () => {
