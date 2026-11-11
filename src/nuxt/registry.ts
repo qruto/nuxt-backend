@@ -43,6 +43,8 @@ export function registerSaasComposables(resolver: Resolver): void {
     { name: 'useFeatures', from: resolver.resolve('./runtime/vue/composables/use-features') },
     { name: 'useCredits', from: resolver.resolve('./runtime/vue/composables/use-credits') },
     { name: 'usePricing', from: resolver.resolve('./runtime/vue/composables/use-pricing') },
+    { name: 'usePlanChange', from: resolver.resolve('./runtime/vue/composables/use-plan-change') },
+    { name: 'useBillingSection', from: resolver.resolve('./runtime/vue/composables/use-billing-section') },
     { name: 'useCampaign', from: resolver.resolve('./runtime/vue/composables/use-campaign') },
     { name: 'useOrders', from: resolver.resolve('./runtime/vue/composables/use-orders') },
     { name: 'useUsage', from: resolver.resolve('./runtime/vue/composables/use-usage') },

@@ -577,6 +577,14 @@
           "to": "/docs/reference/api/use-pricing"
         },
         {
+          "name": "usePlanChange",
+          "to": "/docs/reference/api/use-plan-change"
+        },
+        {
+          "name": "useBillingSection",
+          "to": "/docs/reference/api/use-billing-section"
+        },
+        {
           "name": "useCampaign",
           "to": "/docs/reference/api/use-campaign"
         },
@@ -1607,9 +1615,9 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "72 in all",
+          "name": "74 in all",
           "to": "/docs/reference/nuxt/composables",
-          "label": "72 composables in all"
+          "label": "74 composables in all"
         }
       ]
     },
@@ -1915,6 +1923,14 @@
         {
           "name": "usePricing",
           "to": "/docs/reference/api/use-pricing"
+        },
+        {
+          "name": "usePlanChange",
+          "to": "/docs/reference/api/use-plan-change"
+        },
+        {
+          "name": "useBillingSection",
+          "to": "/docs/reference/api/use-billing-section"
         },
         {
           "name": "useCampaign",

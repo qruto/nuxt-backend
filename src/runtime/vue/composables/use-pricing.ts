@@ -3,6 +3,7 @@ import { computed, ref, toValue, type ComputedRef, type MaybeRefOrGetter, type R
 import { navigateTo, useRequestHeaders, useRoute, useState } from '#imports'
 import { useAsyncQuery } from 'nuxt-convex-module/app'
 import { CATALOG_INTERVALS, type CatalogInterval } from '../../../convex/catalog.js'
+import { backendError } from '../../../convex/errors.js'
 import type { PricedPack, PricedPlan, PricedPromotion, Pricing } from '../../../convex/integrations/billing/types/records.js'
 import { failureOf, type BackendError } from '../utils/backend-error'
 import { useActiveLocale } from '../utils/active-locale'
@@ -12,7 +13,9 @@ import { useBackendNamespace } from '../utils/namespace'
 import { askedInterval, onSite, pricingBindings, promotionRuns, shownInterval, usePageClock, type PricingBindings } from '../utils/pricing-bindings'
 import { useAuthSession } from '../utils/auth-session'
 import { CONFIRMED_PRORATION } from '../utils/plan-change-confirm'
-import { useBilling } from './use-billing'
+import { pricingCheckout } from '../utils/pricing-checkout'
+import { pricingStructuredData } from '../utils/pricing-seo'
+import { useBilling, type CheckoutOptions } from './use-billing'
 import { useCampaign } from './use-campaign'
 import { useBackendPagePath } from './use-backend-page-path'
 
@@ -169,6 +172,34 @@ export interface UsePricingReturn {
   /** Read the pricing again. It is live already; this is for a retry after a failure. */
   refresh: () => Promise<void>
   /**
+   * Check a plan out, at the price its card shows (the `interval` shown,
+   * else the one it sells at), or a credit pack, the way `<PricingTable>`
+   * does: with the address's campaign (`useCampaign`), the promotion this
+   * pricing shows (`discount`) in the place of the campaign link's code on
+   * a price it is offered on, one discount per checkout, and, when the
+   * server refuses that discount, once more without it, so a dead code never
+   * blocks the purchase; in the currency the price shows in where the
+   * catalog prices more than one; back where `successUrl` says. A plan's
+   * promotion is not offered to a paying subscriber, whose plan changes
+   * rather than checks out (`usePlanChange`). `options` go with it, over
+   * what it picks; a discount of their own goes in the campaign's place.
+   * Resolves the checkout's URL, opened in this tab unless `options` say
+   * `redirect: false`. Rejects with what the call threw, and as
+   * `invalid_input` (`field` `plan` or `pack`) for a key nothing on
+   * sale has. A visitor signs in first: `bind.planAction` takes them there.
+   */
+  checkout: (kind: 'plan' | 'pack', key: string, options?: CheckoutOptions) => Promise<string>
+  /**
+   * The plans and packs on sale as schema.org `Product`s with an `Offer`
+   * per price, for a `<script type="application/ld+json">` of a pricing
+   * page of your own: each price in the currency's main unit with its own
+   * digits (19.99 USD, 1999 JPY), a plan's with its billing period. A
+   * retired plan and an archived price are left out, since nobody new can
+   * buy them. What the packaged `/pricing` page carries with an SEO module
+   * installed. `undefined` until the pricing loads.
+   */
+  structuredData: ComputedRef<Record<string, unknown> | undefined>
+  /**
    * The interval the plans show: the address's `?interval=` when a plan
    * sells at it, else monthly when a plan is priced by the month, until
    * `setInterval` picks another.
@@ -267,6 +298,8 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
       error: computed(() => null),
       packFor: () => undefined,
       refresh: async () => {},
+      checkout: async (kind, key) => offSale(kind, key),
+      structuredData: computed(() => undefined),
       ...intervalState(computed(() => []), () => undefined),
       bind: pricingBindings({ interval: ref('month'), setInterval: () => {}, pending: ref(null), manages: () => false, act: () => {} }),
     }
@@ -292,6 +325,7 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
   // The page's clock: the server's while hydrating, then the browser's.
   const now = usePageClock()
   const promotion = computed(() => read.data.value?.promotion)
+  const activePromotion = computed(() => (promotion.value && promotionRuns(promotion.value, now.value) ? promotion.value : undefined))
   const successUrlFor = (kind: 'plan' | 'pack', key: string): string | undefined => {
     const wanted = options.successUrl?.[kind]
     if (wanted === undefined) return undefined
@@ -300,13 +334,23 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
     const url = typeof wanted === 'string' ? wanted : (wanted as (item: PricedPlan | PricedPack) => string)(item)
     return onSite(url)
   }
+  const packs = computed(() => read.data.value?.packs)
+  const actions = options.actions === false
+    ? null
+    : planActions(state, plans, packs, {
+        discount: toValue(options.discount),
+        asked: () => toValue(options.discount)?.trim() || undefined,
+        active: () => activePromotion.value,
+        currencies: () => read.data.value?.currencies ?? [],
+        successUrl: successUrlFor,
+      })
   return {
     plans,
-    packs: computed(() => read.data.value?.packs),
+    packs,
     currency: computed(() => read.data.value?.currency),
     currencies: computed(() => read.data.value?.currencies ?? []),
     promotion,
-    activePromotion: computed(() => (promotion.value && promotionRuns(promotion.value, now.value) ? promotion.value : undefined)),
+    activePromotion,
     requested: computed(() => {
       const key = route.query.plan
       return typeof key === 'string' && (plans.value ?? []).some(plan => plan.key === key) ? key : undefined
@@ -323,11 +367,18 @@ export function usePricing(options: UsePricingOptions = {}): UsePricingReturn {
     error: computed(() => (read.error.value ? failureOf(read.error.value) : null)),
     packFor: (units, meter) => smallestCovering(read.data.value?.packs ?? [], units, meter),
     refresh: () => read.refresh(),
+    checkout: actions?.checkout ?? (async () => {
+      throw new Error('[nuxt-backend] usePricing({ actions: false }): this pricing builds no checkout.')
+    }),
+    structuredData: computed(() => (read.data.value ? pricingStructuredData(read.data.value) : undefined)),
     ...state,
-    bind: options.actions === false
-      ? pricingBindings({ ...state, manages: () => false, act: () => {} })
-      : planActions(state, plans, toValue(options.discount), key => successUrlFor('plan', key)),
+    bind: actions?.bind ?? pricingBindings({ ...state, manages: () => false, act: () => {} }),
   }
+}
+
+/** The refusal of a checkout of something not on sale. */
+function offSale(kind: 'plan' | 'pack', key: string): never {
+  throw backendError('invalid_input', { field: kind }, `[nuxt-backend] usePricing().checkout: the pricing has no ${kind} '${key}' on sale.`)
 }
 
 /** The interval a pricing view shows, and how to change it: the one picked, else the address's when a plan sells at it, else monthly. */
@@ -349,6 +400,18 @@ function intervalState(intervals: ComputedRef<PricingInterval[]>, query: () => u
   return { interval, setInterval, pending: ref(null) }
 }
 
+/** What a pricing's checkouts read: its promotion, its currencies and where each returns. */
+interface PlanSale {
+  /** The promotion `bind.planAction`'s checkout names, as asked when the pricing was read. */
+  discount: string | undefined
+  /** The promotion asked for, now. */
+  asked: () => string | undefined
+  /** The promotion that runs now. */
+  active: () => PricedPromotion | undefined
+  currencies: () => string[]
+  successUrl: (kind: 'plan' | 'pack', key: string) => string | undefined
+}
+
 /**
  * The bindings with the actions behind `planAction`: a visitor goes to the
  * sign-in page and back, a subscriber changes plan as the packaged
@@ -357,7 +420,14 @@ function intervalState(intervals: ComputedRef<PricingInterval[]>, query: () => u
  * switches no pass, and its checkout replaces the pass in place. One
  * action at a time.
  */
-function planActions(state: Pick<UsePricingReturn, 'interval' | 'setInterval' | 'pending'>, plans: ComputedRef<PricedPlan[] | undefined>, discount: string | undefined, successUrl: (key: string) => string | undefined): PricingBindings {
+function planActions(
+  state: Pick<UsePricingReturn, 'interval' | 'setInterval' | 'pending'>,
+  plans: ComputedRef<PricedPlan[] | undefined>,
+  packs: ComputedRef<PricedPack[] | undefined>,
+  sale: PlanSale,
+): Pick<UsePricingReturn, 'bind' | 'checkout'> {
+  const { discount } = sale
+  const successUrl = (key: string) => sale.successUrl('plan', key)
   const billing = useBilling()
   const campaign = useCampaign()
   const auth = useAuthSession()
@@ -392,9 +462,33 @@ function planActions(state: Pick<UsePricingReturn, 'interval' | 'setInterval' | 
       state.pending.value = null
     }
   }
-  return pricingBindings({
-    ...state,
-    manages: () => !auth.isAuthenticated.value || billing.canManage.value,
-    act,
-  })
+  const { payIn, withCampaign } = pricingCheckout({ campaign, asked: sale.asked, active: sale.active, currencies: sale.currencies })
+  /** One checkout of `productId`, shown in `currency`: the campaign's discount, unless `options` name one of their own. */
+  const start = (kind: 'plan' | 'pack', key: string, price: { productId: string, currency: string, promotion?: unknown }, offered: boolean, options: CheckoutOptions) => {
+    const own = options.discount !== undefined || options.discountCode !== undefined
+    const back = sale.successUrl(kind, key)
+    return withCampaign(offered && !own, (campaignOptions) => {
+      const { discount: _discount, discountCode: _code, ...attribution } = campaignOptions
+      return billing.checkout(price.productId, { redirect: true, ...payIn(price.currency), ...(back ? { successUrl: back } : {}), ...(own ? attribution : campaignOptions), ...options })
+    })
+  }
+  const checkout = async (kind: 'plan' | 'pack', key: string, options: CheckoutOptions = {}): Promise<string> => {
+    if (kind === 'pack') {
+      const pack = packs.value?.find(entry => entry.key === key)
+      if (!pack) offSale(kind, key)
+      return start(kind, key, pack, pack.promotion !== undefined && sale.active() !== undefined, options)
+    }
+    const price = priceOf(key)
+    if (!price) offSale(kind, key)
+    // A paying subscriber's plan change takes no discount: theirs is offered none.
+    return start(kind, key, price, price.promotion !== undefined && sale.active() !== undefined && !billing.isSubscribed.value, options)
+  }
+  return {
+    checkout,
+    bind: pricingBindings({
+      ...state,
+      manages: () => !auth.isAuthenticated.value || billing.canManage.value,
+      act,
+    }),
+  }
 }

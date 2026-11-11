@@ -37,6 +37,8 @@ export const COMPOSABLE_AREAS = {
   useFeatures: 'billing',
   useCredits: 'billing',
   usePricing: 'billing',
+  usePlanChange: 'billing',
+  useBillingSection: 'billing',
   useCampaign: 'billing',
   useOrders: 'billing',
   useUsage: 'billing',

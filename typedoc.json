@@ -17,6 +17,8 @@
     "src/runtime/vue/composables/use-features.ts",
     "src/runtime/vue/composables/use-credits.ts",
     "src/runtime/vue/composables/use-pricing.ts",
+    "src/runtime/vue/composables/use-plan-change.ts",
+    "src/runtime/vue/composables/use-billing-section.ts",
     "src/runtime/vue/composables/use-campaign.ts",
     "src/runtime/vue/composables/use-gifts.ts",
     "src/runtime/vue/composables/use-workspace.ts",

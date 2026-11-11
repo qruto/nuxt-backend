@@ -6,6 +6,7 @@ import { type LabelGroupOverrides, refusalText, useLabels } from './use-labels'
 import { usePricing } from './use-pricing'
 import { useReauthentication } from './use-reauthentication'
 import { useWorkspace } from './use-workspace'
+import { giftDeliveryTime, isGiftDay, useGiftDays } from '../utils/gift-days'
 import { useMeterUnit } from '../utils/meter-unit'
 
 /** One gift the person received, as the page shows it. */
@@ -82,7 +83,24 @@ export interface UseGiftListReturn {
   claim: (giftId: string) => Promise<GiftClaimOutcome | null>
   resend: (giftId: string) => Promise<void>
   changeRecipient: (giftId: string, recipientEmail: string) => Promise<boolean>
-  reschedule: (giftId: string, deliverAt: string) => Promise<boolean>
+  /**
+   * Move a scheduled gift's delivery, the way a new gift is dated: a day
+   * (`YYYY-MM-DD`, as a date input between `firstDay` and `lastDay`
+   * writes it) goes out at 09:00 the purchaser's time, as `useGiftForm`
+   * sends one; a moment (a `datetime-local` value, a `Date`) goes out
+   * then. A day now or past delivers it at once; one past the server's
+   * year ahead is refused (`invalid_input` on `deliverAt`, in `error`).
+   * Resolves whether it went through.
+   */
+  reschedule: (giftId: string, deliverAt: string | Date) => Promise<boolean>
+  /**
+   * The first day a reschedule takes, `YYYY-MM-DD`: a date input's `min`.
+   * Today in the purchaser's own calendar once the page is on screen, as
+   * `useGiftForm().firstDay` reads it.
+   */
+  firstDay: ComputedRef<string>
+  /** The last day it takes, a year after the first, inside the server's window: a date input's `max`. */
+  lastDay: ComputedRef<string>
   cancel: (giftId: string) => Promise<void>
   labels: ReturnType<typeof useLabels<'gift'>>
 }
@@ -115,6 +133,8 @@ export function useGiftList(options: UseGiftListOptions = {}): UseGiftListReturn
   const unit = useMeterUnit()
   const { t, locale } = labels
   const { withReauthentication } = useReauthentication()
+  // The days a gift may be dated for, as a new gift reads them.
+  const { firstDay, lastDay } = useGiftDays()
 
   const target = ref<Record<string, string>>({})
   const announcement = ref('')
@@ -218,9 +238,13 @@ export function useGiftList(options: UseGiftListOptions = {}): UseGiftListReturn
       return done === true
     },
     reschedule: async (giftId, deliverAt) => {
-      const done = await act(giftId, 'rescheduled', () => gifts.reschedule(giftId, new Date(deliverAt)).then(() => true))
+      // A day goes out on its morning, the purchaser's time, as a new gift's does; a moment goes out then.
+      const at = typeof deliverAt === 'string' && isGiftDay(deliverAt) ? new Date(giftDeliveryTime(deliverAt)) : new Date(deliverAt)
+      const done = await act(giftId, 'rescheduled', () => gifts.reschedule(giftId, at).then(() => true))
       return done === true
     },
+    firstDay,
+    lastDay,
     // A cancel moves money back: the person confirms a recent sign-in first.
     cancel: async (giftId) => {
       await act(giftId, 'canceled', () => withReauthentication(() => gifts.cancel(giftId)))

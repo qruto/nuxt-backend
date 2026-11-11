@@ -3,6 +3,7 @@ import { computed, resolveComponent, type Ref } from 'vue'
 import { busyAttributes } from '../../a11y'
 import { valueLabel } from '../../composables/use-labels'
 import type { EntitlementBenefit } from '../../composables/use-billing'
+import type { BillingSectionAction } from '../../composables/use-billing-section'
 import type { WorkspaceBillingProps } from '../../parts'
 import CancelConfirmGroup from '../billing/CancelConfirmGroup.vue'
 import { IN_PORTAL, type PlanState } from './workspace-billing'
@@ -57,21 +58,17 @@ const words = computed(() => (section.state.value ? STATE_WORDS[section.state.va
 // Busy until the plan is known (its name reads "—" until then), unless the
 // read failed, and while a return from checkout is being finished.
 const finishing = computed(() => props.billing.isFinishingCheckout.value)
-const loading = computed(() => (props.billing.subscription.value === undefined && !props.billing.error.value) || finishing.value)
-const failed = computed(() => props.billing.subscription.value === undefined && props.billing.error.value)
+const loading = section.plan.isLoading
+const failed = computed(() => section.plan.state.value === 'error')
 const managing = computed(() => props.billing.canManage.value)
 
 /** A button of the section: busy while its own action runs, and keeping focus through it. */
 const pending = (key: string) => view.context.value.pending === key
 const press = (key: string, action: () => unknown) => (pending(key) ? undefined : action())
 
-const gifted = computed(() => section.state.value === 'gifted')
-const keepOffered = computed(() => gifted.value && managing.value)
 // A gifted plan has no card to cancel: the one offer is to keep it.
-const cancellable = computed(() => !gifted.value && !props.billing.cancelAtPeriodEnd.value && !props.billing.isPaused.value)
-/** The portal button comes first when a payment failed, its own action; then the plan's own ways back. A gifted plan has no card to manage. */
-const portalFirst = computed(() => section.state.value === 'past_due')
-const portalLast = computed(() => !portalFirst.value && !gifted.value)
+const keepOffered = computed(() => section.actions.value.includes('keep-gifted'))
+const cancellable = section.plan.cancellable
 /**
  * What "Cancel plan" opens: the one-step group, or, with save offers on,
  * `<CancelFlow>` (one optional question and at most one offer, "Cancel my
@@ -82,9 +79,6 @@ const cancelling = computed(() => {
   if (!section.confirm.isOpen.value) return { is: () => null, props: {} }
   return { is: resolveComponent('CancelFlow'), props: { id: view.partId('cancel', 'confirm'), onClose: () => section.confirm.close(), onCanceled: section.flowCanceled, onKept: section.flowKept } }
 })
-/** A scheduled plan change can be cancelled, unless the plan is set to end. */
-const changeCancellable = computed(() => props.billing.pendingChange.value !== null && !props.billing.cancelAtPeriodEnd.value)
-
 /** One button of the plan's row: its hook, what it carries and what it says, and where a group it opens gives focus back. */
 interface PlanButton { hook: string, attributes: Record<string, unknown>, text: string, element?: Ref<HTMLElement | null> }
 /** A button that opens and closes a group: the group's toggle, its element kept for the focus coming back. */
@@ -98,22 +92,24 @@ const runs = (hook: string, key: string, idle: string, busy: string, action: () 
   attributes: { ...busyAttributes(pending(key)), onClick: () => press(key, action) },
   text: pending(key) ? busy : idle,
 })
+/** Each button of the plan's row, by what it offers; keeping a gifted plan has a row of its own. */
+const BUTTONS: Record<Exclude<BillingSectionAction, 'keep-gifted'>, () => PlanButton> = {
+  // A failed payment's portal button says what it is for.
+  'portal': () => runs('portal', 'portal', section.state.value === 'past_due' ? t('updatePayment') : t('portal'), t('openingPortal'), section.openPortal),
+  'resume': () => runs('resume', 'resume', t('resume'), t('resuming'), section.resumePlan),
+  'uncancel': () => runs('uncancel', 'uncancel', t('keepPlan'), t('keeping'), section.keepPlan),
+  'cancel-change': () => runs('cancel-change', 'cancel-change', t('cancelChange'), t('cancelingChange'), section.cancelChange),
+  'change-plan': () => opens('change-plan', t('changePlan'), section.switchToggleProps()),
+  'pause': () => opens('pause', t('pause'), section.pauseToggleProps()),
+  'cancel': () => opens('cancel', t('cancel'), section.confirm.toggleProps()),
+}
 /**
- * The plan's buttons, in order. What they offer follows the subscription,
- * not only the state its line reads as: a plan set to cancel offers Keep
- * plan, and one with a change scheduled offers to cancel the change,
- * whatever else holds.
+ * The plan's buttons, in the order `useBillingSection().actions` offers
+ * them. What they offer follows the subscription, not only the state its
+ * line reads as: a plan set to cancel offers Keep plan, and one with a
+ * change scheduled offers to cancel the change, whatever else holds.
  */
-const actions = computed<PlanButton[]>(() => [
-  portalFirst.value && runs('portal', 'portal', t('updatePayment'), t('openingPortal'), section.openPortal),
-  props.billing.isPaused.value && runs('resume', 'resume', t('resume'), t('resuming'), section.resumePlan),
-  props.billing.cancelAtPeriodEnd.value && runs('uncancel', 'uncancel', t('keepPlan'), t('keeping'), section.keepPlan),
-  changeCancellable.value && runs('cancel-change', 'cancel-change', t('cancelChange'), t('cancelingChange'), section.cancelChange),
-  portalLast.value && runs('portal', 'portal', t('portal'), t('openingPortal'), section.openPortal),
-  section.switchable.value && opens('change-plan', t('changePlan'), section.switchToggleProps()),
-  section.pausable.value && opens('pause', t('pause'), section.pauseToggleProps()),
-  cancellable.value && opens('cancel', t('cancel'), section.confirm.toggleProps()),
-].filter((button): button is PlanButton => button !== false))
+const actions = computed<PlanButton[]>(() => section.actions.value.flatMap(action => (action === 'keep-gifted' ? [] : [BUTTONS[action]()])))
 
 /** One benefit: its name (else what it gives), what it gives, and what it holds. */
 const kind = (benefit: EntitlementBenefit) => valueLabel(labels, 'settings', 'benefitKinds', benefit.kind ?? 'other')
