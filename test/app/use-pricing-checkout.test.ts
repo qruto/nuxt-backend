@@ -135,7 +135,11 @@ describe('usePricing().checkout', () => {
     const backend = buyer(PROMOTED, { id: 'sub_pass', status: 'active', productId: 'prod_pass', pass: { plan: 'starter', months: 3, startedAt: 0, endsAt: Date.parse('2099-04-15T00:00:00.000Z') } })
     const pricing = await read({ discount: 'launch' })
     await pricing.checkout('plan', 'pro')
-    expect(checkouts(backend)).toEqual([{ productIds: ['prod_pro'] }])
+    // `bind.planAction`'s button checks a gifted plan's holder out by the same rule.
+    const button = pricing.bind.planAction({ key: 'pro', name: 'Pro' }) as { onClick?: () => unknown }
+    await button.onClick?.()
+    await flushPromises()
+    expect(checkouts(backend)).toEqual([{ productIds: ['prod_pro'] }, { productIds: ['prod_pro'] }])
   })
 
   it('takes a discount of the caller\'s own in the campaign\'s place, and the caller\'s other options over its own', async () => {
@@ -144,6 +148,17 @@ describe('usePricing().checkout', () => {
     await pricing.checkout('plan', 'pro', { discountCode: 'FRIEND10', redirect: false, successUrl: 'https://app.example.com/thanks' })
     expect(checkouts(backend)).toEqual([{ productIds: ['prod_pro'], discountCode: 'FRIEND10', utm: { source: 'newsletter' } }])
     expect(backend.callsTo('billing:generateCheckoutLink')[0]).toMatchObject({ successUrl: 'https://app.example.com/thanks' })
+  })
+
+  it('leaves a refusal of the caller\'s own discount to the caller, with no second checkout', async () => {
+    const backend = buyer(PROMOTED)
+    backend.stub('billing:generateCheckoutLink', (args: { discount?: string }) => {
+      if (args.discount) throw backendError('invalid_input', { field: 'discount' })
+      return { url: 'https://checkout.example.com/3' }
+    })
+    const pricing = await read({}, '/pricing?discount=PARTNER5&utm_source=newsletter')
+    await expect(pricing.checkout('plan', 'pro', { discount: 'expired' })).rejects.toMatchObject({ data: { code: 'invalid_input', field: 'discount' } })
+    expect(checkouts(backend)).toEqual([{ productIds: ['prod_pro'], discount: 'expired', utm: { source: 'newsletter' } }])
   })
 
   it('refuses a key nothing on sale has', async () => {

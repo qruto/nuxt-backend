@@ -5,7 +5,7 @@ import { computed, createApp, ref } from 'vue'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { useNuxtApp, useRouter } from '#imports'
-import { entitlementSync, finishCheckoutReturn, finishingCheckout } from '../../src/runtime/vue/utils/checkout-return'
+import { entitlementSync, finishCheckoutReturn, finishingCheckout, withoutCheckoutReturn } from '../../src/runtime/vue/utils/checkout-return'
 
 // The return from checkout: the server sends a plan or pack checkout back
 // with `?checkout_return=`, and the client takes it off the address, then refreshes
@@ -113,6 +113,14 @@ describe('the refresh a return makes', () => {
 })
 
 describe('the checkout-return plugin', () => {
+  it('strips what a return adds from the address as it is, a provider token left behind alone included', () => {
+    expect(withoutCheckoutReturn({ tab: 'plan', checkout_return: 'chk_a', customer_session_token: 'polar_cst_secret' })).toEqual({ tab: 'plan' })
+    // A page took `checkout_return` off itself: the portal key still goes.
+    expect(withoutCheckoutReturn({ tab: 'plan', customer_session_token: 'polar_cst_secret' })).toEqual({ tab: 'plan' })
+    // Nothing to take off: no navigation.
+    expect(withoutCheckoutReturn({ tab: 'plan', checkout_id: 'chk_mine' })).toBeNull()
+  })
+
   it('finishes a return on the page it lands on, once, and loads nothing on any other page', async () => {
     const { default: plugin } = await import('../../src/runtime/vue/plugins/checkout-return')
     const nuxtApp = useNuxtApp()

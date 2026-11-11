@@ -4,8 +4,10 @@ import type { PricedPlan, PricedPlanPrice } from '../../../convex/integrations/b
 import { useActionState } from '../utils/action-state'
 import type { BackendError } from '../utils/backend-error'
 import { CONFIRMED_PRORATION, planChangeWhen } from '../utils/plan-change-confirm'
+import { pricingCheckout } from '../utils/pricing-checkout'
 import { formatBillingAmount, formatBillingDate } from './billing-format'
 import { useBilling, type CheckoutOptions, type PlanChangePreview } from './use-billing'
+import { useCampaign } from './use-campaign'
 import { useLabels, type BackendLabels, type LabelGroupOverrides, type LabelKey } from './use-labels'
 import { usePricing, type PricingInterval, type UsePricingReturn } from './use-pricing'
 
@@ -50,9 +52,12 @@ export interface UsePlanChangeOptions {
    * The pricing your page reads already (`usePricing()`): its prices stand
    * for the switch's wherever they are in the subscription's currency, so
    * no second pricing is read for a page in it. A page in another currency
-   * still reads the subscription's.
+   * still reads the subscription's. Its `currencies` and `error` count
+   * too where it has them: a gifted plan's checkout pays in the currency
+   * its card shows where the catalog prices more than one, and a failed
+   * read ends the wait.
    */
-  pricing?: Pick<UsePricingReturn, 'plans' | 'currency'>
+  pricing?: Pick<UsePricingReturn, 'plans' | 'currency'> & Partial<Pick<UsePricingReturn, 'currencies' | 'error'>>
   /** While this is `false` no pricing is read for the switch, and nothing is a target (default `true`). */
   enabled?: MaybeRefOrGetter<boolean>
 }
@@ -105,8 +110,11 @@ export interface UsePlanChangeReturn {
    * Make the switch the confirmation is open for, then close it: a
    * subscriber's `changePlan(productId, { proration: 'invoice' })`, so the
    * difference settles now as `when` says, whatever the organization's
-   * default; a gifted plan's holder's checkout of the plan (`options` go
-   * with it, `{ redirect: true }` by default), which ends the gift. Rejects
+   * default; a gifted plan's holder's checkout of the plan, which ends the
+   * gift, with the address's campaign (its code and attribution, a refused
+   * code dropped) and in the currency its price shows where the catalog
+   * prices more than one, as `<PricingTable>` checks it out (`options` go
+   * with it, over those, `{ redirect: true }` by default). Rejects
    * with what the call threw, `error` holds it too, and the confirmation
    * stays open.
    */
@@ -231,6 +239,15 @@ export function usePlanChange(options: UsePlanChangeOptions = {}): UsePlanChange
   const preview = computed(() => (target.value ? billing.changeOf(target.value.productId) : null))
   const applies = computed<PlanChangeApplies | null>(() => (target.value === null ? null : gifted.value ? 'checkout' : preview.value?.applies ?? null))
   const { isPending, failure, run } = useActionState()
+  // A gifted plan's checkout carries the campaign as the table's does: a held plan is offered no promotion.
+  const { payIn, withCampaign } = pricingCheckout({
+    campaign: useCampaign(),
+    asked: () => undefined,
+    active: () => undefined,
+    currencies: () => shown?.currencies?.value ?? own.currencies.value,
+  })
+  /** The currency a price of the pricing shows in, by its product. */
+  const currencyOf = (productId: string) => plans.value?.flatMap(entry => Object.values(entry.prices)).find(price => price?.productId === productId)?.currency
 
   const switchTo = (productId: string) => run(() => billing.changePlan(productId, { proration: CONFIRMED_PRORATION }), { silent: true })
 
@@ -269,13 +286,13 @@ export function usePlanChange(options: UsePlanChangeOptions = {}): UsePlanChange
       const chosen = target.value
       if (!chosen) return
       // The provider switches no pass: a gifted plan's holder checks the plan out, which replaces the pass in place.
-      if (gifted.value) await run(() => billing.checkout(chosen.productId, { redirect: true, ...checkout }), { silent: true })
+      if (gifted.value) await run(() => withCampaign(false, campaign => billing.checkout(chosen.productId, { redirect: true, ...payIn(currencyOf(chosen.productId)), ...campaign, ...checkout })), { silent: true })
       else await switchTo(chosen.productId)
       if (target.value === chosen) target.value = null
     },
     switchTo,
-    isLoading: computed(() => switches() && targets.value === undefined && own.error.value === null),
+    isLoading: computed(() => switches() && targets.value === undefined && own.error.value === null && (shown?.error?.value ?? null) === null),
     isPending,
-    error: computed(() => failure.value ?? own.error.value),
+    error: computed(() => failure.value ?? own.error.value ?? shown?.error?.value ?? null),
   }
 }

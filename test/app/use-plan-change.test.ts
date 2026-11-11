@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
+import { computed, defineComponent, h } from 'vue'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { enableAutoUnmount, flushPromises } from '@vue/test-utils'
 import { clearNuxtData, useState } from '#app'
@@ -71,14 +71,14 @@ function subscribedTo(productId: string, fields: Record<string, unknown> = {}): 
 }
 
 /** usePlanChange in a probe, read once the mock answered. */
-async function planChange(options: UsePlanChangeOptions = {}): Promise<UsePlanChangeReturn> {
+async function planChange(options: UsePlanChangeOptions = {}, route = '/pricing'): Promise<UsePlanChangeReturn> {
   let change!: UsePlanChangeReturn
   await mountSuspended(defineComponent({
     setup() {
       change = usePlanChange(options)
       return () => h('div')
     },
-  }))
+  }), { route })
   await flushPromises()
   return change
 }
@@ -223,7 +223,33 @@ describe('usePlanChange: the confirmation', () => {
     expect(change.when.value).toBe('$29/mo from checkout on. Your gifted plan stops once you check out, and the time left on it does not carry over.')
     await change.confirm({ redirect: false })
     expect(backend.callsTo('billing:updateSubscription')).toEqual([])
-    expect(backend.callsTo('billing:generateCheckoutLink')).toEqual([expect.objectContaining({ productIds: ['prod_team'] })])
+    // In the currency its card shows, as the catalog prices more than one.
+    expect(backend.callsTo('billing:generateCheckoutLink')).toEqual([expect.objectContaining({ productIds: ['prod_team'], currency: 'usd' })])
+  })
+
+  it('checks a gifted plan out with the address\'s campaign, as the pricing table does, and drops a refused code', async () => {
+    const backend = subscribedTo('prod_pass', { pass: { plan: 'pro', months: 3, startedAt: Date.parse('2099-01-15T00:00:00.000Z'), endsAt: Date.parse('2099-04-15T00:00:00.000Z') } })
+    let refusals = 1
+    backend.stub('billing:generateCheckoutLink', (args: { discountCode?: string }) => {
+      if (args.discountCode && refusals-- > 0) throw backendError('invalid_input', { field: 'discountCode' })
+      return { url: 'https://checkout.example.com/team' }
+    })
+    const change = await planChange({}, '/pricing?discount=FRIEND10&utm_source=newsletter')
+    change.open(change.targetFor('team', 'month')!)
+    await change.confirm({ redirect: false })
+    expect(backend.callsTo('billing:generateCheckoutLink')).toEqual([
+      expect.objectContaining({ productIds: ['prod_team'], discountCode: 'FRIEND10', utm: { source: 'newsletter' } }),
+      expect.objectContaining({ productIds: ['prod_team'], discountCode: undefined, utm: { source: 'newsletter' } }),
+    ])
+  })
+
+  it('stops waiting, and says why, once the page\'s own pricing fails to load', async () => {
+    subscribedTo('prod_pro')
+    const refused = { code: 'internal', message: 'The pricing could not be read.' } as const
+    const change = await planChange({ pricing: { plans: computed(() => undefined), currency: computed(() => undefined), error: computed(() => refused as never) } })
+    expect(change.targets.value).toBeUndefined()
+    expect(change.isLoading.value).toBe(false)
+    expect(change.error.value).toEqual(refused)
   })
 
   it('keeps the confirmation open and says why when the switch is refused', async () => {

@@ -3,7 +3,6 @@ import { useHead, useRuntimeConfig, useSeoMeta } from '#imports'
 import PageFrame from '../components/shell/PageFrame.vue'
 import { useLabels } from '../composables/use-labels'
 import { usePricing } from '../composables/use-pricing'
-import { pricingStructuredData } from '../utils/pricing-seo'
 
 /**
  * The ready-made public pricing page, registered by the module at `/pricing`
@@ -31,9 +30,7 @@ if (seo) {
       key: 'backend-pricing',
       type: 'application/ld+json',
       // An object: the head manager serializes it, and escapes what could end the script early.
-      innerHTML: () => (pricing.plans.value && pricing.packs.value
-        ? pricingStructuredData({ plans: pricing.plans.value, packs: pricing.packs.value })
-        : ''),
+      innerHTML: () => pricing.structuredData.value ?? '',
     }],
   })
 }
