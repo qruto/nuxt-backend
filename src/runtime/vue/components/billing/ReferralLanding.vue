@@ -23,13 +23,12 @@ import { useApiNamespace } from '../../utils/namespace'
 const invite = useReferralInvite()
 const { t, errorMessage } = useLabels('referral')
 const home = useBackendPagePath('settings')
-const invitePath = useBackendPagePath('invite')
 const waitlistPath = useBackendPagePath('waitlist')
 // An app without backend/access.ts is open, and lacks no file: no warning for it.
 const { phase } = useAccessPhase({ api: useApiNamespace<AccessApiRefs>('access') ?? {} })
 
 /** The invite page, carrying this link's code: the sign-in it leads to comes back here to claim. */
-const inviteTo = computed(() => (invitePath.value ? `${invitePath.value}?ref=${encodeURIComponent(invite.code.value)}` : null))
+const inviteTo = invite.inviteTo
 /** The visitor needs a ticket first: the app is not public, and nobody is signed in. */
 const needsTicket = computed(() => invite.state.value === 'ready' && invite.closed.value === true)
 /** A visitor's way in waits for the phase: neither the sign-up nor the ways to a ticket until it is read, or a few seconds pass. */

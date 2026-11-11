@@ -16,15 +16,15 @@
  *
  * @internal
  */
-import { computed, inject, nextTick, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
+import { computed, inject, nextTick, ref, useId, useTemplateRef } from 'vue'
 import { ConvexAuthStateKey } from 'nuxt-convex-module/client'
 import { useAccessPhase, useInvite } from '../../composables/use-access'
 import { useBackendPagePath } from '../../composables/use-backend-page-path'
 import { useLabels } from '../../composables/use-labels'
 import { useReturnPath } from '../../composables/use-return-path'
-import { keepInvite, takeInviteFromAddress } from '../../utils/kept-invite'
 
-const invite = useInvite()
+// `fromAddress` takes the link's token off the address, waits for the session, then checks or forgets it.
+const invite = useInvite({ fromAddress: true })
 const { phase } = useAccessPhase()
 const { t, errorMessage } = useLabels('auth')
 const waitlistPath = useBackendPagePath('waitlist')
@@ -33,35 +33,14 @@ const auth = inject(ConvexAuthStateKey, null)
 const signedIn = computed(() => auth != null && auth.isAuthenticated.value)
 const codeId = useId()
 const code = ref('')
-const checked = ref(false)
+const checked = invite.linkChecked
 // Whether a ticket was asked about at all: a link brought one, the tab kept one, or a code was typed.
-const asked = ref(false)
+const asked = invite.asked
 const continueLink = useTemplateRef<HTMLAnchorElement>('continueLink')
-
-onMounted(() => {
-  // The link's token leaves the address at once, kept for the tab, so a reload while the session settles still has it.
-  const taken = takeInviteFromAddress()
-  if (taken) keepInvite(taken)
-  // The session settles first: a signed-in visitor's link is neither checked nor kept.
-  let started = false
-  watch(() => auth != null && auth.isLoading.value, async (loading) => {
-    if (loading || started) return
-    started = true
-    if (signedIn.value) {
-      invite.forget()
-    }
-    else {
-      asked.value = taken !== null || invite.isKept.value
-      if (asked.value) await invite.check()
-    }
-    checked.value = true
-  }, { immediate: true })
-})
 
 async function redeem() {
   const typed = code.value.trim()
   if (invite.isPending.value || !typed) return
-  asked.value = true
   await invite.check(typed)
   // The form goes once the code checks: focus moves on to the way in, never back to the page's start.
   if (state.value !== 'valid') return

@@ -260,6 +260,75 @@ describe('useWaitlist', () => {
     expect(waitlist.place.value).toBeUndefined()
   })
 
+  it('opens a status link with statusLink: the token leaves the address, the tab keeps it, and a leave drops it', async () => {
+    window.history.replaceState(null, '', '/waitlist#entry.signature')
+    answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), VIEW)
+    const waitlist = inSetup(() => useWaitlist({ statusLink: true }))
+    await nextTick()
+    expect(window.location.hash).toBe('')
+    expect(window.location.pathname).toBe('/waitlist')
+    expect(waitlist.linkChecked.value).toBe(true)
+    expect(waitlist.step.value).toBe('status')
+    expect(waitlist.place.value).toMatchObject({ position: 48 })
+    expect(window.sessionStorage.getItem('nuxt-backend:waitlist')).toBe('entry.signature')
+    await waitlist.leave()
+    expect(leaveCall).toHaveBeenCalledWith({ token: 'entry.signature' })
+    expect(waitlist.left.value).toBe(true)
+    expect(window.sessionStorage.getItem('nuxt-backend:waitlist')).toBeNull()
+  })
+
+  it('reads the token the tab kept on a reload, and keeps a join\'s once its code checks', async () => {
+    window.sessionStorage.setItem('nuxt-backend:waitlist', 'kept.signature')
+    answers.set(key('waitlist:waitlistStatus', { token: 'kept.signature' }), VIEW)
+    const reloaded = inSetup(() => useWaitlist({ statusLink: true }))
+    await nextTick()
+    expect(reloaded.step.value).toBe('status')
+    expect(reloaded.place.value).toMatchObject({ position: 48 })
+
+    window.sessionStorage.clear()
+    const joining = inSetup(() => useWaitlist({ statusLink: true }))
+    await nextTick()
+    expect(joining.step.value).toBe('join')
+    joining.email.value = 'mo@panels.example'
+    joining.code.value = '123456'
+    client.signIn.emailOtp.mockResolvedValueOnce(ticketRequired('early-access', { position: 48, total: 1204, token: 'entry.signature' }))
+    await joining.verify()
+    expect(window.sessionStorage.getItem('nuxt-backend:waitlist')).toBe('entry.signature')
+    expect(window.location.hash).toBe('')
+  })
+
+  it('leaves an in-page link to the browser: a fragment naming an element of the page is no token', async () => {
+    const section = document.createElement('section')
+    section.id = 'how-it-works'
+    document.body.append(section)
+    try {
+      window.sessionStorage.setItem('nuxt-backend:waitlist', 'kept.signature')
+      answers.set(key('waitlist:waitlistStatus', { token: 'kept.signature' }), VIEW)
+      window.history.replaceState(null, '', '/waitlist#how-it-works')
+      const waitlist = inSetup(() => useWaitlist({ statusLink: true }))
+      await nextTick()
+      expect(window.location.hash).toBe('#how-it-works')
+      // The tab's own token still opens, never overwritten by the anchor.
+      expect(waitlist.step.value).toBe('status')
+      expect(window.sessionStorage.getItem('nuxt-backend:waitlist')).toBe('kept.signature')
+    }
+    finally {
+      section.remove()
+    }
+  })
+
+  it('leaves the address and the tab alone without statusLink, and has nothing to check', async () => {
+    window.history.replaceState(null, '', '/waitlist#entry.signature')
+    const waitlist = inSetup(() => useWaitlist())
+    await nextTick()
+    expect(waitlist.linkChecked.value).toBe(true)
+    expect(waitlist.step.value).toBe('join')
+    expect(window.location.hash).toBe('#entry.signature')
+    answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), VIEW)
+    waitlist.status('entry.signature')
+    expect(window.sessionStorage.getItem('nuxt-backend:waitlist')).toBeNull()
+  })
+
   it('builds the link a waiting person shares: the page it runs on, or the one asked for, with their code', async () => {
     answers.set(key('waitlist:waitlistStatus', { token: 'entry.signature' }), VIEW)
     const here = inSetup(() => useWaitlist())

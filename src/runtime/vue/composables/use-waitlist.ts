@@ -15,6 +15,8 @@ import { useCampaign } from './use-campaign'
 import { useHumanCheck } from './use-human-check'
 import { useLabels } from './use-labels'
 import { usePageOrigin } from '../utils/page-origin'
+import { onPageOpen } from '../utils/page-open'
+import { takeFragment, type TabKeep, tabKeep } from '../utils/tab-keep'
 
 export type { WaitlistCaps, WaitlistConsole, WaitlistEntryRow, WaitlistPlace, WaitlistStatusView } from '../../../convex/integrations/waitlist'
 export type { WaitlistStatus } from '../../../convex/waitlist-rules'
@@ -60,6 +62,16 @@ export interface UseWaitlistOptions {
    * form, as a path on this site. Default: the page this runs on.
    */
   shareTo?: MaybeRefOrGetter<string | undefined>
+  /**
+   * Open the status link the page was reached by (default `false`), for the
+   * page a status email links to: `/waitlist`, or an app's own page there.
+   * Once the page mounts, the token leaves the address's fragment
+   * (`#<token>`) and the tab keeps it, as it keeps a join's and one passed
+   * to `status`, so a reload shows the place again while the address, a
+   * bookmark or a copied link never holds it. `leave` drops it. The server
+   * cannot read the fragment: `linkChecked` says when the page has.
+   */
+  statusLink?: boolean
 }
 
 /** The attributes and handlers custom markup spreads on its elements. */
@@ -102,6 +114,14 @@ export interface UseWaitlistReturn {
   shareLink: ComputedRef<string | null>
   /** `true` while a status token's place is first read. */
   isLoading: ComputedRef<boolean>
+  /**
+   * `true` once the page has looked for a status link: on mount with
+   * `statusLink`, as only the browser reads the fragment, so the server
+   * renders a wait; from the start without it.
+   */
+  linkChecked: Readonly<Ref<boolean>>
+  /** `true` once `leave` took the person off the list, until a code checks or a status link is read again. */
+  left: Readonly<Ref<boolean>>
   /** `true` once the code signed the person in instead: they hold a ticket, or the app is no longer in early access. */
   signedIn: Ref<boolean>
   /**
@@ -144,6 +164,16 @@ export interface UseWaitlistReturn {
 export function campaignSource(source: string, attribution: CampaignAttribution | undefined): string {
   const tags = [attribution?.source, attribution?.campaign].flatMap(tag => (tag ? [tag.replace(/[^\w.-]+/g, '-')] : []))
   return (tags.length > 0 ? `${source}:${tags.join('/')}` : source).slice(0, WAITLIST_SOURCE_MAX)
+}
+
+/**
+ * The waitlist status token this tab keeps (`statusLink`), out of the
+ * address: one key for every page and part that reads it.
+ *
+ * @internal
+ */
+export function keptStatusToken(): TabKeep {
+  return tabKeep('nuxt-backend:waitlist')
 }
 
 /** The `?ref=` of the page address, read once. */
@@ -226,6 +256,11 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
   })
   const asked = api.getWaitlistQuestions ? useLiveQuery(api.getWaitlistQuestions, {}) : absentQuery<WaitlistQuestions>()
 
+  // With `statusLink`, the status token this tab keeps, out of the address.
+  const kept: TabKeep | null = options.statusLink ? keptStatusToken() : null
+  const linkChecked = ref(!options.statusLink)
+  const left = ref(false)
+
   const trimmed = () => email.value.trim()
 
   const join = async () => {
@@ -268,6 +303,8 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
         if (failure.code !== 'forbidden' || failure.data.reason !== 'ticket_required' || failure.data.phase !== 'early-access') throw cause
         // The code checked: the address is on the list.
         token.value = waiting?.token ?? null
+        if (token.value) kept?.keep(token.value)
+        left.value = false
         result = { status: 'waiting', position: waiting?.position ?? null, total: waiting?.total ?? 0, friends: 0, cap: 0, shareCode: '', launchNews: launchNews.value, token: waiting?.token ?? '' }
         joined.value = result
         step.value = 'status'
@@ -283,7 +320,19 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
   const status = (statusToken: string) => {
     clearError()
     token.value = statusToken.trim() || null
+    if (token.value) kept?.keep(token.value)
+    left.value = false
     step.value = 'status'
+  }
+
+  if (options.statusLink) {
+    // A status link's token leaves the address at once; a reload reads the one the tab keeps.
+    const open = () => {
+      const found = takeFragment() ?? kept?.read()
+      if (found) status(found)
+      linkChecked.value = true
+    }
+    onPageOpen(open)
   }
 
   const leave = async () => {
@@ -291,6 +340,8 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
       if (!runLeave || !token.value) throw new Error('[nuxt-backend] Leaving needs `leaveWaitlist` re-exported from setupWaitlist() in backend/waitlist.ts, and a place to leave.')
       await runLeave({ token: token.value })
       token.value = null
+      kept?.drop()
+      left.value = true
       joined.value = null
       code.value = ''
       step.value = 'join'
@@ -313,6 +364,8 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
     place,
     shareLink,
     isLoading: computed(() => live.isLoading.value),
+    linkChecked,
+    left,
     signedIn,
     join,
     verify,

@@ -29,11 +29,11 @@ import { useAccessPhase } from '../../composables/use-access'
 import { useBackendPagePath } from '../../composables/use-backend-page-path'
 import { useLabels } from '../../composables/use-labels'
 import { useReturnPath } from '../../composables/use-return-path'
-import { useWaitlist, type WaitlistPlace } from '../../composables/use-waitlist'
-import { takeFragment, tabKeep } from '../../utils/tab-keep'
+import { keptStatusToken, useWaitlist, type WaitlistPlace } from '../../composables/use-waitlist'
 
 // The place behind a status link: the link's own, never a friend's code.
-const waitlist = useWaitlist({ ref: null })
+// `statusLink` takes the token off the address and keeps it for the tab.
+const waitlist = useWaitlist({ ref: null, statusLink: true })
 const { phase, isLoading: phaseLoading } = useAccessPhase()
 const { t } = useLabels('waitlist')
 const loginPath = useBackendPagePath('login')
@@ -42,31 +42,22 @@ const home = useReturnPath()
 const auth = inject(ConvexAuthStateKey, null)
 const signedIn = computed(() => auth != null && auth.isAuthenticated.value)
 const authLoading = computed(() => auth != null && auth.isLoading.value)
-const opened = ref(false)
 const hadToken = ref(false)
 // The person left the list, here or through the form: the page says so above the join.
 const left = ref(false)
-// The status token this tab keeps, out of the address.
-const kept = tabKeep('nuxt-backend:waitlist')
+// The join's own instance (the form's) keeps its token under the same key.
+const kept = keptStatusToken()
 
+// useWaitlist read the status link (or the tab's token) as the page mounted, before this.
 onMounted(() => {
-  // A status link's token leaves the address at once; a reload reads the one the tab keeps.
-  const taken = takeFragment()
-  if (taken) kept.keep(taken)
-  const token = taken ?? kept.read()
-  if (token) {
-    hadToken.value = true
-    waitlist.status(token)
-  }
-  opened.value = true
+  hadToken.value = waitlist.step.value === 'status'
 })
 
-// Leave took the entry behind the token: a reload must not read it as a dead link.
-watch(() => waitlist.step.value, (step, before) => {
-  if (before !== 'status' || step !== 'join') return
+// Leave took the entry behind the token (useWaitlist().left); it dropped what the tab kept.
+watch(() => waitlist.left.value, (now) => {
+  if (!now) return
   left.value = true
   hadToken.value = false
-  kept.drop()
 })
 
 /** A join made here: its status token kept for the tab, over a dead one. */
@@ -85,7 +76,7 @@ function leftForm() {
 /** The `data-state` of the page: what the person reads now. */
 const state = computed(() => {
   // The fragment is the browser's alone, so the server renders the wait.
-  if (!opened.value || authLoading.value || (phase.value === undefined && phaseLoading.value) || (hadToken.value && waitlist.isLoading.value)) return 'checking'
+  if (!waitlist.linkChecked.value || authLoading.value || (phase.value === undefined && phaseLoading.value) || (hadToken.value && waitlist.isLoading.value)) return 'checking'
   if (signedIn.value) return 'member'
   // Open to all, the line is over; invite only, a place already held stands.
   if (phase.value === 'public') return 'open'

@@ -42,6 +42,13 @@ export interface UseReferralInviteReturn {
   /** Where the sign-in page sends a visitor, who is returned to this page to claim. `null` with the sign-in page turned off. */
   signInTo: ComputedRef<string | null>
   /**
+   * The invite page for a visitor who holds an invite while the app is
+   * `closed`: `/invite?ref=<code>`, so the sign-in it leads to comes back
+   * here to claim (`useInvite().signInTo`). `null` with the invite page
+   * turned off.
+   */
+  inviteTo: ComputedRef<string | null>
+  /**
    * `true` while the app is not public (`useAccessPhase`): a new account
    * needs a ticket first, an invite or an admitted place on the waitlist,
    * so signing up here without one only joins the waitlist. An account
@@ -97,6 +104,7 @@ export function useReferralInvite(options: UseReferralInviteOptions = {}): UseRe
   const signedIn = computed(() => auth != null && auth.isAuthenticated.value)
   const loginPath = useBackendPagePath('login')
   const landing = useBackendPagePath('referral')
+  const invitePath = useBackendPagePath('invite')
   // An app without backend/access.ts is open, and lacks no file: its phase reads as public, with no warning.
   const { phase, isLoading: phaseLoading } = useAccessPhase({ api: useApiNamespace<AccessApiRefs>('access') ?? {} })
   // In the browser only: the server renders the wait, and hydrates unchanged.
@@ -157,6 +165,8 @@ export function useReferralInvite(options: UseReferralInviteOptions = {}): UseRe
     return `${loginPath.value}?redirect=${encodeURIComponent(`${here}?claim=1`)}`
   })
 
+  const inviteTo = computed(() => (invitePath.value ? `${invitePath.value}?ref=${encodeURIComponent(code.value)}` : null))
+
   return {
     code,
     state,
@@ -164,6 +174,7 @@ export function useReferralInvite(options: UseReferralInviteOptions = {}): UseRe
     isLoading: computed(() => Boolean(api.previewReferral) && preview.value === undefined),
     isPending: computed(() => outcome.value === 'claiming'),
     signInTo,
+    inviteTo,
     closed: computed(() => {
       if (phaseLoading.value) return phaseWaited.value ? false : undefined
       return phase.value !== undefined && phase.value !== 'public'
