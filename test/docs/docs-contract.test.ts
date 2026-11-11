@@ -205,7 +205,7 @@ describe('the billing section of /settings', () => {
   }
 
   it('lists the plan states in the order the section tries them', () => {
-    const order = read('src/runtime/vue/components/workspaces/workspace-billing.ts').match(/export const PLAN_STATES = \[([^\]]+)\] as const/)?.[1]
+    const order = read('src/runtime/vue/composables/use-billing-section.ts').match(/export const PLAN_STATES = \[([^\]]+)\] as const/)?.[1]
     expect(order).toBeTruthy()
     const states = [...order!.matchAll(/'([a-z_]+)'/g)].map(match => match[1]!)
     const rows = [...section.matchAll(/^\| [^|]*\(`([a-z_]+)`\) \|/gm)].map(match => match[1]!)

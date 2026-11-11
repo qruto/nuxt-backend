@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import { busyAttributes } from '../../a11y'
 import { closesOnEscape } from '../../utils/confirm-group'
-import { PAUSE_MONTHS } from './workspace-billing'
 import { useWorkspaceSettingsView } from './workspace-settings'
 
 /**
@@ -46,7 +45,7 @@ const busy = computed(() => view.context.value.pending === 'pause')
         {{ t('pauseFor') }}
       </legend>
       <label
-        v-for="months in PAUSE_MONTHS"
+        v-for="months in section.plan.pauseLengths"
         :key="months"
         data-settings="pause-length"
       >

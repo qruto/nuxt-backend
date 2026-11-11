@@ -196,16 +196,17 @@ describe('usePricing\'s plan actions', () => {
     expect(backend.callsTo('billing:generateCheckoutLink')).toEqual([])
   })
 
-  it('checks a signed-in person out at the interval shown, with the address\'s campaign and the page\'s promotion', async () => {
+  it('checks a signed-in person out at the interval shown, with the address\'s campaign and one discount: the link\'s code, as no price offers the page\'s promotion', async () => {
     const backend = backendWith({}, PRICING, { 'billing:getCurrentSubscription': null, 'billing:getBillingAccess': { canManage: true } })
     backend.stub('billing:generateCheckoutLink', () => ({ url: 'https://checkout.example.com/1' }))
     const pricing = await read({ discount: 'launch' }, '/pricing?discount=LAUNCH20&utm_source=newsletter')
     pricing.setInterval('year')
     await press(pricing, 'pro')
+    // A checkout takes one discount (the server refuses two), as <PricingTable> sends it.
     expect(backend.callsTo('billing:generateCheckoutLink')).toEqual([expect.objectContaining({
       productIds: ['prod_pro_year'],
       discountCode: 'LAUNCH20',
-      discount: 'launch',
+      discount: undefined,
       utm: { source: 'newsletter' },
     })])
     expect(pricing.pending.value).toBeNull()

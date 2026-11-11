@@ -226,3 +226,34 @@ describe('<GiftList>', () => {
     for (const button of wrapper.findAll('[data-gift="entry"] button')) expect(button.attributes('aria-describedby')).toContain(what)
   })
 })
+
+describe('useGiftList: a reschedule dated like a new gift', () => {
+  /** A day as a date input writes it, `days` from today in this runtime's calendar. */
+  const dayFrom = (days: number) => {
+    const at = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+    return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`
+  }
+
+  it('bounds the day from today in the purchaser\'s calendar to a year ahead, as the gift form does', () => {
+    const list = giftList()
+    expect(list.firstDay.value).toBe(dayFrom(0))
+    // A year after the first day, inside the server's 366 days.
+    const span = (Date.parse(list.lastDay.value) - Date.parse(list.firstDay.value)) / (24 * 60 * 60 * 1000)
+    expect(span).toBe(365)
+  })
+
+  it('sends a day picked at 09:00 the purchaser\'s time, and a moment as it is', async () => {
+    sent.value = [scheduled]
+    const list = giftList()
+    const day = dayFrom(30)
+    await expect(list.reschedule('out-1', day)).resolves.toBe(true)
+    const [year, month, date] = day.split('-').map(Number)
+    expect(gifts.reschedule).toHaveBeenLastCalledWith('out-1', new Date(year!, month! - 1, date!, 9))
+    await list.reschedule('out-1', '2027-05-01T08:00')
+    expect(gifts.reschedule).toHaveBeenLastCalledWith('out-1', new Date('2027-05-01T08:00'))
+    const at = new Date('2027-06-01T10:30:00Z')
+    await list.reschedule('out-1', at)
+    expect(gifts.reschedule).toHaveBeenLastCalledWith('out-1', at)
+    expect(list.announcement.value).toBe('The delivery date changed.')
+  })
+})

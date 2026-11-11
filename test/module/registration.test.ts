@@ -73,6 +73,8 @@ const COMPOSABLE_NAMES = [
   'useFeatures',
   'useCredits',
   'usePricing',
+  'usePlanChange',
+  'useBillingSection',
   'usePushSubscription',
   'useInstallPrompt',
   'useCampaign',

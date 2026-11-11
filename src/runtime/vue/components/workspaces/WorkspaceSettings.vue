@@ -4,10 +4,10 @@ import { useBackendConfig } from '../../composables/use-backend-config'
 import { useBackendPagePath } from '../../composables/use-backend-page-path'
 import { formatBillingAmount } from '../../composables/billing-format'
 import { useBilling } from '../../composables/use-billing'
+import { useBillingSection } from '../../composables/use-billing-section'
 import { useCredits } from '../../composables/use-credits'
 import { useFeatures } from '../../composables/use-features'
 import { refusalText, useLabels, type BackendLabels, type LabelKey, type LabelOverrides } from '../../composables/use-labels'
-import { usePricing } from '../../composables/use-pricing'
 import { useWorkspace, type Workspace } from '../../composables/use-workspace'
 import { inLocale } from '../../utils/intl'
 import { useSettingsMessage } from '../../utils/settings-message'
@@ -61,14 +61,11 @@ const workspace = useWorkspace()
 const billing = useBilling()
 const credits = useCredits()
 const features = useFeatures()
-// The prices a plan can switch to, read in the browser only, and only when the plan section shows,
-// in the subscription's own currency: the provider keeps it on a plan change, so a
-// subscriber who pays in dollars is shown dollars wherever they are.
-const subscriptionCurrency = () => {
-  const currency = billing.subscription.value?.currency
-  return typeof currency === 'string' ? currency : undefined
-}
-const pricing = usePricing({ server: false, actions: false, currency: subscriptionCurrency, enabled: () => props.sections.includes('billing') })
+// The plan's state and its rules. The prices it can switch to are read in the
+// browser only, only when the plan section shows, and in the subscription's own
+// currency: the provider keeps it on a plan change, so a subscriber who pays in
+// dollars is shown dollars wherever they are.
+const plan = useBillingSection({ enabled: () => props.sections.includes('billing') })
 const config = useBackendConfig()
 const labels = useLabels('settings', () => props.labels)
 const { t, locale } = labels
@@ -161,38 +158,28 @@ const packs = computed<CreditPack[]>(() => config.billing.packs.length > 0
   : Object.entries(products.value).flatMap(([key, product]) => product?.isRecurring === false && product.isArchived !== true ? [{ key }] : []))
 
 /**
- * Every price on sale the plan can switch to: each plan at each period, but
- * the one the subscription is on, and any with no price in the
- * subscription's currency (it comes back in the catalog's), which the
- * provider would refuse to switch to.
+ * Every price on sale the plan can switch to (`useBillingSection().change.targets`),
+ * in the section's words: each named with its period, priced in the
+ * subscription's currency.
  */
 function switchOptions(): PlanSwitchOption[] {
-  const current = billing.subscription.value?.productId
-  const currency = subscriptionCurrency()?.toLowerCase()
-  return (pricing.plans.value ?? []).flatMap((plan) => {
-    if (plan.free || plan.retired) return []
-    return (['month', 'year'] as const).flatMap((interval) => {
-      const price = plan.prices[interval]
-      if (!price || price.archived || price.productId === current || (currency !== undefined && price.currency !== currency)) return []
-      return [{
-        key: price.productId,
-        productId: price.productId,
-        plan: t(`billedAt.${interval}` as LabelKey<BackendLabels['settings']>, { plan: plan.name }),
-        price: `${formatBillingAmount(price.amount, price.currency, locale.value)}${t(`period.${interval}` as LabelKey<BackendLabels['settings']>)}`,
-      }]
-    })
-  })
+  return (plan.change.targets.value ?? []).map(target => ({
+    key: target.productId,
+    productId: target.productId,
+    plan: t(`billedAt.${target.interval}` as LabelKey<BackendLabels['settings']>, { plan: target.name }),
+    price: `${formatBillingAmount(target.amount, target.currency, locale.value)}${t(`period.${target.interval}` as LabelKey<BackendLabels['settings']>)}`,
+  }))
 }
 
 const section = createBillingSection({
   billing,
+  plan,
   features,
   labels,
   pending,
   run,
   partId,
   productName,
-  giftedProduct: plan => products.value[plan]?.id,
   switchOptions,
   // One event per outcome; the union reads as each of them.
   notify: (event, argument) => (emit as (event: string, ...args: unknown[]) => void)(event, ...(argument === undefined ? [] : [argument])),

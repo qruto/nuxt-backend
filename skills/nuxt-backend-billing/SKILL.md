@@ -103,12 +103,21 @@ credits and gifts.
   Nothing is stored on the device.
 - Out of credits: `usePricing().packFor(refusal.data.need)` is the smallest pack that covers an
   `insufficient_credits` refusal; `<BackendNotices />` shows the low-credits notice on its own.
+- A pricing page of your own checks out with `usePricing().checkout('plan' | 'pack', key)`, the
+  table's rules: the campaign's code or the page's promotion, one discount, retried without a
+  refused one, the price's currency. A subscriber switches through `usePlanChange({ pricing })`
+  (prices in the subscription's currency, words from `changeOf`, `confirm()` with
+  `proration: 'invoice'`), never a `changePlan` without it behind words that say "settled now".
+  `usePricing().structuredData` is the schema.org data.
 
 ## The billing section of /settings
 
 - `<WorkspaceSettings>` (its `billing` section, on the ready-made `/settings`) follows the
   subscription's state: past due, paused, set to cancel, change scheduled, trial, active (the
   first that holds), with the actions the subscription allows, plus the benefits and the history.
+  A billing page of your own reads `useBillingSection()`: `state` (`error` for a failed read,
+  never active), `actions` in order, `pausable` (none while one is scheduled), `switchable`,
+  `resumesAfter(months)` and `pause(months)`. Never re-derive them from `useBilling()`.
 - Cancelling is one step there and on `<PricingTable>`'s current plan: what ends when and one
   button, nothing else. Never add a save offer, a question or a field to that confirmation.
   The provider keeps a reason and comment only with the cancellation itself (it refuses a

@@ -1,11 +1,12 @@
 import { computed, onMounted, ref, type ComputedRef, type Ref } from 'vue'
-import { navigateTo, tryUseNuxtApp, useRoute, useRouter } from '#imports'
-import { DELIVER_AHEAD_DAYS, MESSAGE_LENGTH } from '../../../convex/integrations/billing/gift-rules.js'
+import { navigateTo, useRoute, useRouter } from '#imports'
+import { MESSAGE_LENGTH } from '../../../convex/integrations/billing/gift-rules.js'
 import type { PricedGiftLength, PricedPack, PricedPlan } from '../../../convex/integrations/billing/types/records.js'
 import { useAuthSession } from '../utils/auth-session'
 import { useActiveLocale } from '../utils/active-locale'
 import { failureOf, type BackendError } from '../utils/backend-error'
-import { onSite, usePageClock } from '../utils/pricing-bindings'
+import { giftDeliveryTime, useGiftDays } from '../utils/gift-days'
+import { onSite } from '../utils/pricing-bindings'
 import { formatBillingAmount } from './billing-format'
 import { useBackendPagePath } from './use-backend-page-path'
 import { useGifts } from './use-gifts'
@@ -19,10 +20,6 @@ export type GiftField = 'recipientEmail' | 'message' | 'deliverAt'
 
 /** The longest note a gift carries: the server's own limit. */
 export const GIFT_MESSAGE_MAX = MESSAGE_LENGTH
-
-const DAY_MS = 24 * 60 * 60 * 1000
-/** The hour of the day picked a dated gift goes out at, in the purchaser's time zone. */
-const DELIVERY_HOUR = 9
 
 /** Options for {@link useGiftForm}. */
 export interface UseGiftFormOptions {
@@ -109,22 +106,6 @@ export interface UseGiftFormReturn {
    * rejects: a refusal lands in `error`.
    */
   send: () => Promise<boolean>
-}
-
-/** A day as an input of type `date` writes it, in UTC. */
-const isoDay = (at: number) => new Date(at).toISOString().slice(0, 10)
-
-/** The same, in the runtime's own time zone: the purchaser's, in their browser. */
-function localDay(at: number): string {
-  const date = new Date(at)
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
-
-/** The moment a dated gift goes out: `DELIVERY_HOUR` on `day` (`YYYY-MM-DD`), in the runtime's own time zone. */
-function deliveryTime(day: string): number {
-  const [year, month, date] = day.split('-').map(Number)
-  return new Date(year!, month! - 1, date!, DELIVERY_HOUR).getTime()
 }
 
 /**
@@ -218,19 +199,8 @@ export function useGiftForm(options: UseGiftFormOptions = {}): UseGiftFormReturn
       : null
   })
 
-  // Today on the page's clock: while hydrating, the server's, in UTC, so
-  // the date input's bounds read as the server rendered them; once the page
-  // is the browser's (mounted, or entered by a client-side visit), the
-  // purchaser's own today, whose 09:00 is theirs too. A UTC day would be
-  // yesterday east of UTC, and its 09:00 the evening before far west of it.
-  const clock = usePageClock()
-  const ownCalendar = ref(import.meta.client && !tryUseNuxtApp()?.isHydrating)
-  onMounted(() => {
-    ownCalendar.value = true
-  })
-  const today = computed(() => (ownCalendar.value ? localDay(clock.value) : isoDay(clock.value)))
-  // A year after the first day still falls inside the server's DELIVER_AHEAD_DAYS (366) from now.
-  const lastDay = computed(() => isoDay(Date.parse(today.value) + (DELIVER_AHEAD_DAYS - 1) * DAY_MS))
+  // Today in the purchaser's own calendar once the page is on screen, and a year from it.
+  const { firstDay, lastDay } = useGiftDays()
 
   // Back from a paid checkout: say so once, and take the flag off the address.
   onMounted(() => {
@@ -276,7 +246,7 @@ export function useGiftForm(options: UseGiftFormOptions = {}): UseGiftFormReturn
         recipientEmail: recipientEmail.value.trim(),
         ...(note ? { message: note } : {}),
         // The morning of the day picked, in the purchaser's time zone: a morning already past sends it at once.
-        ...(deliverOn.value ? { deliverAt: deliveryTime(deliverOn.value) } : {}),
+        ...(deliverOn.value ? { deliverAt: giftDeliveryTime(deliverOn.value) } : {}),
         ...(chosen.kind === 'pass' ? { months: chosen.months } : {}),
         ...(pricing.currency.value ? { currency: pricing.currency.value } : {}),
         ...(returnTo ? { successUrl: returnTo } : {}),
@@ -305,7 +275,7 @@ export function useGiftForm(options: UseGiftFormOptions = {}): UseGiftFormReturn
     recipientEmail,
     message,
     deliverOn,
-    firstDay: computed(() => today.value),
+    firstDay,
     lastDay,
     choice,
     isSignedIn: computed(() => auth.isAuthenticated.value),

@@ -28,9 +28,13 @@ function withSeo(on: boolean): void {
   const config = useRuntimeConfig().public as { backend?: Record<string, unknown> }
   config.backend = { ...config.backend, seo: on }
 }
-vi.mock('../../src/runtime/vue/composables/use-pricing', () => ({
-  usePricing: () => ({ plans: computed(() => PLANS), packs: computed(() => PACKS) }),
-}))
+// The page carries what `usePricing().structuredData` says, as an app's own page would.
+vi.mock('../../src/runtime/vue/composables/use-pricing', async () => {
+  const { pricingStructuredData: structured } = await import('../../src/runtime/vue/utils/pricing-seo')
+  return {
+    usePricing: () => ({ plans: computed(() => PLANS), packs: computed(() => PACKS), structuredData: computed(() => structured({ plans: PLANS, packs: PACKS })) }),
+  }
+})
 // The page's own parts stand in: what is checked here is its head.
 vi.mock('../../src/runtime/vue/components/billing/PricingTable.vue', () => ({ default: defineComponent({ render: () => h('div') }) }))
 vi.mock('../../src/runtime/vue/components/shell/PageFrame.vue', () => ({ default: defineComponent({ setup: (_props, { slots }) => () => h('main', slots.default?.()) }) }))

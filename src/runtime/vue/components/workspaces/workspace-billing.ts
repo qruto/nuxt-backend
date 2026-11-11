@@ -1,36 +1,26 @@
 import { computed, nextTick, ref, type ComputedRef, type Ref } from 'vue'
-import { addMonths } from '../../../../convex/catalog.js'
-import { formatBillingDate, toBillingDate } from '../../composables/billing-format'
+import { formatBillingDate } from '../../composables/billing-format'
 import type { CancellationReason, EntitlementBenefit, UseBillingReturn } from '../../composables/use-billing'
+import { PLAN_STATES, type BillingSectionAction, type PlanState, type UseBillingSectionReturn } from '../../composables/use-billing-section'
 import type { UseFeaturesReturn } from '../../composables/use-features'
 import type { UseLabelsReturn } from '../../composables/use-labels'
 import { type CancelConfirm, createCancelConfirm } from '../../utils/cancel-confirm'
 import { returnFocus } from '../../utils/focus-return'
-import { CONFIRMED_PRORATION, createPlanChangeConfirm, type PlanChangeConfirm, type PlanChangeTarget } from '../../utils/plan-change-confirm'
+import { createPlanChangeConfirm, type PlanChangeConfirm, type PlanChangeTarget } from '../../utils/plan-change-confirm'
 
-/** How many months a pause from the section lasts, at most: the lengths it offers are 1 to this. */
-export const PAUSE_MONTHS = [1, 2, 3] as const
+export type { PlanState } from '../../composables/use-billing-section'
 
 /** One price the plan can switch to: another plan, or the same plan at its other billing period. */
-export type PlanSwitchOption = PlanChangeTarget
+export type PlanSwitchOption = Required<PlanChangeTarget>
 
 // The plan section of <WorkspaceSettings> (`WorkspaceBilling`): the plan, in
 // every state its subscription can be in, with the one action each state
 // calls for, the benefits it includes, a switch to another plan or billing
 // period and a cancellation that each take one confirmation, and a pause of
-// one to three months. Built inside the component's setup, so it shares its pending
-// action, its status and its message region.
-
-/**
- * The states a plan can be in, in the order they are tried: the first that
- * holds is the one shown. A plan pass gifted until its end date, a failed payment, a pause, a cancellation set for
- * the period's end, a plan change scheduled for it, a trial, else active.
- * The Subscriptions page lists them in this order (test/docs pins it).
- */
-export const PLAN_STATES = ['gifted', 'past_due', 'paused', 'canceling', 'changing', 'trialing', 'active'] as const
-
-/** The state the plan is in: the first of {@link PLAN_STATES} that holds. */
-export type PlanState = typeof PLAN_STATES[number]
+// one to three months. The state and its rules are `useBillingSection`'s;
+// this adds the section's groups, its focus and its words. Built inside the
+// component's setup, so it shares its pending action, its status and its
+// message region.
 
 /** Kinds of benefit the billing portal holds more of: the whole key, the files, the connected account. */
 export const IN_PORTAL = new Set(['license_key', 'download', 'community', 'repository', 'shared_channel'])
@@ -38,6 +28,8 @@ export const IN_PORTAL = new Set(['license_key', 'download', 'community', 'repos
 /** What the section needs from `<WorkspaceSettings>`. */
 export interface BillingSectionContext {
   billing: UseBillingReturn
+  /** The section's state and its rules, as an app's own reads them. */
+  plan: UseBillingSectionReturn
   features: UseFeaturesReturn
   labels: UseLabelsReturn<'settings'>
   /** The key of the action in flight, or `null`. */
@@ -48,9 +40,7 @@ export interface BillingSectionContext {
   partId: (key: string, part: string) => string
   /** The plan's product name, by its id. */
   productName: (productId: string) => string | undefined
-  /** The product to check out to keep a gifted plan: the plan's, by its catalog key. */
-  giftedProduct: (plan: string) => string | undefined
-  /** The prices the plan can switch to, in the reader's words: every plan on sale at each period, but the one it is on. */
+  /** The prices the plan can switch to (`plan.change.targets`), in the section's words. */
   switchOptions: () => PlanSwitchOption[]
   /** Tell the component's own listener: the matching event, with its argument. */
   notify: (event: 'plan-canceled' | 'plan-uncanceled' | 'plan-resumed' | 'change-canceled' | 'plan-changed' | 'plan-paused', argument?: unknown) => void
@@ -72,7 +62,12 @@ export interface CancelPlanOptions {
 
 /** The section's state and actions. */
 export interface BillingSection {
+  /** The headless state and rules the section is built on. */
+  plan: UseBillingSectionReturn
+  /** The running plan's state, `null` on the free plan, while it loads and once its read failed. */
   state: ComputedRef<PlanState | null>
+  /** What the state calls for, in the order the section offers it (`plan.actions`). */
+  actions: ComputedRef<BillingSectionAction[]>
   /** The plan's benefits: what it includes, each in neutral words. */
   benefits: ComputedRef<EntitlementBenefit[]>
   /** The one-step cancellation. */
@@ -119,7 +114,7 @@ export interface BillingSection {
   pauseOpen: Ref<boolean>
   /** What the button that opens and closes the pause's group carries. */
   pauseToggleProps: () => Record<string, unknown>
-  /** The pause's length in months, one of {@link PAUSE_MONTHS}. */
+  /** The pause's length in months, one of `plan.pauseLengths`. */
   pauseMonths: Ref<number>
   /** Close the pause's group, focus back on its button. */
   closePause: () => void
@@ -131,18 +126,12 @@ export interface BillingSection {
 
 /** Build the plan section of one `<WorkspaceSettings>`. */
 export function createBillingSection(context: BillingSectionContext): BillingSection {
-  const { billing, features, labels, pending, run, partId, notify, announce } = context
+  const { billing, plan, features, labels, pending, run, partId, notify, announce } = context
   const { t, locale } = labels
-  const holds: Record<PlanState, () => boolean> = {
-    gifted: () => billing.pass.value !== null,
-    past_due: () => billing.isPastDue.value,
-    paused: () => billing.isPaused.value,
-    canceling: () => billing.cancelAtPeriodEnd.value,
-    changing: () => billing.pendingChange.value !== null,
-    trialing: () => billing.isTrialing.value,
-    active: () => true,
-  }
-  const state = computed<PlanState | null>(() => billing.isSubscribed.value ? PLAN_STATES.find(key => holds[key]()) ?? 'active' : null)
+  const state = computed<PlanState | null>(() => {
+    const now = plan.state.value
+    return (PLAN_STATES as readonly string[]).includes(now) ? now as PlanState : null
+  })
   const benefits = computed(() => features.benefits.value ?? [])
   const stateLine = ref<HTMLElement | null>(null)
   const date = (value: unknown): string | null => formatBillingDate(value, { dateStyle: 'medium' }, locale.value) || null
@@ -160,8 +149,6 @@ export function createBillingSection(context: BillingSectionContext): BillingSec
 
   // Switching: a picker of the prices on sale, then one confirmation.
   const switchOptions = computed(() => context.switchOptions())
-  const switchable = computed(() => billing.isSubscribed.value && billing.pass.value === null && !billing.cancelAtPeriodEnd.value
-    && !billing.isPaused.value && billing.pendingChange.value === null && switchOptions.value.length > 0)
   const switchOpen = ref(false)
   const switchToggle = ref<HTMLElement | null>(null)
   const change = createPlanChangeConfirm({
@@ -169,7 +156,7 @@ export function createBillingSection(context: BillingSectionContext): BillingSec
     titleTag: 'h4',
     partId: part => partId('change', part),
     isBusy: () => pending.value === 'switch',
-    preview: productId => billing.changeOf(productId),
+    change: plan.change,
     confirm: target => switchPlan(target.productId),
     t,
     date: value => date(value),
@@ -188,41 +175,33 @@ export function createBillingSection(context: BillingSectionContext): BillingSec
   function switchPlan(productId: string): Promise<void> {
     const option = switchOptions.value.find(entry => entry.productId === productId)
     const preview = billing.changeOf(productId)
-    const plan = option?.plan ?? context.productName(productId) ?? t('unknownPlan')
+    const name = option?.plan ?? context.productName(productId) ?? t('unknownPlan')
     return run('switch', () => t('switchingPlan'), async () => {
-      await billing.changePlan(productId, { proration: CONFIRMED_PRORATION })
+      await plan.change.switchTo(productId)
       switchOpen.value = false
       change.settle()
       void nextTick(() => returnFocus(stateLine.value))
       notify('plan-changed', productId)
     }, () => {
-      if (preview?.applies !== 'period_end') return t('switched', { plan })
+      if (preview?.applies !== 'period_end') return t('switched', { plan: name })
       const when = preview.appliesAt ? date(preview.appliesAt) : null
-      return when ? t('switchScheduled', { plan, date: when }) : t('switchScheduledPeriod', { plan })
+      return when ? t('switchScheduled', { plan: name, date: when }) : t('switchScheduledPeriod', { plan: name })
     })
   }
 
-  // Pausing: from the period's end, for one to three months. The provider
-  // pauses only an active subscription, never one in its trial.
-  const pausable = computed(() => billing.isSubscribed.value && billing.pass.value === null && !billing.cancelAtPeriodEnd.value
-    && !billing.isPaused.value && !billing.isPastDue.value && !billing.isTrialing.value && billing.resumesAt.value === null)
+  // Pausing: from the period's end, for one to three months.
   const pauseOpen = ref(false)
   const pauseToggle = ref<HTMLElement | null>(null)
-  const pauseMonths = ref<number>(PAUSE_MONTHS[0])
+  const pauseMonths = ref<number>(plan.pauseLengths[0]!)
   const closePause = () => {
     if (pending.value === 'pause') return
     pauseOpen.value = false
     void nextTick(() => returnFocus(pauseToggle.value))
   }
-  /** The period's end, moved on by whole months in UTC the way the provider counts them: the same day of the month, or its last. */
-  const resumesAfter = (months: number): Date | null => {
-    const end = toBillingDate(billing.subscription.value?.currentPeriodEnd)
-    return end ? new Date(addMonths(end.getTime(), months)) : null
-  }
   const pausePlan = (months: number) => {
-    const resumesAt = resumesAfter(months)
+    const resumesAt = plan.resumesAfter(months)
     return run('pause', () => t('pausing'), async () => {
-      await billing.pause(resumesAt ? { resumesAt } : {})
+      await plan.pause(months)
       pauseOpen.value = false
       void nextTick(() => returnFocus(stateLine.value))
       notify('plan-paused', resumesAt?.getTime() ?? null)
@@ -260,7 +239,9 @@ export function createBillingSection(context: BillingSectionContext): BillingSec
   }
 
   return {
+    plan,
     state,
+    actions: plan.actions,
     benefits,
     confirm,
     stateLine,
@@ -285,24 +266,21 @@ export function createBillingSection(context: BillingSectionContext): BillingSec
       notify('change-canceled')
     }, () => t('changeCanceled')),
     openPortal: () => run('portal', () => t('openingPortal'), () => billing.portal({ redirect: true })),
-    keepGifted: () => run('keep-gifted', () => t('keepingGiftedPlan'), async () => {
-      const product = billing.pass.value ? context.giftedProduct(billing.pass.value.plan) : undefined
-      if (product) await billing.checkout(product, { redirect: true })
-    }),
+    keepGifted: () => run('keep-gifted', () => t('keepingGiftedPlan'), () => plan.keepGifted()),
     switchOptions,
-    switchable,
+    switchable: plan.switchable,
     switchOpen,
     switchToggleProps: () => toggle(switchToggle, switchOpen, closeSwitch, partId('switch', 'picker'), 'switch'),
     closeSwitch,
     change,
     pick,
     switchPlan,
-    pausable,
+    pausable: plan.pausable,
     pauseOpen,
     pauseToggleProps: () => toggle(pauseToggle, pauseOpen, closePause, partId('pause', 'confirm'), 'pause'),
     pauseMonths,
     closePause,
     pausePlan,
-    resumesAfter,
+    resumesAfter: plan.resumesAfter,
   }
 }

@@ -76,7 +76,7 @@ export const TASK_SKILLS = [
     covers: 'the catalog, plans, checkout, the portal, feature gates, plan quotas and credits',
     docs: ['/docs/build/billing'],
     entrypoints: ['nuxt-backend/billing'],
-    composables: ['useBilling', 'useFeatures', 'useCredits', 'usePricing', 'useOrders', 'useUsage', 'useWithdrawal', 'formatBillingAmount'],
+    composables: ['useBilling', 'useFeatures', 'useCredits', 'usePricing', 'usePlanChange', 'useBillingSection', 'useOrders', 'useUsage', 'useWithdrawal', 'formatBillingAmount'],
     components: ['PricingTable', 'BillingCheckoutLink', 'BillingPortalLink', 'BillingHistory', 'UsageHistory', 'UpgradePrompt', 'CancelFlow', 'WithdrawalButton'],
     commands: ['billing sync', 'billing reset', 'billing resync'],
     findings: ['billing'],

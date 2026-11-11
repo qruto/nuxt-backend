@@ -44,6 +44,32 @@ The buttons follow the subscription, not only the line:
 
 A member who manages none of the workspace's billing reads the same state, with a note saying who does and no button.
 
+### A billing page of your own
+
+`useBillingSection()` is the section without its markup, so a billing page of your own keeps its rules. `state` is `loading` until the plan is known and `error` when its read failed, never a plan it might not be, then `free` or the first state of the table above that holds. `isLoading` stays `true` while a return from checkout is being finished. `actions` lists what the state offers a billing manager, in the section's order (`keep-gifted`, `portal`, `resume`, `uncancel`, `cancel-change`, `change-plan`, `pause`, `cancel`), and nothing to anyone else. `switchable`, `pausable` and `cancellable` say the same per offer: no pause while one is scheduled, no switch while a change is. `resumesAfter(months)` counts a pause's end the way Polar counts months, and `pause(months)` pauses from the period's end:
+
+```vue [app/pages/account/billing.vue]
+<script setup lang="ts">
+const section = useBillingSection()
+// The app's language, not the visitor's, so the server's HTML and the browser's agree.
+const { locale } = useLabels('settings')
+const day = (date: Date | null) => (date ? new Intl.DateTimeFormat(locale.value ?? 'en', { dateStyle: 'medium' }).format(date) : 'the end of the period')
+</script>
+
+<template>
+  <section :aria-busy="section.isLoading.value || undefined">
+    <p v-if="section.state.value === 'error'" role="alert">Your plan could not be read. Try again in a moment.</p>
+    <template v-if="section.actions.value.includes('pause')">
+      <button v-for="months in section.pauseLengths" :key="months" type="button" @click="section.pause(months)">
+        Pause until {{ day(section.resumesAfter(months)) }}
+      </button>
+    </template>
+  </section>
+</template>
+```
+
+`keepGifted()` checks a gifted plan out, and `change` is the section's switch, [`usePlanChange`](#preview-a-change), with its prices in the subscription's currency.
+
 ### Cancelling takes one step
 
 "Cancel plan" opens one group: what ends when, and one button that cancels at the end of the paid period. Nothing else stands in the way: no offer to stay, no question and no field, since the confirmation of a cancellation carries nothing but its button. `<PricingTable>`'s "Cancel plan" on the current plan opens the same group, and "Keep plan" undoes the cancellation.
@@ -134,7 +160,28 @@ A switch from a yearly price to a monthly one never happens mid-year, since the 
 
 ### Preview a change
 
-`changeOf(productId)` says what `changePlan(productId, { proration: 'invoice' })` would do, by the same rule the server applies, so a confirmation of your own that switches the same way says it before it happens. Without `proration` the organization's default settles the switch, which may carry the difference to the next invoice or schedule the switch for the period's end, so pass it:
+`usePlanChange()` is the confirmation the packaged pages ask, without its markup. `targets` lists every price the subscription can switch to, in its own currency, never one with no price in it nor the one a scheduled change moves to (`scheduledFor(productId)` says when that one starts); `targetFor(key, interval)` answers one card's. `open(target)` asks, `title` and `when` say what the switch does in the reader's words, `confirm()` makes it with `proration: 'invoice'`, or checks a gifted plan out, and `close()` leaves it:
+
+```vue [app/components/ChangePlan.vue]
+<script setup lang="ts">
+const change = usePlanChange()
+</script>
+
+<template>
+  <button v-for="target in change.targets.value" :key="target.productId" type="button" @click="change.open(target)">
+    {{ target.plan }} · {{ target.price }}
+  </button>
+  <div v-if="change.target.value" role="group" :aria-label="change.title.value">
+    <p>{{ change.when.value }}</p>
+    <button type="button" :aria-disabled="change.isPending.value || undefined" @click="change.confirm()">Confirm switch</button>
+    <button type="button" @click="change.close()">Not now</button>
+  </div>
+</template>
+```
+
+Its words are the `pricing` labels. A pricing page that reads its own `usePricing()` passes it as `usePlanChange({ pricing })`, so no second pricing is read while the page is in the subscription's currency.
+
+For words of your own, `changeOf(productId)` says what `changePlan(productId, { proration: 'invoice' })` would do, by the same rule the server applies, so a confirmation of your own that switches the same way says it before it happens. Without `proration` the organization's default settles the switch, which may carry the difference to the next invoice or schedule the switch for the period's end, so pass it:
 
 ```vue [app/components/SwitchPlan.vue]
 <script setup lang="ts">

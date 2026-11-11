@@ -59,9 +59,9 @@ The growth funnel over a run of weeks, as `getFunnel` answers it.
 | Property | Type | Description | Inherited from | Defined in |
 | ------ | ------ | ------ | ------ | ------ |
 | <a id="waitlist"></a> `waitlist` | `number` | - | `Record.waitlist` |  |
-| <a id="admitted"></a> `admitted` | `number` | - | `Record.admitted` |  |
 | <a id="trial"></a> `trial` | `number` | - | `Record.trial` |  |
 | <a id="paid"></a> `paid` | `number` | - | `Record.paid` |  |
+| <a id="admitted"></a> `admitted` | `number` | - | `Record.admitted` |  |
 | <a id="signup"></a> `signup` | `number` | - | `Record.signup` |  |
 | <a id="activation"></a> `activation` | `number` | - | `Record.activation` |  |
 | <a id="weeks"></a> `weeks` | `number` | How many weeks it covers. | - | [src/convex/funnel-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/funnel-rules.ts) |

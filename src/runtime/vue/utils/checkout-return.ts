@@ -31,6 +31,17 @@ export const finishingCheckout = shallowRef(false)
  */
 export const CUSTOMER_SESSION_PARAM = 'customer_session_token'
 
+/**
+ * `query` without what a return from checkout adds to it: `checkout_return`
+ * and the provider's `customer_session_token`. `null` when it has neither,
+ * so there is nothing to take off.
+ */
+export function withoutCheckoutReturn(query: LocationQuery): LocationQuery | null {
+  if (!(CHECKOUT_RETURN_PARAM in query) && !(CUSTOMER_SESSION_PARAM in query)) return null
+  const { [CHECKOUT_RETURN_PARAM]: _returned, [CUSTOMER_SESSION_PARAM]: _token, ...rest } = query
+  return rest
+}
+
 /** The checkouts this page already finished: a second return with one id refreshes nothing. */
 const finished = new Set<string>()
 
@@ -41,7 +52,11 @@ const AUTH_WAIT_MS = 10_000
 export interface CheckoutReturn {
   /** The address's query. */
   query: LocationQuery
-  /** Replace the address's query with this one: the same address without the parameter and the provider's token. */
+  /**
+   * Take the parameter and the provider's token off the address. `query`
+   * is the arrival's without them (`withoutCheckoutReturn`): a page whose
+   * address may have changed since strips its current one instead.
+   */
   strip: (query: LocationQuery) => unknown
   /** Refresh the entitlements from the provider once, for the checkout this id names. A failure is left to the webhooks. */
   sync: (checkoutId: string) => Promise<unknown>
@@ -58,8 +73,7 @@ export interface CheckoutReturn {
 export async function finishCheckoutReturn({ query, strip, sync }: CheckoutReturn): Promise<boolean> {
   const value = query[CHECKOUT_RETURN_PARAM]
   if (value === undefined) return false
-  const { [CHECKOUT_RETURN_PARAM]: _returned, [CUSTOMER_SESSION_PARAM]: _token, ...rest } = query
-  await strip(rest)
+  await strip(withoutCheckoutReturn(query) ?? query)
   const id = (Array.isArray(value) ? value[0] : value) ?? ''
   if (!id || finished.has(id)) return false
   finished.add(id)

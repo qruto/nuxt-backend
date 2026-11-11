@@ -9,15 +9,16 @@ import { useCampaign } from '../../composables/use-campaign'
 import { useCredits } from '../../composables/use-credits'
 import { useExperimentDiscount } from '../../composables/use-experiment'
 import { refusalText, useLabels, type BackendLabels, type LabelKey, type LabelOverrides } from '../../composables/use-labels'
+import { usePlanChange } from '../../composables/use-plan-change'
 import { usePricing, type PricedOffer, type PricedPlan, type PricingInterval, type PricingSuccessUrls, type UsePricingReturn } from '../../composables/use-pricing'
 import { busyAttributes } from '../../a11y'
 import { useAuthSession } from '../../utils/auth-session'
-import { getBackendError } from '../../utils/backend-error'
 import { createCancelConfirm } from '../../utils/cancel-confirm'
-import { CONFIRMED_PRORATION, createPlanChangeConfirm, type PlanChangeTarget } from '../../utils/plan-change-confirm'
+import { createPlanChangeConfirm } from '../../utils/plan-change-confirm'
 import { returnFocus } from '../../utils/focus-return'
 import { useMeterUnit } from '../../utils/meter-unit'
 import { pricingBindings, shownInterval } from '../../utils/pricing-bindings'
+import { pricingCheckout } from '../../utils/pricing-checkout'
 import type { CreditPack, PricingContact, PricingPlan } from '../../../config'
 import { providePricingView, type PlanAction, type PlanTrial, type PricingSlotContext, type PricingTableSlots, type ResolvedPack, type ResolvedPlan } from './pricing-table'
 
@@ -130,8 +131,10 @@ const credits = useCredits()
 const campaign = useCampaign()
 // A price test's promotion for the person's variant, when the address carries no campaign code.
 const experimentDiscount = useExperimentDiscount()
+/** The promotion the table shows: the prop's, else the campaign link's code, else a price test's. */
+const asked = () => props.discount ?? campaign.discountCode.value ?? experimentDiscount.value
 const pricing = usePricing({
-  discount: () => props.discount ?? campaign.discountCode.value ?? experimentDiscount.value,
+  discount: asked,
   actions: false,
   // Read when a checkout starts, so a changed prop counts.
   successUrl: {
@@ -140,19 +143,9 @@ const pricing = usePricing({
   },
 })
 // A subscriber's switch keeps the subscription's currency (the provider's
-// rule), so its confirmation states the price in it: read apart, in the
-// browser, only while the page shows another one.
-const subscriptionCurrency = computed(() => {
-  const currency = billing.subscription.value?.currency
-  return typeof currency === 'string' && currency !== '' ? currency.toLowerCase() : undefined
-})
-const switchPricing = usePricing({
-  server: false,
-  actions: false,
-  currency: () => subscriptionCurrency.value,
-  enabled: () => billing.isSubscribed.value && billing.pass.value === null && subscriptionCurrency.value !== undefined
-    && pricing.currency.value !== undefined && subscriptionCurrency.value !== pricing.currency.value,
-})
+// rule), so its confirmation states the price in it: the page's where it is
+// in it, else read apart, in the browser, only while the page shows another.
+const planChange = usePlanChange({ labels: () => props.labels, pricing })
 const route = useRoute()
 const { isAuthenticated } = useAuthSession()
 const config = useBackendConfig()
@@ -209,8 +202,7 @@ function resolvePlan(card: PricingPlan, offer: PricedPlan): ResolvedPlan | null 
   const priceAt = offer.prices[at]!
   const isCurrent = Object.values(offer.prices).some(price => price?.productId === subscribedId.value)
   const comparable = !isCurrent && currentMonthly.value !== undefined
-  const scheduled = billing.pendingChange.value
-  const scheduledFor = scheduled?.productId === priceAt.productId ? scheduled.appliesAt : undefined
+  const scheduledFor = planChange.scheduledFor(priceAt.productId) ?? undefined
   // The free plan is free in every currency: in the page's, whatever its product's.
   const priceCurrency = offer.free ? pricing.currency.value ?? priceAt.currency : priceAt.currency
   return {
@@ -309,42 +301,18 @@ async function run(key: string, busy: () => string, action: () => Promise<unknow
 const planByKey = (key: string) => resolvedPlans.value.find(plan => plan.key === key)
 
 /**
- * The currency a card's price shows in, for its checkout to pay in it: a
- * product the catalog prices in one currency only shows, and is paid, in
- * that one whatever the page's. Named only where the catalog prices more
- * than one; a single-currency checkout keeps the provider's own.
+ * A checkout with the address's campaign, its discount code and UTM, in the
+ * currency the card's price shows in (`usePricing().checkout`'s rules): the
+ * table's own promotion (`discount`, else a price test's for a link with no
+ * code) goes in the code's place on a product it is offered on, one discount
+ * per checkout, and a discount the server refuses never blocks the purchase.
  */
-const payIn = (currency: string | undefined): { currency?: string } =>
-  currency && pricing.currencies.value.length > 1 ? { currency } : {}
-
-/** A refusal of a checkout's discount: an expired, used-up or unknown campaign code, or a promotion no longer redeemed. */
-function refusedCode(failure: unknown): boolean {
-  const refusal = getBackendError(failure)
-  const field = (refusal?.data as { field?: unknown } | undefined)?.field
-  return refusal?.code === 'invalid_input' && (field === 'discountCode' || field === 'discount')
-}
-
-/**
- * A checkout with the address's campaign: its discount code and UTM. The
- * table's own promotion (`discount`, else a price test's for a link with
- * no code) goes in the code's place on a product it is offered on (one
- * discount per checkout); elsewhere the campaign's code still goes. A discount the server refuses never blocks the purchase:
- * the checkout opens again without it, the attribution kept.
- */
-async function withCampaign<T>(offered: boolean, start: (campaignOptions: { discountCode?: string, discount?: string, utm?: typeof campaign.checkoutOptions.value.utm }) => Promise<T>): Promise<T> {
-  const { discountCode, ...attribution } = campaign.checkoutOptions.value
-  const promotion = props.discount ?? (discountCode ? undefined : experimentDiscount.value)
-  const options = promotion && offered
-    ? { ...attribution, discount: promotion }
-    : { ...attribution, ...(discountCode ? { discountCode } : {}) }
-  try {
-    return await start(options)
-  }
-  catch (failure) {
-    if (!('discountCode' in options || 'discount' in options) || !refusedCode(failure)) throw failure
-    return start(attribution)
-  }
-}
+const { payIn, withCampaign } = pricingCheckout({
+  campaign,
+  asked,
+  active: () => pricing.activePromotion.value,
+  currencies: () => pricing.currencies.value,
+})
 
 // The EU soft opt-in's box, under the checkout buttons while a topic takes it: ticked, the paid order joins no topic.
 const emailOptOut = ref(false)
@@ -366,7 +334,7 @@ async function checkOutFromPass(key: string): Promise<void> {
 const switchTo = (key: string) => run(key, () => t('changing'), async () => {
   const plan = planByKey(key)
   if (!plan) return
-  await billing.changePlan(plan.priceAt.productId, { proration: CONFIRMED_PRORATION })
+  await planChange.switchTo(plan.priceAt.productId)
   change.settle()
   emit('plan-changed', key)
   // The step went with the switch: focus moves to the card's action, else the current plan's.
@@ -380,31 +348,6 @@ function returnTo(kind: 'plan' | 'pack', key: string): { successUrl?: string } {
   return url ? { successUrl: url } : {}
 }
 
-/**
- * The price a switch to a card's plan is about. A subscriber's is in the
- * subscription's currency: `null` while that price is read, `undefined`
- * when the plan has none in it, which no switch can move to. A gifted
- * plan's holder checks out, in the card's own.
- */
-function changeTarget(plan: ResolvedPlan): PlanChangeTarget | null | undefined {
-  const price = billing.pass.value === null ? priceInSubscriptionCurrency(plan) : plan.price
-  if (price === null) return null
-  if (price === '') return undefined
-  // Their own plan at the other period is named with it: "Pro, billed yearly".
-  const name = plan.isCurrent ? t(`billedAt.${plan.interval}` as LabelKey<BackendLabels['pricing']>, { plan: plan.name }) : plan.name
-  return { key: plan.key, productId: plan.priceAt.productId, plan: name, price: `${price}${t(`period.${plan.interval}` as LabelKey<BackendLabels['pricing']>)}` }
-}
-
-/** A card's price in the subscription's currency, formatted: `null` while it is read, `''` when the product has no price in it. */
-function priceInSubscriptionCurrency(plan: ResolvedPlan): string | null {
-  const currency = subscriptionCurrency.value
-  if (!currency || plan.priceAt.currency === currency) return plan.price
-  const offers = switchPricing.plans.value
-  if (offers === undefined) return null
-  const at = offers.find(entry => entry.key === plan.key)?.prices[plan.interval]
-  // A product with no price in it comes back in the catalog's currency.
-  return at?.productId === plan.priceAt.productId && at.currency === currency ? formatBillingAmount(at.amount, at.currency, locale.value) : ''
-}
 const root = ref<HTMLElement | null>(null)
 // Cancelling the current plan takes one step: its button opens what ends
 // when and the one button that cancels, nothing else.
@@ -425,11 +368,11 @@ const change = createPlanChangeConfirm({
   titleTag: 'p',
   partId: part => `${uid}-change-${part}`,
   isBusy: () => pending.value !== null && pending.value === change.target.value?.key,
-  preview: productId => billing.changeOf(productId),
+  change: planChange,
   confirm: target => (billing.pass.value === null ? switchTo(target.key) : checkOutFromPass(target.key)),
   t,
   date: value => formatBillingDate(value, { dateStyle: 'medium' }, locale.value) || null,
-  gifted: target => (billing.pass.value === null ? null : t('changeGifted', { price: target.price })),
+  gifted: target => t('changeGifted', { price: target.price }),
 })
 function cancelPlan(key: string): Promise<void> {
   return run(key, () => t('canceling'), async () => {
@@ -539,7 +482,7 @@ function planAction(plan: ResolvedPlan): PlanAction {
     // checkout; one the preview cannot describe goes at once. One to a plan
     // with no price in the subscription's currency is none the provider
     // makes; one whose price in it is still being read waits.
-    const target = changeTarget(plan)
+    const target = planChange.targetFor(plan.key, plan.interval)
     if (target === undefined) return { kind: 'none' }
     const asks = billing.pass.value !== null || billing.changeOf(plan.priceAt.productId) !== null
     const switching = (intent: string, idle: string): PlanAction => target === null
