@@ -71,7 +71,7 @@ export const FINDING_DOCS = {
     fix: 'Run `npx nuxt-backend env push` (`--prod` for production): it derives the value from the deployment\'s kind, and `doctor --fix` does the same. A demo or staging app sets `sandbox` by hand (`npx convex env set --prod BACKEND_ENVIRONMENT sandbox`).',
   },
   'deployment-removed-env': {
-    checks: 'None of the variables `0.2.0` removed is still set on the deployment: `EMAIL_TEST_MODE`, `BILLING_ENVIRONMENT`, `MONITORING_ENVIRONMENT`, `AUTH_TRUST_LOCAL_ORIGINS`, `NUXT_BACKEND_LOG_OTP`, `BILLING_SIMULATOR_URL` and `NUXT_BACKEND_SIMULATE_MODELS`. It warns and names each one it finds.',
+    checks: 'None of the variables that 0.2.0 removed is still set on the deployment: `EMAIL_TEST_MODE`, `BILLING_ENVIRONMENT`, `MONITORING_ENVIRONMENT`, `AUTH_TRUST_LOCAL_ORIGINS`, `NUXT_BACKEND_LOG_OTP`, `BILLING_SIMULATOR_URL` and `NUXT_BACKEND_SIMULATE_MODELS`. It warns and names each one it finds.',
     why: 'Nothing reads them any more, and they still say something the deployment no longer does: `BACKEND_ENVIRONMENT` decides the modes they once set.',
     fix: 'Remove each one: `npx convex env remove NAME` (`--prod` for production).',
   },
