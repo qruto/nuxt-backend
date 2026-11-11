@@ -418,7 +418,7 @@ function optionalDeploymentEnvFinding(name: string, degradation: string, isSet: 
  */
 function removedEnvFinding(deployed: readonly string[], { prod }: { prod: boolean }): PreflightFinding {
   const left = REMOVED_DEPLOYMENT_ENV.filter(name => deployed.includes(name))
-  if (left.length === 0) return finding('deployment-removed-env', 'pass', 'No variable `0.2.0` removed is still set on the deployment.')
+  if (left.length === 0) return finding('deployment-removed-env', 'pass', 'No variable that 0.2.0 removed is still set on the deployment.')
   return finding(
     'deployment-removed-env',
     'warn',
