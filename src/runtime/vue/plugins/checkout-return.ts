@@ -24,9 +24,17 @@ export default defineNuxtPlugin({
       const route = router.currentRoute.value
       if (!(CHECKOUT_RETURN_PARAM in route.query)) return
       import('../utils/checkout-return')
-        .then(({ entitlementSync, finishCheckoutReturn }) => finishCheckoutReturn({
+        .then(({ CUSTOMER_SESSION_PARAM, entitlementSync, finishCheckoutReturn }) => finishCheckoutReturn({
           query: route.query,
-          strip: query => router.replace({ path: route.path, query, hash: route.hash }),
+          // From the address as it is by now, not as it was on arrival: the
+          // page may have taken a parameter of its own off it meanwhile, and
+          // the arrival's copy would put that back.
+          strip: () => {
+            const now = router.currentRoute.value
+            if (now.path !== route.path || !(CHECKOUT_RETURN_PARAM in now.query)) return
+            const { [CHECKOUT_RETURN_PARAM]: _returned, [CUSTOMER_SESSION_PARAM]: _token, ...rest } = now.query
+            return router.replace({ path: now.path, query: rest, hash: now.hash })
+          },
           sync: checkoutId => nuxtApp.vueApp.runWithContext(entitlementSync)(checkoutId),
         }))
         .catch((cause: unknown) => {
