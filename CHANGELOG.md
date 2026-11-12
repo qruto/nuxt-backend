@@ -21,9 +21,9 @@
 - Name the release that removed a variable as a release ([#243](https://github.com/qruto/nuxt-backend/pull/243))
 - Name the project's package manager in init's next steps ([#245](https://github.com/qruto/nuxt-backend/pull/245))
 
-#### Api
+#### API
 
-- Provide only the namespaces codegen listed ([#247](https://github.com/qruto/nuxt-backend/pull/247))
+- Provide only the namespaces codegen listed, so the packaged `/waitlist`, `/invite` and `/r/:code` pages no longer call functions of a backend file the app doesn't have, such as `backend/access.ts` ([#247](https://github.com/qruto/nuxt-backend/pull/247))
 
 ### 📖 Documentation
 

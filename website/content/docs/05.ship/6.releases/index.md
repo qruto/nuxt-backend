@@ -1,6 +1,6 @@
 ---
-title: What's new in 0.4
-description: "0.4.0 settles what moving comics.my to 0.3 turned up: jobs charged by what they made keep their result when billing refuses the charge, a gift form and plan changes that say what they do, photos made ready in the browser, member tickets that credit referrals, an install prompt and new UI tokens, and fixes to upgrade, doctor, deploy and replaced pages."
+title: What's new in 0.5
+description: "0.5.0 makes public what the packaged billing and growth pages kept inside: plan switches, the billing section, pricing checkout and schema.org data, waitlist and invite links, and referral invites, so an app's own pages work the same way. Packaged pages stop calling functions of a backend file the app doesn't have, and init names the project's own package manager."
 kind: landing
 related:
   - /docs/start/feature-map
@@ -11,25 +11,22 @@ navigation:
   icon: i-lucide-newspaper
 ---
 
-`0.4.0` settles what moving comics.my, the first app on `0.3`, turned up. The [Feature map](/docs/start/feature-map) lists every feature with its status, and the [Changelog](/docs/ship/releases/changelog) every change. What the release brings, capability by capability:
+`0.5.0` takes what comics.my's own pricing, billing, waitlist, invite and referral pages had to rewrite, and makes it public, so an app's own page does what the packaged one does. The packaged components use the same composables, so there is one implementation. The [Feature map](/docs/start/feature-map) lists every feature with its status, and the [Changelog](/docs/ship/releases/changelog) every change. What the release brings, capability by capability:
 
-- **[AI jobs](/docs/build/ai/jobs).** A job charged by what it made keeps its result when billing refuses the charge. A refusal that may pass leaves the charge owed and retried in the background under the hold's id. One that won't gives the charge up at once, logged for the operator. `defineJobQueue({ onOwedCharge })` hears how it ends, and the admin Queue tab offers "Retry the charge". A job whose first step finds billing not synced yet waits for it. `job.charge(n, { metadata })` is checked against the provider's limits. A step knows its job's owner, and an image call that drew nothing is tried once more.
-- **[Billing](/docs/start/feature-map#billing).** `<GiftForm>` sells gifts from the packaged `/gifts` page, and `<GiftList>` lists them. Plan switches say when they apply and how they settle before they happen, a plan can pause for 1 to 3 months, and `useWithdrawal()` reads the withdrawal window. The pricing page reads `?plan=` and `?interval=` from the address, and money follows each currency's smallest unit.
-- **[Uploads](/docs/build/data/files/checked-uploads).** `storage.acceptUpload` runs the check, the content check and the keep in one call. `preparePhoto` makes a photo ready in the browser before it uploads: HEIC decoded, turned upright, scaled, re-encoded and stripped of its metadata.
-- **[Growth](/docs/build/growth/launch).** Member tickets claim each friend they admit as their member's referral, on the server. `/invite` takes a typed code, `/waitlist` follows the launch phase, and neither keeps a token in the address bar.
-- **[UI](/docs/start/feature-map#ui).** Tracking, outline and press [tokens](/docs/build/ui/customize/tokens), which change nothing until you set them. `useInstallPrompt()` for an [install button](/docs/build/email/notifications/installable) of your own, `useReportAppeal()` for a report page of your own, and refusals worded by the service that is down.
-- **[The tools](/docs/start/feature-map#developer-tools).** `upgrade --dry-run` reads the app's own config. `doctor --fix` asks before it syncs email, and `deploy` runs the package's migrations. `doctor` reports `.env.example` drift, and on Vercel a preview gets its own site URL and stays out of search.
-- **Under the hood.** An app page replaces a packaged one only when it has the same shape. A production build reloads a page once when its code fails to load before the app starts. `nuxt dev` serves modules `no-cache`, from `/_dev/` unless the app sets `app.buildAssetsDir`, so Safari loads one Vue across restarts.
+- **[Billing](/docs/start/feature-map#billing).** `usePlanChange()` covers the confirmed plan switch, priced in the subscription's own currency. `useBillingSection()` is a billing section's state: what it offers, in order, and whether a switch, a pause or a cancellation applies. `usePricing()` gains `checkout()`, with the pricing table's campaign rules, and `structuredData`, its schema.org data. `useGiftList()` gains `firstDay` and `lastDay`.
+- **[Growth](/docs/build/growth/launch).** `useWaitlist({ statusLink: true })` takes a status link's token out of the address and keeps it for the tab. `useInvite({ fromAddress: true })` opens an access link the way the packaged `/invite` page does. `useReferralInvite().inviteTo` is the invite page that carries a referral link's code.
+- **[The tools](/docs/start/feature-map#developer-tools).** `init`, `init --agents` and the module's install step name the project's own package manager in their next steps: `pnpm install` and `pnpm run dev` in a pnpm project.
+- **Under the hood.** The packaged plugin provides only the backend modules codegen lists, so a composable whose file the app doesn't have falls back instead of calling the deployment. The packaged `/waitlist`, `/invite` and `/r/:code` pages no longer fail on an app without `backend/access.ts` or `backend/referrals.ts`. The docs cover pnpm 12, including the agent skills it offers to link.
 
 Development runs on the providers' own test modes, with nothing simulated: Polar's sandbox, Resend's test addresses and the Convex AI Gateway ([Develop on real sandboxes](/docs/develop/sandboxes)). A feature the Feature map marks **Planned** arrives in the next minor release, and its page already describes it as it will ship.
 
-## Upgrading from 0.3
+## Upgrading from 0.4
 
-Run `npx nuxt-backend upgrade` as for every release. A few behaviours change around it. `doctor --fix` syncs email in CI only with `--yes`. Dev modules move from `/_nuxt/` to `/_dev/`. Prices in zero-decimal currencies stop being divided by 100. A job whose billing is not synced yet waits for it, and fails `not_ready`, not `insufficient_credits`, only if it never syncs. The [Upgrade page](/docs/ship/releases/upgrade) lists each change with the edit it asks for.
+Run `npx nuxt-backend upgrade` as for every release. Two behaviours change around it. The packaged plugin reads the backend's modules from `_generated/api.d.ts`, so keep that file current: a module it doesn't list reads as absent. The pricing table shows no switch for a plan without a price in the subscription's currency. The [Upgrade page](/docs/ship/releases/upgrade) lists each change with the edit it asks for.
 
 ## What waits for a later release
 
-`0.4.0` still serves client apps. The features a service platform needs (API keys, outgoing webhooks, an MCP endpoint for your users' agents, and deeper workspaces with custom roles) arrive together in a later release. The [Roadmap](/docs/start/roadmap) says why each one waits.
+`0.5.0` still serves client apps. The features a service platform needs (API keys, outgoing webhooks, an MCP endpoint for your users' agents, and deeper workspaces with custom roles) arrive together in a later release. The [Roadmap](/docs/start/roadmap) says why each one waits.
 
 ## Experimental
 

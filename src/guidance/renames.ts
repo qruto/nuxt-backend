@@ -57,6 +57,7 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
+const FALLBACK_FILE = 'A composable falls back when the app lacks its backend file'
 const DOCTOR_FIX = '`doctor --fix` asks before it syncs email, and a deploy runs the package\'s migrations'
 const PAGE_SHAPE = 'A replaced page follows its shape, and `nuxt dev` serves its modules from a path of their own'
 const PRICE_DIGITS = 'Plan switches ask first, and prices keep their currency\'s own digits'
@@ -83,6 +84,9 @@ const BETTER_AUTH_17 = 'Better Auth 1.7, and a deploy for the backend\'s schema'
  * `const` per section heading above the list, and its entries in it.
  */
 export const RENAMES: readonly Rename[] = [
+  // 0.5: a composable falls back when the app lacks its backend file.
+  { from: 'api', to: '_generated/api.d.ts', change: 'reshaped', section: FALLBACK_FILE, note: 'the packaged plugin provides only the modules `_generated/api.d.ts` lists, so a namespace it doesn\'t list reads as absent and its composable falls back; an app that commits `_generated/` commits it again after adding a backend file' },
+
   // 0.4: doctor --fix asks before it syncs email, and a deploy runs the package's migrations.
   { from: 'doctor --fix', to: '--yes', change: 'reshaped', section: DOCTOR_FIX, note: 'the email sync is planned as a dry run and applied on a yes at a terminal or with `--yes`; without either it lists the plan and writes nothing, and a sync that fails fails `doctor --fix`' },
   { from: 'npx nuxt-backend upgrade --prod --yes', to: 'npx nuxt-backend deploy', change: 'reshaped', section: DOCTOR_FIX, note: '`deploy` and `deploy --build` run the package\'s data migrations and the workpool\'s backfill after a production push; the `upgrade --prod --yes` step after them finds nothing left, and stays only after a deploy that runs `convex deploy` itself' },
