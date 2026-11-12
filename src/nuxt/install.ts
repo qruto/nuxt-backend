@@ -2,6 +2,7 @@ import { getAddDependencyCommand, useTerminal, type NuxtTerminal } from '@nuxt/k
 import type { Nuxt } from '@nuxt/schema'
 import { relative, isAbsolute } from 'node:path'
 import { isCI } from 'std-env'
+import { execBinary, packageManagerOf } from '../cli/deploy/package-manager'
 import { packageDir } from '../dirs'
 import { addedDependencies, formatNextSteps, installDeclaredDependencies, setUpProject } from '../setup'
 import { logger } from './logger'
@@ -55,7 +56,7 @@ export async function installProject(nuxt: Nuxt, given: Partial<InstallSurroundi
   const { terminal, log } = surroundings
   const prepareOrDev = nuxt.options.dev || nuxt.options._prepare
   if (nuxt.options.test || !prepareOrDev || !surroundings.interactive) {
-    log('nuxt-backend is installed. Its setup runs at an interactive terminal: run `npx nuxt-backend init` to write the backend files, .env.example and the agent files.')
+    log(`nuxt-backend is installed. Its setup runs at an interactive terminal: run \`${execBinary(packageManagerOf(nuxt.options.rootDir), 'nuxt-backend init')}\` to write the backend files, .env.example and the agent files.`)
     return
   }
 

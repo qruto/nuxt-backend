@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { installedVersion, MCP_SDK, writeAgentFiles, type AgentsMdAction, type McpJsonAction, type SkillsReport } from './agents'
 import { renderEnvExample } from './capabilities'
+import { execBinary, packageManagerOf, runScript, type PackageManager } from './cli/deploy/package-manager'
 import { adoptBackendDevScript } from './cli/dev'
 import { packageDir } from './dirs'
 import { ensureDefaultLayout, mountPagesInAppComponent, scaffoldBackendFiles } from './scaffold'
@@ -38,7 +39,9 @@ export interface ProjectSetup {
   convexDependency: string | null
   /** The `@modelcontextprotocol/sdk` range added to `devDependencies` for the developer MCP server, or null. */
   mcpSdkDependency: string | null
-  /** The command that starts the app: `npm run dev` once the `dev` script runs `nuxt-backend dev`. */
+  /** The project's package manager, which the next steps name: the one `package.json` pins, else its lockfile's, else npm. */
+  packageManager: PackageManager
+  /** The command that starts the app, through that package manager: `pnpm run dev` once the `dev` script runs `nuxt-backend dev`. */
   start: string
 }
 
@@ -149,7 +152,7 @@ export function setUpAgentFiles(rootDir: string, force: boolean, print: (line: s
 }
 
 /** The edits to the app's own files: the `dev` script and the `convex` dependency. */
-function adoptProjectFiles(rootDir: string, print: (line: string) => void): Pick<ProjectSetup, 'devScript' | 'convexDependency' | 'start'> {
+function adoptProjectFiles(rootDir: string, print: (line: string) => void): Pick<ProjectSetup, 'devScript' | 'convexDependency' | 'packageManager' | 'start'> {
   const devScript = adoptBackendDevScript(rootDir)
   if (devScript?.changed) {
     print(`[nuxt-backend] Set scripts.dev to \`${devScript.script}\`: one command sets up the deployment, provisions its env and runs Convex beside Nuxt`)
@@ -160,10 +163,12 @@ function adoptProjectFiles(rootDir: string, print: (line: string) => void): Pick
     print(`[nuxt-backend] Added convex@${convexDependency} to dependencies (\`npx convex dev\` needs the app itself to declare it)`)
   }
 
+  const packageManager = packageManagerOf(rootDir)
   return {
     devScript: devScript?.changed ? devScript.script : null,
     convexDependency,
-    start: devScript ? 'npm run dev' : 'npx nuxt-backend dev',
+    packageManager,
+    start: devScript ? runScript(packageManager, 'dev') : execBinary(packageManager, 'nuxt-backend dev'),
   }
 }
 
@@ -172,18 +177,26 @@ export function addedDependencies(setup: Partial<Pick<ProjectSetup, 'convexDepen
   return Boolean(setup.convexDependency || setup.mcpSdkDependency)
 }
 
+/** What the next steps read from a setup: the start command, the package manager that installs, and what was added. */
+type NextStepsSetup = Pick<ProjectSetup, 'convexDependency' | 'packageManager' | 'start'> & Partial<Pick<ProjectSetup, 'mcpSdkDependency'>>
+
+/** The install command, through the project's package manager: `pnpm install`. */
+export function installCommand(packageManager: PackageManager): string {
+  return `${packageManager} install`
+}
+
 /** The commands a set-up project runs next, in order: an install first when setup added a dependency and nothing linked it yet. */
-export function nextCommands(setup: Pick<ProjectSetup, 'convexDependency' | 'start'> & Partial<Pick<ProjectSetup, 'mcpSdkDependency'>>, { installed = false } = {}): string[] {
-  return [...addedDependencies(setup) && !installed ? ['npm install'] : [], setup.start]
+export function nextCommands(setup: NextStepsSetup, { installed = false } = {}): string[] {
+  return [...addedDependencies(setup) && !installed ? [installCommand(setup.packageManager)] : [], setup.start]
 }
 
 /** The next steps, as `init` and the install step end with them. */
-export function formatNextSteps(setup: Pick<ProjectSetup, 'convexDependency' | 'start'> & Partial<Pick<ProjectSetup, 'mcpSdkDependency'>>, { installed = false } = {}): string {
+export function formatNextSteps(setup: NextStepsSetup, { installed = false } = {}): string {
   const comment = (command: string, text: string) => `  ${command.padEnd(27)}# ${text}`
   const added = setup.convexDependency && setup.mcpSdkDependency
     ? 'convex and the MCP SDK, added above'
     : setup.convexDependency ? 'the convex dependency added above' : 'the MCP SDK added above'
-  const install = addedDependencies(setup) && !installed ? [comment('npm install', `links ${added}`)] : []
+  const install = addedDependencies(setup) && !installed ? [comment(installCommand(setup.packageManager), `links ${added}`)] : []
   return [
     'Next steps:',
     ...install,

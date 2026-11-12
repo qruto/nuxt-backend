@@ -68,7 +68,7 @@ Next steps:
   Sign in at /login: in development, the sign-in code prints in the same terminal.
 ```
 
-An `npm install` line comes first when this run added `convex`, and `npx nuxt-backend dev` replaces `npm run dev` when your `dev` script is one of your own.
+Each command goes through the project's package manager: the one `package.json`'s `packageManager` field names, else the one whose lockfile the project has, else npm. A pnpm project reads `pnpm install` and `pnpm run dev`. An install line comes first when this run added `convex` or the MCP SDK. When your `dev` script is one of your own, `npx nuxt-backend dev` (`pnpm exec nuxt-backend dev` under pnpm) replaces `npm run dev`.
 
 The dev server no longer scaffolds on startup, and the `backend.scaffold` option is gone: `init` and [`dev`](#dev) own the scaffold.
 

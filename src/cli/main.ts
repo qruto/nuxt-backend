@@ -4,7 +4,8 @@ import { defineCommand, type ArgsDef } from 'citty'
 import { installedVersion, type AgentsMdAction, type McpJsonAction, type SkillsReport } from '../agents'
 import { packageVersion } from '../dirs'
 import { CAPABILITY_NAMES, type CapabilityName } from '../capabilities'
-import { formatNextSteps, nextCommands, setUpAgentFiles, setUpProject, type ProjectSetup } from '../setup'
+import { formatNextSteps, installCommand, nextCommands, setUpAgentFiles, setUpProject, type ProjectSetup } from '../setup'
+import { packageManagerOf } from './deploy/package-manager'
 import { doctorReport, formatPreflightSummary } from '../preflight'
 import { deployKeyType, devPushRefusal, nonProductionDeployKey, readEnvFiles, runEnvPush, type EnvPushRunResult } from '../env-push'
 import { ENV_DEFAULT_TYPES, runEnvDefaults, type EnvDefaultType } from '../env-defaults'
@@ -107,7 +108,7 @@ function refreshAgentFiles(rootDir: string, json: boolean, print: (line: string)
   const { agentsMd, mcpJson, skills, messages, mcpSdkDependency } = setUpAgentFiles(rootDir, true, print)
   if (agentsMd === 'malformed') process.exitCode = 1
   if (messages.length === 0 && !mcpSdkDependency) print(`[nuxt-backend] AGENTS.md, .mcp.json and the agent skills are current for nuxt-backend ${installedVersion(rootDir)}`)
-  if (mcpSdkDependency) print(`[nuxt-backend] Run \`npm install\` to link it, then restart your agent.`)
+  if (mcpSdkDependency) print(`[nuxt-backend] Run \`${installCommand(packageManagerOf(rootDir))}\` to link it, then restart your agent.`)
   if (json) {
     const report: AgentFilesReport = { agentsMd, mcpJson, skills, mcpSdkDependency }
     console.log(JSON.stringify(report, null, 2))
@@ -115,7 +116,7 @@ function refreshAgentFiles(rootDir: string, json: boolean, print: (line: string)
 }
 
 /** What `init --json` prints: the setup (agent fields null with `--no-agents`), plus the module's place in `nuxt.config`. */
-export interface InitReport extends Omit<ProjectSetup, 'start'> {
+export interface InitReport extends Omit<ProjectSetup, 'start' | 'packageManager'> {
   /** `listed`: `nuxt.config`'s modules hold `'nuxt-backend'`; `manual`: add it by hand. */
   nuxtConfig: 'listed' | 'manual'
   /** The commands to run next, in order. */
@@ -145,7 +146,7 @@ const init = withContract('init', {
       refreshAgentFiles(rootDir, args.json, print)
       return
     }
-    const { start, ...setup } = setUpProject(rootDir, { force: args.force, agents: args.agents !== false, print })
+    const { start, packageManager, ...setup } = setUpProject(rootDir, { force: args.force, agents: args.agents !== false, print })
     if (setup.agentsMd === 'malformed') process.exitCode = 1
 
     const listed = await addModuleToNuxtConfig(rootDir)
@@ -154,11 +155,11 @@ const init = withContract('init', {
       : '[nuxt-backend] Add the module yourself: modules: [\'nuxt-backend\'] in nuxt.config.ts')
 
     if (args.json) {
-      const report: InitReport = { ...setup, nuxtConfig: listed ? 'listed' : 'manual', next: nextCommands({ ...setup, start }) }
+      const report: InitReport = { ...setup, nuxtConfig: listed ? 'listed' : 'manual', next: nextCommands({ ...setup, packageManager, start }) }
       console.log(JSON.stringify(report, null, 2))
       return
     }
-    console.log(`\n${formatNextSteps({ ...setup, start })}\n`)
+    console.log(`\n${formatNextSteps({ ...setup, packageManager, start })}\n`)
   },
 }))
 
