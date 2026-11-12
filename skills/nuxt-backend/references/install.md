@@ -104,12 +104,15 @@ the user before editing it; don't overwrite their code.
 
 pnpm notes:
 
-- pnpm 11 stops an install on dependency build scripts it has not been told about. Show the user
+- pnpm 11 and later stop an install on dependency build scripts they have not been told about. Show the user
   the list and let them choose: approve or deny with `pnpm approve-builds`, or in `allowBuilds` in
   `pnpm-workspace.yaml`. `esbuild` works without its script. Don't turn off `strictDepBuilds`.
 - pnpm's default layout hides the Convex components nuxt-backend brings, and Convex needs to
   resolve them: add `publicHoistPattern: ['@convex-dev/*']` to `pnpm-workspace.yaml`, then install
   again. (Apps made from the starter carry both settings in `.pnpmfile.mjs`.)
+- pnpm 12 lists nuxt-backend under "Agent skills awaiting approval". `init` already installed
+  those skills in `.agents/skills`, and approving links a second copy of each. Tell the user, and
+  suggest denying it: `pnpm approve '!nuxt-backend'`.
 
 ## 2. Start it: the deployment, its env, the generated code
 
