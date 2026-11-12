@@ -28,12 +28,24 @@ export const beforeApiRead = new Set<() => void>()
 
 /**
  * Provide the generated `api` app-wide. The packaged plugin calls it with
- * `#backend/api` once codegen exists.
+ * `#backend/api` once codegen exists, and with the top-level names codegen
+ * listed. Codegen's runtime `api` (`anyApi`) answers every name, so a
+ * composable whose file the app doesn't have would call functions the
+ * deployment lacks. With the names, any other namespace reads `undefined`,
+ * and each composable falls back as it does for a missing file.
  *
  * @internal
  */
-export function provideBackendApi(api: BackendApi, app: App): void {
-  app.provide(BackendApiKey, api)
+export function provideBackendApi(api: BackendApi, app: App, modules?: readonly string[]): void {
+  app.provide(BackendApiKey, modules ? declaredOnly(api, new Set(modules)) : api)
+}
+
+/** The `api` with only the given top-level namespaces: any other name reads `undefined`. */
+function declaredOnly(api: BackendApi, modules: ReadonlySet<string>): BackendApi {
+  return new Proxy(api, {
+    get: (target, key, receiver) => (typeof key === 'string' && !modules.has(key) ? undefined : Reflect.get(target, key, receiver)),
+    has: (target, key) => (typeof key === 'string' ? modules.has(key) : Reflect.has(target, key)),
+  })
 }
 
 /**
