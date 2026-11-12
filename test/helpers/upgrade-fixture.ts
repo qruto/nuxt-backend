@@ -12,12 +12,12 @@ import { fileURLToPath } from 'node:url'
 
 /**
  * The snapshot the fixture upgrades from, by its label under
- * test/fixtures/upgrade/: the starter 0.4.0 shipped. At each release, write
+ * test/fixtures/upgrade/: the starter 0.5.0 shipped. At each release, write
  * the starter it shipped there (`node scripts/upgrade-fixture.mjs <tag>
  * <version>`), point this at it, empty {@link ADDED_SINCE_BASE} and delete
  * the old snapshot.
  */
-export const UPGRADE_BASE = '0.4.0'
+export const UPGRADE_BASE = '0.5.0'
 
 /**
  * What the scaffold gained after {@link UPGRADE_BASE}, which the repair must
