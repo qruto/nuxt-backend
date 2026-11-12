@@ -17,8 +17,9 @@ export function hasGeneratedApi(rootDir: string, functionsDir: string = resolveF
 /**
  * The top-level names of the function tree codegen saw (`account`,
  * `billing` for `billing/catalog.ts`), read from `_generated/api.d.ts`'s
- * `ApiFromModules<{ … }>`, sorted. `null` when there is no such file or the
- * block can't be read, so the caller keeps the whole `api`.
+ * `ApiFromModules<{ … }>`, sorted: `[]` for an empty block. `null` when there
+ * is no such file or the block can't be read, so the caller keeps the whole
+ * `api` rather than hiding namespaces it could not see.
  *
  * Codegen's runtime `api` is `anyApi`, a proxy that answers every name, so
  * it can't tell an app without `backend/access.ts` from one with it. This
@@ -34,6 +35,7 @@ export function generatedModules(rootDir: string, functionsDir: string = resolve
   }
   const block = /ApiFromModules<\{([^}]*)\}>/.exec(source)?.[1]
   if (block === undefined) return null
+  if (block.trim() === '') return []
   const names = new Set<string>()
   for (const [, quoted, bare] of block.matchAll(/^\s*(?:"([^"]+)"|([\w$]+))\s*:\s*typeof\b/gm)) {
     names.add((quoted ?? bare)!.split('/')[0]!)

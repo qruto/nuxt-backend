@@ -30,7 +30,8 @@ describe('provideBackendApi', () => {
     expect(error.value).toBeNull()
   })
 
-  it('keeps the whole api when no list could be read', () => {
-    expect(within(() => useApiNamespace('access'))).toBeDefined()
+  it('answers no namespace for an empty list', () => {
+    expect(within(() => useApiNamespace('access'), [])).toBeUndefined()
+    expect(within(() => useApiNamespace('billing'), [])).toBeUndefined()
   })
 })

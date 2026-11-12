@@ -66,6 +66,14 @@ describe('generatedModules', () => {
     expect(generatedModules(rootDir)).toEqual(['account', 'billing', 'reports'])
   })
 
+  it('is empty for an empty module block, and null for one it can\'t read', () => {
+    mkdirSync(join(rootDir, 'backend', '_generated'), { recursive: true })
+    writeFileSync(join(rootDir, 'backend', '_generated', 'api.d.ts'), apiTypes([]))
+    expect(generatedModules(rootDir)).toEqual([])
+    writeFileSync(join(rootDir, 'backend', '_generated', 'api.d.ts'), 'declare const fullApi: ApiFromModules<{\n  [key: string]: unknown;\n}>;\n')
+    expect(generatedModules(rootDir)).toBeNull()
+  })
+
   it('is null without the file, or without the module block, so the whole api stays', () => {
     expect(generatedModules(rootDir)).toBeNull()
     emitCodegen('backend', 'api.d.ts')

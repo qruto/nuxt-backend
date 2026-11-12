@@ -44,7 +44,6 @@ export function provideBackendApi(api: BackendApi, app: App, modules?: readonly 
 function declaredOnly(api: BackendApi, modules: ReadonlySet<string>): BackendApi {
   return new Proxy(api, {
     get: (target, key, receiver) => (typeof key === 'string' && !modules.has(key) ? undefined : Reflect.get(target, key, receiver)),
-    has: (target, key) => (typeof key === 'string' ? modules.has(key) : Reflect.has(target, key)),
   })
 }
 
