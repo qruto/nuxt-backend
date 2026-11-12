@@ -312,10 +312,13 @@ to `main` (the rulesets below) or publish to npm (only a job in the `Release` en
   `minimumReleaseAgeExclude` in `pnpm-workspace.yaml` list the same first-party Nuxt/Convex
   packages (`nuxt-convex-module` is among them through `nuxt-*`, so a base-module release is
   installable the day it ships). If they drift apart, Dependabot proposes versions pnpm won't install.
-- **Consumers wait a day.** pnpm 11 refuses, by default, any version published less than 24 hours
-  ago. The only older version of this package is the throwaway `0.1.0`, which no range will accept —
-  so a strict-pnpm user installing within a day of a release gets an error, not an older version.
-  Announce a release the day after `pnpm stage approve`, not the same hour.
+- **Consumers wait a day.** pnpm 11 and later hold back, by default, any version published less
+  than 24 hours ago. pnpm's built-in default is not strict: an install takes an older version that
+  fits the range (`^0.4.0` stays on 0.4.0 the day 0.4.1 ships) and installs the new one only when
+  nothing older fits. A project that sets `minimumReleaseAge` itself fails the install in that case.
+  Either way, an install by range doesn't pick the release up on its first day, so announce it
+  the day after `pnpm stage approve`, not the same hour. The registry smoke test's pnpm legs wait for
+  that day too.
 - **Every PR's dependency changes are inspected.** CI's `dependency-review` job fails a PR that
   pulls in a known CVE (moderate or higher) or a package GitHub has flagged as malicious. pnpm's
   cooldown only delays a new version; it never looks inside it.
