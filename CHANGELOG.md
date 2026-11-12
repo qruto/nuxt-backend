@@ -1,5 +1,44 @@
 # Changelog
 
+## v0.5.0
+
+[compare changes](https://github.com/qruto/nuxt-backend/compare/v0.4.0...v0.5.0)
+
+### 🚀 Enhancements
+
+#### Billing
+
+- Let an app's own pricing and billing pages do what the packaged ones do ([#241](https://github.com/qruto/nuxt-backend/pull/241))
+
+#### Growth
+
+- Let an app's own waitlist, invite and referral pages do what the packaged ones do ([#240](https://github.com/qruto/nuxt-backend/pull/240))
+
+### 🩹 Fixes
+
+#### CLI
+
+- Name the release that removed a variable as a release ([#243](https://github.com/qruto/nuxt-backend/pull/243))
+- Name the project's package manager in init's next steps ([#245](https://github.com/qruto/nuxt-backend/pull/245))
+
+#### API
+
+- Provide only the namespaces codegen listed, so the packaged `/waitlist`, `/invite` and `/r/:code` pages no longer call functions of a backend file the app doesn't have, such as `backend/access.ts` ([#247](https://github.com/qruto/nuxt-backend/pull/247))
+
+### 📖 Documentation
+
+- Cover pnpm 12 beside pnpm 11 ([#246](https://github.com/qruto/nuxt-backend/pull/246))
+
+### ✅ Tests
+
+#### Upgrade
+
+- Upgrade from the starter 0.4.0 shipped ([#242](https://github.com/qruto/nuxt-backend/pull/242))
+
+### ❤️ Contributors
+
+- Slava Razum ([@slavarazum](https://github.com/slavarazum))
+
 ## v0.4.0
 
 [compare changes](https://github.com/qruto/nuxt-backend/compare/v0.3.0...v0.4.0)

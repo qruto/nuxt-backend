@@ -17,6 +17,12 @@ has the reasons and every step. The core skill's `references/renames.json`, in
 After it, run `npx nuxt-backend doctor`, and `npx nuxt-backend init --agents` to refresh the app's
 agent files and skills.
 
+## [A composable falls back when the app lacks its backend file](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-composable-falls-back-when-the-app-lacks-its-backend-file)
+
+| Was | Now | Change | Note |
+|---|---|---|---|
+| `api` | `_generated/api.d.ts` | reshaped | the packaged plugin provides only the modules `_generated/api.d.ts` lists, so a namespace it doesn't list reads as absent and its composable falls back; an app that commits `_generated/` commits it again after adding a backend file |
+
 ## [`doctor --fix` asks before it syncs email, and a deploy runs the package's migrations](https://nuxt-backend.dev/docs/ship/releases/upgrade#doctor---fix-asks-before-it-syncs-email-and-a-deploy-runs-the-packages-migrations)
 
 | Was | Now | Change | Note |

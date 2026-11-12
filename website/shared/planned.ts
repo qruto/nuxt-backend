@@ -40,7 +40,7 @@ export const CHANGING = 'changing'
  * docs describe is released (website/shared/docs-version.ts), else that line's
  * first release (test/docs/planned-pages.test.ts holds the rule).
  */
-export const PLANNED_RELEASE = '0.5.0'
+export const PLANNED_RELEASE = '0.6.0'
 
 /** The page that lists every feature with its status, and its legend. */
 export const FEATURE_MAP = '/docs/start/feature-map'
