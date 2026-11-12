@@ -212,6 +212,19 @@ describe('the referral link\'s page', () => {
     expect(required).toEqual([])
   })
 
+  it('says a link no longer works in an app without backend/referrals.ts, instead of checking it forever', async () => {
+    backendWith()
+    const wrapper = await mountSuspended(defineComponent({
+      setup() {
+        provide(BackendApiKey, {})
+        return () => h(ReferralLanding)
+      },
+    }))
+    await flushPromises()
+    expect(state(wrapper)).toBe('invalid')
+    expect(part(wrapper, 'landing-status').text()).toBe('This link no longer works.')
+  })
+
   it('words a trial, an offer of nothing, and an inviter without a name', async () => {
     backendWith({ inviter: null, program: { ...PREVIEW.program, referred: { kind: 'trial', days: 14 } } })
     const trial = await landing()
