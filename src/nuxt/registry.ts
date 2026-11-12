@@ -2,7 +2,7 @@ import { existsSync, realpathSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { addComponent, addImports, addPluginTemplate, addRouteMiddleware, addServerImports, addTemplate, addTypeTemplate, resolveModule, updateTemplates, type Resolver } from '@nuxt/kit'
 import type { Nuxt, NuxtHooks } from '@nuxt/schema'
-import { backendTypeFallbackContents, hasGeneratedApi, resolveFunctionsDir } from '../aliases'
+import { backendTypeFallbackContents, generatedModules, hasGeneratedApi, resolveFunctionsDir } from '../aliases'
 import { logger } from './logger'
 import { protectGuardedPages } from './pages'
 import { REGISTERED_UI, uiPath } from '../ui/registry'
@@ -389,7 +389,9 @@ export function registerBackendApi(resolver: Resolver, nuxt: Nuxt): void {
           'import { defineNuxtPlugin } from \'#app\'',
           'import { api } from \'#backend/api\'',
           `import { provideBackendApi } from ${JSON.stringify(namespaceModule)}`,
-          'export default defineNuxtPlugin({ name: \'nuxt-backend:api\', setup(nuxtApp) { provideBackendApi(api, nuxtApp.vueApp) } })',
+          // The top-level names codegen listed: `api` itself answers any name.
+          `const modules = ${JSON.stringify(generatedModules(nuxt.options.rootDir, functionsDir))}`,
+          'export default defineNuxtPlugin({ name: \'nuxt-backend:api\', setup(nuxtApp) { provideBackendApi(api, nuxtApp.vueApp, modules ?? undefined) } })',
           '',
         ].join('\n')
       : 'import { defineNuxtPlugin } from \'#app\'\nexport default defineNuxtPlugin({ name: \'nuxt-backend:api\', setup() {} })\n',

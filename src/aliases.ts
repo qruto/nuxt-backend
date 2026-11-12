@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Nuxt } from '@nuxt/schema'
 import { resolveFunctionsDir } from './scaffold'
@@ -12,6 +12,35 @@ export { resolveFunctionsDir } from './scaffold'
 export function hasGeneratedApi(rootDir: string, functionsDir: string = resolveFunctionsDir(rootDir)): boolean {
   const generatedApi = join(rootDir, functionsDir, '_generated', 'api')
   return existsSync(`${generatedApi}.d.ts`) || existsSync(`${generatedApi}.js`)
+}
+
+/**
+ * The top-level names of the function tree codegen saw (`account`,
+ * `billing` for `billing/catalog.ts`), read from `_generated/api.d.ts`'s
+ * `ApiFromModules<{ … }>`, sorted: `[]` for an empty block. `null` when there
+ * is no such file or the block can't be read, so the caller keeps the whole
+ * `api` rather than hiding namespaces it could not see.
+ *
+ * Codegen's runtime `api` is `anyApi`, a proxy that answers every name, so
+ * it can't tell an app without `backend/access.ts` from one with it. This
+ * list can.
+ */
+export function generatedModules(rootDir: string, functionsDir: string = resolveFunctionsDir(rootDir)): string[] | null {
+  let source: string
+  try {
+    source = readFileSync(join(rootDir, functionsDir, '_generated', 'api.d.ts'), 'utf8')
+  }
+  catch {
+    return null
+  }
+  const block = /ApiFromModules<\{([^}]*)\}>/.exec(source)?.[1]
+  if (block === undefined) return null
+  if (block.trim() === '') return []
+  const names = new Set<string>()
+  for (const [, quoted, bare] of block.matchAll(/^\s*(?:"([^"]+)"|([\w$]+))\s*:\s*typeof\b/gm)) {
+    names.add((quoted ?? bare)!.split('/')[0]!)
+  }
+  return names.size > 0 ? [...names].sort() : null
 }
 
 /**

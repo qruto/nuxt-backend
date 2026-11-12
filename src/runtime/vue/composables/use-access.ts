@@ -64,7 +64,8 @@ export interface UseAccessPhaseReturn {
  * ```
  */
 export function useAccessPhase(options: UseAccessPhaseOptions = {}): UseAccessPhaseReturn {
-  const api = useBackendNamespace<AccessApiRefs>('access', 'useAccessPhase', options.api)
+  // Optional: an app without `backend/access.ts` is public, with no warning.
+  const api = options.api ?? useApiNamespace<AccessApiRefs>('access') ?? {}
   if (!api.getAccessPhase) {
     return { phase: computed(() => 'public'), isPublic: computed(() => true), isLoading: computed(() => false), error: computed(() => null) }
   }

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Nuxt } from '@nuxt/schema'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { backendTypeFallbackContents, hasGeneratedApi, registerBackendAliases } from '../../src/aliases'
+import { backendTypeFallbackContents, generatedModules, hasGeneratedApi, registerBackendAliases } from '../../src/aliases'
 
 // The `#backend/*` imports an app writes: where each one points in the
 // project on disk, for both Vite and Nitro, and when the placeholder types
@@ -43,6 +43,53 @@ describe('hasGeneratedApi', () => {
     expect(hasGeneratedApi(rootDir)).toBe(false)
     emitCodegen('server/convex', 'api.d.ts')
     expect(hasGeneratedApi(rootDir)).toBe(true)
+  })
+})
+
+describe('generatedModules', () => {
+  /** `_generated/api.d.ts` as `convex codegen` writes it, for these module paths. */
+  const apiTypes = (modules: string[]) => [
+    '/* eslint-disable */',
+    'import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";',
+    ...modules.map(path => `import type * as ${path.replaceAll(/\W/g, '_')} from "../${path}.js";`),
+    '',
+    'declare const fullApi: ApiFromModules<{',
+    ...modules.map(path => `  ${/^[\w$]+$/.test(path) ? path : JSON.stringify(path)}: typeof ${path.replaceAll(/\W/g, '_')};`),
+    '}>;',
+    'export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "public">>;',
+    '',
+  ].join('\n')
+
+  it('lists the top-level names codegen saw, a folder\'s modules under the folder', () => {
+    mkdirSync(join(rootDir, 'backend', '_generated'), { recursive: true })
+    writeFileSync(join(rootDir, 'backend', '_generated', 'api.d.ts'), apiTypes(['billing', 'account', 'reports/daily', 'reports/weekly']))
+    expect(generatedModules(rootDir)).toEqual(['account', 'billing', 'reports'])
+  })
+
+  it('is empty for an empty module block, and null for one it can\'t read', () => {
+    mkdirSync(join(rootDir, 'backend', '_generated'), { recursive: true })
+    writeFileSync(join(rootDir, 'backend', '_generated', 'api.d.ts'), apiTypes([]))
+    expect(generatedModules(rootDir)).toEqual([])
+    writeFileSync(join(rootDir, 'backend', '_generated', 'api.d.ts'), 'declare const fullApi: ApiFromModules<{\n  [key: string]: unknown;\n}>;\n')
+    expect(generatedModules(rootDir)).toBeNull()
+  })
+
+  it('is null without the file, or without the module block, so the whole api stays', () => {
+    expect(generatedModules(rootDir)).toBeNull()
+    emitCodegen('backend', 'api.d.ts')
+    expect(generatedModules(rootDir)).toBeNull()
+  })
+
+  it('reads the functions directory convex.json names', () => {
+    writeFileSync(join(rootDir, 'convex.json'), JSON.stringify({ functions: 'server/convex' }))
+    mkdirSync(join(rootDir, 'server/convex', '_generated'), { recursive: true })
+    writeFileSync(join(rootDir, 'server/convex', '_generated', 'api.d.ts'), apiTypes(['access']))
+    expect(generatedModules(rootDir)).toEqual(['access'])
+  })
+
+  it('reads the website\'s own codegen', () => {
+    const website = join(import.meta.dirname, '../../website')
+    expect(generatedModules(website)).toEqual(expect.arrayContaining(['account', 'billing', 'strips']))
   })
 })
 

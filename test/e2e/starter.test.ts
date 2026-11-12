@@ -1,6 +1,8 @@
 import { execFileSync } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { request as httpRequest } from 'node:http'
 import { gunzipSync, gzipSync } from 'node:zlib'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import { $fetch, createPage, fetch, setup, url } from '@nuxt/test-utils/e2e'
@@ -115,6 +117,14 @@ stub
     return { benefits: subject === 'user_admin' ? [{ benefitId: 'benefit_priority', metadata: { key: 'priority-support' } }] : [] }
   })
 const app = prepareExampleApp(rootDir)
+// The stub answers `referrals:*` as an app with `backend/referrals.ts`
+// deployed does, so codegen lists the module too: the packaged plugin
+// provides only the namespaces codegen lists. Only codegen this run wrote.
+if (app.generated) {
+  const types = join(app.generatedDir, 'api.d.ts')
+  writeFileSync(types, readFileSync(types, 'utf8')
+    .replace('declare const fullApi: ApiFromModules<{', 'declare const referrals: Record<string, never>;\ndeclare const fullApi: ApiFromModules<{\n  referrals: typeof referrals;'))
+}
 afterAll(async () => {
   await stub.close()
   app.cleanup()

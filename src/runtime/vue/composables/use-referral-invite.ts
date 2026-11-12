@@ -116,7 +116,8 @@ export function useReferralInvite(options: UseReferralInviteOptions = {}): UseRe
   })
   const read = api.previewReferral ? useAsyncQuery(api.previewReferral, () => ({ code: code.value })) : absentQuery<ReferralPreview | null>()
   const readFailure = computed(() => (read.error.value ? failureOf(read.error.value) : null))
-  const preview = computed(() => (read.data.value === undefined && readFailure.value ? null : read.data.value))
+  // An app without backend/referrals.ts has no referral program: no link of it works.
+  const preview = computed(() => (!api.previewReferral || (read.data.value === undefined && readFailure.value) ? null : read.data.value))
   const runClaim = api.claimReferral ? useMutation(api.claimReferral) : null
 
   const outcome = ref<'claiming' | 'claimed' | 'ignored' | 'own' | null>(null)
