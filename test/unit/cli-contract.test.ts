@@ -110,4 +110,14 @@ describe('init --json', () => {
     expect(again).toMatchObject({ created: [], agentsMd: null, mcpJson: null, skills: null, devScript: null, convexDependency: null })
     expect(again.next).toEqual(['npm run dev'])
   })
+
+  it('names the project\'s own package manager in the next commands', async () => {
+    writeFileSync(join(rootDir, 'pnpm-lock.yaml'), 'lockfileVersion: \'9.0\'\n')
+    expect((await init()).next).toEqual(['pnpm install', 'pnpm run dev'])
+
+    // A dev script of the user's own stays, so the CLI starts through the package manager, which a `packageManager` pin names over the lockfile.
+    writeFileSync(join(rootDir, 'package.json'), `${JSON.stringify({ name: 'app', packageManager: 'yarn@4.9.1', scripts: { dev: 'my-dev' } }, null, 2)}\n`)
+    // The rewritten manifest no longer lists convex, so it is declared again and the install comes first.
+    expect((await init(['--no-agents'])).next).toEqual(['yarn install', 'yarn nuxt-backend dev'])
+  })
 })

@@ -56,7 +56,7 @@ describe('the install step', () => {
     expect(manifest.dependencies.convex).toMatch(/^[\^>]/)
     expect(given.install).toHaveBeenCalledWith(rootDir, 'pnpm')
     // Installed here, so the next steps start at the dev script.
-    expect(lines.at(-1)).toBe(formatNextSteps({ convexDependency: manifest.dependencies.convex!, start: 'npm run dev' }, { installed: true }))
+    expect(lines.at(-1)).toBe(formatNextSteps({ convexDependency: manifest.dependencies.convex!, packageManager: 'npm', start: 'npm run dev' }, { installed: true }))
     expect(lines.at(-1)).not.toContain('npm install')
   })
 
@@ -88,6 +88,13 @@ describe('the install step', () => {
     expect(existsSync(join(rootDir, 'backend'))).toBe(false)
   })
 
+  it('names init through the project\'s package manager', async () => {
+    writeFileSync(join(rootDir, 'pnpm-lock.yaml'), '')
+    const { given, lines } = surroundings({ interactive: false })
+    await installProject(nuxtAt(), given)
+    expect(lines).toEqual([expect.stringContaining('`pnpm exec nuxt-backend init`')])
+  })
+
   it('runs under nuxt dev too', async () => {
     const { given } = surroundings()
     await installProject(nuxtAt({ dev: true, _prepare: false }), given)
@@ -117,17 +124,24 @@ describe('the lifecycle hooks', () => {
 
 describe('the next steps', () => {
   it('read as the CLI reference prints them', () => {
-    expect(formatNextSteps({ convexDependency: null, start: 'npm run dev' })).toBe([
+    expect(formatNextSteps({ convexDependency: null, packageManager: 'npm', start: 'npm run dev' })).toBe([
       'Next steps:',
       '  npm run dev                # the first run sets up your Convex dev deployment (log in',
       '                             # when asked) and provisions its env, then runs Convex and Nuxt',
       '  Sign in at /login: in development, the sign-in code prints in the same terminal.',
     ].join('\n'))
-    expect(formatNextSteps({ convexDependency: '^1.48.0', start: 'npx nuxt-backend dev' }).split('\n').slice(1, 3)).toEqual([
+    expect(formatNextSteps({ convexDependency: '^1.48.0', packageManager: 'npm', start: 'npx nuxt-backend dev' }).split('\n').slice(1, 3)).toEqual([
       '  npm install                # links the convex dependency added above',
       '  npx nuxt-backend dev       # the first run sets up your Convex dev deployment (log in',
     ])
-    expect(formatNextSteps({ convexDependency: null, mcpSdkDependency: '^1.32.1', start: 'npm run dev' }).split('\n')[1]).toBe('  npm install                # links the MCP SDK added above')
-    expect(formatNextSteps({ convexDependency: '^1.48.0', mcpSdkDependency: '^1.32.1', start: 'npm run dev' }).split('\n')[1]).toBe('  npm install                # links convex and the MCP SDK, added above')
+    expect(formatNextSteps({ convexDependency: null, mcpSdkDependency: '^1.32.1', packageManager: 'npm', start: 'npm run dev' }).split('\n')[1]).toBe('  npm install                # links the MCP SDK added above')
+    expect(formatNextSteps({ convexDependency: '^1.48.0', mcpSdkDependency: '^1.32.1', packageManager: 'npm', start: 'npm run dev' }).split('\n')[1]).toBe('  npm install                # links convex and the MCP SDK, added above')
+  })
+
+  it('install through the project\'s package manager', () => {
+    expect(formatNextSteps({ convexDependency: '^1.48.0', packageManager: 'pnpm', start: 'pnpm run dev' }).split('\n').slice(1, 3)).toEqual([
+      '  pnpm install               # links the convex dependency added above',
+      '  pnpm run dev               # the first run sets up your Convex dev deployment (log in',
+    ])
   })
 })
