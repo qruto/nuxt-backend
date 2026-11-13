@@ -317,6 +317,19 @@ describe('init', () => {
       }
     })
 
+    it('counts a page that definePageMeta moves to /, in any folder', async () => {
+      const moved = '<template>\n  <p>Don\'t move</p>\n</template>\n\n<script setup lang="ts">\n// definePageMeta({ path: \'/elsewhere\' })\ndefinePageMeta({ layout: false, path: \'/\' })\n</script>\n'
+      for (const path of ['app/pages/welcome.vue', 'app/pages/marketing/home.vue']) {
+        page(path, moved)
+        await run(['init'])
+        expect(existsSync(home()), path).toBe(false)
+        rmSync(join(rootDir, 'app/pages'), { recursive: true })
+      }
+      page('app/pages/about.vue', moved.replace('path: \'/\'', 'path: \'/about-us\''))
+      await run(['init'])
+      expect(readFileSync(home(), 'utf-8')).toBe(DEFAULT_INDEX_PAGE_TEMPLATE)
+    })
+
     it('writes one beside pages that answer other paths only', async () => {
       page('app/pages/about.vue')
       page('app/pages/[[locale]]/about.vue')
@@ -336,6 +349,14 @@ describe('init', () => {
       await run(['init'])
       expect(readFileSync(join(rootDir, 'app/routes/index.vue'), 'utf-8')).toBe(DEFAULT_INDEX_PAGE_TEMPLATE)
       expect(readFileSync(home(), 'utf-8')).toBe('<template><h1>Old</h1></template>\n')
+    })
+
+    it('takes an absolute dir.pages as it is', async () => {
+      const routes = join(rootDir, 'routes').replace(/\\/g, '/')
+      writeFileSync(join(rootDir, 'nuxt.config.ts'), `export default defineNuxtConfig({\n  dir: { pages: '${routes}' },\n})\n`)
+      await run(['init'])
+      expect(readFileSync(join(rootDir, 'routes/index.vue'), 'utf-8')).toBe(DEFAULT_INDEX_PAGE_TEMPLATE)
+      expect(existsSync(home())).toBe(false)
     })
 
     it('reads nuxt.config as Nuxt does: no comment, nested key, or root pages/ beside app/ moves the pages', async () => {
@@ -373,6 +394,13 @@ describe('init', () => {
       writeFileSync(join(rootDir, 'nuxt.config.ts'), 'export default defineNuxtConfig({\n  extends: [\'docus\'],\n})\n')
       await run(['init'])
       expect(existsSync(home())).toBe(false)
+
+      // A config it cannot read whole may extend a layer as well: a spread, or no object literal.
+      for (const config of ['const base = { extends: [\'./theme\'] }\nexport default defineNuxtConfig({\n  ...base,\n})\n', 'import config from \'./config\'\nexport default defineNuxtConfig(config)\n']) {
+        writeFileSync(join(rootDir, 'nuxt.config.ts'), config)
+        await run(['init'])
+        expect(existsSync(home()), config).toBe(false)
+      }
 
       rmSync(join(rootDir, 'nuxt.config.ts'))
       page('app/app.vue', '<template>\n  <div>Hello</div>\n</template>\n')

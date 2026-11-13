@@ -138,11 +138,12 @@ function closingQuote(code: string, open: number): number {
  * The properties of the object literal that opens at `code[open]`, by key,
  * each value as written: a nested object, array or call stays whole, so only
  * this object's own keys are found. Spreads and shorthands have no value
- * written, and are left out.
+ * written: a spread is kept under the key `...`, since it may set any key.
  */
 function objectProperties(code: string, open: number): Map<string, string> {
   const properties = new Map<string, string>()
   const add = (entry: string) => {
+    if (entry.trim().startsWith('...')) properties.set('...', entry.trim())
     const match = /^(?:(["'])([^"']+)\1|([\w$]+))\s*:([\s\S]*)$/.exec(entry.trim())
     if (match) properties.set(match[2] ?? match[3]!, match[4]!.trim())
   }
@@ -175,7 +176,9 @@ const stringValue = (value: string | undefined) => /^(["'`])([^"'`$\\]+)\1$/.exe
  * The options of `dir`'s `nuxt.config` that move its source and its pages
  * (`srcDir`, `dir.pages`), and whether it names an `extends`: read from the
  * object `defineNuxtConfig` is given, without running it, so a comment, a key
- * of a nested option and a computed value all read as unset.
+ * of a nested option and a computed value all read as unset. A config this
+ * cannot read whole, a spread (`...base`) or no object literal at all, may
+ * extend a layer, and counts as one that does.
  */
 function readSourceConfig(dir: string): SourceConfig {
   const source = NUXT_CONFIG_FILES.map(name => readTextIfPresent(join(dir, name))).find(text => text !== undefined) ?? ''
@@ -183,10 +186,11 @@ function readSourceConfig(dir: string): SourceConfig {
   const open = /\bdefineNuxtConfig\s*\(\s*\{|\bexport\s+default\s*\{/.exec(code)
   const config = open ? objectProperties(code, open.index + open[0].length - 1) : new Map<string, string>()
   const folders = config.get('dir')
+  const unread = code.trim() !== '' && (!open || config.has('...'))
   return {
     srcDir: stringValue(config.get('srcDir')),
     pages: folders?.startsWith('{') ? stringValue(objectProperties(folders, 0).get('pages')) : undefined,
-    extendsLayer: config.has('extends'),
+    extendsLayer: unread || config.has('extends'),
   }
 }
 
@@ -207,12 +211,12 @@ function sourceDir(dir: string, config = readSourceConfig(dir)): string {
   }
   if (files.some(file => file !== 'spa-loading-template.html' && !file.startsWith('router.options'))) return app
   const legacy = ['app.vue', 'App.vue', 'assets', 'layouts', 'middleware', config.pages ?? 'pages', 'plugins']
-  return legacy.some(name => existsSync(join(dir, name))) ? dir : app
+  return legacy.some(name => existsSync(resolve(dir, name))) ? dir : app
 }
 
 /** The pages folder Nuxt reads for the app or layer in `dir`: `dir.pages` (default `pages/`) in its source folder. */
 function pagesDir(dir: string, config = readSourceConfig(dir)): string {
-  return join(sourceDir(dir, config), config.pages ?? 'pages')
+  return resolve(sourceDir(dir, config), config.pages ?? 'pages')
 }
 
 /**
@@ -285,13 +289,29 @@ const ROOT_PAGE_FILE = /^(?:index|\[\[[^\]]+\]\]|\[\.\.\.[^\]]+\])(?:\.(?:client
 /** A pages folder that adds no segment the path must have: `index/`, a route group, an optional parameter, a catch-all. */
 const ROOT_PAGE_FOLDER = /^(?:index|\(.+\)|\[\[[^\]]+\]\]|\[\.\.\.[^\]]+\])$/
 
+/** A file Nuxt makes a page of. */
+const PAGE_FILE = /\.(?:vue|[cm]?[jt]sx?)$/
+
+/**
+ * Whether the page file at `path` moves itself to `/` with
+ * `definePageMeta({ path: '/' })`, which Nuxt reads from its script.
+ */
+function declaresRootPath(path: string): boolean {
+  const source = readTextIfPresent(path) ?? ''
+  const script = path.endsWith('.vue') ? [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(match => match[1]).join('\n') : source
+  const code = withoutComments(script)
+  const call = /\bdefinePageMeta\s*\(\s*\{/.exec(code)
+  return call !== null && stringValue(objectProperties(code, call.index + call[0].length - 1).get('path')) === '/'
+}
+
 /**
  * Whether the pages folder `dir` holds a page the router matches `/` with:
  * an `index` page, an optional parameter (`[[slug]].vue`) or a catch-all
  * (`[...slug].vue`), at its top or inside folders that add no required
- * segment (`index/`, `(marketing)/`, `[[locale]]/`).
+ * segment (`index/`, `(marketing)/`, `[[locale]]/`), or a page anywhere
+ * in it that `definePageMeta` gives the path `/`.
  */
-function pagesServeRoot(dir: string): boolean {
+function pagesServeRoot(dir: string, atRoot = true): boolean {
   let entries: Dirent[]
   try {
     entries = readdirSync(dir, { withFileTypes: true })
@@ -299,9 +319,11 @@ function pagesServeRoot(dir: string): boolean {
   catch {
     return false
   }
-  return entries.some(entry => entry.isDirectory()
-    ? ROOT_PAGE_FOLDER.test(entry.name) && pagesServeRoot(join(dir, entry.name))
-    : ROOT_PAGE_FILE.test(entry.name))
+  return entries.some((entry) => {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) return pagesServeRoot(path, atRoot && ROOT_PAGE_FOLDER.test(entry.name))
+    return (atRoot && ROOT_PAGE_FILE.test(entry.name)) || (PAGE_FILE.test(entry.name) && declaresRootPath(path))
+  })
 }
 
 /** The pages folders Nuxt reads for the layers in `layers/`, which it registers on its own. */
@@ -317,7 +339,9 @@ function localLayerPages(rootDir: string): string[] {
  * Write the app's home page, `index.vue` in its pages folder, when the root
  * component renders `<NuxtPage />` and nothing answers `/`: no page in the
  * pages folder Nuxt reads (in the `srcDir`, under the `dir.pages` name
- * `nuxt.config` sets) or in a local layer's matches it. A pages folder Nuxt
+ * `nuxt.config` sets) or in a local layer's matches it, by its file name or
+ * by the `path` its `definePageMeta` sets. Routes added another way
+ * (`router.options`, the `pages:extend` hook) are not seen. A pages folder Nuxt
  * does not read, such as a root `pages/` beside `app/`, counts for nothing.
  * The module's pages turn the router on, and without such a page `/` is a
  * 404. An app that extends a layer gets none, since the layer may serve `/`.
@@ -330,7 +354,7 @@ export function ensureIndexPage(rootDir: string): string | undefined {
   const config = readSourceConfig(rootDir)
   if (config.extendsLayer) return undefined
   const pages = pagesDir(rootDir, config)
-  if ([pages, ...localLayerPages(rootDir)].some(pagesServeRoot)) return undefined
+  if ([pages, ...localLayerPages(rootDir)].some(folder => pagesServeRoot(folder))) return undefined
   const page = join(pages, 'index.vue')
   return writeUnlessPresent(page, DEFAULT_INDEX_PAGE_TEMPLATE) ? relative(rootDir, page).replace(/\\/g, '/') : undefined
 }

@@ -82,11 +82,15 @@ export function pnpmWorkspaceFile(rootDir: string): { path: string, source?: str
   }
 }
 
-/** The key a block mapping line at exactly `indent` names, unquoted; undefined for any other line. */
+/**
+ * The key a block mapping line at exactly `indent` names, unquoted;
+ * undefined for any other line: a sequence item, a flow mapping or sequence
+ * (`{…}`, `[…]`), a tag, an anchor, an alias, a complex key, a block scalar.
+ */
 function keyAt(line: string, indent: string): string | undefined {
   const rest = line.startsWith(indent) ? line.slice(indent.length) : ''
   const colon = rest.search(/:(?:\s|$)/)
-  if (colon <= 0 || /^[\s#-]/.test(rest)) return undefined
+  if (colon <= 0 || /^[\s#\-{[!&*?|>]/.test(rest)) return undefined
   return rest.slice(0, colon).trim().replace(/^(["'])(.*)\1$/, '$2')
 }
 
@@ -121,8 +125,7 @@ function isBlockMapping(lines: string[]): boolean {
   const content = lines.filter(isContent).filter(line => !line.startsWith('%'))
   if (/^---\s*(?:#.*)?$/.test(content[0] ?? '')) content.shift()
   if (content.some(line => /^(?:---|\.\.\.)(?:\s|$)/.test(line))) return false
-  const first = content[0]
-  return first === undefined || (!/^[{[!&*?|>]/.test(first) && keyAt(first, '') !== undefined)
+  return content.length === 0 || keyAt(content[0]!, '') !== undefined
 }
 
 /** The value written on a key's own line, comments off: `{ skills: false }`, or `''` for a block. */
@@ -159,27 +162,39 @@ export function denyPnpmSkills(source: string | undefined): { action: PnpmWorksp
 }
 
 /**
+ * The content lines of the block under the key at `lines[at]` (indented
+ * deeper than `indent`), with their indentation, `fallback` for an empty
+ * block; `undefined` when the block is not a block mapping, such as a flow
+ * mapping on the line below its key.
+ */
+function blockKeys(lines: string[], at: number, indent: string, fallback: string): { keys: number[], indent: string } | undefined {
+  const keys = blockAfter(lines, at, indent).filter(index => isContent(lines[index]!))
+  if (keys.length === 0) return { keys, indent: fallback }
+  const inner = indentOf(lines[keys[0]!]!)
+  return keyAt(lines[keys[0]!]!, inner) === undefined ? undefined : { keys, indent: inner }
+}
+
+/**
  * Add the entry to the `permissions` block whose key is `lines[top]`, in
  * place: beside the packages there at their indentation, or `skills: false`
  * into nuxt-backend's own entry. What that did.
  */
 function denyUnderPermissions(lines: string[], top: number): PnpmWorkspaceAction {
   if (inlineValue(lines[top]!) !== '') return 'manual'
-
-  const children = blockAfter(lines, top, '').filter(at => isContent(lines[at]!))
-  const indent = children.length > 0 ? indentOf(lines[children[0]!]!) : '  '
-  const own = children.find(at => keyAt(lines[at]!, indent) === CORE_SKILL.name)
+  const packages = blockKeys(lines, top, '', '  ')
+  if (!packages) return 'manual'
+  const own = packages.keys.find(at => keyAt(lines[at]!, packages.indent) === CORE_SKILL.name)
   if (own === undefined) {
-    lines.splice(top + 1, 0, ...entryLines(indent, indent))
+    lines.splice(top + 1, 0, ...entryLines(packages.indent, packages.indent))
     return 'added'
   }
 
   const value = inlineValue(lines[own]!)
   if (value !== '') return /\bskills\s*:/.test(value) ? 'unchanged' : 'manual'
-  const grandchildren = blockAfter(lines, own, indent).filter(at => isContent(lines[at]!))
-  const inner = grandchildren.length > 0 ? indentOf(lines[grandchildren[0]!]!) : `${indent}${indent}`
-  if (grandchildren.some(at => keyAt(lines[at]!, inner) === 'skills')) return 'unchanged'
-  lines.splice(own + 1, 0, `${inner}skills: false`)
+  const settings = blockKeys(lines, own, packages.indent, packages.indent.repeat(2))
+  if (!settings) return 'manual'
+  if (settings.keys.some(at => keyAt(lines[at]!, settings.indent) === 'skills')) return 'unchanged'
+  lines.splice(own + 1, 0, `${settings.indent}skills: false`)
   return 'added'
 }
 

@@ -55,6 +55,9 @@ describe('denyPnpmSkills', () => {
   it('leaves permissions written as a flow mapping to the user', () => {
     expect(denyPnpmSkills('permissions: {}\n')).toEqual({ action: 'manual' })
     expect(denyPnpmSkills('permissions:\n  nuxt-backend: { build: true }\n')).toEqual({ action: 'manual' })
+    // A flow mapping on the line below the key, for permissions or for nuxt-backend.
+    expect(denyPnpmSkills('permissions:\n  {nuxt-backend: {build: true}}\n')).toEqual({ action: 'manual' })
+    expect(denyPnpmSkills('permissions:\n  nuxt-backend:\n    {build: true}\n')).toEqual({ action: 'manual' })
   })
 
   it('leaves a file it cannot add to line by line alone: a flow mapping, as JSON writes it, or more than one document', () => {
