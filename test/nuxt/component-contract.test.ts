@@ -601,7 +601,7 @@ function uploadQueue(_generateUploadUrl: unknown, options: UseUploadQueueOptions
   return {
     items,
     enqueue: (file: Blob) => {
-      items.value.push({ id: `upload-${items.value.length + 1}`, file, status: 'pending', progress: 0, storageId: null, error: null, refused: false, stage: null, prepared: null })
+      items.value.push({ id: `upload-${items.value.length + 1}`, file, status: 'pending', progress: 0, storageId: null, error: null, refused: false, stage: null, prepared: null, data: undefined })
       void run(items.value.at(-1)!)
     },
     remove: (id: string) => {

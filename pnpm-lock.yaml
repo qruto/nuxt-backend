@@ -104,8 +104,8 @@ importers:
         specifier: ^1.5.5
         version: 1.5.5
       nuxt-convex-module:
-        specifier: ^0.14.0
-        version: 0.14.1(71788e83d4e50f4af32ffa4f06ef4c50)
+        specifier: ^0.14.3
+        version: 0.14.3(71788e83d4e50f4af32ffa4f06ef4c50)
       nuxt-security:
         specifier: ^2.7.0
         version: 2.7.0(@nuxt/schema@4.6.4)(confbox@0.2.4)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.4.3)(mlly@1.8.2)(oxc-parser@0.157.0)(rolldown@1.2.16)(rollup@4.67.3)(supports-color@10.2.2)(unplugin@3.4.0(esbuild@0.28.2)(rolldown@1.2.16)(rollup@4.67.3)(vite@8.3.6(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(webpack@5.111.0(cssnano@9.9.0(postcss@8.5.32))(csso@5.0.5)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.32)(sharp@0.35.5(@types/node@26.6.6))(svgo@4.1.0)))
@@ -387,8 +387,8 @@ importers:
         specifier: workspace:*
         version: link:..
       nuxt-convex-module:
-        specifier: ^0.14.0
-        version: 0.14.1(d88e2dfc17aaf23986214ec8e7058c34)
+        specifier: ^0.14.3
+        version: 0.14.3(d88e2dfc17aaf23986214ec8e7058c34)
       vue:
         specifier: ^3.5.42
         version: 3.5.45(typescript@6.0.3)
@@ -8769,8 +8769,8 @@ packages:
     resolution: {integrity: sha512-Lo++ctinehNtQvU1SdYdIfYvhUqFtP5nOQsMvbrpFYh53TqwoS97BrS/tjWQe68cfXQaerzhKPFY1Xb1EH4mJg==}
     hasBin: true
 
-  nuxt-convex-module@0.14.1:
-    resolution: {integrity: sha512-kkRScazjoh/w1qnE5W6n1M/ID5TdjUApSO9X9cWgfgI5dRapS2JpoqfHQsSlQ+C9BvDEOl14qVdHK+Mzmy89LA==}
+  nuxt-convex-module@0.14.3:
+    resolution: {integrity: sha512-8251Epur6Ll9O+UN24sc4T0IRreKBrX5fCzO7zL9RHZ+kiiMNBf4PKXAlwrrpghfjWNzjCI1DmKzIJ4+uPHxxg==}
     engines: {node: '>=24.11.0'}
     peerDependencies:
       '@auth0/auth0-vue': ^2.0.0
@@ -22668,7 +22668,7 @@ snapshots:
       - giget
       - rolldown
 
-  nuxt-convex-module@0.14.1(71788e83d4e50f4af32ffa4f06ef4c50):
+  nuxt-convex-module@0.14.3(71788e83d4e50f4af32ffa4f06ef4c50):
     dependencies:
       '@nuxt/kit': 4.6.4(@nuxt/schema@4.6.4)(confbox@0.2.4)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.4.3)(mlly@1.8.2)(oxc-parser@0.157.0)(rolldown@1.2.16)(unplugin@3.4.0(esbuild@0.28.2)(rolldown@1.2.16)(rollup@4.67.3)(vite@8.3.6(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(webpack@5.111.0(cssnano@9.9.0(postcss@8.5.32))(csso@5.0.5)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.32)(sharp@0.35.5(@types/node@26.6.6))(svgo@4.1.0)))
       convex: 1.49.0(react@19.3.0)
@@ -22692,7 +22692,7 @@ snapshots:
       - rolldown
       - unplugin
 
-  nuxt-convex-module@0.14.1(d88e2dfc17aaf23986214ec8e7058c34):
+  nuxt-convex-module@0.14.3(d88e2dfc17aaf23986214ec8e7058c34):
     dependencies:
       '@nuxt/kit': 4.6.4(@nuxt/schema@4.6.4)(confbox@0.3.1)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.4.5)(mlly@1.8.2)(oxc-parser@0.141.0)(rolldown@1.2.16)(unplugin@3.4.0(esbuild@0.28.2)(rolldown@1.2.16)(rollup@4.63.3)(vite@8.3.6(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(webpack@5.111.0(cssnano@9.9.0(postcss@8.5.32))(csso@5.0.5)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.32)(sharp@0.35.5(@types/node@26.6.6))(svgo@4.1.0)))
       convex: 1.49.0(react@19.3.0)
