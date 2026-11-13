@@ -141,7 +141,16 @@ let held: Array<() => Promise<Response>> | null = null
  */
 function holdTheClock() {
   held = []
-  vi.useFakeTimers()
+  // From the time the test is at: a test that pinned the date keeps it.
+  vi.useFakeTimers({ now: Date.now() })
+}
+
+/** The next midday UTC: today's while it is ahead, else tomorrow's, so the clock never runs back. */
+function middayAhead(): number {
+  const midday = new Date()
+  midday.setUTCHours(12, 0, 0, 0)
+  if (midday.getTime() < Date.now()) midday.setUTCDate(midday.getUTCDate() + 1)
+  return midday.getTime()
 }
 
 /**
@@ -695,11 +704,13 @@ describe('templates/panels/backend as the public demo', () => {
 
   test('the day\'s spend limit turns pause_ai on', async () => {
     registerTesting()
+    // Midday UTC, before the credits are bought: the limit is per UTC day.
+    // Pinned only after the purchase, a run near midnight set the clock back
+    // under records stamped just before it, and the strip finished on the
+    // next UTC day, short of the limit.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'], now: middayAhead() })
     const ada = await withCredits('delivered+limit@resend.dev', { signInMethod: 'passkey' })
     holdTheClock()
-    // Midday UTC: the limit is per UTC day, and a strip drained from just
-    // before midnight would spend on the next one.
-    vi.setSystemTime(new Date().setUTCHours(12, 0, 0, 0))
     // The day has cost the app far past Panels' limit already, recorded
     // without one, so nothing paused yet.
     await t.mutation(backend().costs.record, { owner: 'elsewhere', usage: { usd: 1000, input: 1, output: 1, cached: 0 } })
