@@ -66,7 +66,7 @@ export function runPreflight(options: ModuleOptions, nuxt: Nuxt): void {
   if (appComponentIsStarter(nuxt.options.rootDir)) {
     logger.warn(
       'app.vue still renders <NuxtWelcome /> and no <NuxtPage />, so the pages this module registers (/login, /pricing, …) will not render. '
-      + 'Replace <NuxtWelcome /> with <NuxtLayout><NuxtPage /></NuxtLayout> — `npx nuxt-backend init` does it for you, and adds the app shell as the default layout.',
+      + 'Replace <NuxtWelcome /> with <NuxtLayout><NuxtPage /></NuxtLayout> — `npx nuxt-backend init` does it for you, and adds the app shell as the default layout and a home page at /.',
     )
   }
 

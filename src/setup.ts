@@ -7,7 +7,8 @@ import { renderEnvExample } from './capabilities'
 import { execBinary, packageManagerOf, runScript, type PackageManager } from './cli/deploy/package-manager'
 import { adoptBackendDevScript } from './cli/dev'
 import { packageDir } from './dirs'
-import { ensureDefaultLayout, mountPagesInAppComponent, scaffoldBackendFiles } from './scaffold'
+import { recordPnpmSkillsDenial, pnpmWorkspaceMessage, type PnpmWorkspaceAction } from './pnpm-workspace'
+import { ensureDefaultLayout, ensureIndexPage, mountPagesInAppComponent, scaffoldBackendFiles } from './scaffold'
 
 // A project's setup, in one place: what `npx nuxt-backend init` writes, and
 // what the module's install step (`onInstall`, run by `npx nuxt module add
@@ -23,7 +24,7 @@ export const ENV_EXAMPLE = renderEnvExample()
 
 /** What one setup run did. */
 export interface ProjectSetup {
-  /** The files written, relative to the project: scaffold files, `convex.json`, `.env.example`. */
+  /** The files written, relative to the project: scaffold files, `convex.json`, `.env.example`, the default layout and the home page. */
   created: string[]
   /** What happened to AGENTS.md; null when the agent files were skipped. */
   agentsMd: AgentsMdAction | null
@@ -31,6 +32,8 @@ export interface ProjectSetup {
   mcpJson: McpJsonAction | null
   /** What happened to the agent skills, by name; null when the agent files were skipped. */
   skills: SkillsReport | null
+  /** What happened to pnpm's own link of the agent skills in `pnpm-workspace.yaml` (pnpm 12.11 and later); null when it does not apply. */
+  pnpmWorkspace: PnpmWorkspaceAction | null
   /** The root component whose `<NuxtWelcome />` became `<NuxtLayout><NuxtPage /></NuxtLayout>`, or null. */
   appComponent: string | null
   /** The `dev` script, when setup pointed it at `nuxt-backend dev`; null when it left the script alone. */
@@ -125,8 +128,13 @@ export function setUpProject(rootDir: string, { force = false, agents = true, pr
     created.push(layout)
     print(`[nuxt-backend] Created ${layout}: <AppShell> around your pages, with the brand, the workspace switcher and the account menu`)
   }
+  const indexPage = ensureIndexPage(rootDir)
+  if (indexPage) {
+    created.push(indexPage)
+    print(`[nuxt-backend] Created ${indexPage}: the home page, with the app's name and a link to sign in, since nothing answered at /`)
+  }
   const agentFiles = agents ? setUpAgentFiles(rootDir, force, print) : null
-  return { created, agentsMd: agentFiles?.agentsMd ?? null, mcpJson: agentFiles?.mcpJson ?? null, skills: agentFiles?.skills ?? null, appComponent, ...adoptProjectFiles(rootDir, print), mcpSdkDependency: agentFiles?.mcpSdkDependency ?? null }
+  return { created, agentsMd: agentFiles?.agentsMd ?? null, mcpJson: agentFiles?.mcpJson ?? null, skills: agentFiles?.skills ?? null, pnpmWorkspace: agentFiles?.pnpmWorkspace ?? null, appComponent, ...adoptProjectFiles(rootDir, print), mcpSdkDependency: agentFiles?.mcpSdkDependency ?? null }
 }
 
 /** `.env.example`, when there is none (or with `force`); whether it was written. */
@@ -140,15 +148,20 @@ function writeEnvExample(rootDir: string, force: boolean, print: (line: string) 
 
 /**
  * The agent files, for the version the app installed, with what each did
- * printed, and the MCP SDK the `.mcp.json` server needs declared. `init`
- * and `init --agents` both write them through here.
+ * printed, the MCP SDK the `.mcp.json` server needs declared, and, under
+ * pnpm 12.11 or later, pnpm's own link of the skills denied in
+ * `pnpm-workspace.yaml`. `init` and `init --agents` both write them
+ * through here.
  */
 export function setUpAgentFiles(rootDir: string, force: boolean, print: (line: string) => void) {
   const agentFiles = writeAgentFiles(rootDir, { force, version: installedVersion(rootDir) })
   for (const message of agentFiles.messages) print(`[nuxt-backend] ${message}`)
   const mcpSdkDependency = declareMcpSdkDependency(rootDir) ?? null
   if (mcpSdkDependency) print(`[nuxt-backend] Added ${MCP_SDK}@${mcpSdkDependency} to devDependencies (the nuxt-backend server in .mcp.json runs on it)`)
-  return { ...agentFiles, mcpSdkDependency }
+  const pnpmWorkspace = recordPnpmSkillsDenial(rootDir)
+  const pnpmMessage = pnpmWorkspace && pnpmWorkspaceMessage(pnpmWorkspace)
+  if (pnpmMessage) print(`[nuxt-backend] ${pnpmMessage}`)
+  return { ...agentFiles, mcpSdkDependency, pnpmWorkspace: pnpmWorkspace?.action ?? null }
 }
 
 /** The edits to the app's own files: the `dev` script and the `convex` dependency. */

@@ -656,3 +656,42 @@ export const DEFAULT_LAYOUT_TEMPLATE = dedent`
     </AppShell>
   </template>
   ` + '\n'
+
+/**
+ * `pages/index.vue`, the home page `npx nuxt-backend init` writes when the
+ * app has no route for `/`: once the root component renders `<NuxtPage />`,
+ * the module's pages turn the router on, and an app without a page at `/`
+ * answers it with a 404. It names the app and links to the sign-in page, or
+ * to the account once signed in, through the paths the module mounted them
+ * at. Written only where nothing answers `/` (see `ensureIndexPage`), and
+ * never over a file. `templates/starter` ships a home page of its own.
+ */
+export const DEFAULT_INDEX_PAGE_TEMPLATE = dedent`
+  <script setup lang="ts">
+  // The app's home page, which \`npx nuxt-backend init\` wrote because nothing
+  // answered at /: make it yours. It names the app, and links to the sign-in
+  // page, or to the account once signed in.
+  const { brand } = useBackendConfig()
+  const { isSignedIn } = useAuth()
+  const login = useBackendPagePath('login')
+  const profile = useBackendPagePath('profile')
+  </script>
+
+  <template>
+    <div>
+      <h1>{{ brand.name || 'Your app' }}</h1>
+      <NuxtLink
+        v-if="isSignedIn && profile"
+        :to="profile"
+      >
+        Your account
+      </NuxtLink>
+      <NuxtLink
+        v-else-if="!isSignedIn && login"
+        :to="login"
+      >
+        Sign in
+      </NuxtLink>
+    </div>
+  </template>
+  ` + '\n'

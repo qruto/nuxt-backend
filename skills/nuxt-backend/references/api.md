@@ -467,7 +467,7 @@ Scaffold the backend files, .env.example, and nuxt.config wiring (re-run to rest
 - `--no-agents`: Coding-agent files: --agents rewrites only AGENTS.md's nuxt-backend section, .mcp.json and the agent skills in .agents/skills for the installed version, and adds the MCP SDK to devDependencies when missing; --no-agents skips them all
 - `--json`: Machine-readable output
 
-`--json`: `{ created, agentsMd, mcpJson, skills, appComponent, devScript, convexDependency, mcpSdkDependency, nuxtConfig, next }`, or `{ agentsMd, mcpJson, skills, mcpSdkDependency }` with `--agents`, where `skills` is `{ installed, refreshed, removed, stale }`, each a list of skill names; progress goes to stderr.
+`--json`: `{ created, agentsMd, mcpJson, skills, pnpmWorkspace, appComponent, devScript, convexDependency, mcpSdkDependency, nuxtConfig, next }`, or `{ agentsMd, mcpJson, skills, mcpSdkDependency, pnpmWorkspace }` with `--agents`, where `skills` is `{ installed, refreshed, removed, stale }`, each a list of skill names, and `pnpmWorkspace` is `created`, `added`, `unchanged`, `manual` or null; progress goes to stderr.
 
 ### `npx nuxt-backend dev`
 

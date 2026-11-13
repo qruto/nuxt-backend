@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { ENV_EXAMPLE } from '../../src/setup'
-import { BACKEND_FILE_TEMPLATES, DEFAULT_LAYOUT_TEMPLATE } from '../../src/templates'
+import { BACKEND_FILE_TEMPLATES, DEFAULT_INDEX_PAGE_TEMPLATE, DEFAULT_LAYOUT_TEMPLATE } from '../../src/templates'
 import { backendPathsOf, PATHS_FILE, renderPathsFile } from '../../src/paths-file'
 
 const rootDir = fileURLToPath(new URL('../..', import.meta.url))
@@ -68,6 +68,18 @@ function listFiles(dir: string, prefix = ''): string[] {
     })
     .sort()
 }
+
+describe('the home page init writes', () => {
+  it('calls only composables the module registers, and links to ready-made pages that exist', () => {
+    const registry = readFileSync(join(rootDir, 'src/nuxt/registry.ts'), 'utf-8')
+    const composables = [...new Set(DEFAULT_INDEX_PAGE_TEMPLATE.match(/\buse[A-Z]\w+/g))]
+    expect(composables).toEqual(['useBackendConfig', 'useAuth', 'useBackendPagePath'])
+    for (const name of composables) expect(registry, name).toContain(`name: '${name}'`)
+    const pages = [...DEFAULT_INDEX_PAGE_TEMPLATE.matchAll(/useBackendPagePath\('(\w+)'\)/g)].map(match => match[1])
+    expect(pages).toEqual(['login', 'profile'])
+    for (const key of pages) expect(existsSync(join(rootDir, `src/pages/${key}.ts`)), key).toBe(true)
+  })
+})
 
 describe('templates/starter', () => {
   it('ships the layout init writes beside its root component', () => {

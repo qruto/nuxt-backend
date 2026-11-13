@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { defineCommand, type ArgsDef } from 'citty'
 import { installedVersion, type AgentsMdAction, type McpJsonAction, type SkillsReport } from '../agents'
+import type { PnpmWorkspaceAction } from '../pnpm-workspace'
 import { packageVersion } from '../dirs'
 import { CAPABILITY_NAMES, type CapabilityName } from '../capabilities'
 import { formatNextSteps, installCommand, nextCommands, setUpAgentFiles, setUpProject, type ProjectSetup } from '../setup'
@@ -94,6 +95,8 @@ export interface AgentFilesReport {
   skills: SkillsReport
   /** The `@modelcontextprotocol/sdk` range added to `devDependencies`, or null when the app lists it already. */
   mcpSdkDependency: string | null
+  /** What happened to pnpm's own link of the skills in `pnpm-workspace.yaml`; null outside a project on pnpm 12.11 or later. */
+  pnpmWorkspace: PnpmWorkspaceAction | null
 }
 
 /**
@@ -105,12 +108,12 @@ export interface AgentFilesReport {
  * AGENTS.md whose markers don't pair up is refused and left untouched.
  */
 function refreshAgentFiles(rootDir: string, json: boolean, print: (line: string) => void): void {
-  const { agentsMd, mcpJson, skills, messages, mcpSdkDependency } = setUpAgentFiles(rootDir, true, print)
+  const { agentsMd, mcpJson, skills, messages, mcpSdkDependency, pnpmWorkspace } = setUpAgentFiles(rootDir, true, print)
   if (agentsMd === 'malformed') process.exitCode = 1
-  if (messages.length === 0 && !mcpSdkDependency) print(`[nuxt-backend] AGENTS.md, .mcp.json and the agent skills are current for nuxt-backend ${installedVersion(rootDir)}`)
+  if (messages.length === 0 && !mcpSdkDependency && (pnpmWorkspace === null || pnpmWorkspace === 'unchanged')) print(`[nuxt-backend] AGENTS.md, .mcp.json and the agent skills are current for nuxt-backend ${installedVersion(rootDir)}`)
   if (mcpSdkDependency) print(`[nuxt-backend] Run \`${installCommand(packageManagerOf(rootDir))}\` to link it, then restart your agent.`)
   if (json) {
-    const report: AgentFilesReport = { agentsMd, mcpJson, skills, mcpSdkDependency }
+    const report: AgentFilesReport = { agentsMd, mcpJson, skills, mcpSdkDependency, pnpmWorkspace }
     console.log(JSON.stringify(report, null, 2))
   }
 }
@@ -125,7 +128,7 @@ export interface InitReport extends Omit<ProjectSetup, 'start' | 'packageManager
 
 const init = withContract('init', {
   sideEffects: ['writes project files'],
-  json: '`{ created, agentsMd, mcpJson, skills, appComponent, devScript, convexDependency, mcpSdkDependency, nuxtConfig, next }`, or `{ agentsMd, mcpJson, skills, mcpSdkDependency }` with `--agents`, where `skills` is `{ installed, refreshed, removed, stale }`, each a list of skill names; progress goes to stderr',
+  json: '`{ created, agentsMd, mcpJson, skills, pnpmWorkspace, appComponent, devScript, convexDependency, mcpSdkDependency, nuxtConfig, next }`, or `{ agentsMd, mcpJson, skills, mcpSdkDependency, pnpmWorkspace }` with `--agents`, where `skills` is `{ installed, refreshed, removed, stale }`, each a list of skill names, and `pnpmWorkspace` is `created`, `added`, `unchanged`, `manual` or null; progress goes to stderr',
   exitCodes: {
     0: 'done: every file written, or already in place',
     1: 'a file could not be written, or AGENTS.md was refused: its nuxt-backend markers don\'t pair up',

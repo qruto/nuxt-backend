@@ -65,6 +65,8 @@ describe('init --json', () => {
 
   beforeEach(() => {
     rootDir = mkdtempSync(join(tmpdir(), 'cli-contract-init-'))
+    // pnpm 11 reads no `permissions`, so a pnpm project gets no pnpm-workspace.yaml entry, whatever pnpm runs the suite.
+    vi.stubEnv('npm_config_user_agent', 'pnpm/11.26.0 npm/? node/v24.11.0 darwin arm64')
     writeFileSync(join(rootDir, 'package.json'), `${JSON.stringify({ name: 'app', scripts: { dev: 'nuxt dev' } }, null, 2)}\n`)
     writeFileSync(join(rootDir, 'nuxt.config.ts'), 'export default defineNuxtConfig({})\n')
     vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -73,6 +75,7 @@ describe('init --json', () => {
 
   afterEach(() => {
     rmSync(rootDir, { recursive: true, force: true })
+    vi.unstubAllEnvs()
     vi.restoreAllMocks()
   })
 
@@ -85,7 +88,7 @@ describe('init --json', () => {
   it('prints what it did as one JSON document, with progress on stderr', async () => {
     const report = await init()
 
-    expect(Object.keys(report)).toEqual(['created', 'agentsMd', 'mcpJson', 'skills', 'appComponent', 'devScript', 'convexDependency', 'mcpSdkDependency', 'nuxtConfig', 'next'])
+    expect(Object.keys(report)).toEqual(['created', 'agentsMd', 'mcpJson', 'skills', 'pnpmWorkspace', 'appComponent', 'devScript', 'convexDependency', 'mcpSdkDependency', 'nuxtConfig', 'next'])
     expect(report.created).toEqual(expect.arrayContaining(['backend/auth.ts', 'convex.json', '.env.example']))
     for (const file of report.created) expect(existsSync(join(rootDir, file)), file).toBe(true)
     expect(report).toMatchObject({ agentsMd: 'created', mcpJson: 'created', skills: { installed: expect.arrayContaining(['nuxt-backend']), refreshed: [], removed: [], stale: [] }, devScript: 'nuxt-backend dev', nuxtConfig: 'listed', appComponent: null })
@@ -99,7 +102,7 @@ describe('init --json', () => {
 
   it('reports only the agent files with --agents', async () => {
     expect(await init(['--agents'])).toMatchObject({ agentsMd: 'created', mcpJson: 'created', skills: { installed: expect.arrayContaining(['nuxt-backend']) }, mcpSdkDependency: expect.stringMatching(/^\^\d/) })
-    expect(await init(['--agents'])).toEqual({ agentsMd: 'unchanged', mcpJson: 'unchanged', skills: { installed: [], refreshed: [], removed: [], stale: [] }, mcpSdkDependency: null })
+    expect(await init(['--agents'])).toEqual({ agentsMd: 'unchanged', mcpJson: 'unchanged', skills: { installed: [], refreshed: [], removed: [], stale: [] }, mcpSdkDependency: null, pnpmWorkspace: null })
     expect(existsSync(join(rootDir, 'backend'))).toBe(false)
   })
 
