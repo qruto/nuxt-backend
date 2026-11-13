@@ -292,15 +292,21 @@ const ROOT_PAGE_FOLDER = /^(?:index|\(.+\)|\[\[[^\]]+\]\]|\[\.\.\.[^\]]+\])$/
 /** A file Nuxt makes a page of. */
 const PAGE_FILE = /\.(?:vue|[cm]?[jt]sx?)$/
 
+/** `code` with the inside of every string and template literal blanked out, so each offset still points where it did. */
+const withoutStrings = (code: string) =>
+  code.replace(/(["'`])(?:\\[\s\S]|(?!\1)[^\\])*\1/g, match => `${match[0]}${' '.repeat(match.length - 2)}${match[0]}`)
+
 /**
  * Whether the page file at `path` moves itself to `/` with
- * `definePageMeta({ path: '/' })`, which Nuxt reads from its script.
+ * `definePageMeta({ path: '/' })`, which Nuxt reads from its script. The
+ * call is looked for in the code alone, so one quoted in a string or a
+ * comment does not count.
  */
 function declaresRootPath(path: string): boolean {
   const source = readTextIfPresent(path) ?? ''
-  const script = path.endsWith('.vue') ? [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(match => match[1]).join('\n') : source
+  const script = path.endsWith('.vue') ? [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)].map(match => match[1]).join('\n') : source
   const code = withoutComments(script)
-  const call = /\bdefinePageMeta\s*\(\s*\{/.exec(code)
+  const call = /\bdefinePageMeta\s*\(\s*\{/.exec(withoutStrings(code))
   return call !== null && stringValue(objectProperties(code, call.index + call[0].length - 1).get('path')) === '/'
 }
 

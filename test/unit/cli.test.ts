@@ -325,6 +325,12 @@ describe('init', () => {
         expect(existsSync(home()), path).toBe(false)
         rmSync(join(rootDir, 'app/pages'), { recursive: true })
       }
+      // An upper-case script tag is read too; a call quoted in a string is not one.
+      page('app/pages/welcome.vue', moved.replace('<script setup lang="ts">', '<SCRIPT setup lang="ts">').replace('</script>', '</SCRIPT>'))
+      await run(['init'])
+      expect(existsSync(home())).toBe(false)
+      rmSync(join(rootDir, 'app/pages'), { recursive: true })
+      page('app/pages/docs.vue', '<script setup lang="ts">\nconst example = "definePageMeta({ path: \'/\' })"\n</script>\n')
       page('app/pages/about.vue', moved.replace('path: \'/\'', 'path: \'/about-us\''))
       await run(['init'])
       expect(readFileSync(home(), 'utf-8')).toBe(DEFAULT_INDEX_PAGE_TEMPLATE)
