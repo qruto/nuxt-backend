@@ -70,8 +70,9 @@ npx nuxt-backend init
 and the CLI that runs them. `init` writes the backend files (`backend/`, or into the existing
 functions folder), `convex.json` when that folder is not `convex/`, `.env.example`, an
 `AGENTS.md` section, `.mcp.json` and the agent skills in `.agents/skills/` for agents, adds `'nuxt-backend'` to `modules`, points the
-`dev` script at `nuxt-backend dev`, and swaps `<NuxtWelcome />` for `<NuxtPage />` in an untouched
-`app/app.vue` so the module's pages render. It never replaces a file that exists.
+`dev` script at `nuxt-backend dev`, swaps `<NuxtWelcome />` for `<NuxtPage />` in an untouched
+`app/app.vue` so the module's pages render, and writes `app/pages/index.vue` when no page answers
+`/`. It never replaces a file that exists.
 
 Check what `init` printed:
 
@@ -110,9 +111,11 @@ pnpm notes:
 - pnpm's default layout hides the Convex components nuxt-backend brings, and Convex needs to
   resolve them: add `publicHoistPattern: ['@convex-dev/*']` to `pnpm-workspace.yaml`, then install
   again. (Apps made from the starter carry both settings in `.pnpmfile.mjs`.)
-- pnpm 12 lists nuxt-backend under "Agent skills awaiting approval". `init` already installed
-  those skills in `.agents/skills`, and approving links a second copy of each. Tell the user, and
-  suggest denying it: `pnpm approve '!nuxt-backend'`.
+- pnpm 12 lists nuxt-backend under "Agent skills awaiting approval" until its skills are approved
+  or denied. `init` already installed those skills in `.agents/skills`, and approving links a
+  second copy of each, so under pnpm 12.11 or later `init` denies them in `pnpm-workspace.yaml`
+  (`skills: false` under `permissions`). When pnpm still lists nuxt-backend (an app set up under
+  pnpm 11), run `npx nuxt-backend init --agents`, or suggest `pnpm approve '!nuxt-backend'`.
 
 ## 2. Start it: the deployment, its env, the generated code
 

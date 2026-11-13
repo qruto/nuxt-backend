@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { BACKEND_FILE_TEMPLATES, DEFAULT_LAYOUT_TEMPLATE } from './templates'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, type Dirent } from 'node:fs'
+import { dirname, join, relative, resolve } from 'node:path'
+import { BACKEND_FILE_TEMPLATES, DEFAULT_INDEX_PAGE_TEMPLATE, DEFAULT_LAYOUT_TEMPLATE } from './templates'
 
 const DEFAULT_FUNCTIONS_DIR = 'backend'
 const STANDARD_FUNCTIONS_DIR = 'convex'
@@ -167,4 +167,81 @@ export function ensureDefaultLayout(rootDir: string): string | undefined {
   mkdirSync(folder, { recursive: true })
   writeFileSync(join(folder, 'default.vue'), DEFAULT_LAYOUT_TEMPLATE)
   return join(dirname(component.name), 'layouts/default.vue').replace(/\\/g, '/').replace(/^\.\//, '')
+}
+
+/** A page file the router matches `/` with: `index`, an optional parameter (`[[slug]]`) or a catch-all (`[...slug]`). */
+const ROOT_PAGE_FILE = /^(?:index|\[\[[^\]]+\]\]|\[\.\.\.[^\]]+\])\.(?:vue|[cm]?[jt]sx?)$/
+
+/** A pages folder that adds no segment the path must have: `index/`, a route group, an optional parameter, a catch-all. */
+const ROOT_PAGE_FOLDER = /^(?:index|\(.+\)|\[\[[^\]]+\]\]|\[\.\.\.[^\]]+\])$/
+
+/**
+ * Whether the pages folder `dir` holds a page the router matches `/` with:
+ * an `index` page, an optional parameter (`[[slug]].vue`) or a catch-all
+ * (`[...slug].vue`), at its top or inside folders that add no required
+ * segment (`index/`, `(marketing)/`, `[[locale]]/`).
+ */
+function pagesServeRoot(dir: string): boolean {
+  let entries: Dirent[]
+  try {
+    entries = readdirSync(dir, { withFileTypes: true })
+  }
+  catch {
+    return false
+  }
+  return entries.some(entry => entry.isDirectory()
+    ? ROOT_PAGE_FOLDER.test(entry.name) && pagesServeRoot(join(dir, entry.name))
+    : ROOT_PAGE_FILE.test(entry.name))
+}
+
+/** What `nuxt.config` says about where pages live, read from its source, and whether it extends a layer. */
+interface PagesConfig {
+  srcDir?: string
+  pages?: string
+  extendsLayer: boolean
+}
+
+/**
+ * The options `nuxt.config` spells as string literals that move the pages
+ * folder (`srcDir`, `dir.pages`), and whether it names an `extends`: read
+ * from the source, without running it, so a computed value reads as unset.
+ */
+function readPagesConfig(rootDir: string): PagesConfig {
+  const path = ['nuxt.config.ts', 'nuxt.config.js', 'nuxt.config.mjs', 'nuxt.config.mts'].map(name => join(rootDir, name)).find(existsSync)
+  const source = path ? readFileSync(path, 'utf-8') : ''
+  return {
+    srcDir: /\bsrcDir\s*:\s*(['"`])([^'"`$]+)\1/.exec(source)?.[2],
+    pages: /\bdir\s*:\s*\{[^}]*?\bpages\s*:\s*(['"`])([^'"`$]+)\1/.exec(source)?.[2],
+    extendsLayer: /\bextends\s*:/.test(source),
+  }
+}
+
+/** The pages folders of the layers in `layers/`, which Nuxt registers on its own. */
+function localLayerPages(rootDir: string): string[] {
+  const layers = join(rootDir, 'layers')
+  if (!existsSync(layers)) return []
+  return readdirSync(layers, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .flatMap(entry => [join(layers, entry.name, 'app/pages'), join(layers, entry.name, 'pages')])
+}
+
+/**
+ * Write the app's home page, `pages/index.vue` in its pages folder, when the
+ * root component renders `<NuxtPage />` and nothing answers `/`: no page in
+ * `app/pages/`, `pages/`, the folder `nuxt.config` declares (`srcDir`,
+ * `dir.pages`) or a local layer matches it. The module's pages turn the
+ * router on, and without such a page `/` is a 404. An app that extends a
+ * layer gets none, since the layer may serve `/`. Never written over a
+ * file. Returns its path relative to `rootDir`, or `undefined`.
+ */
+export function ensureIndexPage(rootDir: string): string | undefined {
+  const component = resolveAppComponent(rootDir)
+  if (!component || !readFileSync(component.path, 'utf-8').includes('<NuxtPage')) return undefined
+  const config = readPagesConfig(rootDir)
+  if (config.extendsLayer) return undefined
+  const pagesDir = resolve(rootDir, config.srcDir ?? dirname(component.name), config.pages ?? 'pages')
+  const folders = [pagesDir, join(rootDir, 'app/pages'), join(rootDir, 'pages'), ...localLayerPages(rootDir)]
+  if (folders.some(pagesServeRoot)) return undefined
+  const page = join(pagesDir, 'index.vue')
+  return writeUnlessPresent(page, DEFAULT_INDEX_PAGE_TEMPLATE) ? relative(rootDir, page).replace(/\\/g, '/') : undefined
 }

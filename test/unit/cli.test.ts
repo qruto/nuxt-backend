@@ -3,12 +3,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCommand } from 'citty'
+import { parse } from 'yaml'
 import { organizationsListOrganizations } from '@polar-sh/sdk/funcs/organizationsListOrganizations.js'
 import { agentsSection, installedVersion, mergeAgentsMd, PROJECT_SKILLS } from '../../src/agents'
 import { AGENT_SKILLS } from '../../src/guidance/skills'
 import { main } from '../../src/cli/main'
 import { scaffoldBackendFiles } from '../../src/scaffold'
-import { DEFAULT_LAYOUT_TEMPLATE } from '../../src/templates'
+import { DEFAULT_INDEX_PAGE_TEMPLATE, DEFAULT_LAYOUT_TEMPLATE } from '../../src/templates'
 
 vi.mock('@polar-sh/sdk/funcs/organizationsListOrganizations.js', () => ({ organizationsListOrganizations: vi.fn() }))
 
@@ -20,6 +21,9 @@ beforeEach(() => {
   // reachable, so none may be selected.
   vi.stubEnv('CONVEX_DEPLOY_KEY', undefined)
   vi.stubEnv('CONVEX_DEPLOYMENT_TOKEN', undefined)
+  // The pnpm a pnpm project installs with decides whether init writes a
+  // `permissions` entry. pnpm 11 reads none, whatever pnpm runs the suite.
+  vi.stubEnv('npm_config_user_agent', 'pnpm/11.26.0 npm/? node/v24.11.0 darwin arm64')
   rootDir = mkdtempSync(join(tmpdir(), 'nuxt-backend-cli-'))
   vi.spyOn(console, 'log').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -135,7 +139,7 @@ describe('init — agent files', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     await run(['init', '--agents', '--json'])
     expect(readFileSync(skill, 'utf-8')).toBe(current)
-    expect(JSON.parse(vi.mocked(console.log).mock.calls.at(-1)![0] as string)).toEqual({ agentsMd: 'unchanged', mcpJson: 'unchanged', skills: { installed: [], refreshed: ['nuxt-backend-billing'], removed: [], stale: [] }, mcpSdkDependency: null })
+    expect(JSON.parse(vi.mocked(console.log).mock.calls.at(-1)![0] as string)).toEqual({ agentsMd: 'unchanged', mcpJson: 'unchanged', skills: { installed: [], refreshed: ['nuxt-backend-billing'], removed: [], stale: [] }, mcpSdkDependency: null, pnpmWorkspace: null })
   })
 
   it('refreshes a skill another version wrote with --force too, beside the scaffold', async () => {
@@ -157,6 +161,52 @@ describe('init — agent files', () => {
     expect(existsSync(join(rootDir, '.mcp.json'))).toBe(false)
     expect(existsSync(join(rootDir, PROJECT_SKILLS))).toBe(false)
     expect(existsSync(join(rootDir, 'backend/auth.ts'))).toBe(true)
+  })
+
+  describe('under pnpm', () => {
+    const workspace = () => join(rootDir, 'pnpm-workspace.yaml')
+    const pnpm = (version: string) => vi.stubEnv('npm_config_user_agent', `pnpm/${version} npm/? node/v24.11.0 darwin arm64`)
+
+    beforeEach(() => writeFileSync(join(rootDir, 'pnpm-lock.yaml'), 'lockfileVersion: \'9.0\'\n'))
+
+    it('denies pnpm 12\'s second link of the agent skills it installed, in a new pnpm-workspace.yaml', async () => {
+      pnpm('12.16.1')
+      const progress = vi.spyOn(console, 'error').mockImplementation(() => {})
+      await run(['init', '--json'])
+
+      expect(parse(readFileSync(workspace(), 'utf-8'))).toEqual({ permissions: { 'nuxt-backend': { skills: false } } })
+      expect(progress.mock.calls.flat().join('\n')).toContain('Created pnpm-workspace.yaml with skills: false for nuxt-backend under permissions')
+      expect(JSON.parse(vi.mocked(console.log).mock.calls.at(-1)![0] as string)).toMatchObject({ pnpmWorkspace: 'created' })
+
+      // A second run finds the entry, and changes nothing.
+      const written = readFileSync(workspace(), 'utf-8')
+      await run(['init', '--agents', '--json'])
+      expect(readFileSync(workspace(), 'utf-8')).toBe(written)
+      expect(JSON.parse(vi.mocked(console.log).mock.calls.at(-1)![0] as string)).toMatchObject({ pnpmWorkspace: 'unchanged' })
+    })
+
+    it('adds the entry to the file the project has, keeping every key and comment', async () => {
+      pnpm('12.16.1')
+      const settings = '# Hoist the Convex components for the bundler.\npublicHoistPattern:\n  - \'@convex-dev/*\'\n\nallowBuilds:\n  esbuild: false # works without its script\n'
+      writeFileSync(workspace(), settings)
+      await run(['init'])
+
+      const written = readFileSync(workspace(), 'utf-8')
+      expect(written.startsWith(settings)).toBe(true)
+      expect(parse(written)).toEqual({ publicHoistPattern: ['@convex-dev/*'], allowBuilds: { esbuild: false }, permissions: { 'nuxt-backend': { skills: false } } })
+      expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain('Added skills: false for nuxt-backend under permissions in pnpm-workspace.yaml')
+    })
+
+    it('writes nothing for pnpm 11, which warns about a permissions key it does not read, or with --no-agents', async () => {
+      pnpm('11.26.0')
+      await run(['init'])
+      expect(existsSync(workspace())).toBe(false)
+
+      rmSync(join(rootDir, PROJECT_SKILLS), { recursive: true })
+      pnpm('12.16.1')
+      await run(['init', '--no-agents'])
+      expect(existsSync(workspace())).toBe(false)
+    })
   })
 
   it('points a CLAUDE.md that ignores AGENTS.md at it, without editing it', async () => {
@@ -229,6 +279,72 @@ describe('init', () => {
     writeFileSync(join(rootDir, 'app/app.vue'), '<template>\n  <NuxtPage />\n</template>\n')
     await run(['init'])
     expect(existsSync(join(rootDir, 'app/layouts'))).toBe(false)
+  })
+
+  describe('the home page', () => {
+    const starter = '<template>\n  <div>\n    <NuxtRouteAnnouncer />\n    <NuxtWelcome />\n  </div>\n</template>\n'
+    const home = () => join(rootDir, 'app/pages/index.vue')
+    const page = (path: string, contents = '<template><div /></template>\n') => {
+      mkdirSync(join(rootDir, path, '..'), { recursive: true })
+      writeFileSync(join(rootDir, path), contents)
+    }
+
+    beforeEach(() => page('app/app.vue', starter))
+
+    it('writes one when nothing answers /, as the minimal template has it, and says so', async () => {
+      const progress = vi.spyOn(console, 'error').mockImplementation(() => {})
+      await run(['init', '--json'])
+
+      expect(readFileSync(home(), 'utf-8')).toBe(DEFAULT_INDEX_PAGE_TEMPLATE)
+      expect(progress.mock.calls.flat().join('\n')).toContain('Created app/pages/index.vue: the home page')
+      const report = JSON.parse(vi.mocked(console.log).mock.calls.at(-1)![0] as string) as { created: string[] }
+      expect(report.created).toContain('app/pages/index.vue')
+    })
+
+    it('never writes over the one the app has, or beside a page that answers / already', async () => {
+      page('app/pages/index.vue', '<template><h1>Mine</h1></template>\n')
+      await run(['init', '--force'])
+      expect(readFileSync(home(), 'utf-8')).toBe('<template><h1>Mine</h1></template>\n')
+      rmSync(join(rootDir, 'app/pages'), { recursive: true })
+
+      // Pages the router matches / with, in a route group, an index folder, a catch-all and an optional parameter.
+      for (const path of ['app/pages/(marketing)/index.vue', 'app/pages/index/index.tsx', 'app/pages/[...slug].vue', 'app/pages/[[locale]]/index.vue', 'pages/index.vue', 'layers/site/app/pages/index.vue']) {
+        page(path)
+        await run(['init'])
+        expect(existsSync(home()), path).toBe(false)
+        rmSync(join(rootDir, path.split('/').slice(0, path.startsWith('layers/') ? 1 : 2).join('/')), { recursive: true })
+      }
+    })
+
+    it('writes one beside pages that answer other paths only', async () => {
+      page('app/pages/about.vue')
+      page('app/pages/[[locale]]/about.vue')
+      await run(['init'])
+      expect(readFileSync(home(), 'utf-8')).toBe(DEFAULT_INDEX_PAGE_TEMPLATE)
+    })
+
+    it('reads the pages folder nuxt.config moves the pages to', async () => {
+      writeFileSync(join(rootDir, 'nuxt.config.ts'), 'export default defineNuxtConfig({\n  dir: { pages: \'routes\' },\n})\n')
+      page('app/routes/index.vue')
+      await run(['init'])
+      expect(existsSync(home())).toBe(false)
+
+      rmSync(join(rootDir, 'app/routes/index.vue'))
+      await run(['init'])
+      expect(readFileSync(join(rootDir, 'app/routes/index.vue'), 'utf-8')).toBe(DEFAULT_INDEX_PAGE_TEMPLATE)
+      expect(existsSync(home())).toBe(false)
+    })
+
+    it('writes none in an app that extends a layer, or whose root component renders no pages', async () => {
+      writeFileSync(join(rootDir, 'nuxt.config.ts'), 'export default defineNuxtConfig({\n  extends: [\'docus\'],\n})\n')
+      await run(['init'])
+      expect(existsSync(home())).toBe(false)
+
+      rmSync(join(rootDir, 'nuxt.config.ts'))
+      page('app/app.vue', '<template>\n  <div>Hello</div>\n</template>\n')
+      await run(['init'])
+      expect(existsSync(home())).toBe(false)
+    })
   })
 
   it('declares convex in the app manifest, once, and leaves an existing range alone', async () => {

@@ -68,8 +68,9 @@ npx nuxt-backend dev --anonymous   # or plain `npm run dev`, and pick "Start wit
 ```
 
 In an app you already have, the first two lines are this one. Its install step installs `convex`, writes
-the backend files, points the `dev` script at `nuxt-backend dev` and swaps `<NuxtWelcome />` for
-`<NuxtPage />` (outside an interactive terminal, `npx nuxt-backend init` does the same):
+the backend files, points the `dev` script at `nuxt-backend dev`, swaps `<NuxtWelcome />` for
+`<NuxtPage />` and adds a home page when the app has none (outside an interactive terminal,
+`npx nuxt-backend init` does the same):
 
 ```bash
 npx nuxt module add nuxt-backend
