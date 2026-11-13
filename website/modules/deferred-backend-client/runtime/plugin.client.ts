@@ -24,7 +24,7 @@ export default defineNuxtPlugin({
     const url = config.public.convex?.url
     const loadBackendClient = createBackendClientLoader<ClientPlugin>({
       url,
-      load: () => import('#deferred-backend-client/plugin') as Promise<{ default: ClientPlugin }>,
+      load: () => import('./client-plugins') as Promise<{ default: ClientPlugin }>,
       run: plugin => nuxtApp.runWithContext(() => plugin(nuxtApp)),
     })
 

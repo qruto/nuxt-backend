@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { pageScripts, staticImports } from '../../scripts/check-website-bundle.mjs'
-import { CLIENT_PLUGIN } from '../../website/modules/deferred-backend-client'
+import { CHUNK_RELOAD_PLUGIN, CLIENT_PLUGIN } from '../../website/modules/deferred-backend-client'
 import { needsBackendClient } from '../../website/modules/deferred-backend-client/runtime/routes'
 import { badgeStatus, lastCommitDates } from '../../website/modules/docs-pages'
 import { EXPERIMENTAL_BADGE, hoistBadges } from '../../website/utils/nav-badges'
@@ -35,6 +35,14 @@ describe('the deferred backend client', () => {
     expect(existsSync(plugin)).toBe(true)
     expect(CLIENT_PLUGIN.test(plugin.replaceAll('\\', '/'))).toBe(true)
     expect(CLIENT_PLUGIN.test(plugin.replaceAll('\\', '/').replace(/\.js$/, ''))).toBe(true)
+  })
+
+  it('finds nuxt-convex-module\'s chunk reload plugin where the installed package keeps it', () => {
+    const root = dirname(createRequire(import.meta.url).resolve('nuxt-convex-module/package.json'))
+    const plugin = join(root, 'dist/runtime/better-auth/nuxt/chunk-reload.client.js')
+    expect(existsSync(plugin)).toBe(true)
+    expect(CHUNK_RELOAD_PLUGIN.test(plugin.replaceAll('\\', '/'))).toBe(true)
+    expect(CHUNK_RELOAD_PLUGIN.test(plugin.replaceAll('\\', '/').replace(/\.js$/, ''))).toBe(true)
   })
 })
 

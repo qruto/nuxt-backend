@@ -7,7 +7,8 @@ import { BACKEND_CLIENT_META, needsBackendClient } from './runtime/routes'
 // plugin builds the Convex client and Better Auth's session store at startup
 // on every page: better-auth/vue, its plugins and convex/browser sit in the
 // entry chunk, and every docs visit asks for a session. This swaps that
-// plugin for one that imports it on demand, in its place in the plugin order:
+// plugin for one that imports it on demand, in its place in the plugin order,
+// with its chunk reload plugin, which imports the auth client's loader:
 //
 // - before the page renders, on the routes that need the client from the
 //   start: /playground/** and the module's pages
@@ -29,6 +30,16 @@ import { BACKEND_CLIENT_META, needsBackendClient } from './runtime/routes'
 
 /** nuxt-convex-module's client plugin, wherever the package is installed. */
 export const CLIENT_PLUGIN = /nuxt-convex-module\/dist\/runtime\/better-auth\/vue\/plugin\.client(?:\.m?js)?$/
+
+/**
+ * nuxt-convex-module's plugin that reloads the page once a deploy removed the
+ * auth client's chunk. It imports the client's loader, so it is deferred with
+ * the client plugin.
+ */
+export const CHUNK_RELOAD_PLUGIN = /nuxt-convex-module\/dist\/runtime\/better-auth\/nuxt\/chunk-reload\.client(?:\.m?js)?$/
+
+/** The module both run from, as the client manifest keys it. */
+const CLIENT_PLUGINS = /deferred-backend-client\/runtime\/client-plugins\.ts$/
 
 /** A chunk in the client manifest, as far as prefetching goes. */
 interface ManifestChunk {
@@ -90,6 +101,9 @@ export default defineNuxtModule({
       }
       nuxt.options.alias['#deferred-backend-client/plugin'] = app.plugins[index]!.src
       app.plugins.splice(index, 1, { src: resolve('./runtime/plugin.client'), mode: 'client' })
+      const reload = app.plugins.findIndex(plugin => CHUNK_RELOAD_PLUGIN.test(plugin.src.replaceAll('\\', '/')))
+      nuxt.options.alias['#deferred-backend-client/chunk-reload'] = reload === -1 ? resolve('./runtime/no-chunk-reload') : app.plugins[reload]!.src
+      if (reload !== -1) app.plugins.splice(reload, 1)
     })
     // After every module has added its pages: the module's own mount here.
     nuxt.hook('pages:resolved', (pages) => {
@@ -98,9 +112,9 @@ export default defineNuxtModule({
     })
     nuxt.hook('build:manifest', (manifest) => {
       if (nuxt.options.dev) return
-      const key = Object.keys(manifest).find(id => CLIENT_PLUGIN.test(id))
+      const key = Object.keys(manifest).find(id => CLIENT_PLUGINS.test(id))
       if (!key) {
-        throw new Error('[deferred-backend-client] nuxt-convex-module\'s client plugin has no chunk in the client manifest: update CLIENT_PLUGIN in website/modules/deferred-backend-client.')
+        throw new Error('[deferred-backend-client] runtime/client-plugins.ts has no chunk in the client manifest: update CLIENT_PLUGINS in website/modules/deferred-backend-client.')
       }
       deferClientChunks(manifest, key)
     })
@@ -109,6 +123,10 @@ export default defineNuxtModule({
       getContents: () => [
         'declare module \'#deferred-backend-client/plugin\' {',
         '  const plugin: import(\'#app\').Plugin',
+        '  export default plugin',
+        '}',
+        'declare module \'#deferred-backend-client/chunk-reload\' {',
+        '  const plugin: import(\'#app\').Plugin | undefined',
         '  export default plugin',
         '}',
         'declare module \'#app\' {',
