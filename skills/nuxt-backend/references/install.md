@@ -72,7 +72,7 @@ functions folder), `convex.json` when that folder is not `convex/`, `.env.exampl
 `AGENTS.md` section, `.mcp.json` and the agent skills in `.agents/skills/` for agents, adds `'nuxt-backend'` to `modules`, points the
 `dev` script at `nuxt-backend dev`, swaps `<NuxtWelcome />` for `<NuxtPage />` in an untouched
 `app/app.vue` so the module's pages render, and writes `app/pages/index.vue` when no page answers
-`/`. It never replaces a file that exists.
+`/` and the app extends no layer. It never replaces a file that exists.
 
 Check what `init` printed:
 

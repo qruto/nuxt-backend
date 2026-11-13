@@ -4,6 +4,7 @@ import { dirname, join, relative } from 'node:path'
 import { PROJECT_SKILLS } from './agents'
 import { packageManagerOf } from './cli/deploy/package-manager'
 import { CORE_SKILL } from './guidance/skills'
+import { readTextIfPresent } from './source-text'
 
 // pnpm 12.11 and later link the agent skills a direct dependency ships once
 // `pnpm approve` grants them, and list the package under "Agent skills
@@ -25,8 +26,9 @@ export const PNPM_WORKSPACE = 'pnpm-workspace.yaml'
  * What happened to the denial: `created`, a new `pnpm-workspace.yaml` that
  * holds it; `added`, written into the file; `unchanged`, the file already
  * says whether pnpm may link nuxt-backend's skills, either way; `manual`,
- * `permissions` is written in a form `init` does not edit (a flow mapping),
- * so the file was left alone.
+ * the file, or `permissions` in it, is written in a form `init` does not
+ * edit line by line (a flow mapping, as JSON writes it, or more than one
+ * document), so it was left alone.
  */
 export type PnpmWorkspaceAction = 'created' | 'added' | 'unchanged' | 'manual'
 
@@ -66,17 +68,6 @@ export function pnpmReadsPermissions(version: string | undefined): boolean {
   return major > PERMISSIONS_SINCE.major || (major === PERMISSIONS_SINCE.major && minor >= PERMISSIONS_SINCE.minor)
 }
 
-/** A file's text, or `undefined` when there is none: read at once, not checked first, so it cannot change in between. */
-function readIfPresent(path: string): string | undefined {
-  try {
-    return readFileSync(path, 'utf8')
-  }
-  catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
-    throw error
-  }
-}
-
 /**
  * The `pnpm-workspace.yaml` pnpm reads its settings from for `rootDir`, with
  * its text: the nearest one in it or a folder above, as pnpm looks for it,
@@ -85,7 +76,7 @@ function readIfPresent(path: string): string | undefined {
 export function pnpmWorkspaceFile(rootDir: string): { path: string, source?: string } {
   for (let dir = rootDir; ; dir = dirname(dir)) {
     const path = join(dir, PNPM_WORKSPACE)
-    const source = readIfPresent(path)
+    const source = readTextIfPresent(path)
     if (source !== undefined) return { path, source }
     if (dir === dirname(dir)) return { path: join(rootDir, PNPM_WORKSPACE) }
   }
@@ -119,8 +110,26 @@ function blockAfter(lines: string[], index: number, indent: string): number[] {
   return block
 }
 
+/**
+ * Whether `lines` are one YAML document whose root is a block mapping, the
+ * one form an entry can be added to line by line: no flow mapping
+ * (`{"packages": […]}`, as JSON writes it), no sequence or scalar, no root
+ * indented, and no second document or `...` end marker after it. Blank,
+ * comment and directive lines, and one `---` in front, are all fine.
+ */
+function isBlockMapping(lines: string[]): boolean {
+  const content = lines.filter(isContent).filter(line => !line.startsWith('%'))
+  if (/^---\s*(?:#.*)?$/.test(content[0] ?? '')) content.shift()
+  if (content.some(line => /^(?:---|\.\.\.)(?:\s|$)/.test(line))) return false
+  const first = content[0]
+  return first === undefined || (!/^[{[!&*?|>]/.test(first) && keyAt(first, '') !== undefined)
+}
+
 /** The value written on a key's own line, comments off: `{ skills: false }`, or `''` for a block. */
 const inlineValue = (line: string) => line.slice(line.indexOf(':') + 1).replace(/\s#.*$/, '').trim()
+
+/** The entry, at `indent` with its key `step` deeper: the comment, nuxt-backend's key and `skills: false`. */
+const entryLines = (indent: string, step: string) => [`${indent}${ENTRY_COMMENT}`, `${indent}${CORE_SKILL.name}:`, `${indent}${step}skills: false`]
 
 /**
  * `source` (a `pnpm-workspace.yaml`, or `undefined` for none) with
@@ -132,36 +141,46 @@ const inlineValue = (line: string) => line.slice(line.indexOf(':') + 1).replace(
  * @internal
  */
 export function denyPnpmSkills(source: string | undefined): { action: PnpmWorkspaceAction, content?: string } {
-  const entry = (indent: string, step: string) => [`${indent}${ENTRY_COMMENT}`, `${indent}${CORE_SKILL.name}:`, `${indent}${step}skills: false`]
-  if (source === undefined) return { action: 'created', content: ['permissions:', ...entry('  ', '  '), ''].join('\n') }
+  if (source === undefined) return { action: 'created', content: ['permissions:', ...entryLines('  ', '  '), ''].join('\n') }
 
   const eol = source.includes('\r\n') ? '\r\n' : '\n'
   const lines = source.split(/\r?\n/)
+  if (!isBlockMapping(lines)) return { action: 'manual' }
   const top = lines.findIndex(line => keyAt(line, '') === 'permissions')
   if (top === -1) {
     // No `permissions` yet: a new one at the end, after the last line.
     const end = lines.at(-1) === '' ? lines.length - 1 : lines.length
-    lines.splice(end, 0, 'permissions:', ...entry('  ', '  '))
+    lines.splice(end, 0, 'permissions:', ...entryLines('  ', '  '))
     if (lines.at(-1) !== '') lines.push('')
     return { action: 'added', content: lines.join(eol) }
   }
-  if (inlineValue(lines[top]!) !== '') return { action: 'manual' }
+  const action = denyUnderPermissions(lines, top)
+  return action === 'added' ? { action, content: lines.join(eol) } : { action }
+}
+
+/**
+ * Add the entry to the `permissions` block whose key is `lines[top]`, in
+ * place: beside the packages there at their indentation, or `skills: false`
+ * into nuxt-backend's own entry. What that did.
+ */
+function denyUnderPermissions(lines: string[], top: number): PnpmWorkspaceAction {
+  if (inlineValue(lines[top]!) !== '') return 'manual'
 
   const children = blockAfter(lines, top, '').filter(at => isContent(lines[at]!))
   const indent = children.length > 0 ? indentOf(lines[children[0]!]!) : '  '
   const own = children.find(at => keyAt(lines[at]!, indent) === CORE_SKILL.name)
   if (own === undefined) {
-    lines.splice(top + 1, 0, ...entry(indent, indent))
-    return { action: 'added', content: lines.join(eol) }
+    lines.splice(top + 1, 0, ...entryLines(indent, indent))
+    return 'added'
   }
 
   const value = inlineValue(lines[own]!)
-  if (value !== '') return { action: /\bskills\s*:/.test(value) ? 'unchanged' : 'manual' }
+  if (value !== '') return /\bskills\s*:/.test(value) ? 'unchanged' : 'manual'
   const grandchildren = blockAfter(lines, own, indent).filter(at => isContent(lines[at]!))
   const inner = grandchildren.length > 0 ? indentOf(lines[grandchildren[0]!]!) : `${indent}${indent}`
-  if (grandchildren.some(at => keyAt(lines[at]!, inner) === 'skills')) return { action: 'unchanged' }
+  if (grandchildren.some(at => keyAt(lines[at]!, inner) === 'skills')) return 'unchanged'
   lines.splice(own + 1, 0, `${inner}skills: false`)
-  return { action: 'added', content: lines.join(eol) }
+  return 'added'
 }
 
 /** What `recordPnpmSkillsDenial` did, and to which file, relative to the project. */
@@ -195,7 +214,7 @@ export function pnpmWorkspaceMessage({ action, file }: PnpmWorkspaceResult): str
   switch (action) {
     case 'created': return `Created ${file} with skills: false for nuxt-backend under permissions: ${why}`
     case 'added': return `Added skills: false for nuxt-backend under permissions in ${file}: ${why}`
-    case 'manual': return `${file} writes permissions in a form init does not edit, so it was left alone. Run \`pnpm approve '!nuxt-backend'\`: the agent skills are in ${PROJECT_SKILLS} already`
+    case 'manual': return `${file} is written in a form init does not edit line by line (a flow mapping, or more than one document), so it was left alone. Run \`pnpm approve '!nuxt-backend'\`: the agent skills are in ${PROJECT_SKILLS} already`
     default: return undefined
   }
 }

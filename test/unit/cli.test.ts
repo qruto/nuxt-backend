@@ -308,7 +308,8 @@ describe('init', () => {
       rmSync(join(rootDir, 'app/pages'), { recursive: true })
 
       // Pages the router matches / with, in a route group, an index folder, a catch-all and an optional parameter.
-      for (const path of ['app/pages/(marketing)/index.vue', 'app/pages/index/index.tsx', 'app/pages/[...slug].vue', 'app/pages/[[locale]]/index.vue', 'pages/index.vue', 'layers/site/app/pages/index.vue']) {
+      // A client-only page, and the pages of a local layer, laid out for Nuxt 4 or Nuxt 3, count too.
+      for (const path of ['app/pages/(marketing)/index.vue', 'app/pages/index/index.tsx', 'app/pages/[...slug].vue', 'app/pages/[[locale]]/index.vue', 'app/pages/index.client.vue', 'layers/site/app/pages/index.vue', 'layers/blog/pages/index.vue']) {
         page(path)
         await run(['init'])
         expect(existsSync(home()), path).toBe(false)
@@ -323,16 +324,49 @@ describe('init', () => {
       expect(readFileSync(home(), 'utf-8')).toBe(DEFAULT_INDEX_PAGE_TEMPLATE)
     })
 
-    it('reads the pages folder nuxt.config moves the pages to', async () => {
+    it('reads the pages folder nuxt.config moves the pages to, and that one alone', async () => {
       writeFileSync(join(rootDir, 'nuxt.config.ts'), 'export default defineNuxtConfig({\n  dir: { pages: \'routes\' },\n})\n')
       page('app/routes/index.vue')
       await run(['init'])
       expect(existsSync(home())).toBe(false)
 
+      // The default folder, which Nuxt no longer reads, counts for nothing.
       rmSync(join(rootDir, 'app/routes/index.vue'))
+      page('app/pages/index.vue', '<template><h1>Old</h1></template>\n')
       await run(['init'])
       expect(readFileSync(join(rootDir, 'app/routes/index.vue'), 'utf-8')).toBe(DEFAULT_INDEX_PAGE_TEMPLATE)
-      expect(existsSync(home())).toBe(false)
+      expect(readFileSync(home(), 'utf-8')).toBe('<template><h1>Old</h1></template>\n')
+    })
+
+    it('reads nuxt.config as Nuxt does: no comment, nested key, or root pages/ beside app/ moves the pages', async () => {
+      page('pages/index.vue')
+      writeFileSync(join(rootDir, 'nuxt.config.ts'), [
+        'export default defineNuxtConfig({',
+        '  // dir: { pages: \'routes\' },',
+        '  /* srcDir: \'src\', */',
+        '  typescript: { tsConfig: { extends: \'../tsconfig.json\' } },',
+        '  app: { head: { title: \'https://example.com // not a comment\' } },',
+        '})',
+        '',
+      ].join('\n'))
+      await run(['init'])
+      expect(readFileSync(home(), 'utf-8')).toBe(DEFAULT_INDEX_PAGE_TEMPLATE)
+    })
+
+    it('finds the root component and the pages in the source folder: the srcDir nuxt.config sets, or the root of an app laid out for Nuxt 3', async () => {
+      rmSync(join(rootDir, 'app'), { recursive: true })
+      page('src/app.vue', starter)
+      writeFileSync(join(rootDir, 'nuxt.config.ts'), 'export default defineNuxtConfig({\n  srcDir: \'src\',\n})\n')
+      await run(['init'])
+      expect(readFileSync(join(rootDir, 'src/app.vue'), 'utf-8')).toContain('<NuxtPage />')
+      expect(readFileSync(join(rootDir, 'src/pages/index.vue'), 'utf-8')).toBe(DEFAULT_INDEX_PAGE_TEMPLATE)
+
+      rmSync(join(rootDir, 'src'), { recursive: true })
+      rmSync(join(rootDir, 'nuxt.config.ts'))
+      page('app.vue', starter)
+      await run(['init'])
+      expect(readFileSync(join(rootDir, 'pages/index.vue'), 'utf-8')).toBe(DEFAULT_INDEX_PAGE_TEMPLATE)
+      expect(existsSync(join(rootDir, 'app'))).toBe(false)
     })
 
     it('writes none in an app that extends a layer, or whose root component renders no pages', async () => {

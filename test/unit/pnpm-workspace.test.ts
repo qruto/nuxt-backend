@@ -57,6 +57,24 @@ describe('denyPnpmSkills', () => {
     expect(denyPnpmSkills('permissions:\n  nuxt-backend: { build: true }\n')).toEqual({ action: 'manual' })
   })
 
+  it('leaves a file it cannot add to line by line alone: a flow mapping, as JSON writes it, or more than one document', () => {
+    const sources = [
+      '{"publicHoistPattern":["*"]}\n',
+      '{ "publicHoistPattern": ["*"] }',
+      '{\n  "packages": ["apps/*"]\n}\n',
+      'packages:\n  - apps/*\n...\n',
+      'packages:\n  - apps/*\n---\nallowBuilds: {}\n',
+      '- apps/*\n',
+      '  packages:\n    - apps/*\n',
+    ]
+    for (const source of sources) expect(denyPnpmSkills(source), source).toEqual({ action: 'manual' })
+
+    // Directives, a document start marker and comments in front are fine.
+    const marked = denyPnpmSkills('%YAML 1.2\n---\n# settings\npackages:\n  - apps/*\n')
+    expect(marked.action).toBe('added')
+    expect(parse(marked.content!)).toEqual({ packages: ['apps/*'], permissions: DENIED })
+  })
+
   it('keeps the file\'s line endings', () => {
     const { content } = denyPnpmSkills('allowBuilds:\r\n  esbuild: false\r\n')
     expect(content!.replace(/\r\n/g, '')).not.toContain('\n')
