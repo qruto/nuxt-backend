@@ -90,9 +90,9 @@ describe('pnpmWorkspaceFile and pnpmVersionIn', () => {
     dir = mkdtempSync(join(tmpdir(), 'pnpm-workspace-'))
     const app = join(dir, 'apps/web')
     mkdirSync(app, { recursive: true })
-    expect(pnpmWorkspaceFile(app)).toBe(join(app, 'pnpm-workspace.yaml'))
+    expect(pnpmWorkspaceFile(app)).toEqual({ path: join(app, 'pnpm-workspace.yaml') })
 
     writeFileSync(join(dir, 'pnpm-workspace.yaml'), 'packages:\n  - apps/*\n')
-    expect(pnpmWorkspaceFile(app)).toBe(join(dir, 'pnpm-workspace.yaml'))
+    expect(pnpmWorkspaceFile(app)).toEqual({ path: join(dir, 'pnpm-workspace.yaml'), source: 'packages:\n  - apps/*\n' })
   })
 })

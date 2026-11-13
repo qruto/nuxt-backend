@@ -66,16 +66,28 @@ export function pnpmReadsPermissions(version: string | undefined): boolean {
   return major > PERMISSIONS_SINCE.major || (major === PERMISSIONS_SINCE.major && minor >= PERMISSIONS_SINCE.minor)
 }
 
+/** A file's text, or `undefined` when there is none: read at once, not checked first, so it cannot change in between. */
+function readIfPresent(path: string): string | undefined {
+  try {
+    return readFileSync(path, 'utf8')
+  }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
+}
+
 /**
- * The `pnpm-workspace.yaml` pnpm reads its settings from for `rootDir`: the
- * nearest one in it or a folder above, as pnpm looks for it, else a new one
- * in `rootDir`.
+ * The `pnpm-workspace.yaml` pnpm reads its settings from for `rootDir`, with
+ * its text: the nearest one in it or a folder above, as pnpm looks for it,
+ * else a new one in `rootDir`, which has no text yet.
  */
-export function pnpmWorkspaceFile(rootDir: string): string {
+export function pnpmWorkspaceFile(rootDir: string): { path: string, source?: string } {
   for (let dir = rootDir; ; dir = dirname(dir)) {
-    const file = join(dir, PNPM_WORKSPACE)
-    if (existsSync(file)) return file
-    if (dir === dirname(dir)) return join(rootDir, PNPM_WORKSPACE)
+    const path = join(dir, PNPM_WORKSPACE)
+    const source = readIfPresent(path)
+    if (source !== undefined) return { path, source }
+    if (dir === dirname(dir)) return { path: join(rootDir, PNPM_WORKSPACE) }
   }
 }
 
@@ -169,9 +181,11 @@ export function recordPnpmSkillsDenial(rootDir: string, { version = pnpmVersionI
   if (packageManagerOf(rootDir) !== 'pnpm') return null
   if (!existsSync(join(rootDir, PROJECT_SKILLS, CORE_SKILL.name, 'SKILL.md'))) return null
   if (!pnpmReadsPermissions(version(rootDir))) return null
-  const path = pnpmWorkspaceFile(rootDir)
-  const { action, content } = denyPnpmSkills(existsSync(path) ? readFileSync(path, 'utf8') : undefined)
-  if (content !== undefined) writeFileSync(path, content)
+  const { path, source } = pnpmWorkspaceFile(rootDir)
+  const { action, content } = denyPnpmSkills(source)
+  // A new file only while there still is none (`wx`): one made since the
+  // read is never overwritten.
+  if (content !== undefined) writeFileSync(path, content, { flag: source === undefined ? 'wx' : 'w' })
   return { action, file: relative(rootDir, path).replace(/\\/g, '/') }
 }
 
