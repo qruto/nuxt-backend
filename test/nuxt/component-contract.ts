@@ -30,7 +30,7 @@ import type { LabelGroup } from '../../src/convex/labels'
  */
 export type ContractState
   = | 'ready' | 'loading' | 'empty' | 'error' | 'pending' | 'refused'
-    | 'request-code' | 'verify-code' | 'passkey-offer' | 'recover' | 'waitlisted' | 'invite-code' | 'age' | 'undeliverable' | 'storage'
+    | 'request-code' | 'verify-code' | 'passkey-offer' | 'recover' | 'waitlisted' | 'invite-code' | 'age' | 'two-factor' | 'undeliverable' | 'storage'
     | 'accepted' | 'declined' | 'missing' | 'answered' | 'confirm-current'
     | 'trialing' | 'past-due' | 'paused' | 'canceling' | 'changing' | 'confirm-cancel'
     | 'yearly' | 'currencies' | 'promotion' | 'scheduled' | 'soon'
@@ -67,9 +67,9 @@ export const COMPONENT_CONTRACT = {
     file: 'auth/AuthForm',
     family: 'auth',
     labels: 'auth',
-    slots: ['header', 'choose', 'request-code', 'verify-code', 'passkey-offer', 'recover', 'waitlisted', 'invite-code', 'age', 'undeliverable', 'error', 'footer'],
+    slots: ['header', 'choose', 'request-code', 'verify-code', 'passkey-offer', 'recover', 'waitlisted', 'invite-code', 'age', 'two-factor', 'undeliverable', 'error', 'footer'],
     emits: ['success', 'error', 'step'],
-    states: ['ready', 'request-code', 'verify-code', 'passkey-offer', 'recover', 'waitlisted', 'invite-code', 'age', 'undeliverable', 'pending', 'error'],
+    states: ['ready', 'request-code', 'verify-code', 'two-factor', 'passkey-offer', 'recover', 'waitlisted', 'invite-code', 'age', 'undeliverable', 'pending', 'error'],
     a11y: 'Focus moves to the new step\'s first control when the person moved the form on, and stays put on the step it opens on; a busy button keeps focus (`aria-disabled`) and says what it waits for; a refused field is `aria-invalid` and described by the refusal; the "Last used" mark describes its button and adds no stop; the sent-code note and the passkey offer are polite statuses, a failure an alert; the email field autocompletes as `username webauthn`, where the browser offers saved passkeys, and codes as one-time codes; the age question has a visible label and an empty field and never names the minimum, and the agreement line links each required document; an address the provider stopped delivering to reads as an alert, with the same words for every address, and a button back to the email field.',
   },
   ConsentPrompt: {
@@ -103,7 +103,7 @@ export const COMPONENT_CONTRACT = {
     file: 'account/SecuritySettings',
     family: 'security',
     labels: 'security',
-    slots: ['passkeys', 'passkey', 'sessions', 'session', 'alerts', 'danger', 'footer'],
+    slots: ['passkeys', 'passkey', 'twoFactor', 'sessions', 'session', 'alerts', 'danger', 'footer'],
     emits: ['passkey-added', 'passkey-removed', 'two-factor-enabled', 'two-factor-disabled', 'session-revoked', 'sessions-revoked', 'signed-out', 'error'],
     states: ['ready', 'loading', 'pending', 'error'],
     a11y: 'Each row\'s buttons are named after the passkey or the session they act on; the rename field is named and takes focus when the person starts a rename; a busy button keeps focus (`aria-disabled`) and says what it waits for; when the button pressed goes with its action (a revoked session, a removed passkey, no other session left), focus moves to the outcome or the next button of its section; the session list\'s loading note is a polite status and its failure an alert; each alert is one sentence naming the device and the time, and its sign-out button names the device it signs out.',

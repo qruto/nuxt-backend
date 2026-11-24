@@ -202,7 +202,7 @@ export const ERASURE_PARTICIPANTS = {
     return budget.spent
   },
 
-  // The account, its sessions, sign-in accounts and passkeys, and the codes
+  // The account, its sessions, sign-in accounts, passkeys and authenticator app, and the codes
   // waiting for its address. Better Auth deleted the first three already
   // when it deleted the account; an erasure that starts here deletes them.
   auth: async (ctx, { userId, email }) => {
@@ -211,6 +211,7 @@ export const ERASURE_PARTICIPANTS = {
       await budget.remove(ctx, 'session', () => ctx.db.query('session').withIndex('userId', q => q.eq('userId', userId)).take(budget.left))
       await budget.remove(ctx, 'account', () => ctx.db.query('account').withIndex('userId', q => q.eq('userId', userId)).take(budget.left))
       await budget.remove(ctx, 'passkey', () => ctx.db.query('passkey').withIndex('userId', q => q.eq('userId', userId)).take(budget.left))
+      await budget.remove(ctx, 'twoFactor', () => ctx.db.query('twoFactor').withIndex('userId', q => q.eq('userId', userId)).take(budget.left))
     }
     if (email) {
       for (const identifier of [`sign-in-otp-${email}`, `email-verification-otp-${email}`, `forget-password-otp-${email}`]) {
@@ -932,6 +933,9 @@ export const exportData = query({
         .map(({ accessToken: _a, refreshToken: _r, idToken: _i, password: _p, ...row }) => exported(row)),
       passkeys: (await ctx.db.query('passkey').withIndex('userId', q => q.eq('userId', userId)).take(MEMBERSHIPS_MAX))
         .map(({ publicKey: _key, credentialID: _credential, counter: _counter, ...passkey }) => exported(passkey)),
+      // Whether the authenticator app is on, never its secret or its backup codes.
+      authenticatorApps: (await ctx.db.query('twoFactor').withIndex('userId', q => q.eq('userId', userId)).take(MEMBERSHIPS_MAX))
+        .map(({ secret: _secret, backupCodes: _codes, ...row }) => exported(row)),
       workspaces,
       consents: await consentRows(ctx, userId),
       ...await inboundRows(ctx, userId),

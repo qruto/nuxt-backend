@@ -67,8 +67,9 @@ export function sessionClaims({ user, session }: { user: Record<string, unknown>
   // plugin swallows it and sets no cookie.
   if (session.passkeyRecovery) throw authRefusal('forbidden', { reason: 'passkey_required' })
   // How the account last signed in is the sign-in form's, not a caller's:
-  // it changes with every sign-in and says nothing a function needs.
-  const { id: _id, image: _image, lastLoginMethod: _lastLoginMethod, onboardedAt: _onboardedAt, activationDismissedAt: _dismissedAt, ...fields } = user
+  // it changes with every sign-in and says nothing a function needs. So is
+  // whether it has an authenticator app, which the security page reads.
+  const { id: _id, image: _image, lastLoginMethod: _lastLoginMethod, twoFactorEnabled: _twoFactor, onboardedAt: _onboardedAt, activationDismissedAt: _dismissedAt, ...fields } = user
   const claims = Object.fromEntries(Object.entries(fields).filter(([key]) => !RESERVED_CLAIMS.includes(key)))
   // The package's own `locale` field is the standard claim of that name,
   // as a language tag only: no other value reaches it.

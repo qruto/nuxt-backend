@@ -255,6 +255,10 @@
           "to": "/docs/reference/api/use-passkeys"
         },
         {
+          "name": "useTwoFactor",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useSessions",
           "to": "/docs/reference/api/use-sessions"
         },
@@ -1615,9 +1619,9 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "74 in all",
+          "name": "75 in all",
           "to": "/docs/reference/nuxt/composables",
-          "label": "74 composables in all"
+          "label": "75 composables in all"
         }
       ]
     },
@@ -1975,6 +1979,10 @@
         {
           "name": "usePasskeys",
           "to": "/docs/reference/api/use-passkeys"
+        },
+        {
+          "name": "useTwoFactor",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {
           "name": "useSessions",

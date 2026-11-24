@@ -45,6 +45,7 @@ export type { ConvexBetterAuthOptions as BackendAuthOptions, ConvexBetterAuthSer
 export type { AccessDeniedData, AccessDeniedReason, PageAccessRules } from './runtime/vue/utils/access-rules'
 export type { AdminTabMeta } from './runtime/vue/components/admin/admin-tabs'
 export type { InstallableOptions } from './installable'
+export type { AuthProvider } from './nuxt/convex-auth'
 
 /** Where the ready-made pages send a person once they are done. */
 export interface ModuleRedirectsOptions {

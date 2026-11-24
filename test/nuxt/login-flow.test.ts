@@ -452,7 +452,7 @@ describe('AuthForm', () => {
     vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {})
     const FLOW_KEYS = [
       'addPasskey', 'age', 'bind', 'email', 'emailValid', 'error', 'goTo', 'inviteCode', 'isPending', 'lastMethod', 'otp',
-      'passkeyRequired', 'recover', 'recoveryCode', 'redeemInviteCode', 'reset', 'retryAfter', 'sendCode', 'signInWithPasskey', 'skipPasskey', 'step', 'submitAge', 'trustDevice', 'twoFactorCode', 'useBackupCode', 'verifyCode', 'verifyTwoFactor', 'waitlist', 'webAuthnSupported',
+      'passkeyRequired', 'recover', 'recoveryCode', 'redeemInviteCode', 'reset', 'retryAfter', 'sendCode', 'signInWithPasskey', 'skipPasskey', 'step', 'submitAge', 'trustDevice', 'twoFactorCode', 'verifyCode', 'verifyTwoFactor', 'waitlist', 'webAuthnSupported', 'withBackupCode',
     ]
     const seen = new Map<string, string[]>()
     let flow!: UseLoginFlowReturn
@@ -1330,7 +1330,7 @@ describe('useLoginFlow, the authenticator app', () => {
 
   it('takes a backup code instead, through its own route', async () => {
     const flow = await atTwoFactor()
-    flow.useBackupCode.value = true
+    flow.withBackupCode.value = true
     flow.twoFactorCode.value = 'ABCDE-12345'
     await flow.verifyTwoFactor()
     expect(client.twoFactor.verifyBackupCode).toHaveBeenCalledWith({ code: 'ABCDE-12345', trustDevice: false })

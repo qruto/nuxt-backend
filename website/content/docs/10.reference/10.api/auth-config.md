@@ -24,6 +24,7 @@ Where the backend's tokens come from.
 | ------ | ------ | ------ | ------ |
 | <a id="paths"></a> `paths?` | `Partial`\<[`BackendPaths`](/docs/reference/api/auth#backendpaths)\> | The app's paths, from the `paths.generated.ts` the Nuxt module writes: `authRoute`, where the token signer's JWKS is served, is the one read here. Default `/api/auth`. | [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts) |
 | <a id="jwks"></a> `jwks?` | `string` | A static JWKS, for a deployment that sets its signing keys itself instead of storing them. | [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts) |
+| <a id="provider"></a> `provider?` | `"better-auth"` \| `"convex-auth"` | Which auth the app runs, as `setupAuth` takes it. `'convex-auth'`: the access tokens of Convex Auth sessions, which the `backend` component signs with the deployment's own key. `'better-auth'`: the session JWTs Better Auth signs. Left out, both: every Convex deployment holds the key the first is signed with, so trusting it costs an app on Better Auth nothing, and an app that moves to Convex Auth needs no change here. | [src/convex/auth.config.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/auth.config.ts) |
 
 ## Variables
 
@@ -69,6 +70,9 @@ import { paths } from './paths.generated'
 
 export default defineBackendAuthConfig({ paths })
 ```
+
+Left out, `provider` trusts both kinds of token: Better Auth's and those
+of Convex Auth sessions (`setupAuth({ provider: 'convex-auth' })`).
 
 ## References
 

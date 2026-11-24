@@ -155,7 +155,8 @@
       "GetTokenOptions": "https://labs.convex.dev/better-auth"
     },
     "nuxt-convex-module": {
-      "convexAuth": "https://nuxt-convex-module.dev/api-reference/reference/better-auth/server"
+      "convexAuth": "https://nuxt-convex-module.dev/api-reference/reference/better-auth/server",
+      "convexBetterAuthNuxt": "https://nuxt-convex-module.dev/api-reference/reference/better-auth/server"
     },
     "@convex-dev/rate-limiter": {
       "tokenBucketValidator": "https://github.com/convex/rate-limiter#define-your-rate-limits",

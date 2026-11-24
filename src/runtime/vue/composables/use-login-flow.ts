@@ -119,10 +119,10 @@ export interface UseLoginFlowReturn {
    * otherwise.
    */
   waitlist: Ref<{ position: number, total: number, token: string } | null>
-  /** The code from the authenticator app (or, with `useBackupCode`, a backup code) an account with one types on `two-factor`. */
+  /** The code from the authenticator app (or, with `withBackupCode`, a backup code) an account with one types on `two-factor`. */
   twoFactorCode: Ref<string>
   /** Whether `two-factor` takes a backup code instead of the app's code. Switching clears the field and `error`. */
-  useBackupCode: Ref<boolean>
+  withBackupCode: Ref<boolean>
   /** Whether this browser skips the `two-factor` step for thirty days once the code checks. */
   trustDevice: Ref<boolean>
   /** `true` on `passkey-offer` after a recovery: a passkey must be saved, and `skipPasskey()` does nothing. */
@@ -253,7 +253,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   const inviteCode = ref('')
   const age = ref('')
   const twoFactorCode = ref('')
-  const useBackupCode = ref(false)
+  const withBackupCode = ref(false)
   const trustDevice = ref(false)
   const waitlist = ref<{ position: number, total: number, token: string } | null>(null)
   const access = useApiNamespace<AccessApiRefs>('access')
@@ -270,7 +270,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
 
   const { run, clearError, refuse } = stepRunner({ pending, error, retryAfter })
   // A switch between the app's code and a backup code starts the field again.
-  watch(useBackupCode, () => {
+  watch(withBackupCode, () => {
     twoFactorCode.value = ''
     clearError()
   }, { flush: 'sync' })
@@ -468,7 +468,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   const verifyTwoFactor = () => run(async () => {
     const code = twoFactorCode.value.replace(/\s+/g, '')
     if (!code) throw backendError('invalid_input', { field: 'twoFactorCode', reason: 'required' })
-    await auth.verifyTwoFactor({ code, backup: useBackupCode.value, trustDevice: trustDevice.value })
+    await auth.verifyTwoFactor({ code, backup: withBackupCode.value, trustDevice: trustDevice.value })
     twoFactorCode.value = ''
     await finishSignIn()
   })
@@ -523,7 +523,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
     // The ticket steps send the same code again: it stays.
     if (!(target === 'invite-code' && step.value === 'waitlisted')) otp.value = ''
     twoFactorCode.value = ''
-    useBackupCode.value = false
+    withBackupCode.value = false
     step.value = target
   }
 
@@ -567,7 +567,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
     inviteCode,
     age,
     twoFactorCode,
-    useBackupCode,
+    withBackupCode,
     trustDevice,
     waitlist,
     passkeyRequired: computed(() => recovering.value),

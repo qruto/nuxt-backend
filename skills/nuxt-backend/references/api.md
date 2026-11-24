@@ -36,6 +36,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useReferralInvite()` | The state of the page a referral link (`/r/<code>`) opens, headless: what the link offers, the sign-in that returns to the page, and the claim. |
 | `useReferralAdmin()` | The admin console's Referrals tab, as data: the program's totals, the top referrers, the flagged queue and one referrer's history, through `backend/referrals.ts`, and the decision an administrator makes on a flagged referral. |
 | `usePasskeys()` | Passkey management over the auth client — list, register, rename, remove. |
+| `useTwoFactor()` | The authenticator app as a second step after a sign-in code (TOTP), for the signed-in account: turn it on (`start`, then `confirm` with the app's first code), off, and new backup codes. |
 | `useSessions()` | Device-session management: list, revoke one, revoke the rest. |
 | `useSignInAlerts()` | What an account shows around its sign-ins, without the markup: the latest sign-ins from a device it had not used before, and with its recovery code (the ones the person is also emailed about), each with its device and time, and a button that signs that session out while it is still signed in and is not this browser's. |
 | `useReauthentication()` | Asking the person to confirm it is them before a sensitive action: the client half of `requireRecentSignIn` and of the routes that take a recent sign-in. |
@@ -176,7 +177,7 @@ The base module's, under neutral names: `<Authenticated>`, `<Unauthenticated>`, 
 |---|---|
 | `default` | The Nuxt module: list `'nuxt-backend'` in `modules`. |
 
-Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDeniedReason`, `PageAccessRules`, `AdminTabMeta`, `InstallableOptions`, `ModuleRedirectsOptions`, `ModuleOptions`.
+Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDeniedReason`, `PageAccessRules`, `AdminTabMeta`, `InstallableOptions`, `AuthProvider`, `ModuleRedirectsOptions`, `ModuleOptions`.
 
 ### `nuxt-backend/auth`
 
@@ -185,9 +186,9 @@ Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDe
 | `APIError` | Re-exported from `better-auth/api`. |
 | `resolveSignInMethod()` | Names a code sign-in (`/sign-in/email-otp`, which also signs a new account up) `email-otp`, and nothing else. |
 | `storesLastSignInCookie()` | Whether the browser that signs in allowed the `preferences` purpose of optional storage: its choice rides in a first-party cookie of the consent manager (`backend.storage`), which the request carries. |
-| `setupAuth()` | The app's auth, from one call: the auth instance factory, the functions the scaffold re-exports. |
+| `setupAuth()` | The implementation behind both overloads. |
 
-Types: `BackendPaths`, `AuthMutationCtx`, `AuthEmail`, `AuthRateLimitName`, `AuthRateLimiter`, `AuthCreatedUser`, `OnUserCreated`, `AuthDeletedUser`, `OnUserDeleted`, `CanSignInPurpose`, `CanSignInInput`, `CanSignInVerdict`, `CanSignIn`, `AuthAccount`, `AuthAudit`, `AuthIntegrations`, `AdminPluginOptions`, `WorkspaceOptions`, `WorkspaceHook`, `WorkspaceHookWorkspace`, `WorkspaceCreatedEvent`, `WorkspaceMemberEvent`, `WorkspaceInviteInput`, `AuthAccess`, `SetupAuthOptions`, `AuthSetupComponents`, `DeviceSession`, `SignInAlert`.
+Types: `BackendPaths`, `ConvexAuthSessionOptions`, `CoreTokenBundle`, `EngineAnswer`, `AuthMutationCtx`, `AuthEmail`, `AuthRateLimitName`, `AuthRateLimiter`, `AuthCreatedUser`, `OnUserCreated`, `AuthDeletedUser`, `OnUserDeleted`, `CanSignInPurpose`, `CanSignInInput`, `CanSignInVerdict`, `CanSignIn`, `AuthAccount`, `AuthAudit`, `AuthBilling`, `AuthIntegrations`, `AdminPluginOptions`, `WorkspaceOptions`, `WorkspaceHook`, `WorkspaceHookWorkspace`, `WorkspaceCreatedEvent`, `WorkspaceMemberEvent`, `WorkspaceInviteInput`, `AuthAccess`, `SetupAuthOptions`, `AuthSetupComponents`, `DeviceSession`, `SignInAlert`, `SetupConvexAuthOptions`.
 
 ### `nuxt-backend/http`
 

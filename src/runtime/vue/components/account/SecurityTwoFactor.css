@@ -26,7 +26,7 @@
   }
 
   [data-security='two-factor-key'],
-  [data-security='backup-code'] code {
+  [data-security='backup-code'] :where(code) {
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.08em;
     overflow-wrap: anywhere;

@@ -51,6 +51,7 @@ export const COMPOSABLE_AREAS = {
   useReferralInvite: 'billing',
   useReferralAdmin: 'auth',
   usePasskeys: 'auth',
+  useTwoFactor: 'auth',
   useSessions: 'auth',
   useReauthentication: 'auth',
   useAuditLog: 'auth',

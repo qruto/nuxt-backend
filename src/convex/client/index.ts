@@ -30,6 +30,8 @@ export { APIError }
 
 /** The app's paths `setupAuth({ paths })` takes: the `paths` of the generated `paths.generated.ts`. */
 export type { BackendPaths } from '../paths.js'
+export type { ConvexAuthSessionOptions, CoreTokenBundle } from './convex-auth/core.js'
+export type { EngineAnswer } from './convex-auth/functions.js'
 
 /**
  * `storesLastSignInCookie`, the consent check an app's own
@@ -58,6 +60,7 @@ export type {
   CanSignIn,
   AuthAccount,
   AuthAudit,
+  AuthBilling,
   AuthIntegrations,
   AdminPluginOptions,
   WorkspaceOptions,
@@ -356,11 +359,13 @@ export function setupAuth<DM extends GenericDataModel>(
   queryBuilder: QueryBuilder<DM, 'public'>,
   options: SetupConvexAuthOptions<DM>,
 ): ReturnType<typeof setupAuthEngine<DM>> & ReturnType<typeof convexAuthFunctions<DM>>
+/** A Better Auth app's auth, or one whose provider the mounted components pick: the engine, its routes and the account functions. */
 export function setupAuth<DM extends GenericDataModel>(
   components: AuthSetupComponents,
   queryBuilder: QueryBuilder<DM, 'public'>,
   options: SetupAuthOptions<DM>,
 ): ReturnType<typeof setupAuthEngine<DM>>
+/** The implementation behind both overloads. */
 export function setupAuth<DM extends GenericDataModel>(
   components: AuthSetupComponents,
   queryBuilder: QueryBuilder<DM, 'public'>,

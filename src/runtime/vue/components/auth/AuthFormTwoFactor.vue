@@ -19,18 +19,18 @@ const { t } = view.labels
     @submit.prevent="flow.verifyTwoFactor()"
   >
     <p data-auth="two-factor-note">
-      {{ flow.useBackupCode.value ? t('twoFactorBackupIntro') : t('twoFactorIntro') }}
+      {{ flow.withBackupCode.value ? t('twoFactorBackupIntro') : t('twoFactorIntro') }}
     </p>
     <label data-auth="label-two-factor-code">
-      {{ flow.useBackupCode.value ? t('twoFactorBackupCode') : t('twoFactorCode') }}
+      {{ flow.withBackupCode.value ? t('twoFactorBackupCode') : t('twoFactorCode') }}
       <input
         v-model="flow.twoFactorCode.value"
         data-auth="input-two-factor-code"
         type="text"
-        :inputmode="flow.useBackupCode.value ? 'text' : 'numeric'"
-        :autocomplete="flow.useBackupCode.value ? 'off' : 'one-time-code'"
-        :pattern="flow.useBackupCode.value ? undefined : '[0-9 ]*'"
-        :maxlength="flow.useBackupCode.value ? 32 : 7"
+        :inputmode="flow.withBackupCode.value ? 'text' : 'numeric'"
+        :autocomplete="flow.withBackupCode.value ? 'off' : 'one-time-code'"
+        :pattern="flow.withBackupCode.value ? undefined : '[0-9 ]*'"
+        :maxlength="flow.withBackupCode.value ? 32 : 7"
         spellcheck="false"
         required
         v-bind="fieldState(flow, view, 'twoFactorCode')"
@@ -53,9 +53,9 @@ const { t } = view.labels
     <button
       data-auth="two-factor-switch"
       type="button"
-      @click="flow.useBackupCode.value = !flow.useBackupCode.value"
+      @click="flow.withBackupCode.value = !flow.withBackupCode.value"
     >
-      {{ flow.useBackupCode.value ? t('twoFactorUseApp') : t('twoFactorUseBackup') }}
+      {{ flow.withBackupCode.value ? t('twoFactorUseApp') : t('twoFactorUseBackup') }}
     </button>
     <button
       data-auth="back"

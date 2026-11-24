@@ -5,6 +5,7 @@ import { createAuthClient } from 'better-auth/vue'
 import type { AuthClient } from '../../src/runtime/vue/auth-client'
 import { passkeyClient } from '../../src/runtime/vue/passkey-client'
 import { protectionClient } from '../../src/runtime/vue/protection/state'
+import { twoFactorClient } from '../../src/runtime/vue/two-factor-client'
 
 // The package's auth client is declared with a named plugin type, so its
 // declaration file stays a line long: it must be the very type the call
@@ -15,7 +16,7 @@ import { protectionClient } from '../../src/runtime/vue/protection/state'
 
 /** What the call infers, its plugins in the same order. */
 const inferred = () => createAuthClient({
-  plugins: [convexClient(), emailOTPClient(), passkeyClient(), adminClient(), organizationClient(), protectionClient()],
+  plugins: [convexClient(), emailOTPClient(), passkeyClient(), adminClient(), organizationClient(), protectionClient(), twoFactorClient()],
 })
 
 /** Identical types, generic signatures included (expectTypeOf's deep compare gives up on those). */

@@ -15,10 +15,7 @@ import { resolveFunctionsDir } from '../scaffold'
 /** The two auth providers. */
 export type AuthProvider = 'better-auth' | 'convex-auth'
 
-/** The import a Convex Auth app's `convex.config.ts` mounts its core component from. */
-export const CONVEX_AUTH_CONFIG_IMPORT = '@convex-dev/auth/convex.config'
-
-/** Whether a `convex.config.ts` source mounts Convex Auth's core component. */
+/** Whether a `convex.config.ts` source mounts Convex Auth's core component (`@convex-dev/auth/convex.config`). */
 export function mountsConvexAuth(source: string): boolean {
   return /from\s+['"]@convex-dev\/auth\/convex\.config(?:\.js)?['"]/.test(source)
 }
@@ -49,12 +46,39 @@ function appAuthServer(nuxt: Nuxt): string | undefined {
   return ['.ts', '.mts', '.js', '.mjs'].map(extension => join(nuxt.options.serverDir, `convex-auth${extension}`)).find(file => existsSync(file))
 }
 
-/** Point an alias at a file, for the app and for the server. */
+/**
+ * Point an alias at a file, for the app and for the server. Once every module
+ * has run: the base module is this one's dependency, so Nuxt installs it
+ * after this one, and it points `#convex/auth-client` and
+ * `#convex/auth-server` at its own files as it does.
+ */
 function alias(nuxt: Nuxt, name: string, target: string): void {
-  nuxt.options.alias[name] = target
-  nuxt.options.nitro ||= {}
-  nuxt.options.nitro.alias ||= {}
-  nuxt.options.nitro.alias[name] = target
+  nuxt.hook('modules:done', () => {
+    nuxt.options.alias[name] = target
+    nuxt.options.nitro ||= {}
+    nuxt.options.nitro.alias ||= {}
+    nuxt.options.nitro.alias[name] = target
+  })
+}
+
+/** The base module's Better Auth entries, which the stand-ins answer for at runtime. */
+const STAND_INS = ['nuxt-convex-module/better-auth/client', 'nuxt-convex-module/better-auth/server']
+
+/**
+ * Keep the stand-ins out of the generated tsconfig: the package's code is
+ * typed against the base module's own declarations of those entries, which
+ * the stand-ins implement, and an app's own imports of them read the same.
+ */
+function typeStandInsAsBase(nuxt: Nuxt): void {
+  const drop = (...configs: Array<{ compilerOptions?: { paths?: Record<string, unknown> } } | undefined>) => {
+    for (const config of configs) {
+      for (const name of STAND_INS) delete config?.compilerOptions?.paths?.[name]
+    }
+  }
+  nuxt.hook('prepare:types', options => drop(options.tsConfig, options.nodeTsConfig, options.sharedTsConfig, options.serverTsConfig))
+  nuxt.hook('nitro:init', (nitro) => {
+    nitro.hooks.hook('types:extend', types => drop(types.tsConfig))
+  })
 }
 
 /**
@@ -70,6 +94,7 @@ function alias(nuxt: Nuxt, name: string, target: string): void {
  * who may open them through `backend-access`.
  */
 export function registerConvexAuth(resolver: Resolver, nuxt: Nuxt): void {
+  typeStandInsAsBase(nuxt)
   alias(nuxt, 'nuxt-convex-module/better-auth/client', resolver.resolve('./runtime/vue/convex-auth/better-auth-client'))
   alias(nuxt, 'nuxt-convex-module/better-auth/server', resolver.resolve('./runtime/server/convex-auth/better-auth-server'))
   alias(nuxt, '#convex/auth-client', resolver.resolve('./runtime/vue/convex-auth/auth-client'))

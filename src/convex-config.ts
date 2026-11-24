@@ -237,14 +237,21 @@ function scaffoldMounts(magicast: Magicast): ExpectedMount[] {
   const program = magicast.parseModule(code).$ast as unknown as Node
   const sources = importSources(program)
   const mounts: ExpectedMount[] = []
+  // Every mount before this one, a chosen one included: a mount the fix adds goes after the last of them the app has.
+  const seen: string[] = []
   for (const statement of program.body as Node[]) {
     const mount = mountOf(statement)
     const from = mount && sources.get(mount.local)
-    if (!mount || !from || CHOSEN_MOUNTS.has(from)) continue
+    if (!mount || !from) continue
+    if (CHOSEN_MOUNTS.has(from)) {
+      seen.push(from)
+      continue
+    }
     const argument = ((statement.expression as Node).arguments as Node[])[0]!
     const start = statement.start as number
     const range = { start: (argument.start as number) - start, end: (argument.end as number) - start }
-    mounts.push({ from, local: mount.local, statement: textOf(code, statement), argument: range, earlier: mounts.map(entry => entry.from) })
+    mounts.push({ from, local: mount.local, statement: textOf(code, statement), argument: range, earlier: [...seen] })
+    seen.push(from)
   }
   return mounts
 }
