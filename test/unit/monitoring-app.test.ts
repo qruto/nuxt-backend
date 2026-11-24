@@ -22,7 +22,7 @@ vi.mock('nitropack/runtime', () => ({
 }))
 const auth = vi.hoisted(() => ({ fetchAuthQuery: vi.fn(), fetchAuthMutation: vi.fn(), fetchAuthAction: vi.fn(), preloadAuthQuery: vi.fn() }))
 vi.mock('nuxt-convex-module/better-auth/server', () => ({
-  convexAuth: () => ({ getToken: async () => runtime.token, isAuthenticated: async () => Boolean(runtime.token), ...auth }),
+  convexBetterAuthNuxt: () => ({ getToken: async () => runtime.token, isAuthenticated: async () => Boolean(runtime.token), ...auth }),
 }))
 const fetchers = vi.hoisted(() => ({ fetchQuery: vi.fn(), fetchMutation: vi.fn(), fetchAction: vi.fn() }))
 vi.mock('nuxt-convex-module/server', () => fetchers)

@@ -25,11 +25,11 @@
     "@vercel/speed-insights": "^2.0.0",
     "@vueuse/core": "^15.0.0",
     "ai": "^7.0.159",
-    "convex": "^1.49.0",
+    "convex": "^1.51.0",
     "docus": "^5.15.0",
     "nuxt": "catalog:",
     "nuxt-backend": "workspace:*",
-    "nuxt-convex-module": "^0.14.3",
+    "nuxt-convex-module": "^0.15.2",
     "vue": "^3.5.42",
     "vue-router": "^5.3.1",
     "zod": "^4.6.7"

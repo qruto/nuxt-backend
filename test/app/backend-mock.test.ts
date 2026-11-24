@@ -6,7 +6,7 @@ import { useNuxtApp, useRuntimeConfig } from '#imports'
 import axe from 'axe-core'
 import { ConvexError } from 'convex/values'
 import { makeFunctionReference } from 'convex/server'
-import { Authenticated, ConvexAuthStateKey, provideConvexAuth, Unauthenticated, usePaginatedQuery, useQuery } from 'nuxt-convex-module/client'
+import { Authenticated, ConvexAuthStateKey, provideConvexWithAuth, Unauthenticated, usePaginatedQuery, useQuery } from 'nuxt-convex-module/client'
 import { backendMockProvides, createBackendMock, resetBackendMock } from '../../src/runtime/test-utils'
 import { useAuth as usePublicAuth } from '../../src/runtime/vue/composables/use-auth'
 import { useAuthSession as useAuth } from '../../src/runtime/vue/utils/auth-session'
@@ -417,7 +417,7 @@ describe('the base module over the mock', () => {
   })
 
   it('keeps every export of its entry, so an app\'s own explicit imports still work', () => {
-    expect(provideConvexAuth).toBeTypeOf('function')
+    expect(provideConvexWithAuth).toBeTypeOf('function')
   })
 
   it('answers an app\'s own useQuery, auto-imported or imported, from the mock', async () => {
