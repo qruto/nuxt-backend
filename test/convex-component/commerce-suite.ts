@@ -72,6 +72,8 @@ export interface ProviderFixture {
   portalUrl: string
   /** The call a cancellation at the period's end makes, a take-back, an immediate one, and a pause. */
   lifecycle: { cancel: (call: FakeCall) => boolean, uncancel: (call: FakeCall) => boolean, cancelNow: (call: FakeCall) => boolean, pause: (call: FakeCall) => boolean }
+  /** Whether a plan change for the next period waits there (else the provider makes it at once). */
+  schedulesChanges: boolean
   /** Whether the provider answers an invoice and an admin's refund through its API. */
   invoices: boolean
   refunds: boolean
@@ -113,7 +115,12 @@ export function commerceSuite(fixture: ProviderFixture, built: { billing: Billin
   }
   const credits = async (caller: Caller) => ((await caller.query(fn<'query'>('billing:getCredits'), {})) as { meters: Array<{ name?: string, balance: number }> } | null)?.meters.find(meter => meter.name === 'credits')?.balance
   const features = (caller: Caller) => caller.query(fn<'query'>('billing:getFeatures'), {}) as Promise<{ plans: string[], benefits: Array<{ metadata?: Record<string, unknown> }>, quotas: Record<string, { limit: number | 'unlimited' }> } | null>
-  const current = (caller: Caller) => caller.query(fn<'query'>('billing:getCurrentSubscription'), {}) as Promise<{ id: string, productId: string, status: string, cancelAtPeriodEnd: boolean } | null>
+  const current = (caller: Caller) => caller.query(fn<'query'>('billing:getCurrentSubscription'), {}) as Promise<{ id: string, productId: string, status: string, cancelAtPeriodEnd: boolean, pendingChange: { productId: string, appliesAt: string } | null } | null>
+  /** Run what the deliveries scheduled to run now (the credit cycle), never what waits for a later month. */
+  const runScheduledNow = async () => {
+    vi.advanceTimersByTime(1)
+    await t.finishInProgressScheduledFunctions()
+  }
   // `null` for a call that went through; a failure that is no backend refusal fails the test.
   const refusal = (promise: Promise<unknown>) => promise.then(() => null, (error: unknown) => {
     const refused = getBackendError(error)
@@ -220,20 +227,40 @@ export function commerceSuite(fixture: ProviderFixture, built: { billing: Billin
       const entityId = ada.workspaceId!
       const subscription = events.yearly(entityId)
       api.subscriptions[String(subscription.id ?? subscription.subscription_id)] = subscription
+      vi.useFakeTimers({ toFake: ['setTimeout'] })
       // The order first: no subscription is synced yet, so no month of the plan's is granted on its word.
       // (An order that names only its subscription fails, for the provider to send it again.)
       await deliver(events.charge(subscription, 'order_year_1')).catch(() => null)
       expect(await credits(ada)).toBe(30)
       expect((await deliver(events.created(subscription))).status).toBe(200)
       expect((await deliver(events.charge(subscription, 'order_year_1'))).status).toBe(200)
-      // The cycle the subscription started: the plan's month, the free one lapsing; once, however often it runs.
-      await t.action(internalFn('billing:startFreePlan'), { entityId })
+      // The cycle the deliveries started on their own: the plan's month, the free one lapsing; once, however often it runs.
+      await runScheduledNow()
       expect(await credits(ada)).toBe(400)
-      await t.action(internalFn('billing:startFreePlan'), { entityId })
+      expect((await deliver(events.updated(subscription))).status).toBe(200)
+      await runScheduledNow()
       expect(await credits(ada)).toBe(400)
+      vi.useRealTimers()
       // A chargeback on the year takes back the month its order paid for.
       expect((await deliver(events.dispute('order_year_1'))).status).toBe(200)
       expect(await credits(ada)).toBe(0)
+    })
+
+    test(fixture.schedulesChanges ? 'keeps a plan change for the next period through later deliveries' : 'makes a plan change for the next period at once, as the provider does', async () => {
+      const ada = await freeAda()
+      const subscription = events.yearly(ada.workspaceId!)
+      api.subscriptions[String(subscription.id ?? subscription.subscription_id)] = subscription
+      expect((await deliver(events.created(subscription))).status).toBe(200)
+      // From the yearly price to the monthly one: at the paid year's end.
+      await ada.action(fn<'action'>('billing:updateSubscription'), { productId: fixture.ids.pro })
+      const changed = await current(ada)
+      if (!fixture.schedulesChanges) {
+        expect(changed?.pendingChange).toBeNull()
+        return
+      }
+      expect(changed?.pendingChange).toMatchObject({ productId: fixture.ids.pro })
+      expect((await deliver(events.updated(subscription))).status).toBe(200)
+      expect((await current(ada))?.pendingChange).toMatchObject({ productId: fixture.ids.pro })
     })
 
     test('refuses a pause with a resume date, which no adapter can schedule', async () => {

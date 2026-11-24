@@ -56,7 +56,8 @@ commerceSuite({
     const held = id ? state.subscriptions[id] : undefined
     if (!held) return undefined
     if (call.method === 'PATCH') Object.assign(held, call.body)
-    if (action === 'change-plan') held.product_id = call.body.product_id
+    // A change for the next billing date waits for it.
+    if (action === 'change-plan' && call.body.effective_at !== 'next_billing_date') held.product_id = call.body.product_id
     return json(held)
   }),
   delivery: async ({ type, object }: FakeEvent, id: string) => {
@@ -95,6 +96,7 @@ commerceSuite({
     pause: call => call.method === 'PATCH' && call.body.status === 'paused',
     cancelNow: call => call.method === 'PATCH' && call.body.status === 'cancelled',
   },
+  schedulesChanges: true,
   invoices: true,
   refunds: true,
 }, fixture)

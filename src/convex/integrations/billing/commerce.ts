@@ -325,9 +325,10 @@ interface LifecycleUpdate {
  * An arm the adapters have no call for (a scheduled change's removal, a
  * discount, a pause that resumes on a date) is refused as Polar's. A plan
  * change for the next period answers the change it scheduled, which the
- * read back does not show.
+ * read back does not show, at the period's end (the synced row's, where the
+ * read back has none).
  */
-export async function applyCommerceUpdate(mode: CommerceMode, subscriptionId: string, update: LifecycleUpdate, operation: string) {
+export async function applyCommerceUpdate(mode: CommerceMode, subscriptionId: string, update: LifecycleUpdate, operation: string, syncedPeriodEnd?: unknown) {
   const client = mode.client()
   await commerceCall(operation, async () => {
     if ('pendingUpdate' in update) throw polarOnly(mode.name, 'taking back a scheduled plan change')
@@ -347,7 +348,10 @@ export async function applyCommerceUpdate(mode: CommerceMode, subscriptionId: st
   // Read back for the caller; the provider's webhook brings the same into the synced table.
   const read = await commerceCall(operation, () => client.getSubscription(subscriptionId))
   const periodEnd = read.currentPeriodEnd === null ? null : new Date(read.currentPeriodEnd)
-  const scheduled = update.productId && update.prorationBehavior === 'next_period' && read.productId !== update.productId && periodEnd
+  // A read back without its period's end schedules the change at the end the synced row knows.
+  const synced = typeof syncedPeriodEnd === 'string' || syncedPeriodEnd instanceof Date ? new Date(syncedPeriodEnd) : null
+  const appliesAt = periodEnd ?? (synced && Number.isFinite(synced.getTime()) ? synced : null)
+  const scheduled = update.productId && update.prorationBehavior === 'next_period' && read.productId !== update.productId && appliesAt
   return {
     id: read.id,
     productId: read.productId,
@@ -357,6 +361,6 @@ export async function applyCommerceUpdate(mode: CommerceMode, subscriptionId: st
     endsAt: read.status === 'ended' ? now : read.cancelAtPeriodEnd ? periodEnd : null,
     createdAt: now,
     modifiedAt: now,
-    ...(scheduled ? { pendingUpdate: { productId: update.productId, appliesAt: periodEnd, modifiedAt: now } } : {}),
+    ...(scheduled ? { pendingUpdate: { productId: update.productId, appliesAt, modifiedAt: now } } : {}),
   }
 }

@@ -271,7 +271,7 @@ export function createSubscriptions(
     const payload = typeof update === 'function' ? update(subscription) : update
     // On an adapter provider the same change is the adapter's call, and the response its read back.
     const updated = commerce
-      ? await applyCommerceUpdate(commerce, subscription.id, payload as Parameters<typeof applyCommerceUpdate>[2], operation) as unknown as ProviderSubscription
+      ? await applyCommerceUpdate(commerce, subscription.id, payload as Parameters<typeof applyCommerceUpdate>[2], operation, subscription.currentPeriodEnd) as unknown as ProviderSubscription
       : unwrapProvider(await subscriptionsUpdate(provider.polar, { id: subscription.id, subscriptionUpdate: payload }), operation)
     // The response is the subscription as the change left it: a scheduled
     // plan change or a resume date reads back before its webhook lands.

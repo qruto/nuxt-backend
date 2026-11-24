@@ -91,6 +91,7 @@ commerceSuite({
     pause: call => call.path.endsWith('/pause'),
     cancelNow: call => call.path.endsWith('/cancel') && call.body.mode === 'immediate',
   },
+  schedulesChanges: false,
   invoices: false,
   refunds: false,
 }, fixture)

@@ -127,7 +127,7 @@ export function createCommerceEvents(
   { recordTrial }: Pick<BillingCustomers, 'recordTrial'>,
   freePlan: Pick<BillingFreePlan, 'restartAfterRevoke'>,
 ) {
-  const { provider, providerLib, components, webhookLog, webhookSecret, recordEvent, entityDeleting } = context
+  const { provider, providerLib, components, webhookLog, webhookSecret, recordEvent, entityDeleting, cache } = context
   const commerce = context.commerce!
   const { refs, name, config: { definition } } = commerce
   /** The merchant of record, as the log names it. */
@@ -193,6 +193,20 @@ export function createCommerceEvents(
     }
   }
 
+  /**
+   * Keep a plan change scheduled for the next period past a delivery of its
+   * subscription, which no adapter's delivery names: recorded again at the
+   * row's new time while it is still to come and the row still on the old
+   * product, dropped once the row moved to it.
+   */
+  const keepScheduledChange = async (ctx: RunWriteCtx, entityId: string, row: SubscriptionRow): Promise<void> => {
+    const [change] = await ctx.runQuery(cache.subscriptionChanges, { subscriptionIds: [row.id] })
+    const pending = change?.pendingChange
+    if (!pending) return
+    const kept = pending.appliesAt > Date.now() && pending.productId !== row.productId && !row.endedAt
+    await ctx.runMutation(cache.recordSubscriptionChange, { subscriptionId: row.id, userId: entityId, pendingChange: kept ? pending : null, resumesAt: change.resumesAt, modifiedAt: Date.parse(row.modifiedAt ?? '') || Date.now() })
+  }
+
   const onSubscription = async (ctx: RunWriteCtx, subscription: NeutralSubscription): Promise<void> => {
     const entityId = await entityOf(ctx, { ...subscription, subscriptionId: subscription.id })
     if (!entityId) {
@@ -204,6 +218,7 @@ export function createCommerceEvents(
     const existing = await ctx.runQuery(getSubscription, { id: subscription.id })
     const row = subscriptionRow(subscription, entityId, existing)
     await ctx.runMutation(providerLib.updateSubscription, { subscription: row as unknown as Record<string, unknown> })
+    await keepScheduledChange(ctx, entityId, row)
     if (row.trialStart && !existing?.trialStart) await recordTrial(ctx, entityId)
     await refreshEntitlements(ctx, entityId)
     // The month's grant goes by its key, so this and the order's start grant it once.
