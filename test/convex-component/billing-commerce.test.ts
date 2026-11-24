@@ -399,6 +399,16 @@ describe('the credit grant ledger of adapter mode', () => {
     expect(await balance('w5')).toBe(0)
   })
 
+  test('leaves another grant\'s reservation alone when it revokes a grant already spent', async () => {
+    await grant('w7', 'pA', 50, 'pack')
+    await spend('w7', 50, 'w7-s1')
+    await grant('w7', 'pB', 50, 'pack')
+    expect((await t.mutation(components.backend.billing.debit, { userId: 'w7', meterId: 'credits', amount: 50, externalId: 'w7-held' })).ok).toBe(true)
+    expect(await t.mutation(ledger.revokeGrant, { userId: 'w7', externalId: 'pA' })).toBe(0)
+    await t.mutation(components.backend.billing.release, { userId: 'w7', externalId: 'w7-held' })
+    expect(await balance('w7')).toBe(50)
+  })
+
   test('keeps a plan grant that rolls over, and forgets the entity\'s records on erasure', async () => {
     await grant('w3', 'm1', 100, 'plan', true)
     await grant('w3', 'm2', 100, 'plan', true)

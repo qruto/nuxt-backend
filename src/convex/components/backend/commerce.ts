@@ -255,7 +255,10 @@ export const revokeGrant = mutation({
     const index = row ? row.meters.findIndex(meter => meter.meterId === grant.meterId) : -1
     const meter = index === -1 ? undefined : row!.meters[index]!
     const held = activePendings(row?.pendingSpends, Date.now()).filter(entry => entry.meterId === grant.meterId).reduce((sum, entry) => sum + entry.amount, 0)
-    const taken = meter ? Math.min(grant.amount, Math.max(0, meter.balance + held)) : 0
+    // Of what open reservations hold, only as much as this grant still has unspent: settled spends since it landed came out of it first.
+    const settledSince = Math.max(0, (meter?.consumedUnits ?? 0) - held - grant.consumedAtGrant)
+    const heldOfIt = Math.min(held, Math.max(0, grant.amount - settledSince))
+    const taken = meter ? Math.min(grant.amount, Math.max(0, meter.balance + heldOfIt)) : 0
     await ctx.db.patch('billingCreditGrants', grant._id, { closed: taken })
     if (meter && taken > 0) {
       const meters = row!.meters.map((entry, at) => at === index ? { ...entry, balance: entry.balance - taken, creditedUnits: entry.creditedUnits - taken } : entry)
