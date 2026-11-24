@@ -116,6 +116,7 @@ const slotFlow: UseLoginFlowReturn = {
   recover: byPerson(flow.recover),
   redeemInviteCode: byPerson(flow.redeemInviteCode),
   submitAge: byPerson(flow.submitAge),
+  verifyTwoFactor: byPerson(flow.verifyTwoFactor),
   bind: loginBindings({
     ...flow,
     signInWithPasskey,
@@ -207,6 +208,13 @@ provideAuthFormView({
       v-bind="slotFlow"
     >
       <AuthFormAge :flow="slotFlow" />
+    </slot>
+    <slot
+      v-else-if="flow.step.value === 'two-factor'"
+      name="two-factor"
+      v-bind="slotFlow"
+    >
+      <AuthFormTwoFactor :flow="slotFlow" />
     </slot>
     <slot
       v-else-if="flow.step.value === 'undeliverable'"

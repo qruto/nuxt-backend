@@ -64,6 +64,9 @@ const SESSION_SIGN_IN_ROUTES: Readonly<Record<string, SignInMethod>> = {
   '/sign-in/email-otp': 'email-otp',
   '/email-otp/verify-email': 'email-otp',
   '/passkey/verify-authentication': 'passkey',
+  // The authenticator app's step after a code: the session the code began.
+  '/two-factor/verify-totp': 'email-otp',
+  '/two-factor/verify-backup-code': 'email-otp',
 }
 
 /**

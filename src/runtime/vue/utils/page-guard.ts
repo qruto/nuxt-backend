@@ -7,7 +7,7 @@ import { loadAuthClient } from 'nuxt-convex-module/better-auth/client'
 import { ConvexAuthStateKey, useConvex } from 'nuxt-convex-module/client'
 import { makeFunctionReference } from 'convex/server'
 import { grantsFeature } from '../../../convex/catalog.js'
-import type { ConvexAuthEvent } from 'nuxt-convex-module/better-auth/server'
+import type { ConvexBetterAuthEvent } from 'nuxt-convex-module/better-auth/server'
 import type { AccessDeniedData, PageAccessRules } from './access-rules'
 import { accessDenial, accessDeniedError, type AccessSubject, hiddenPageError, isHidden } from './page-access'
 import { appRole } from './roles'
@@ -25,7 +25,7 @@ export interface PageGuardContext {
   /** The same-origin auth route (`backend.authRoute`). */
   authRoute: string
   /** The request, on a server render. */
-  event?: ConvexAuthEvent
+  event?: ConvexBetterAuthEvent
   /** `useRequestFetch()`: on the server, a fetch that forwards the request's cookies. */
   fetch: (url: string) => Promise<unknown>
 }
@@ -79,8 +79,8 @@ function granted(features: { benefits?: Array<{ metadata?: Record<string, unknow
  */
 export async function serverSubject(context: PageGuardContext): Promise<AccessSubject | null> {
   if (!context.event) return null
-  const { convexAuth } = await import('nuxt-convex-module/better-auth/server')
-  const auth = convexAuth(context.event)
+  const { convexBetterAuthNuxt } = await import('nuxt-convex-module/better-auth/server')
+  const auth = convexBetterAuthNuxt(context.event)
   const token = await auth.getToken()
   if (!token) return null
   const claims = tokenClaims(token)

@@ -5,6 +5,7 @@
 // composable's actions.
 
 import type { UseAccountReturn } from './composables/use-account'
+import type { UseTwoFactorReturn } from './composables/use-two-factor'
 import type { UseAppShellReturn } from './composables/use-app-shell'
 import type { UseAdminReturn } from './composables/use-admin'
 import type { AuditEntry } from './composables/use-audit-log'
@@ -40,7 +41,7 @@ export type CancelFlowOfferProps = CancelFlowPartProps
 export type CancelFlowConfirmProps = CancelFlowPartProps
 export type CancelFlowEndProps = CancelFlowPartProps
 
-/** The sign-in parts of `<AuthForm>`: `AuthFormHeader`, `AuthFormChoose`, `AuthFormPasskey`, `AuthFormEmail`, `AuthFormCode`, `AuthFormRecover`, `AuthFormWaitlisted`, `AuthFormInviteCode`, `AuthFormAge`, `AuthFormUndeliverable`, `AuthFormPasskeyOffer`, `AuthFormAgreement`, `AuthFormError`. */
+/** The sign-in parts of `<AuthForm>`: `AuthFormHeader`, `AuthFormChoose`, `AuthFormPasskey`, `AuthFormEmail`, `AuthFormCode`, `AuthFormRecover`, `AuthFormWaitlisted`, `AuthFormInviteCode`, `AuthFormAge`, `AuthFormTwoFactor`, `AuthFormUndeliverable`, `AuthFormPasskeyOffer`, `AuthFormAgreement`, `AuthFormError`. */
 export interface AuthFormPartProps {
   /** The login flow `<AuthForm>` runs: `useLoginFlow()`, with its `bind`. */
   flow: UseLoginFlowReturn
@@ -54,6 +55,7 @@ export type AuthFormRecoverProps = AuthFormPartProps
 export type AuthFormWaitlistedProps = AuthFormPartProps
 export type AuthFormInviteCodeProps = AuthFormPartProps
 export type AuthFormAgeProps = AuthFormPartProps
+export type AuthFormTwoFactorProps = AuthFormPartProps
 export type AuthFormUndeliverableProps = AuthFormPartProps
 export type AuthFormPasskeyOfferProps = AuthFormPartProps
 export type AuthFormAgreementProps = AuthFormPartProps
@@ -141,6 +143,11 @@ export interface ProfilePreferencesSectionProps {
 export interface SecurityPasskeysProps {
   /** `usePasskeys()`. */
   passkeys: UsePasskeysReturn
+}
+/** `SecurityTwoFactor`. */
+export interface SecurityTwoFactorProps {
+  /** `useTwoFactor()`. */
+  twoFactor: UseTwoFactorReturn
 }
 /** `SecurityAlerts`. */
 export interface SecurityAlertsProps {

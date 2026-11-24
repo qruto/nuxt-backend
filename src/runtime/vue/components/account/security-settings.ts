@@ -2,14 +2,17 @@ import { inject, provide, type ComputedRef, type InjectionKey, type Ref } from '
 import type { UseLabelsReturn } from '../../composables/use-labels'
 import type { Passkey, UsePasskeysReturn } from '../../composables/use-passkeys'
 import type { SessionInfo, UseSessionsReturn } from '../../composables/use-sessions'
+import type { UseTwoFactorReturn } from '../../composables/use-two-factor'
 import type { SettingsMessage } from '../../utils/settings-message'
 import type { SignInAlertsState } from './security-alerts'
 
-export type SecuritySection = 'passkeys' | 'sessions' | 'alerts' | 'danger'
+export type SecuritySection = 'passkeys' | 'twoFactor' | 'sessions' | 'alerts' | 'danger'
 
 export interface SecuritySlotContext {
   user: Record<string, unknown> | null | undefined
   passkeys: UsePasskeysReturn
+  /** The authenticator app after a sign-in code. */
+  twoFactor: UseTwoFactorReturn
   sessions: UseSessionsReturn
   /** The account's latest sign-ins from a new device. */
   alerts: SignInAlertsState
@@ -27,6 +30,8 @@ export interface SecuritySettingsSlots {
   passkeys: (context: SecuritySlotContext) => unknown
   /** One passkey row, with the passkey. */
   passkey: (context: SecuritySlotContext & { entry: Passkey }) => unknown
+  /** The authenticator app: turning it on with its first code, the backup codes, turning it off. */
+  twoFactor: (context: SecuritySlotContext) => unknown
   /** The whole sessions section. */
   sessions: (context: SecuritySlotContext) => unknown
   /** One session row, with the session. */
@@ -60,6 +65,18 @@ export interface SecurityView {
   /** The recovery code the last passkey-only switch answered, shown until the page goes. */
   recoveryCode: Ref<string | null>
   startRename: (row: Passkey) => void
+  /** Begin turning the authenticator app on, behind a recent sign-in: the link and the backup codes land in `twoFactor.pendingSetup`. */
+  startTwoFactor: () => Promise<void>
+  /** The first code the app shows, typed to confirm the setup. */
+  twoFactorCode: Ref<string>
+  /** Check `twoFactorCode` and turn the step on. */
+  confirmTwoFactor: () => Promise<void>
+  /** Turn the authenticator app off, behind a recent sign-in. */
+  disableTwoFactor: () => Promise<void>
+  /** New backup codes, behind a recent sign-in: they land in `backupCodes`. */
+  regenerateBackupCodes: () => Promise<void>
+  /** The backup codes the last setup or regeneration answered, shown until the page goes. */
+  backupCodes: Ref<string[] | null>
   revokeSession: (row: SessionInfo) => Promise<void>
   revokeOthers: () => Promise<void>
   /** A passkey's name as the rows show it. */

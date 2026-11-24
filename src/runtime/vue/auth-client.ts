@@ -5,6 +5,7 @@ import { adminClient, type AdminClientPlugin } from './admin-client'
 import { organizationClient, type OrganizationClientPlugin } from './organization-client'
 import { passkeyClient } from './passkey-client'
 import { protectionClient } from './protection/state'
+import { twoFactorClient, type TwoFactorClientPlugin } from './two-factor-client'
 
 /**
  * The plugins below, as the client's type reads them. Named rather than
@@ -13,9 +14,9 @@ import { protectionClient } from './protection/state'
  * are named with the options a call without any infers.
  */
 type BackendAuthPlugin = ReturnType<typeof convexClient> | ReturnType<typeof emailOTPClient> | ReturnType<typeof passkeyClient>
-  | AdminClientPlugin | OrganizationClientPlugin | ReturnType<typeof protectionClient>
+  | AdminClientPlugin | OrganizationClientPlugin | ReturnType<typeof protectionClient> | TwoFactorClientPlugin
 
-const plugins = [convexClient(), emailOTPClient(), passkeyClient(), adminClient(), organizationClient(), protectionClient()]
+const plugins = [convexClient(), emailOTPClient(), passkeyClient(), adminClient(), organizationClient(), protectionClient(), twoFactorClient()]
 
 /**
  * `BackendAuthPlugin` while it names exactly the plugins in the list, else
@@ -27,7 +28,7 @@ type Named = [(typeof plugins)[number]] extends [BackendAuthPlugin] ? [BackendAu
 
 /**
  * The backend's Better Auth client — the client-side counterpart of the
- * server setup this package ships: passwordless sign-in (OTP + passkeys),
+ * server setup this package ships: passwordless sign-in (OTP + passkeys, an authenticator app after a code),
  * admin (roles/ban/impersonation), and organizations (workspaces). Wired into
  * `nuxt-convex-module` as its `betterAuth.authClient`, so the package's auth session
  * is typed with exactly these plugins.

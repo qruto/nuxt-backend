@@ -6,6 +6,7 @@ import { signInMethod, useLastSignInState } from './last-sign-in'
 import { markLocalSignOut, sessionKey } from './local-sign-out'
 import { useActionState } from './action-state'
 import type { BackendError } from './backend-error'
+import { backendError } from '../../../convex/errors.js'
 import { appRole, hasAnyRole } from './roles'
 import { credentialIdOf, signalUnknownCredential, signalUserDetails } from './passkey-signals'
 
@@ -106,6 +107,9 @@ export interface AuthSession extends UseBetterAuthReturn {
    * (sent as `Accept-Language`; the browser's own without it): every email
    * it gets is written in it. `inviteCode` hands over the invite code or
    * access link token that admits a new address while the app is closed.
+   * An account with an authenticator app opens no session yet: it rejects
+   * with `forbidden`, reason `two_factor_required`, and
+   * {@link AuthSession.verifyTwoFactor} finishes the sign-in.
    */
   signInWithOtp: (args: { email: string, otp: string, name?: string, locale?: string, inviteCode?: string, waitlistJoin?: string, age?: number }) => Promise<BetterAuthUser>
   /**
@@ -119,6 +123,16 @@ export interface AuthSession extends UseBetterAuthReturn {
     (options?: SignInWithPasskeyOptions & { autoFill?: false }): Promise<BetterAuthUser>
     (options: SignInWithPasskeyOptions): Promise<BetterAuthUser | null>
   }
+  /**
+   * The second step of a sign-in code for an account with an authenticator
+   * app: the app's six-digit `code`, or one of the account's backup codes
+   * with `backup: true`. `trustDevice` skips the step on this browser for
+   * thirty days. Resolves with the signed-in user; rejects on failure
+   * (`invalid_input` on `twoFactorCode`, reason `backup_code` for a backup
+   * code, `two_factor_expired` once the ten minutes after the sign-in code
+   * passed, which a new sign-in code starts again).
+   */
+  verifyTwoFactor: (args: { code: string, backup?: boolean, trustDevice?: boolean }) => Promise<BetterAuthUser>
   /** Save a passkey on this device for the signed-in user. Resolves with the passkey; rejects on failure. */
   registerPasskey: (options?: RegisterPasskeyOptions) => Promise<Passkey>
   /**
@@ -190,6 +204,12 @@ export interface AuthSession extends UseBetterAuthReturn {
 /** The account a sign-in answer carries. */
 function signedInUser(data: unknown): BetterAuthUser {
   return (data as { user: BetterAuthUser }).user
+}
+
+/** A code's answer for an account with an authenticator app: no session yet, the app's code next. */
+function codeSignedIn(data: unknown): BetterAuthUser {
+  if ((data as { twoFactorRedirect?: unknown } | null)?.twoFactorRedirect === true) throw backendError('forbidden', { reason: 'two_factor_required' })
+  return signedInUser(data)
 }
 
 /**
@@ -319,7 +339,11 @@ export function useAuthSession(): AuthSession {
     sendOtp: (email, type = 'sign-in', { locale } = {}) => run(async () => {
       unwrapAuth(await client.emailOtp.sendVerificationOtp({ email, type }, ...inLanguage(locale)))
     }),
-    signInWithOtp: ({ locale, ...args }) => run(async () => signedInWith('email-otp')(signedInUser(unwrapAuth(await client.signIn.emailOtp(args, ...inLanguage(locale)))))),
+    signInWithOtp: ({ locale, ...args }) => run(async () => signedInWith('email-otp')(codeSignedIn(unwrapAuth(await client.signIn.emailOtp(args, ...inLanguage(locale)))))),
+    verifyTwoFactor: ({ code, backup = false, trustDevice = false }) => run(async () => {
+      const answer = backup ? await client.twoFactor.verifyBackupCode({ code, trustDevice }) : await client.twoFactor.verifyTotp({ code, trustDevice })
+      return signedInWith('email-otp')(signedInUser(unwrapAuth(answer)))
+    }),
     signInWithPasskey,
     registerPasskey: options => run(async () => unwrapAuth<Passkey>(await client.passkey.addPasskey({ ...options }))),
     // The package's own routes (passkey-only.ts on the server), through the client's fetch.

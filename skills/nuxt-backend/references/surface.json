@@ -395,6 +395,18 @@
         "WithdrawalReceiptEmailData"
       ]
     },
+    "nuxt-backend/presence": {
+      "values": [
+        "setupPresence"
+      ],
+      "types": [
+        "PresenceComponents",
+        "PresenceRoomCheck",
+        "PresenceSetup",
+        "RoomMember",
+        "SetupPresenceOptions"
+      ]
+    },
     "nuxt-backend/rate-limit": {
       "values": [
         "DAY",
@@ -971,11 +983,13 @@
       "useReportAppeal",
       "useReportForm",
       "useReturnPath",
+      "useRoomPresence",
       "useSandboxInbox",
       "useSearch",
       "useSessions",
       "useShareLink",
       "useSignInAlerts",
+      "useTwoFactor",
       "useUploadField",
       "useUsage",
       "useWaitlist",
@@ -1049,6 +1063,7 @@
       "AuthFormPasskey",
       "AuthFormPasskeyOffer",
       "AuthFormRecover",
+      "AuthFormTwoFactor",
       "AuthFormUndeliverable",
       "AuthFormWaitlisted",
       "BillingHistoryOrder",
@@ -1079,6 +1094,7 @@
       "SecurityAlerts",
       "SecurityPasskeys",
       "SecuritySessions",
+      "SecurityTwoFactor",
       "UsageHistoryEvent",
       "WaitlistCode",
       "WaitlistJoin",

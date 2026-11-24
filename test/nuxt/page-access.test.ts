@@ -32,7 +32,7 @@ const getToken = vi.fn(async (): Promise<string | null> => null)
 // The plan's features, as the deployment answers `billing:getFeatures` for the person.
 const features = ref<{ benefits: Array<{ metadata?: Record<string, unknown> }> } | null>({ benefits: [] })
 const fetchAuthQuery = vi.fn(async () => features.value)
-vi.mock('nuxt-convex-module/better-auth/server', () => ({ convexAuth: () => ({ getToken, fetchAuthQuery }) }))
+vi.mock('nuxt-convex-module/better-auth/server', () => ({ convexBetterAuthNuxt: () => ({ getToken, fetchAuthQuery }) }))
 const convexQuery = vi.fn(async () => features.value)
 vi.mock('nuxt-convex-module/client', async original => ({
   ...await original<Record<string, unknown>>(),

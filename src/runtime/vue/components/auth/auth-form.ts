@@ -48,6 +48,8 @@ export interface AuthFormSlots {
   'invite-code': (flow: UseLoginFlowReturn) => unknown
   /** A new address, when the app sets a minimum age: the question "How old are you?", asked once. */
   'age': (flow: UseLoginFlowReturn) => unknown
+  /** An account with an authenticator app, after its sign-in code: the app's code or a backup code, and whether to trust this device. */
+  'two-factor': (flow: UseLoginFlowReturn) => unknown
   /** An address the email provider stopped delivering to: no code was sent, the same words for new and existing accounts, and a way back to try another address. */
   'undeliverable': (flow: UseLoginFlowReturn) => unknown
   /** Why the last step failed; rendered only while `error` is set. */

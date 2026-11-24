@@ -1,5 +1,5 @@
 import { defineEventHandler, getRequestHeader, setResponseStatus, useRuntimeConfig, type RequestEvent } from 'nuxt/server'
-import { convexAuth } from 'nuxt-convex-module/better-auth/server'
+import { convexBetterAuthNuxt } from 'nuxt-convex-module/better-auth/server'
 import { DEFAULT_HEALTH_PATH } from '../../../convex/constants.js'
 import { readSiteUrl } from '../site-url'
 
@@ -52,7 +52,7 @@ function appReports(): boolean {
 async function sessionToken(event: RequestEvent): Promise<string | undefined> {
   if (!getRequestHeader(event, 'cookie')) return undefined
   try {
-    return await convexAuth(event).getToken()
+    return await convexBetterAuthNuxt(event).getToken()
   }
   catch {
     return undefined

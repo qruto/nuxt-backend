@@ -64,7 +64,7 @@ export const TASK_SKILLS = [
     covers: 'sign-in, sessions, passkeys, roles, user-scoped functions, workspaces and invitations, invite codes and the waitlist, the admin console with impersonation, the activity trail, consents, and account export and deletion',
     docs: ['/docs/build/auth', '/docs/build/growth/launch'],
     entrypoints: ['nuxt-backend/auth', 'nuxt-backend/auth.config', 'nuxt-backend/access', 'nuxt-backend/audit', 'nuxt-backend/account', 'nuxt-backend/admin'],
-    composables: ['useAuth', 'useLoginFlow', 'useReturnPath', 'useEmailChange', 'useWorkspace', 'usePasskeys', 'useSessions', 'useSignInAlerts', 'useHumanCheck', 'useReauthentication', 'useAccessPhase', 'useInvite', 'useMemberTicket', 'useAccessAdmin', 'useWaitlist', 'useWaitlistAdmin', 'useAuditLog', 'useAccount', 'useConsents', 'useAdmin'],
+    composables: ['useAuth', 'useLoginFlow', 'useReturnPath', 'useEmailChange', 'useWorkspace', 'usePasskeys', 'useTwoFactor', 'useSessions', 'useSignInAlerts', 'useHumanCheck', 'useReauthentication', 'useAccessPhase', 'useInvite', 'useMemberTicket', 'useAccessAdmin', 'useWaitlist', 'useWaitlistAdmin', 'useAuditLog', 'useAccount', 'useConsents', 'useAdmin'],
     components: ['AuthForm', 'WaitlistForm', 'ConsentPrompt', 'AccessDenied', 'AcceptInvitation', 'WorkspaceSettings', 'ProfileSettings', 'SecuritySettings', 'ReauthenticateDialog', 'AuditLog', 'AccountData', 'AdminUsers', 'AdminWorkspaces'],
     server: ['backendAuth'],
     commands: ['access admit'],
@@ -113,10 +113,10 @@ export const TASK_SKILLS = [
   },
   {
     name: 'nuxt-backend-data',
-    covers: 'the function tiers, queries and mutations, errors, search, workflows, uploads, share links, retention, tokens and the Convex components for counts, queues, cached actions, crons and migrations',
+    covers: 'the function tiers, queries and mutations, errors, search, workflows, uploads, share links, presence, retention, tokens and the Convex components for counts, queues, cached actions, crons and migrations',
     docs: ['/docs/build/data'],
-    entrypoints: ['nuxt-backend/functions', 'nuxt-backend/search', 'nuxt-backend/workflows', 'nuxt-backend/storage'],
-    composables: ['getBackendError', 'useBackendClient', 'useConnectionState', 'useSearch', 'useWorkflowStatus', 'useShareLink', 'useUploadField', 'preparePhoto', 'isPhotoFile', 'PhotoPrepError'],
+    entrypoints: ['nuxt-backend/functions', 'nuxt-backend/search', 'nuxt-backend/workflows', 'nuxt-backend/storage', 'nuxt-backend/presence'],
+    composables: ['getBackendError', 'useBackendClient', 'useConnectionState', 'useSearch', 'useWorkflowStatus', 'useRoomPresence', 'useShareLink', 'useUploadField', 'preparePhoto', 'isPhotoFile', 'PhotoPrepError'],
     components: ['ConnectionStatus', 'UploadField'],
   },
   {

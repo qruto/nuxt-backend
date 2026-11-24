@@ -130,7 +130,7 @@ What the guard's 403 carries in `error.data`.
 
 Defined in: node\_modules/nuxt-convex-module/runtime/better-auth/nuxt/server
 
-Per-request Better Auth + Convex helper returned by [convexAuth](https://nuxt-convex-module.dev/api-reference/reference/better-auth/server).
+Per-request Better Auth + Convex helper returned by [convexBetterAuthNuxt](https://nuxt-convex-module.dev/api-reference/reference/better-auth/server).
 
 #### Properties
 
@@ -169,7 +169,7 @@ type BackendAuthOptions = GetTokenOptions & {
 
 Defined in: node\_modules/nuxt-convex-module/runtime/better-auth/nuxt/server
 
-Options for [convexAuth](https://nuxt-convex-module.dev/api-reference/reference/better-auth/server).
+Options for [convexBetterAuthNuxt](https://nuxt-convex-module.dev/api-reference/reference/better-auth/server).
 
 Extends [GetTokenOptions](https://labs.convex.dev/better-auth) from `@convex-dev/better-auth/utils` with
 an optional override for the Convex site URL.

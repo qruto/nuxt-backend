@@ -48,6 +48,7 @@ const EXPERIMENTAL: Record<string, string[]> = {
   '`nuxt-backend/ai`': ['/docs/build/ai'],
   '`useSandboxInbox`': ['/docs/develop/dev-inbox'],
   '`<Gate quota>`': ['/docs/build/billing/subscriptions/quotas'],
+  '`nuxt-backend/presence`': ['/docs/build/data/read-write/presence'],
   '`createCommerceProvider`': ['/docs/services/merchants'],
 }
 

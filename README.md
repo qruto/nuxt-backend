@@ -172,11 +172,13 @@ Listing `nuxt-backend` in `modules` registers everything below — nothing needs
 - `useReportAppeal` — the appeal of a content decision, without its markup: the decision a `#appeal=<token>` link names, the appeal's state, and sending it once
 - `useReportForm` — a report about content of the app's, without its markup
 - `useReturnPath` — where the person goes once a page that interrupted them is done: the page they were headed for, from the `?redirect=` the sign-in and the first-run redirect carry (kept to a path on this site, so a link can never send them elsewhere, and never to the sign-in page, which would ask them to sign in again), else where sign-in lands (`redirects.afterSignIn`, `/` without it)
+- `useRoomPresence` — who is here: keep the signed-in person in a room (a page, a document, `workspace:<id>`) while the page is open and visible, and list who else is there, live (experimental)
 - `useSandboxInbox` — the mail a test address received within the last hour, refreshed while the page is open — so a demo, a preview deployment or an e2e run can finish an email-code sign-in without a real mailbox (experimental)
 - `useSearch` — reactive, debounced full-text search
 - `useSessions` — device-session management: list, revoke one, revoke the rest
 - `useShareLink` — one row's share link: whether it has a live one and since when, read live, and the actions that turn it on (or mint a new one) and off, through `getShareLink`, `enableShareLink` and `revokeShareLink` of `backend/storage.ts`
 - `useSignInAlerts` — what an account shows around its sign-ins, without the markup: the latest sign-ins from a device it had not used before, and with its recovery code (the ones the person is also emailed about), each with its device and time, and a button that signs that session out while it is still signed in and is not this browser's
+- `useTwoFactor` — the authenticator app as a second step after a sign-in code (TOTP), for the signed-in account: turn it on (`start`, then `confirm` with the app's first code), off, and new backup codes
 - `useUploadField` — the upload field without its markup: pick a file (by the button or by dropping it), run your `prepare` on it, upload it with the base module's `useUploadQueue` through the upload URL `setupStorage` mints, then hand the storage id to your `claim`, where the deployment checks it
 - `useUsage` — consumption history for a credit meter, read from the provider's events API — the events your server ingested when it spent credits
 - `useWaitlist` — join the waitlist, and read a place in it, on markup of your own: the steps `<WaitlistForm>` runs

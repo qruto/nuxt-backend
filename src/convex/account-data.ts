@@ -65,8 +65,8 @@ export const ACCOUNT_DATA_SOURCES = {
   auth: {
     capability: 'auth',
     where: 'component',
-    tables: ['user', 'session', 'account', 'passkey', 'verification'],
-    holds: 'The account: name, address, language, app role and ban, and whether it finished the first run and dismissed the activation checklist; its sessions with their browser and network address; its passkeys; the sign-in and email-change codes waiting for its address, stored as keyed hashes.',
+    tables: ['user', 'session', 'account', 'passkey', 'twoFactor', 'verification'],
+    holds: 'The account: name, address, language, app role and ban, and whether it finished the first run and dismissed the activation checklist; its sessions with their browser and network address; its passkeys; its authenticator app\'s secret and backup codes, encrypted under the auth secret; the sign-in and email-change codes waiting for its address, stored as keyed hashes.',
     keyedBy: ['account', 'email'],
     erasure: 'deleted',
     erasureNote: 'The account and everything of its sign-in are removed, codes waiting for its address included.',

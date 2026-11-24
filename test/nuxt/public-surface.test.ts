@@ -56,6 +56,7 @@ const ENTRIES: Record<string, Entry> = {
   './app': { source: 'src/convex/app.ts', kind: 'convex' },
   './billing': { source: 'src/convex/integrations/billing.ts', kind: 'convex' },
   './email': { source: 'src/convex/integrations/email.ts', kind: 'convex' },
+  './presence': { source: 'src/convex/integrations/presence.ts', kind: 'convex' },
   './rate-limit': { source: 'src/convex/integrations/rate-limit.ts', kind: 'convex' },
   './search': { source: 'src/convex/integrations/search.ts', kind: 'convex' },
   './workflows': { source: 'src/convex/integrations/workflows.ts', kind: 'convex' },
@@ -383,6 +384,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './app': ['backendEnv', 'backendEnvironment'],
   './billing': ['ALL_BILLING_EVENTS', 'DIGITAL_CONTENT_CONSENT_TEXT', 'DIGITAL_CONTENT_CONSENT_VERSION', 'PROVIDER_CAPABILITIES', 'ProviderHttpError', 'ProviderUnsupportedError', 'billingProviderName', 'commerceProviderFromEnv', 'consentFromMetadata', 'consentMetadata', 'createCommerceProvider', 'createCommerceWebhookHandler', 'defineBillingCatalog', 'recordDigitalContentConsent', 'setupBilling', 'setupReferrals', 'webhookSecretsFromEnv'],
   './email': ['ALL_EMAIL_EVENTS', 'describeOrigin', 'escapeHtml', 'forceColorScheme', 'html', 'linkBlocks', 'plainName', 'setupEmail', 'trustedHtml'],
+  './presence': ['setupPresence'],
   './rate-limit': ['DAY', 'DEFAULT_LIMITS', 'HOUR', 'MINUTE', 'SECOND', 'setupRateLimiter'],
   './search': ['defineSearch', 'search'],
   './workflows': ['defineEmailSequence', 'setupWorkflows'],
@@ -563,6 +565,8 @@ const REGISTRY = {
     'useReferralAdmin',
     'useWorkspace',
     'usePasskeys',
+    'useTwoFactor',
+    'useRoomPresence',
     'usePlanChange',
     'usePricing',
     'useReauthentication',
@@ -630,11 +634,11 @@ const REGISTRY = {
   // The parts of the components above (src/ui/registry.ts): an app component of
   // the same name replaces one everywhere.
   parts: [
-    'AuthFormHeader', 'AuthFormChoose', 'AuthFormPasskey', 'AuthFormEmail', 'AuthFormCode', 'AuthFormRecover', 'AuthFormWaitlisted', 'AuthFormInviteCode', 'AuthFormAge', 'AuthFormUndeliverable', 'AuthFormPasskeyOffer', 'AuthFormAgreement', 'AuthFormError',
+    'AuthFormHeader', 'AuthFormChoose', 'AuthFormPasskey', 'AuthFormEmail', 'AuthFormCode', 'AuthFormRecover', 'AuthFormWaitlisted', 'AuthFormInviteCode', 'AuthFormAge', 'AuthFormTwoFactor', 'AuthFormUndeliverable', 'AuthFormPasskeyOffer', 'AuthFormAgreement', 'AuthFormError',
     'WaitlistJoin', 'WaitlistCode', 'WaitlistPlace', 'WaitlistShare',
     'ReauthenticatePasskey', 'ReauthenticateCode',
     'ProfileIdentity', 'ProfileNameSection', 'ProfileEmailSection', 'ProfileLanguageSection', 'ProfilePreferencesSection',
-    'SecurityPasskeys', 'SecuritySessions', 'SecurityAlerts', 'AccountExport', 'AccountDeletion',
+    'SecurityPasskeys', 'SecurityTwoFactor', 'SecuritySessions', 'SecurityAlerts', 'AccountExport', 'AccountDeletion',
     'WorkspaceList', 'WorkspaceBilling', 'WorkspaceCredits', 'AcceptInvitationActions', 'AuditLogEvent',
     'PricingPeriodSwitch', 'PricingCurrencySelect', 'PricingPlanCard', 'PricingPackCard', 'PricingCancelConfirm', 'PricingChangeConfirm', 'PricingEmailOptOut',
     'BillingHistoryOrder', 'UsageHistoryEvent',
@@ -650,7 +654,7 @@ const REGISTRY = {
 }
 
 /** The experimental tier, by the names STABILITY.md lists. */
-const EXPERIMENTAL = ['./ai', './monitoring', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_UNSAFE_CODE', 'TEST_FAINT', 'TEST_KNOWN_ABUSE', 'fileExists', 'stubBillingProvider', 'StubBillingProviderOptions', 'TestBillingProvider', 'TestUsageEvent', 'DrainOptions', 'ComponentTestKit', 'BackendTestAppOptions', 'BackendTestApp', 'TestFile', 'TestUploadOptions', 'StubStorageFetchOptions', 'TestTimers', 'TestBilling', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage', 'PricedPlanGift', 'PricedGiftLength', 'useGiftForm', 'DIGITAL_CONTENT_CONSENT_TEXT', 'DIGITAL_CONTENT_CONSENT_VERSION', 'PROVIDER_CAPABILITIES', 'ProviderHttpError', 'ProviderUnsupportedError', 'billingProviderName', 'commerceProviderFromEnv', 'consentFromMetadata', 'consentMetadata', 'createCommerceProvider', 'createCommerceWebhookHandler', 'recordDigitalContentConsent', 'webhookSecretsFromEnv']
+const EXPERIMENTAL = ['./ai', './monitoring', './presence', 'useRoomPresence', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_UNSAFE_CODE', 'TEST_FAINT', 'TEST_KNOWN_ABUSE', 'fileExists', 'stubBillingProvider', 'StubBillingProviderOptions', 'TestBillingProvider', 'TestUsageEvent', 'DrainOptions', 'ComponentTestKit', 'BackendTestAppOptions', 'BackendTestApp', 'TestFile', 'TestUploadOptions', 'StubStorageFetchOptions', 'TestTimers', 'TestBilling', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage', 'PricedPlanGift', 'PricedGiftLength', 'useGiftForm', 'DIGITAL_CONTENT_CONSENT_TEXT', 'DIGITAL_CONTENT_CONSENT_VERSION', 'PROVIDER_CAPABILITIES', 'ProviderHttpError', 'ProviderUnsupportedError', 'billingProviderName', 'commerceProviderFromEnv', 'consentFromMetadata', 'consentMetadata', 'createCommerceProvider', 'createCommerceWebhookHandler', 'recordDigitalContentConsent', 'webhookSecretsFromEnv']
 
 /**
  * The experimental members of a stable type, by where the source tags them

@@ -21,6 +21,7 @@ import { authRefusal } from './refusals.js'
 import { pausedData } from '../pauses.js'
 import { type DatabaseHooks, mergeDatabaseHooks } from './hooks.js'
 import { ACCOUNT_FIELDS, administratorsOf, defaultAdmin, type DefaultAuthPlugin, defaultLastLoginMethod, defaultPasskey, SESSION_FIELDS, sessionSignInMethod } from './plugins.js'
+import { defaultTwoFactor, twoFactorAfterCode } from './two-factor.js'
 import { isAdministrator } from '../integrations/access.js'
 import { CLIENT_IP_HEADER, protectionEnv } from '../proof.js'
 import { resolveBackendPaths } from '../paths.js'
@@ -65,8 +66,9 @@ export function sessionClaims({ user, session }: { user: Record<string, unknown>
   // plugin swallows it and sets no cookie.
   if (session.passkeyRecovery) throw authRefusal('forbidden', { reason: 'passkey_required' })
   // How the account last signed in is the sign-in form's, not a caller's:
-  // it changes with every sign-in and says nothing a function needs.
-  const { id: _id, image: _image, lastLoginMethod: _lastLoginMethod, onboardedAt: _onboardedAt, activationDismissedAt: _dismissedAt, ...fields } = user
+  // it changes with every sign-in and says nothing a function needs. So is
+  // whether it has an authenticator app, which the security page reads.
+  const { id: _id, image: _image, lastLoginMethod: _lastLoginMethod, twoFactorEnabled: _twoFactor, onboardedAt: _onboardedAt, activationDismissedAt: _dismissedAt, ...fields } = user
   const claims = Object.fromEntries(Object.entries(fields).filter(([key]) => !RESERVED_CLAIMS.includes(key)))
   // The package's own `locale` field is the standard claim of that name,
   // as a language tag only: no other value reaches it.
@@ -91,7 +93,9 @@ export function sessionClaims({ user, session }: { user: Record<string, unknown>
  * none). `undefined` when it adds neither.
  */
 function openedSession(session: Record<string, unknown>, activeOrganizationId: string | undefined, hookCtx: unknown): { data: Record<string, unknown> } | undefined {
-  const signInMethod = session.impersonatedBy ? null : sessionSignInMethod((hookCtx as { path?: string } | null)?.path)
+  // A session that replaces another keeps its method (the authenticator app's turning on copies the old one's fields).
+  const kept = typeof session.signInMethod === 'string' ? session.signInMethod : null
+  const signInMethod = session.impersonatedBy ? null : kept ?? sessionSignInMethod((hookCtx as { path?: string } | null)?.path)
   if (!activeOrganizationId && !signInMethod) return undefined
   return { data: { ...session, ...(activeOrganizationId ? { activeOrganizationId } : {}), ...(signInMethod ? { signInMethod } : {}) } }
 }
@@ -190,6 +194,8 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
   // takes a proof.
   const protection = protectionEnv()
   const challenge = protection.challengeSecretKey && !userPluginIds.has('captcha') ? challengePlugin(protection.challengeSecretKey, protection.proofSecret) : undefined
+  // The authenticator app's second step runs after a code on the two-factor plugin in use: the package's, or an app's own.
+  const twoFactorPlugin = (userPlugins.find(plugin => plugin.id === 'two-factor') ?? defaultTwoFactor()) as ReturnType<typeof defaultTwoFactor>
   const defaultPlugins = [
     emailOTP({
       sendVerificationOTP: makeSendVerificationOTP(runtime),
@@ -215,6 +221,9 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
     // Passkey-only accounts: the switch, the recovery code and its session.
     passkeyOnlyPlugin({ administrators, runtime }) as DefaultAuthPlugin,
     organization(organizationOptions(options.workspaces, runtime, sendInvitationEmail)),
+    // An authenticator app as a second factor after a sign-in code, for an account that turns it on.
+    twoFactorPlugin as DefaultAuthPlugin,
+    twoFactorAfterCode(twoFactorPlugin) as DefaultAuthPlugin,
     ...(challenge ? [challenge as DefaultAuthPlugin] : []),
     // Sessions signed before an AUTH_SECRET rotation keep working until the previous secret retires.
     secretRotationPlugin(),

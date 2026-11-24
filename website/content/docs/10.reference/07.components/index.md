@@ -96,11 +96,11 @@ Generated from the contract's rows, which the contract tests render every compon
 
 | Component | Family | Labels | Slots | Events | States |
 |---|---|---|---|---|---|
-| `<AuthForm>` | `data-auth` | `auth` | `header`, `choose`, `request-code`, `verify-code`, `passkey-offer`, `recover`, `waitlisted`, `invite-code`, `age`, `undeliverable`, `error`, `footer` | `success`, `error`, `step` | ready, request-code, verify-code, passkey-offer, recover, waitlisted, invite-code, age, undeliverable, pending, error |
+| `<AuthForm>` | `data-auth` | `auth` | `header`, `choose`, `request-code`, `verify-code`, `passkey-offer`, `recover`, `waitlisted`, `invite-code`, `age`, `two-factor`, `undeliverable`, `error`, `footer` | `success`, `error`, `step` | ready, request-code, verify-code, two-factor, passkey-offer, recover, waitlisted, invite-code, age, undeliverable, pending, error |
 | `<ConsentPrompt>` | `data-consent` | `consent` | `consent`, `footer` | `granted`, `error` | ready, age, storage, pending, error |
 | `<WaitlistForm>` | `data-waitlist` | `waitlist` | `join`, `verify`, `status` | `joined`, `signed-in`, `left`, `error` | ready, verify-code, waitlisted, pending, error |
 | `<ProfileSettings>` | `data-profile` | `profile` | `identity`, `name`, `email`, `language`, `preferences`, `footer` | `name-saved`, `email-changed`, `error` | ready, confirm-current, pending, error |
-| `<SecuritySettings>` | `data-security` | `security` | `passkeys`, `passkey`, `sessions`, `session`, `alerts`, `danger`, `footer` | `passkey-added`, `passkey-removed`, `session-revoked`, `sessions-revoked`, `signed-out`, `error` | ready, loading, pending, error |
+| `<SecuritySettings>` | `data-security` | `security` | `passkeys`, `passkey`, `twoFactor`, `sessions`, `session`, `alerts`, `danger`, `footer` | `passkey-added`, `passkey-removed`, `two-factor-enabled`, `two-factor-disabled`, `session-revoked`, `sessions-revoked`, `signed-out`, `error` | ready, loading, pending, error |
 | `<AcceptInvitation>` | `data-invitation` | `invitation` | `loading`, `ready`, `accepted`, `declined`, `missing`, `error` | `accepted`, `declined`, `error` | loading, ready, pending, accepted, declined, missing, error |
 | `<PricingTable>` | `data-pricing` | `pricing` | `header`, `interval`, `currency`, `loading`, `empty`, `soon`, `plan`, `plan-action`, `contact`, `packs`, `pack`, `portal`, `error`, `footer` | `update:interval`, `checkout`, `plan-changed`, `canceled`, `uncanceled`, `topped-up`, `error` | loading, empty, soon, ready, yearly, currencies, promotion, pending, confirm-cancel, error, refused |
 | `<BillingCheckoutLink>` | `data-billing` | none: the link's words are your `default` slot | `default` | `error` | ready, pending, refused |

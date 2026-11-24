@@ -55,6 +55,7 @@ const PREVIOUS: Record<Step, Step> = {
   'waitlisted': 'request-code',
   'invite-code': 'request-code',
   'age': 'request-code',
+  'two-factor': 'request-code',
   'undeliverable': 'request-code',
 }
 

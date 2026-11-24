@@ -385,6 +385,10 @@ const AUTH_INPUTS: Record<string, { field: string, reason?: string }> = {
   AUTHENTICATION_FAILED: { field: 'passkey' },
   CHALLENGE_NOT_FOUND: { field: 'passkey' },
   FAILED_TO_VERIFY_REGISTRATION: { field: 'passkey' },
+  INVALID_CODE: { field: 'twoFactorCode' },
+  INVALID_BACKUP_CODE: { field: 'twoFactorCode', reason: 'backup_code' },
+  INVALID_TWO_FACTOR_COOKIE: { field: 'twoFactorCode', reason: 'two_factor_expired' },
+  TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE: { field: 'twoFactorCode', reason: 'two_factor_expired' },
 }
 
 /**
@@ -395,6 +399,15 @@ const AUTH_INPUTS: Record<string, { field: string, reason?: string }> = {
  * passkey, and no session is missing.
  */
 const PASSKEY_SIGN_IN_REFUSALS = ['PASSKEY_NOT_FOUND', 'AUTHENTICATION_FAILED']
+
+/**
+ * The two-factor plugin's refusals of the second step, also sent as 401: a
+ * code from the app or a backup code that is not right, and a challenge
+ * that ended (its ten minutes passed, or it was used). Each refuses the
+ * code; the person signs in again only for the last, which the
+ * `two_factor_expired` label says.
+ */
+const TWO_FACTOR_REFUSALS = ['INVALID_CODE', 'INVALID_BACKUP_CODE', 'INVALID_TWO_FACTOR_COOKIE']
 
 /**
  * Better Auth's refusals of a session whose sign-in is too old for the
@@ -429,7 +442,7 @@ function fromAuthBody(body: Record<string, unknown>, status: unknown): BackendEr
   const code = typeof body.code === 'string' ? body.code : undefined
   // A route that asks for a recent sign-in, whatever status it answers it with.
   if (code && STALE_SESSION_CODES.includes(code)) return read('reauthentication_required', {})
-  const input = code && (status === 400 || (status === 401 && PASSKEY_SIGN_IN_REFUSALS.includes(code))) ? authInput(code) : undefined
+  const input = code && (status === 400 || (status === 401 && (PASSKEY_SIGN_IN_REFUSALS.includes(code) || TWO_FACTOR_REFUSALS.includes(code)))) ? authInput(code) : undefined
   if (input) return read('invalid_input', input)
   if (status === 401) return read('unauthenticated', {})
   if (status === 403) return forbiddenFromAuth(code, body.message)

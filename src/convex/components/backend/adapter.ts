@@ -1,12 +1,13 @@
 import { passkey } from '@better-auth/passkey'
 import type { BetterAuthOptions } from 'better-auth/minimal'
-import { admin, emailOTP, lastLoginMethod, organization } from 'better-auth/plugins'
+import { admin, emailOTP, lastLoginMethod, organization, twoFactor } from 'better-auth/plugins'
 import { createApi } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import type { RegisteredMutation, RegisteredQuery } from 'convex/server'
 import { ACCOUNT_FIELDS, PASSKEY_ONLY_PLUGIN, SESSION_FIELDS } from '../../client/plugins.js'
 import { CLIENT_ADDRESS_PLUGIN_ID } from '../../client/client-address.js'
 import { SECRET_ROTATION_PLUGIN_ID } from '../../client/secret-rotation.js'
+import { TWO_FACTOR_STEP_PLUGIN_ID } from '../../client/two-factor.js'
 import { authSchema as schema } from './schema.js'
 
 /**
@@ -14,7 +15,7 @@ import { authSchema as schema } from './schema.js'
  * component adapter. Mirrors upstream @convex-dev/better-auth component/adapter
  * pattern (see their auth-options.ts + adapter.ts) but limited to plugins we
  * enable by default (convex + emailOTP + passkey + lastLoginMethod + admin +
- * organization + passkey-only + the secret rotation + the client address) for minimal surface. ⚠ Keep this
+ * organization + two-factor + passkey-only + the secret rotation + the client address) for minimal surface. ⚠ Keep this
  * plugin set aligned with the default set `buildAuthOptions` builds
  * (src/convex/client/better-auth-options.ts) —
  * a plugin enabled there but missing here leaves its tables out of the
@@ -36,6 +37,10 @@ const options: BetterAuthOptions = {
     lastLoginMethod({ storeInDatabase: true }),
     admin(),
     organization(),
+    // The authenticator app: the account's switch, its secret and backup codes.
+    twoFactor(),
+    // Its second step after a sign-in code: no tables.
+    { id: TWO_FACTOR_STEP_PLUGIN_ID },
     // Passkey-only accounts: the account's switch and recovery code, the recovery session's mark.
     { id: PASSKEY_ONLY_PLUGIN.id, schema: PASSKEY_ONLY_PLUGIN.schema },
     // The AUTH_SECRET rotation's cookie re-signing: no tables.

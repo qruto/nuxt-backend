@@ -17,6 +17,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `useEmailChange()` | The headless email change behind `<ProfileSettings>`: a code from the current address proves the person asking still holds it, a code from the new address proves they hold that one too. |
 | `useWorkspace()` | Workspace state and actions: the list, the switch, the members and the full invitation flow (invite / accept / decline / cancel — the packaged `AcceptInvitation` component and `/accept-invitation` page build on these). |
 | `usePasskeys()` | Passkey management over the auth client — list, register, rename, remove. |
+| `useTwoFactor()` | The authenticator app as a second step after a sign-in code (TOTP), for the signed-in account: turn it on (`start`, then `confirm` with the app's first code), off, and new backup codes. |
 | `useSessions()` | Device-session management: list, revoke one, revoke the rest. |
 | `useSignInAlerts()` | What an account shows around its sign-ins, without the markup: the latest sign-ins from a device it had not used before, and with its recovery code (the ones the person is also emailed about), each with its device and time, and a button that signs that session out while it is still signed in and is not this browser's. |
 | `useHumanCheck()` | Proof that a person makes a call: the client half of `verifyHuman`, for the calls that reach the deployment over the live connection and never pass through the app's server (a waitlist join, a contact form, a referral claim). |

@@ -54,6 +54,7 @@
     "src/convex/integrations/email.ts",
     "src/convex/integrations/ai.ts",
     "src/convex/integrations/monitoring.ts",
+    "src/convex/integrations/presence.ts",
     "src/convex/integrations/rate-limit.ts",
     "src/convex/integrations/search.ts",
     "src/convex/integrations/workflows.ts",
@@ -155,7 +156,8 @@
       "GetTokenOptions": "https://labs.convex.dev/better-auth"
     },
     "nuxt-convex-module": {
-      "convexAuth": "https://nuxt-convex-module.dev/api-reference/reference/better-auth/server"
+      "convexAuth": "https://nuxt-convex-module.dev/api-reference/reference/better-auth/server",
+      "convexBetterAuthNuxt": "https://nuxt-convex-module.dev/api-reference/reference/better-auth/server"
     },
     "@convex-dev/rate-limiter": {
       "tokenBucketValidator": "https://github.com/convex/rate-limiter#define-your-rate-limits",

@@ -56,6 +56,8 @@ export function registerSaasComposables(resolver: Resolver): void {
     { name: 'useReferralInvite', from: resolver.resolve('./runtime/vue/composables/use-referral-invite') },
     { name: 'useReferralAdmin', from: resolver.resolve('./runtime/vue/composables/use-referral-admin') },
     { name: 'usePasskeys', from: resolver.resolve('./runtime/vue/composables/use-passkeys') },
+    { name: 'useTwoFactor', from: resolver.resolve('./runtime/vue/composables/use-two-factor') },
+    { name: 'useRoomPresence', from: resolver.resolve('./runtime/vue/composables/use-room-presence') },
     { name: 'useSessions', from: resolver.resolve('./runtime/vue/composables/use-sessions') },
     { name: 'useSignInAlerts', from: resolver.resolve('./runtime/vue/composables/use-sign-in-alerts') },
     { name: 'useReauthentication', from: resolver.resolve('./runtime/vue/composables/use-reauthentication') },
@@ -111,7 +113,7 @@ export function registerSaasComposables(resolver: Resolver): void {
     addImports(composable)
   }
 
-  // Nitro-side neutral name for the base module's `convexAuth(event)`
+  // Nitro-side neutral name for the base module's `convexBetterAuthNuxt(event)`
   // service: the same service, its calls reported to the monitoring layer
   // when they fail (tagged with the function they ran). Registered only
   // when the base runtime it wraps is on disk.
@@ -125,7 +127,7 @@ export function registerSaasComposables(resolver: Resolver): void {
     logger.warn(
       '`backendAuth` auto-import unavailable — could not locate the nuxt-convex-module server runtime '
       + '(neither its `./better-auth/server` export nor a stub-linked src/). Reinstall nuxt-convex-module, '
-      + 'or import `convexAuth` from `nuxt-convex-module/better-auth/server` directly.',
+      + 'or import `convexBetterAuthNuxt` from `nuxt-convex-module/better-auth/server` directly.',
     )
   }
 }

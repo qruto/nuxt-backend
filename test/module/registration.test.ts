@@ -90,6 +90,8 @@ const COMPOSABLE_NAMES = [
   'usePasskeys',
   'useSessions',
   'useSignInAlerts',
+  'useTwoFactor',
+  'useRoomPresence',
   'useReauthentication',
   'useAuditLog',
   'useAccount',
@@ -1101,6 +1103,8 @@ describe('option forwarding through moduleDependencies', () => {
       security: true,
       devScript: false,
       betterAuth: { authClient, loginPath: '/login', authRoute: '/api/session' },
+      // Better Auth is the package's auth: the base module's Convex Auth stays off.
+      convexAuth: false,
       polar: true,
       clerk: false,
       auth0: false,

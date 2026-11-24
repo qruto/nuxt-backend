@@ -261,6 +261,8 @@ try {
   const optionalPeerHomes = {
     './eslint': ['eslint', '@convex-dev/eslint-plugin'],
     './test': ['convex-test'],
+    // Who is here: setupPresence builds on Convex's presence component, which the app installs and mounts.
+    './presence': ['@convex-dev/presence'],
   }
   // Runtime directories that exist for an optional peer: the module
   // registers the files in them only once the peer resolves (the

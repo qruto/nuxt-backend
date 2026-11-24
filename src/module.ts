@@ -33,11 +33,11 @@ import { registerSearchIndexing } from './nuxt/site'
 
 /**
  * Backend-neutral names for the Nitro `backendAuth(event)` service types —
- * the base module's `convexAuth` service under this package's terminology.
+ * the base module's `convexBetterAuthNuxt` service under this package's terminology.
  * Type-only: erased at build, so none of the runtime resolution concerns the
  * `backendAuth` auto-import handles (see `registerSaasComposables`).
  */
-export type { ConvexAuthOptions as BackendAuthOptions, ConvexAuthService as BackendAuthService } from 'nuxt-convex-module/better-auth/server'
+export type { ConvexBetterAuthOptions as BackendAuthOptions, ConvexBetterAuthService as BackendAuthService } from 'nuxt-convex-module/better-auth/server'
 
 // The page guard's vocabulary: the rules `definePageMeta({ auth })` takes, and
 // what its 403 carries in `error.data`, for a typed `error.vue`.
@@ -248,6 +248,9 @@ export default defineNuxtModule<ModuleOptions>({
             ...(backend.authRoute !== undefined ? { authRoute: backend.authRoute } : {}),
             ...(typeof convex.betterAuth === 'object' && convex.betterAuth !== null ? convex.betterAuth : {}),
           },
+          // Better Auth is this package's auth: the base module's Convex
+          // Auth stays off, even where @convex-dev/auth is installed.
+          convexAuth: false,
           polar: true,
           // This package's auth story is Better Auth — don't let auto-detect
           // enable a second auth provider just because its SDK is resolvable.

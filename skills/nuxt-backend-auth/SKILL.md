@@ -5,8 +5,9 @@ description: Sign-in, sessions and access control in a Nuxt app on nuxt-backend.
 
 # nuxt-backend: auth and workspaces
 
-Sign-in is passwordless: email codes and passkeys, nothing else. Every user gets a personal
-workspace on first sign-in, so a session always has an active one. The `nuxt-backend` core skill
+Sign-in is passwordless: email codes and passkeys, and an authenticator app after a code for an
+account that turns one on. Every user gets a personal workspace on first sign-in, so a session
+always has an active one. The `nuxt-backend` core skill
 holds the rules every change follows; this one covers who the caller is and what they may do.
 
 ## Sign-in and pages
@@ -53,6 +54,10 @@ holds the rules every change follows; this one covers who the caller is and what
   `error` and `retryAfter`.
 - A banned account's sign-in is `forbidden` with reason `banned`.
 - `useSessions()` lists the account's signed-in devices and revokes one by id.
+- `useTwoFactor()` turns the authenticator app on (`start`, then `confirm` with its first code),
+  off, and makes new backup codes; wrap each in `withReauthentication`. A code sign-in of such an
+  account rejects with `forbidden`, reason `two_factor_required`, and `verifyTwoFactor` finishes it;
+  `useLoginFlow` moves to its `two-factor` step by itself. A passkey sign-in asks for no second step.
 
 ## Functions
 

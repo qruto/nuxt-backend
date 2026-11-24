@@ -13,6 +13,7 @@ import { type BackendEnvironment, backendEnv, backendEnvironment } from 'nuxt-ba
 import { ALL_BILLING_EVENTS, type BillingAccessRule, type BillingEntity, type BillingEntityCtx, defineBillingCatalog, type SetupBillingConfig, setupBilling } from 'nuxt-backend/billing'
 import type { ALL_EMAIL_EVENTS, EmailWebhookEventType } from 'nuxt-backend/email'
 import { setupEmail } from 'nuxt-backend/email'
+import { setupPresence } from 'nuxt-backend/presence'
 import { DEFAULT_LIMITS, MINUTE, setupRateLimiter } from 'nuxt-backend/rate-limit'
 import { defineSearch, search } from 'nuxt-backend/search'
 import { defineEmailSequence, setupWorkflows } from 'nuxt-backend/workflows'
@@ -60,6 +61,7 @@ type Tested
     | './app'
     | './billing'
     | './email'
+    | './presence'
     | './rate-limit'
     | './search'
     | './workflows'
@@ -163,6 +165,14 @@ describe('integrations', () => {
     expectTypeOf(setupEmail).returns.toHaveProperty('sendTemplate')
     expectTypeOf(setupEmail).returns.toHaveProperty('api')
     expectTypeOf<EmailWebhookEventType>().toExtend<(typeof ALL_EMAIL_EVENTS)[number]>()
+  })
+
+  test('nuxt-backend/presence', () => {
+    // The three functions backend/presence.ts exports, and the component's own client.
+    expectTypeOf(setupPresence).returns.toHaveProperty('heartbeat')
+    expectTypeOf(setupPresence).returns.toHaveProperty('list')
+    expectTypeOf(setupPresence).returns.toHaveProperty('disconnect')
+    expectTypeOf(setupPresence).returns.toHaveProperty('presence')
   })
 
   test('nuxt-backend/rate-limit', () => {

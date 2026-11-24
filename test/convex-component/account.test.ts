@@ -63,6 +63,9 @@ describe('the erasure sweep', () => {
         await ctx.db.insert('session', { userId, token: `token-${userId}`, createdAt: now, updatedAt: now, expiresAt: now + 86_400_000, ipAddress: '203.0.113.7', userAgent: 'Firefox' })
         await ctx.db.insert('account', { userId, accountId: userId, providerId: 'email-otp', createdAt: now, updatedAt: now })
         await ctx.db.insert('passkey', { userId, name: 'Laptop', publicKey: 'key', credentialID: `credential-${userId}`, counter: 0, deviceType: 'singleDevice', backedUp: false })
+        // Its authenticator app, and a browser the app trusts, which holds the account's id as its value.
+        await ctx.db.insert('twoFactor', { userId, secret: 'encrypted-secret', backupCodes: 'encrypted-codes', verified: true })
+        await ctx.db.insert('verification', { identifier: `trust-device-${userId}`, value: userId, expiresAt: now + 86_400_000, createdAt: now, updatedAt: now })
       }
       await ctx.db.insert('verification', { identifier: `sign-in-otp-${GONE}`, value: 'hash', expiresAt: now + 600_000, createdAt: now, updatedAt: now })
       await ctx.db.insert('verification', { identifier: 'sign-in-otp-stays@example.com', value: 'hash', expiresAt: now + 600_000, createdAt: now, updatedAt: now })
