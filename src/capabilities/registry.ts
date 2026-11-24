@@ -60,7 +60,7 @@ export const CAPABILITIES = {
     purpose: 'Plans with monthly and yearly prices, prepaid credits, a server-rendered pricing page, feature gates, gifts and the customer portal, from a catalog in code.',
     providers: [{ name: 'Polar', gives: 'products, checkout, subscriptions, meters and the customer portal' }],
     development: 'the billing provider\'s sandbox, with a test card',
-    env: ['BILLING_ACCESS_TOKEN', 'BILLING_WEBHOOK_SECRET'],
+    env: ['BILLING_PROVIDER', 'BILLING_ACCESS_TOKEN', 'BILLING_WEBHOOK_SECRET'],
     findings: ['billing'],
     docs: '/docs/build/billing',
     devtools: 'billing',

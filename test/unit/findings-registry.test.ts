@@ -48,9 +48,9 @@ describe('the findings registry', () => {
     expect(fromEnv || checks.includes(`'${id}'`), `no check emits ${id}: drop it from the registry`).toBe(true)
   })
 
-  it('reports each name of the deployment\'s contract with a finding of its own, but the two no finding checks yet', () => {
+  it('reports each name of the deployment\'s contract with a finding of its own, but the three no finding checks yet', () => {
     // The marketing sender and the sending region list none: arriving with the checks that read them.
-    expect(CONTRACT_ENV_NAMES.filter(name => BACKEND_ENV[name].findings.length === 0)).toEqual(['EMAIL_MARKETING_FROM', 'EMAIL_REGION'])
+    expect(CONTRACT_ENV_NAMES.filter(name => BACKEND_ENV[name].findings.length === 0)).toEqual(['EMAIL_MARKETING_FROM', 'EMAIL_REGION', 'BILLING_PROVIDER'])
     for (const name of CONTRACT_ENV_NAMES.filter(name => BACKEND_ENV[name].findings.length > 0)) {
       expect(FINDINGS[deploymentEnvId(name)]?.title, name).toBe(`Deployment ${name}`)
       expect(BACKEND_ENV[name].findings, name).toContain(deploymentEnvId(name))

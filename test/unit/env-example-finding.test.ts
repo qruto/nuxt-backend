@@ -63,7 +63,7 @@ describe('env-example', () => {
     expect(envExampleFinding(rootDir)).toEqual([expect.objectContaining({ id: 'env-example', status: 'pass' })])
     // Billing again, by its token in .env.local: the file lacks its names.
     write('.env.local', 'BILLING_ACCESS_TOKEN=polar_oat_sandbox\n')
-    expect(envExampleFinding(rootDir)[0]!.message).toBe('.env.example has drifted. It lacks BILLING_ACCESS_TOKEN, BILLING_WEBHOOK_SECRET, which the package reads.')
+    expect(envExampleFinding(rootDir)[0]!.message).toBe('.env.example has drifted. It lacks BILLING_PROVIDER, BILLING_ACCESS_TOKEN, BILLING_WEBHOOK_SECRET, which the package reads.')
   })
 
   it('reads the names the app\'s workflows set, and no other dotfolder', () => {

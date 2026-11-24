@@ -61,7 +61,7 @@ Each feature has a task skill in `node_modules/nuxt-backend/skills/<name>/`, and
 - `nuxt-backend-ai`: metered AI actions, streams and the job queue. 13 tasks; reach for `nuxt-backend/ai`, `useAiStream()`.
 - `nuxt-backend-data`: the function tiers, queries and mutations, errors, search, workflows, uploads, share links, presence, retention, tokens and the Convex components for counts, queues, cached actions, crons and migrations. 13 tasks; reach for `nuxt-backend/functions`, `nuxt-backend/search`, `nuxt-backend/presence`.
 - `nuxt-backend-ui`: the packaged pages and components, their parts, theming, labels, translation, slots, the headless composables and eject. 10 tasks; reach for `useLabels()`.
-- `nuxt-backend-ship`: provider setup, tests, deploying, production checks, monitoring, flags and kill switches, webhooks and rate limits. 40 tasks; reach for `nuxt-backend/rate-limit`, `nuxt-backend/http`, `nuxt-backend/monitoring`.
+- `nuxt-backend-ship`: provider setup, tests, deploying, production checks, monitoring, flags and kill switches, webhooks and rate limits. 41 tasks; reach for `billingProviderName()`, `commerceProviderFromEnv()`, `nuxt-backend/rate-limit`.
 - `nuxt-backend-upgrade`: moving an app to a new version, and every name a release renamed or removed. 2 tasks.
 <!-- /generated:router -->
 
@@ -119,7 +119,7 @@ name, [references/surface.json](references/surface.json) the same as data.
 - `nuxt-backend/http`: `registerBackendRoutes`
 - `nuxt-backend/functions`: `backendError`, `getBackendError`
 - `nuxt-backend/app`: `backendEnvironment`
-- `nuxt-backend/billing`: `defineBillingCatalog`, `setupReferrals`
+- `nuxt-backend/billing`: `defineBillingCatalog`, `billingProviderName`
 - `nuxt-backend/email`: `setupEmail`, `escapeHtml`
 - `nuxt-backend/presence`: `setupPresence`
 - `nuxt-backend/rate-limit`: `setupRateLimiter`

@@ -88,6 +88,45 @@ export type { MeterUsage, RevenueCancellations, RevenueInterval, RevenueMetric, 
 // Catalog-as-code authoring surface (billing.catalog.ts / `billing sync`).
 export { type BillingCatalog, type CatalogCreditGrant, type CatalogCurrencyPrices, type CatalogDiscount, type CatalogDiscountDuration, type CatalogDiscountProducts, type CatalogDiscountTerms, type CatalogFeature, type CatalogInterval, type CatalogMeter, type CatalogPack, type CatalogPackPrices, type CatalogPlan, type CatalogPlanCreditGrant, type CatalogPlanGift, type CatalogPlanPrices, type CatalogQuota, defineBillingCatalog, type MeterUnit } from '../catalog.js'
 export { ALL_BILLING_EVENTS } from './billing/events.js'
+
+// The other merchants of record (Stripe Managed Payments, Dodo Payments,
+// Creem), on the provider-neutral adapters: checkout, portal, plan changes,
+// cancellation, refunds, invoices and the guarded webhook route.
+export {
+  billingProviderName,
+  commerceProviderFromEnv,
+  consentFromMetadata,
+  consentMetadata,
+  createCommerceProvider,
+  DIGITAL_CONTENT_CONSENT_TEXT,
+  DIGITAL_CONTENT_CONSENT_VERSION,
+  PROVIDER_CAPABILITIES,
+  ProviderHttpError,
+  ProviderUnsupportedError,
+  recordDigitalContentConsent,
+  webhookSecretsFromEnv,
+} from './billing/providers/index.js'
+export type {
+  BillingProviderName,
+  ChangePlanRequest,
+  CheckoutCustomer,
+  CheckoutRequest,
+  CheckoutSession,
+  CommerceProvider,
+  DigitalContentConsent,
+  InvoiceAnswer,
+  NeutralBillingEvent,
+  NeutralOrder,
+  NeutralRefund,
+  NeutralSubscription,
+  NeutralSubscriptionStatus,
+  ProviderCapabilities,
+  ProviderEnvironment,
+  ProviderOptions,
+  RefundRequest,
+  VerifiedDelivery,
+} from './billing/providers/index.js'
+export { createCommerceWebhookHandler, type CommerceEventHandler, type CommerceWebhookOptions } from './billing/commerce-webhooks.js'
 export type { BillingLaunch, BillingLaunchReason } from '../billing-launch.js'
 
 // The referral program, set up in its own backend file beside billing.

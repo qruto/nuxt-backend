@@ -49,6 +49,7 @@ const EXPERIMENTAL: Record<string, string[]> = {
   '`useSandboxInbox`': ['/docs/develop/dev-inbox'],
   '`<Gate quota>`': ['/docs/build/billing/subscriptions/quotas'],
   '`nuxt-backend/presence`': ['/docs/build/data/read-write/presence'],
+  '`createCommerceProvider`': ['/docs/services/merchants'],
 }
 
 describe('stability chips', () => {

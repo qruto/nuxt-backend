@@ -49,6 +49,7 @@ const backendEnv: {
   EMAIL_REGION: VUnion<"us-east-1" | "eu-west-1" | "sa-east-1" | "ap-northeast-1" | undefined, [VLiteral<"us-east-1", "required">, VLiteral<"eu-west-1", "required">, VLiteral<"sa-east-1", "required">, VLiteral<"ap-northeast-1", "required">], "optional", never>;
   EMAIL_WEBHOOK_SECRET: VString<string | undefined, "optional">;
   EMAIL_DEV_INBOX: VString<string | undefined, "optional">;
+  BILLING_PROVIDER: VUnion<"polar" | "stripe" | "dodo" | "creem" | undefined, [VLiteral<"polar", "required">, VLiteral<"stripe", "required">, VLiteral<"dodo", "required">, VLiteral<"creem", "required">], "optional", never>;
   BILLING_ACCESS_TOKEN: VString<string | undefined, "optional">;
   BILLING_WEBHOOK_SECRET: VString<string | undefined, "optional">;
   AI_GATEWAY_API_KEY: VString<string | undefined, "optional">;
@@ -153,6 +154,7 @@ Extend the set for your own vars (the env proxy throws on undeclared ones):
 | <a id="property-email_region"></a> `EMAIL_REGION` | `VUnion`\<`"us-east-1"` \| `"eu-west-1"` \| `"sa-east-1"` \| `"ap-northeast-1"` \| `undefined`, \[`VLiteral`\<`"us-east-1"`, `"required"`\>, `VLiteral`\<`"eu-west-1"`, `"required"`\>, `VLiteral`\<`"sa-east-1"`, `"required"`\>, `VLiteral`\<`"ap-northeast-1"`, `"required"`\>\], `"optional"`, `never`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-email_webhook_secret"></a> `EMAIL_WEBHOOK_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-email_dev_inbox"></a> `EMAIL_DEV_INBOX` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
+| <a id="property-billing_provider"></a> `BILLING_PROVIDER` | `VUnion`\<`"polar"` \| `"stripe"` \| `"dodo"` \| `"creem"` \| `undefined`, \[`VLiteral`\<`"polar"`, `"required"`\>, `VLiteral`\<`"stripe"`, `"required"`\>, `VLiteral`\<`"dodo"`, `"required"`\>, `VLiteral`\<`"creem"`, `"required"`\>\], `"optional"`, `never`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-billing_access_token"></a> `BILLING_ACCESS_TOKEN` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-billing_webhook_secret"></a> `BILLING_WEBHOOK_SECRET` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |
 | <a id="property-ai_gateway_api_key"></a> `AI_GATEWAY_API_KEY` | `VString`\<`string` \| `undefined`, `"optional"`\> | [src/convex/app.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/app.ts) |

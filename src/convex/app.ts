@@ -102,7 +102,8 @@ export const backendEnv = {
   EMAIL_WEBHOOK_SECRET: v.optional(v.string()),
   // The dev inbox's page reader, opted into with `1` outside production; read by the app's own getSandboxInbox, never forwarded.
   EMAIL_DEV_INBOX: v.optional(v.string()),
-  // Billing — optional.
+  // Billing — optional. The merchant of record: polar when unset.
+  BILLING_PROVIDER: v.optional(v.union(v.literal('polar'), v.literal('stripe'), v.literal('dodo'), v.literal('creem'))),
   BILLING_ACCESS_TOKEN: v.optional(v.string()),
   BILLING_WEBHOOK_SECRET: v.optional(v.string()),
   // AI — optional; the gateway's own name, never renamed.

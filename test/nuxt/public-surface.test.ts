@@ -382,7 +382,7 @@ const EXPORT_NAMES: Record<string, string[]> = {
   './http': ['registerBackendRoutes'],
   './functions': ['BACKEND_ERRORS', 'RECENT_SIGN_IN_SECONDS', 'SENSITIVE_ACTIONS', 'backendError', 'createFunctions', 'defineRetention', 'getBackendError', 'normalizeEmail', 'randomToken', 'scheduleRetention', 'sha256Hex', 'verifyHuman'],
   './app': ['backendEnv', 'backendEnvironment'],
-  './billing': ['ALL_BILLING_EVENTS', 'defineBillingCatalog', 'setupBilling', 'setupReferrals'],
+  './billing': ['ALL_BILLING_EVENTS', 'DIGITAL_CONTENT_CONSENT_TEXT', 'DIGITAL_CONTENT_CONSENT_VERSION', 'PROVIDER_CAPABILITIES', 'ProviderHttpError', 'ProviderUnsupportedError', 'billingProviderName', 'commerceProviderFromEnv', 'consentFromMetadata', 'consentMetadata', 'createCommerceProvider', 'createCommerceWebhookHandler', 'defineBillingCatalog', 'recordDigitalContentConsent', 'setupBilling', 'setupReferrals', 'webhookSecretsFromEnv'],
   './email': ['ALL_EMAIL_EVENTS', 'describeOrigin', 'escapeHtml', 'forceColorScheme', 'html', 'linkBlocks', 'plainName', 'setupEmail', 'trustedHtml'],
   './presence': ['setupPresence'],
   './rate-limit': ['DAY', 'DEFAULT_LIMITS', 'HOUR', 'MINUTE', 'SECOND', 'setupRateLimiter'],
@@ -654,7 +654,7 @@ const REGISTRY = {
 }
 
 /** The experimental tier, by the names STABILITY.md lists. */
-const EXPERIMENTAL = ['./ai', './monitoring', './presence', 'useRoomPresence', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_UNSAFE_CODE', 'TEST_FAINT', 'TEST_KNOWN_ABUSE', 'fileExists', 'stubBillingProvider', 'StubBillingProviderOptions', 'TestBillingProvider', 'TestUsageEvent', 'DrainOptions', 'ComponentTestKit', 'BackendTestAppOptions', 'BackendTestApp', 'TestFile', 'TestUploadOptions', 'StubStorageFetchOptions', 'TestTimers', 'TestBilling', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage', 'PricedPlanGift', 'PricedGiftLength', 'useGiftForm']
+const EXPERIMENTAL = ['./ai', './monitoring', './presence', 'useRoomPresence', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_UNSAFE_CODE', 'TEST_FAINT', 'TEST_KNOWN_ABUSE', 'fileExists', 'stubBillingProvider', 'StubBillingProviderOptions', 'TestBillingProvider', 'TestUsageEvent', 'DrainOptions', 'ComponentTestKit', 'BackendTestAppOptions', 'BackendTestApp', 'TestFile', 'TestUploadOptions', 'StubStorageFetchOptions', 'TestTimers', 'TestBilling', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage', 'PricedPlanGift', 'PricedGiftLength', 'useGiftForm', 'DIGITAL_CONTENT_CONSENT_TEXT', 'DIGITAL_CONTENT_CONSENT_VERSION', 'PROVIDER_CAPABILITIES', 'ProviderHttpError', 'ProviderUnsupportedError', 'billingProviderName', 'commerceProviderFromEnv', 'consentFromMetadata', 'consentMetadata', 'createCommerceProvider', 'createCommerceWebhookHandler', 'recordDigitalContentConsent', 'webhookSecretsFromEnv']
 
 /**
  * The experimental members of a stable type, by where the source tags them

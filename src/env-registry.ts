@@ -133,6 +133,15 @@ export const BACKEND_ENV = {
     dotenv: true,
     findings: ['deployment-email-dev-inbox'],
   },
+  BILLING_PROVIDER: {
+    side: 'deployment',
+    whenFlagged: true,
+    without: 'billing sells through Polar, on the Convex component setupBilling is built on',
+    values: '`polar`, `stripe` (Stripe Managed Payments), `dodo` (Dodo Payments) or `creem`: the merchant of record the adapters in `nuxt-backend/billing` sell through. A name outside the four fails the deploy',
+    example: 'polar',
+    dotenv: true,
+    findings: [],
+  },
   BILLING_ACCESS_TOKEN: {
     side: 'deployment',
     without: 'billing reads answer empty; on production billing is not launched (the pricing reads "Plans open soon" and every sale is refused as not_launched), elsewhere a checkout is refused as not_configured',
