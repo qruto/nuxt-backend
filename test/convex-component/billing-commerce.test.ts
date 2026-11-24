@@ -428,6 +428,13 @@ describe('the credit grant ledger of adapter mode', () => {
     expect(await balance('w9')).toBe(200)
   })
 
+  test('lapses a plan month however many packs landed after it', async () => {
+    await grant('w10', 'w10-m1', 100, 'plan')
+    for (let at = 0; at < 210; at++) await grant('w10', `w10-p${at}`, 1, 'pack')
+    await grant('w10', 'w10-m2', 100, 'plan')
+    expect(await balance('w10')).toBe(310)
+  })
+
   test('leaves another grant\'s reservation alone when it revokes a grant already spent', async () => {
     await grant('w7', 'pA', 50, 'pack')
     await spend('w7', 50, 'w7-s1')

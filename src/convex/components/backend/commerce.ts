@@ -167,7 +167,7 @@ function pick<T extends Record<string, unknown>>(values: T): Partial<T> {
   return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined)) as Partial<T>
 }
 
-/** How many of a meter's latest grants a lapse reads: years of monthly grants. */
+/** How many of a meter's latest plan grants a lapse reads: years of monthly grants. */
 const PLAN_GRANTS_READ = 200
 
 /**
@@ -180,9 +180,14 @@ const PLAN_GRANTS_READ = 200
  * Answers how many credits lapsed.
  */
 async function lapsePlanGrants(ctx: MutationCtx, userId: string, meter: MeterState, keep: readonly string[] = []): Promise<number> {
-  // The meter's latest plan grants, oldest first: far more than the months any plans grant shares.
-  const recent = await ctx.db.query('billingCreditGrants').withIndex('userId_meterId', q => q.eq('userId', userId).eq('meterId', meter.meterId)).order('desc').take(PLAN_GRANTS_READ)
-  const plans = recent.reverse().filter(grant => grant.source === 'plan' && !grant.rollover)
+  // The meter's latest plan grants, oldest first, whatever packs landed between them: far more than the months any open grant shares.
+  const plans: Array<Doc<'billingCreditGrants'>> = []
+  const grants = ctx.db.query('billingCreditGrants').withIndex('userId_meterId', q => q.eq('userId', userId).eq('meterId', meter.meterId)).order('desc')
+  for await (const grant of grants) {
+    if (grant.source !== 'plan' || grant.rollover) continue
+    plans.unshift(grant)
+    if (plans.length === PLAN_GRANTS_READ) break
+  }
   const left = plans.map(grant => grant.amount - (grant.closed ?? 0))
   plans.forEach((grant, landed) => {
     let stretch = Math.max(0, (plans[landed + 1]?.consumedAtGrant ?? meter.consumedUnits) - grant.consumedAtGrant)
