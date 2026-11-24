@@ -27,6 +27,8 @@ import { registerProtection } from './nuxt/protection'
 import { registerSecurityRules, securityDefaults, securityDevOverrides, securityDisabled } from './nuxt/security'
 import { keepDevModulesUncached } from './nuxt/development'
 import { registerSearchIndexing } from './nuxt/site'
+import { authProviderOf, baseAuthOverrides, configuredAuthOption, CONVEX_AUTH_NOTICE, pagesOff, type AuthProvider } from './nuxt/auth-provider'
+import { logger } from './nuxt/logger'
 
 // The module definition; the helpers setup calls live in nuxt/, one file
 // per concern.
@@ -44,6 +46,7 @@ export type { ConvexBetterAuthOptions as BackendAuthOptions, ConvexBetterAuthSer
 export type { AccessDeniedData, AccessDeniedReason, PageAccessRules } from './runtime/vue/utils/access-rules'
 export type { AdminTabMeta } from './runtime/vue/components/admin/admin-tabs'
 export type { InstallableOptions } from './installable'
+export type { AuthProvider } from './nuxt/auth-provider'
 
 /** Where the ready-made pages send a person once they are done. */
 export interface ModuleRedirectsOptions {
@@ -63,6 +66,15 @@ export interface ModuleOptions {
    * front of them goes in `NUXT_PUBLIC_CONVEX_SITE_URL`.
    */
   url?: string
+  /**
+   * Which auth the app runs. `'better-auth'` (the default) is the package's
+   * own: passwordless sign-in, the pages, the page guard, workspaces, billing,
+   * AI credits and the account features. `'convex-auth'` runs the base
+   * module's Convex Auth integration instead (`@convex-dev/auth`: magic
+   * links, OAuth, passkeys, passwords), sign-in only: every feature above is off.
+   * Experimental. See https://nuxt-backend.dev/docs/build/auth/convex-auth
+   */
+  auth?: AuthProvider
   authRoute?: string
   /**
    * Where the ready-made pages mount (sign-in, pricing, settings, profile,
@@ -239,19 +251,21 @@ export default defineNuxtModule<ModuleOptions>({
           // over the package's seed, so its fields win (a custom `authClient`
           // replaces ours) while an object that only sets other options
           // (`crossDomainCallbackRoute`, …) keeps the bundled client. Only a
-          // disable is overridden outright.
-          betterAuth: {
-            authClient: resolver.resolve('./runtime/vue/auth-client'),
+          // disable is overridden outright. Better Auth is this package's auth:
+          // the base module's Convex Auth stays off, even where
+          // @convex-dev/auth is installed, unless `backend.auth` names it
+          // (src/nuxt/auth-provider.ts).
+          ...baseAuthOverrides(authProviderOf(configuredAuthOption(rawOptions)), {
             loginPath,
-            // The same-origin proxy route (`betterAuth.authRoute` in the base
-            // module since 0.12). Unset, the base module mounts it at /api/auth.
-            ...(backend.authRoute !== undefined ? { authRoute: backend.authRoute } : {}),
-            ...(typeof convex.betterAuth === 'object' && convex.betterAuth !== null ? convex.betterAuth : {}),
-          },
-          // Better Auth is this package's auth: the base module's Convex
-          // Auth stays off, even where @convex-dev/auth is installed.
-          convexAuth: false,
-          polar: true,
+            betterAuth: {
+              authClient: resolver.resolve('./runtime/vue/auth-client'),
+              loginPath,
+              // The same-origin proxy route (`betterAuth.authRoute` in the base
+              // module since 0.12). Unset, the base module mounts it at /api/auth.
+              ...(backend.authRoute !== undefined ? { authRoute: backend.authRoute } : {}),
+              ...(typeof convex.betterAuth === 'object' && convex.betterAuth !== null ? convex.betterAuth : {}),
+            },
+          }),
           // This package's auth story is Better Auth — don't let auto-detect
           // enable a second auth provider just because its SDK is resolvable.
           clerk: false,
@@ -265,6 +279,10 @@ export default defineNuxtModule<ModuleOptions>({
     // which `moduleDependencies` does not see.
     assertModuleOptions(options)
     const resolver = createResolver(moduleDir)
+    // Convex Auth mode runs the base module's sign-in and none of what the
+    // package builds on Better Auth's accounts (src/nuxt/auth-provider.ts).
+    // Read as moduleDependencies read it, so setup runs the provider the base module was configured for.
+    const betterAuth = authProviderOf(configuredAuthOption(nuxt.options as unknown as Record<string, unknown>) ?? options.auth) === 'better-auth'
 
     // `#backend/*` — the backend-branded aliases for the Convex functions
     // folder (same targets as the base module's `#convex/*`).
@@ -290,7 +308,7 @@ export default defineNuxtModule<ModuleOptions>({
     const backendUrl = resolver.resolve('./runtime/server/backend-url')
     addNitroPlugin({ nitro2: backendUrl, nitro3: backendUrl })
 
-    registerSaasComposables(resolver)
+    registerSaasComposables(resolver, { betterAuth })
     // The English labels by group: a page ships the groups its components read.
     registerLabels(resolver)
     // The package's messages for an app's @nuxtjs/i18n, when it has one.
@@ -302,22 +320,13 @@ export default defineNuxtModule<ModuleOptions>({
     registerStyles(options.css, resolver, nuxt)
 
     // The page guard, the one way a page says who may open it: `definePageMeta({ auth })`.
-    registerPageAccess(resolver, nuxt)
+    // Convex Auth mode guards a page with the base module's `convex-auth` middleware.
+    if (betterAuth) registerPageAccess(resolver, nuxt)
     // The noindex meta tag without @nuxtjs/robots, and a preview build's own
     // site for the app's SEO modules, never indexable (src/nuxt/site.ts).
     registerSearchIndexing(resolver, nuxt)
-    // Off a guarded page to sign-in when the session ends under it.
-    addPlugin({ src: resolver.resolve('./runtime/vue/plugins/session-ended'), mode: 'client' })
-    // A new account to its first run at /welcome, once.
-    if (options.pages?.welcome !== false) addPlugin({ src: resolver.resolve('./runtime/vue/plugins/onboarding-redirect'), mode: 'client' })
-    // A return from checkout: the parameter off the address, the entitlements refreshed once.
-    addPlugin({ src: resolver.resolve('./runtime/vue/plugins/checkout-return'), mode: 'client' })
-    // A campaign link's UTM values, sent once for a signed-in person: the growth funnel's first touch.
-    addPlugin({ src: resolver.resolve('./runtime/vue/plugins/first-touch'), mode: 'client' })
-    // App activity and the browser's time zone, once a day: the sunset rule and quiet hours read them.
-    addPlugin({ src: resolver.resolve('./runtime/vue/plugins/email-presence'), mode: 'client' })
-    // The passkey ceremony, loaded once the page is idle (a tap then runs it straight through).
-    addPlugin({ src: resolver.resolve('./runtime/vue/plugins/passkey-ceremony'), mode: 'client' })
+    // What reads the Better Auth session; none of it in Convex Auth mode.
+    if (betterAuth) registerAccountPlugins(options, resolver)
     // The narrow Trusted Types `default` policy, for code that writes a sink without one of its own.
     if (!securityDisabled(nuxt)) addPlugin({ src: resolver.resolve('./runtime/vue/plugins/trusted-types.client'), mode: 'client' })
     // The headers' exceptions for what other sites load, and Content's WebAssembly.
@@ -330,9 +339,10 @@ export default defineNuxtModule<ModuleOptions>({
       addPlugin({ src: resolver.resolve('./runtime/vue/plugins/chunk-recovery.client'), mode: 'client' })
     }
     registerBaseComponentAliases(resolver, nuxt)
-    hideBaseBrandNames(nuxt)
+    hideBaseBrandNames(nuxt, { convexAuth: !betterAuth })
 
-    const pagesInfo = registerModulePages(options, resolver, nuxt)
+    // Every ready-made page reads the Better Auth session: Convex Auth mode mounts none.
+    const pagesInfo = registerModulePages(betterAuth ? options : { ...options, pages: pagesOff() }, resolver, nuxt)
     // The paths the backend links to, carried from this config into the functions directory.
     registerPathsFile(options, nuxt)
     // The brand and the labels the backend's emails and notifications read, carried from app.config beside it.
@@ -347,12 +357,14 @@ export default defineNuxtModule<ModuleOptions>({
     // Error reports, cron check-ins and the health route (the monitoring layer).
     registerMonitoring(resolver, nuxt)
     // The visitor's address for the billing provider's local pricing: a checkout is created on the deployment.
-    addServerHandler({ route: VISITOR_IP_ROUTE, method: 'get', handler: { nuxt: resolver.resolve('./runtime/server/visitor-ip') } })
+    if (betterAuth) addServerHandler({ route: VISITOR_IP_ROUTE, method: 'get', handler: { nuxt: resolver.resolve('./runtime/server/visitor-ip') } })
     // The admin console's Queue tab, once backend/jobs.ts defines a job queue.
     registerJobs(nuxt)
     registerReports(nuxt)
 
-    runPreflight(options, nuxt)
+    // The preflight checks Better Auth's env; Convex Auth mode says once what runs instead.
+    if (betterAuth) runPreflight(options, nuxt)
+    else if (nuxt.options.dev && !nuxt.options._prepare && !nuxt.options.test) logger.info(CONVEX_AUTH_NOTICE)
 
     // The Backend tab in Nuxt DevTools, where a panel can be opened (nuxt/dev.ts).
     await registerDevtoolsPanel(options, resolver, nuxt, pagesInfo)
@@ -404,4 +416,20 @@ declare module '@nuxt/schema' {
       deployment: string
     }
   }
+}
+
+/** The client plugins that read the Better Auth session, each for a feature it carries. */
+function registerAccountPlugins(options: ModuleOptions, resolver: ReturnType<typeof createResolver>): void {
+  // Off a guarded page to sign-in when the session ends under it.
+  addPlugin({ src: resolver.resolve('./runtime/vue/plugins/session-ended'), mode: 'client' })
+  // A new account to its first run at /welcome, once.
+  if (options.pages?.welcome !== false) addPlugin({ src: resolver.resolve('./runtime/vue/plugins/onboarding-redirect'), mode: 'client' })
+  // A return from checkout: the parameter off the address, the entitlements refreshed once.
+  addPlugin({ src: resolver.resolve('./runtime/vue/plugins/checkout-return'), mode: 'client' })
+  // A campaign link's UTM values, sent once for a signed-in person: the growth funnel's first touch.
+  addPlugin({ src: resolver.resolve('./runtime/vue/plugins/first-touch'), mode: 'client' })
+  // App activity and the browser's time zone, once a day: the sunset rule and quiet hours read them.
+  addPlugin({ src: resolver.resolve('./runtime/vue/plugins/email-presence'), mode: 'client' })
+  // The passkey ceremony, loaded once the page is idle (a tap then runs it straight through).
+  addPlugin({ src: resolver.resolve('./runtime/vue/plugins/passkey-ceremony'), mode: 'client' })
 }

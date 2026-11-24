@@ -178,7 +178,7 @@ The base module's, under neutral names: `<Authenticated>`, `<Unauthenticated>`, 
 |---|---|
 | `default` | The Nuxt module: list `'nuxt-backend'` in `modules`. |
 
-Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDeniedReason`, `PageAccessRules`, `AdminTabMeta`, `InstallableOptions`, `ModuleRedirectsOptions`, `ModuleOptions`.
+Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDeniedReason`, `PageAccessRules`, `AdminTabMeta`, `InstallableOptions`, `AuthProvider`, `ModuleRedirectsOptions`, `ModuleOptions`.
 
 ### `nuxt-backend/auth`
 
@@ -734,6 +734,7 @@ The app's parts, each detected as `live`, `test`, `missing` or `failing`: `npx n
 | `consent-urls` | auth | Consent documents |
 | `admin-bootstrap` | auth | First administrator |
 | `page-paths` | auth | Page paths |
+| `auth-provider` | auth | Auth provider |
 | `backend-site-url` | data | Backend site URL |
 | `deployment-env` | data | Deployment env |
 | `deployment-backend-environment` | data | Deployment BACKEND_ENVIRONMENT |

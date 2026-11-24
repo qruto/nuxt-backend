@@ -1012,6 +1012,69 @@ describe('page route rules', () => {
   })
 })
 
+describe('Convex Auth mode', () => {
+  // `backend.auth: 'convex-auth'`: the base module's Convex Auth, sign-in
+  // only, and none of what the package builds on Better Auth's accounts.
+  const getNuxt = useBoot({ backend: { auth: 'convex-auth' } })
+
+  it('turns the base module\'s Better Auth and Polar off and its Convex Auth on, at the package\'s sign-in path', () => {
+    expect(dependencyOptions(getNuxt()).convex).toMatchObject({
+      betterAuth: false,
+      convexAuth: { loginPath: '/login' },
+      polar: false,
+      clerk: false,
+      auth0: false,
+    })
+  })
+
+  it('mounts no ready-made page, and publishes every page as off', async () => {
+    const nuxt = getNuxt()
+    expect((await extendPages(nuxt)).filter(page => page.file?.startsWith(runtimeDir))).toEqual([])
+    const published = (nuxt.options.runtimeConfig.public.backend as unknown as { pages: Record<string, unknown> }).pages
+    expect(Object.values(published).every(path => path === false)).toBe(true)
+  })
+
+  it('registers no page guard, and neither useAuth nor backendAuth', async () => {
+    const nuxt = getNuxt()
+    expect((await resolveMiddleware(nuxt)).map(entry => entry.name)).not.toContain('backend-access')
+    const imports = await extendImports(nuxt)
+    expect(imports.filter(entry => entry.name === 'useAuth')).toEqual([])
+    expect(nitroImports(nuxt).filter(entry => (entry.as ?? entry.name) === 'backendAuth')).toEqual([])
+  })
+
+  it('keeps the base module\'s Convex Auth names, brand-named or not', async () => {
+    const names = (await extendImports(getNuxt())).map(entry => entry.as ?? entry.name)
+    expect(names).toEqual(expect.arrayContaining(['provideConvexAuth', 'useAuthActions', 'useSendEmailMagicLink', 'useSignInWithGithub', 'resolveAuthRedirect']))
+    expect(names).not.toContain('useBetterAuth')
+    expect(names).not.toContain('useConvex')
+  })
+
+  it('adds none of the plugins that read the Better Auth session, and no visitor-address route', () => {
+    const plugins = ourPlugins(getNuxt()).map(src => src.replace(/^.*[\\/]vue[\\/]plugins[\\/]/, '').replace(/\.ts$/, '')).sort()
+    expect(plugins).toEqual(['chunk-recovery.client', 'install-prompt.client', 'noindex', 'protection.client', 'trusted-types.client'])
+    expect(getNuxt().options.serverHandlers.map(handler => handler.handler)).not.toContain(join(runtimeDir, 'server/visitor-ip'))
+  })
+})
+
+describe('Convex Auth mode, passed inline', () => {
+  // Nuxt resolves the dependencies before it merges inline options: the base
+  // module still gets the provider setup runs.
+  const getNuxt = useBoot({ modules: [['nuxt-backend', { auth: 'convex-auth' }]] })
+
+  it('configures the base module for the provider setup runs', async () => {
+    expect(dependencyOptions(getNuxt()).convex).toMatchObject({ betterAuth: false, convexAuth: { loginPath: '/login' }, polar: false })
+    expect((await extendImports(getNuxt())).filter(entry => entry.name === 'useAuth')).toEqual([])
+  })
+})
+
+describe('an auth option naming neither provider', () => {
+  it('stops the boot with a named error', async () => {
+    const error = await bootError({ backend: { auth: 'clerk' } })
+    expect(error.name).toBe('BackendOptionsError')
+    expect(error.message).toContain('`backend.auth` is `"clerk"`.')
+  })
+})
+
 describe('options 0.2 removed', () => {
   // Refused in `moduleDependencies`, which Nuxt runs before any module's
   // setup: nothing reads them, and nothing is written.

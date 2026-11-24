@@ -20,15 +20,38 @@ const base = (file: string) => `${baseRoot}/dist/runtime/${file}`
 type Listener = (event: { name: string, args: unknown[] }) => void
 
 /** The `afterEach` listener `hideBaseBrandNames` installs. */
-function installFilter(): Listener {
+function installFilter(options?: Parameters<typeof hideBaseBrandNames>[1]): Listener {
   let listener: Listener | undefined
   hideBaseBrandNames({ hooks: { afterEach: (fn: Listener) => {
     listener = fn
-  } } } as unknown as Nuxt)
+  } } } as unknown as Nuxt, options)
   return listener!
 }
 
 describe('hideBaseBrandNames', () => {
+  it('keeps the Convex Auth surface in Convex Auth mode, and hides the rest as before', () => {
+    const imports = [
+      { name: 'provideConvexAuth', from: base('convex-auth/vue/index.js') },
+      { name: 'setupConvexAuthNuxt', from: base('convex-auth/nuxt/server.js') },
+      { name: 'useConvex', from: base('vue/client.js') },
+    ]
+    const middleware = [
+      { name: 'convex-auth', path: base('convex-auth/nuxt/middleware.js') },
+      { name: 'convex-auth', path: base('better-auth/nuxt/middleware.js') },
+    ]
+    const filter = installFilter({ convexAuth: true })
+    filter({ name: 'imports:extend', args: [imports] })
+    filter({ name: 'app:resolve', args: [{ middleware }] })
+    expect(imports.map(entry => entry.name)).toStrictEqual(['provideConvexAuth', 'setupConvexAuthNuxt'])
+    expect(middleware.map(entry => entry.path)).toStrictEqual([base('convex-auth/nuxt/middleware.js')])
+  })
+
+  it('hides the Convex Auth surface in a Better Auth app', () => {
+    const imports = [{ name: 'provideConvexAuth', from: base('convex-auth/vue/index.js') }]
+    installFilter()({ name: 'imports:extend', args: [imports] })
+    expect(imports).toStrictEqual([])
+  })
+
   it('hides every brand-named component of the base module, Clerk and Auth0 providers included', () => {
     const components = [
       { pascalName: 'ConvexImage', filePath: base('vue/components/convex-image.js') },

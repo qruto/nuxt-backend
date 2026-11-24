@@ -20,6 +20,7 @@ import { configuredDeployment, deploymentEnvNames, deploymentFlags, deploymentFu
 import { projectEnvDefaultNames } from './env-defaults'
 import { BACKEND_ENV, OPTIONAL_DEPLOYMENT_ENV, REMOVED_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './env-registry'
 import { billingEnvironment, parseBackendEnvironment } from './convex/environment'
+import { authProviderOf, CONVEX_AUTH_DOCS_URL, CONVEX_AUTH_NOTICE } from './nuxt/auth-provider'
 import { applyProductionPosture, deploymentEnvId, finding, type FindingGroup, type FindingId, type PreflightFinding } from './findings'
 import { GATEWAY_KEY_FIX, GATEWAY_ORDER_UNREAD, gatewayKeyIsTheFix } from './capabilities/gateway-route'
 import { capabilityOfGroup, type CapabilityName } from './capabilities'
@@ -81,7 +82,7 @@ async function readDeployment(rootDir: string, options: { prod: boolean, reachab
 
 /** What doctor reads of the app's nuxt.config: the module's pages, and whether it serves docs for agents. */
 interface AppConfig {
-  backend?: { pages?: ModulePagesOptions, authRoute?: string, installable?: InstallableOptions | false }
+  backend?: { auth?: unknown, pages?: ModulePagesOptions, authRoute?: string, installable?: InstallableOptions | false }
   /** nuxt-llms' options: set when the app (or a layer it extends, such as Docus) serves `llms.txt`. */
   llms?: unknown
   modules?: unknown[]
@@ -1119,6 +1120,18 @@ function aiGatewayBudgetFinding(rootDir: string, posture: ProductionPosture, { d
   )]
 }
 
+/** Whether nuxt.config runs Convex Auth mode (`backend.auth: 'convex-auth'`). False when it does not load. */
+async function convexAuthMode(appConfig: () => Promise<AppConfig | null>): Promise<boolean> {
+  const options = await loadedBackendOptions(appConfig)
+  return authProviderOf((options as { auth?: unknown } | null)?.auth) === 'convex-auth'
+}
+
+/** The checks that do not apply in Convex Auth mode: Better Auth's secret, the site URL its emails link to, and its /api/auth proxy. */
+const BETTER_AUTH_ONLY: ReadonlySet<string> = new Set(['auth-secret', 'site-url', 'backend-site-url'])
+
+/** In Convex Auth mode, what runs and what is off, in place of the checks that do not apply. */
+const authProviderFinding = (): PreflightFinding => finding('auth-provider', 'warn', `${CONVEX_AUTH_NOTICE} The checks of AUTH_SECRET, SITE_URL, the /api/auth proxy and billing do not apply, and are left out.`, `What runs, and how to set it up: ${CONVEX_AUTH_DOCS_URL}`)
+
 /** The scaffold's own checks, on local files only: the generated files, the dev script, the mounts and routes, the agent files, `.env.example` and name collisions. */
 async function scaffoldFindings(rootDir: string, appConfig: () => Promise<AppConfig | null>): Promise<PreflightFinding[]> {
   return [
@@ -1156,12 +1169,14 @@ async function localFeatureFindings(rootDir: string, { env, wants, deployed, pro
  * (`status --prod`, for its switches), so it is read once.
  */
 export async function runDoctorChecks(rootDir: string, { prod, only, deployedNames, posture: given }: { prod: boolean, only?: readonly CapabilityName[], deployedNames?: string[] | null, posture?: Promise<ProductionPosture | null> }): Promise<PreflightFinding[]> {
-  const wantsCapability = (capability: CapabilityName) => !only || only.length === 0 || only.includes(capability)
+  // nuxt.config, loaded once for every check that reads it.
+  const appConfig = appConfigLoader(rootDir)
+  // Convex Auth mode turns billing off with the accounts it belongs to: its checks do not run.
+  const convexAuth = await convexAuthMode(appConfig)
+  const wantsCapability = (capability: CapabilityName) => (!only || only.length === 0 || only.includes(capability)) && !(convexAuth && capability === 'billing')
   // A check is tagged with its finding group; the group's capability decides.
   const wants = (group: FindingGroup) => wantsCapability(capabilityOfGroup(group))
   const env = { ...readEnvFiles(rootDir), ...process.env } as Record<string, string | undefined>
-  // nuxt.config, loaded once for every check that reads it.
-  const appConfig = appConfigLoader(rootDir)
 
   const siteUrl = resolveSiteUrl({ env, derived: deriveDeploymentUrls(rootDir, env) })
   // The deployment's env names (never values), read once: what the
@@ -1208,13 +1223,14 @@ export async function runDoctorChecks(rootDir: string, { prod, only, deployedNam
       ...(deployed ? { deployedNames: new Set(deployed) } : {}),
     }),
     ...wants('scaffold') ? await scaffoldFindings(rootDir, appConfig) : [],
+    ...convexAuth && wantsCapability('auth') ? [authProviderFinding()] : [],
     // Under --prod the deployment is production's, whatever .env.local names.
     ...deploymentEnvFindings(rootDir, deployed, { prod, ...deploymentRoute(computeDeployment(rootDir, env).kind, prod), posture }),
     ...await localFeatureFindings(rootDir, { env, wants, deployed, prod, appConfig }),
     ...surface,
     ...catalog,
     ...metrics,
-  ].filter(reported => wantsCapability(reported.capability))
+  ].filter(reported => wantsCapability(reported.capability) && !(convexAuth && BETTER_AUTH_ONLY.has(reported.id)))
   return prod ? productionFindings(findings, { posture, launch }) : findings
 }
 

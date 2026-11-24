@@ -137,11 +137,13 @@ describe('route middleware', () => {
   // one page guard, and the base module's `convex-auth` is hidden, so a page
   // naming either fails to resolve its middleware. The two show only in
   // rename rows, each to `auth: true`. The skills ship to users' agents, so
-  // they are read too.
+  // they are read too. Convex Auth mode is the exception: there the base
+  // module's `convex-auth` is the page guard, and its page names it.
   it.each([...prose, ...skillDocs])('%s names no package middleware, outside a rename row', (file) => {
+    const convexAuthMode = file.endsWith('/04.build/1.auth/7.convex-auth.md')
     for (const line of read(file).split('\n')) {
       for (const [, name] of line.matchAll(/middleware:\s*'([^']+)'/g)) {
-        if (line.includes('auth: true')) continue
+        if (line.includes('auth: true') || (convexAuthMode && name === 'convex-auth')) continue
         expect(name, `${file} uses middleware '${name}': ${line.trim()}`).not.toMatch(/^(?:auth|convex-auth)$/)
       }
     }

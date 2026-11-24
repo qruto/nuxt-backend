@@ -15,13 +15,18 @@ import { REGISTERED_UI, uiPath } from '../ui/registry'
  * Expose the SaaS layer as Nuxt auto-imports — one name per concept. The core
  * data composables (`useQuery`, `useMutation`, ...) come from
  * `nuxt-convex-module`; `useAuth` is this package's extended service over
- * the base module's, whose own name {@link hideBaseBrandNames} hides.
+ * the base module's, whose own name {@link hideBaseBrandNames} hides. In
+ * Convex Auth mode (`betterAuth: false`) neither `useAuth` nor the
+ * Nitro `backendAuth` is registered: both read Better Auth's session, and
+ * the base module's `useAuthActions` and `setupConvexAuthNuxt` stand in.
  */
-export function registerSaasComposables(resolver: Resolver): void {
-  addImports({
-    name: 'useAuth',
-    from: resolver.resolve('./runtime/vue/composables/use-auth'),
-  })
+export function registerSaasComposables(resolver: Resolver, { betterAuth = true }: { betterAuth?: boolean } = {}): void {
+  if (betterAuth) {
+    addImports({
+      name: 'useAuth',
+      from: resolver.resolve('./runtime/vue/composables/use-auth'),
+    })
+  }
 
   // Every packaged component and part, by the name an app sees it under
   // (src/ui/registry.ts). A part is registered too: an app component of the
@@ -117,6 +122,7 @@ export function registerSaasComposables(resolver: Resolver): void {
   // service: the same service, its calls reported to the monitoring layer
   // when they fail (tagged with the function they ran). Registered only
   // when the base runtime it wraps is on disk.
+  if (!betterAuth) return
   const serverRuntime = resolveBaseServerRuntime()
   if (serverRuntime) {
     addServerImports([
@@ -294,11 +300,17 @@ export const PROVIDER_WORDED_COMPONENTS = new Set(['CheckoutLink', 'CustomerPort
  * directory of the same name — and an argument of an unexpected shape is
  * left alone rather than failing the hook. The base module's own runtime
  * imports what it uses explicitly, so nothing it ships breaks.
+ *
+ * In Convex Auth mode (`convexAuth: true`) the base module's Convex Auth
+ * surface is the app's sign-in, so it stays: what its `convex-auth`
+ * runtime folder registers (`provideConvexAuth`, `setupConvexAuthNuxt`,
+ * `<ConvexAuthProvider>`) and its `convex-auth` middleware.
  */
-export function hideBaseBrandNames(nuxt: Nuxt): void {
+export function hideBaseBrandNames(nuxt: Nuxt, { convexAuth = false }: { convexAuth?: boolean } = {}): void {
   const roots = baseModuleRoots()
   const fromBaseModule = (path: unknown): boolean =>
     typeof path === 'string' && roots.some(root => slashed(path).startsWith(root))
+    && !(convexAuth && slashed(path).includes('/convex-auth/'))
   const hiddenImport = (entry: { name?: string, as?: string, from?: string } | undefined) =>
     fromBaseModule(entry?.from) && BRAND_NAME.test(entry?.as ?? entry?.name ?? '')
   const hiddenComponent = (component: { pascalName?: string, filePath?: string } | undefined) =>

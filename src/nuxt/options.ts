@@ -1,5 +1,6 @@
 import { installableProblems } from '../installable'
 import { pagesOptionProblems } from '../pages'
+import { authOptionProblems } from './auth-provider'
 
 // The `backend` options a 0.1 config may still hold: refused before anything
 // reads them, each named with what replaced it.
@@ -67,6 +68,12 @@ export function assertModuleOptions(options: unknown): void {
     throw error
   }
   const removed = Object.entries(REMOVED_OPTIONS).filter(([key]) => values[key] !== undefined)
+  const auth = authOptionProblems(values.auth)
+  if (auth.length > 0) {
+    const error = new Error(`nuxt-backend: ${auth.join(' ')}`)
+    error.name = 'BackendOptionsError'
+    throw error
+  }
   const problems = [
     ...pagesOptionProblems(values.pages),
     ...removed.map(([key, instead]) => `\`${key}\` is gone. ${instead}`),

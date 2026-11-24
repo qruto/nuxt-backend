@@ -58,6 +58,7 @@ Defined in: [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="url"></a> `url?` | `string` | The deployment's URL (the `.convex.cloud` origin). Else `NUXT_PUBLIC_BACKEND_URL`, else derived from `CONVEX_DEPLOYMENT`. The HTTP-routes origin (`.convex.site`) derives from it; a custom domain in front of them goes in `NUXT_PUBLIC_CONVEX_SITE_URL`. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
+| <a id="auth"></a> `auth?` | [`AuthProvider`](#authprovider) | Which auth the app runs. `'better-auth'` (the default) is the package's own: passwordless sign-in, the pages, the page guard, workspaces, billing, AI credits and the account features. `'convex-auth'` runs the base module's Convex Auth integration instead (`@convex-dev/auth`: magic links, OAuth, passkeys, passwords), sign-in only: every feature above is off. Experimental. See https://nuxt-backend.dev/docs/build/auth/convex-auth | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="authroute"></a> `authRoute?` | `string` | - | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="pages"></a> `pages?` | `ModulePagesOptions` | Where the ready-made pages mount (sign-in, pricing, settings, profile, security and the invitation pages). Every page is on; give a key a path to move it, or `false` to turn it off. To replace a page, put an app page at its path: an app page always wins over the module's. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="redirects"></a> `redirects?` | [`ModuleRedirectsOptions`](#moduleredirectsoptions) | Where the ready-made pages send a person once they are done. See [ModuleRedirectsOptions](#moduleredirectsoptions). | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
@@ -145,6 +146,18 @@ Per-request Better Auth + Convex helper returned by [convexBetterAuthNuxt](https
 | <a id="fetchauthaction"></a> `fetchAuthAction` | \<`Action`\>(`action`, ...`args`) => `Promise`\<`FunctionReturnType`\<`Action`\>\> | Execute a Convex action with the current user's auth token. | node\_modules/nuxt-convex-module/runtime/better-auth/nuxt/server |
 
 ## Type Aliases
+
+### AuthProvider
+
+```ts
+type AuthProvider = "better-auth" | "convex-auth";
+```
+
+Defined in: [src/nuxt/auth-provider.ts](https://github.com/qruto/nuxt-backend/blob/main/src/nuxt/auth-provider.ts)
+
+The two auth providers: `'better-auth'` (the default) and `'convex-auth'`.
+
+***
 
 ### AccessDeniedReason
 
