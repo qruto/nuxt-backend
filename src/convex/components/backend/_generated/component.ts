@@ -4005,7 +4005,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { orderId: string },
-        null | {
+        {
           amount: number;
           createdAt: number;
           currency: string;
@@ -4017,7 +4017,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           status: "paid" | "refunded" | "partially_refunded" | "disputed";
           subscriptionId?: string;
           taxAmount?: number;
-        },
+        } | null,
         Name
       >;
       entityOfCustomer: FunctionReference<
@@ -4038,7 +4038,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "query",
         "internal",
         { orderId: string },
-        null | {
+        {
           amount: number;
           createdAt: number;
           currency: string;
@@ -4050,7 +4050,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           status: "paid" | "refunded" | "partially_refunded" | "disputed";
           subscriptionId?: string;
           taxAmount?: number;
-        },
+        } | null,
         Name
       >;
       grantCredits: FunctionReference<
@@ -4136,7 +4136,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { amount?: number; orderId: string; refundId: string },
-        null | {
+        {
           counted: boolean;
           order: {
             amount: number;
@@ -4151,7 +4151,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             subscriptionId?: string;
             taxAmount?: number;
           };
-        },
+        } | null,
         Name
       >;
       revokeGrant: FunctionReference<
