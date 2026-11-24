@@ -233,6 +233,9 @@ export function commerceSuite(fixture: ProviderFixture, built: { billing: Billin
       await deliver(events.charge(subscription, 'order_year_1')).catch(() => null)
       expect(await credits(ada)).toBe(30)
       expect((await deliver(events.created(subscription))).status).toBe(200)
+      // The subscription's delivery alone starts the cycle: the plan's month, the free one lapsing.
+      await runScheduledNow()
+      expect(await credits(ada)).toBe(400)
       expect((await deliver(events.charge(subscription, 'order_year_1'))).status).toBe(200)
       // The cycle the deliveries started on their own: the plan's month, the free one lapsing; once, however often it runs.
       await runScheduledNow()
@@ -260,6 +263,9 @@ export function commerceSuite(fixture: ProviderFixture, built: { billing: Billin
       }
       expect(changed?.pendingChange).toMatchObject({ productId: fixture.ids.pro })
       expect((await deliver(events.updated(subscription))).status).toBe(200)
+      expect((await current(ada))?.pendingChange).toMatchObject({ productId: fixture.ids.pro })
+      // A later lifecycle call reads back no schedule, and keeps the one recorded.
+      await ada.action(fn<'action'>('billing:pauseSubscription'), {})
       expect((await current(ada))?.pendingChange).toMatchObject({ productId: fixture.ids.pro })
     })
 

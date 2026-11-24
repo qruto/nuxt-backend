@@ -251,6 +251,19 @@ export function createSubscriptions(
    * (a plan switch) is refused while checkout is paused, right after the
    * caller's check.
    */
+  /**
+   * An adapter's change and its read back, keeping a plan change scheduled
+   * before it: an adapter reads back no schedule, so a later uncancel or
+   * pause would otherwise record none. A subscription that ended keeps none.
+   */
+  const commerceUpdated = async (ctx: RunWriteCtx, subscription: SyncedSubscription, payload: SubscriptionUpdatePayload, operation: string) => {
+    const updated = await applyCommerceUpdate(commerce!, subscription.id, payload as Parameters<typeof applyCommerceUpdate>[2], operation, subscription.currentPeriodEnd)
+    if (updated.pendingUpdate || updated.status === 'canceled') return updated
+    const [synced] = await withChanges(ctx, [subscription])
+    const pending = synced?.pendingChange
+    return pending && pending.productId !== updated.productId ? { ...updated, pendingUpdate: { ...pending, modifiedAt: updated.modifiedAt } } : updated
+  }
+
   const applySubscriptionUpdate = async (
     ctx: RunWriteCtx & { auth?: Auth },
     operation: string,
@@ -271,7 +284,7 @@ export function createSubscriptions(
     const payload = typeof update === 'function' ? update(subscription) : update
     // On an adapter provider the same change is the adapter's call, and the response its read back.
     const updated = commerce
-      ? await applyCommerceUpdate(commerce, subscription.id, payload as Parameters<typeof applyCommerceUpdate>[2], operation, subscription.currentPeriodEnd) as unknown as ProviderSubscription
+      ? await commerceUpdated(ctx, subscription, payload, operation) as unknown as ProviderSubscription
       : unwrapProvider(await subscriptionsUpdate(provider.polar, { id: subscription.id, subscriptionUpdate: payload }), operation)
     // The response is the subscription as the change left it: a scheduled
     // plan change or a resume date reads back before its webhook lands.
