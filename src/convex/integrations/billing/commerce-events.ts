@@ -270,17 +270,27 @@ export function createCommerceEvents(
     if (product?.kind !== 'plan' || !credits || credits.once) return
     const subscription = await subscriptionOf(ctx, order.subscriptionId)
     if (monthlyCycleOf(product)) {
-      // The months of its period the cycle granted before the order arrived are the order's to take back:
-      // from when it was recorded, never past a later period's start (a redelivered year-old order).
-      const periodStart = msOf(subscription?.currentPeriodStart)
-      const until = periodStart !== undefined && periodStart > orderedAt ? periodStart - 1 : Date.now()
-      const months = monthsBetween(periodStartOf(subscription, orderedAt), until)
-      await ctx.runMutation(refs.linkGrants, { userId: entityId, orderId: order.id, externalIds: months.map(month => `cycle:${entityId}:${product.key}:${month}`) })
+      await linkMonths(ctx, entityId, order.id, product.key, subscription, orderedAt)
       if (subscription && subscription.endedAt == null) await (ctx as QueueCtx).scheduler.runAfter(0, cycleReference, { entityId })
       return
     }
     const units = planCreditUnits(credits, product.interval)
     if (units) await ctx.runMutation(refs.grantCredits, { userId: entityId, meterId: credits.meter, amount: units, externalId: `order:${order.id}`, source: 'plan', rollover: credits.rollover ?? false, orderId: order.id, ...periodBounds(subscription) })
+  }
+
+  /**
+   * The months of an order's period the cycle granted before the order
+   * arrived, tied to it to take back: from when it was recorded, never past
+   * a later period's start (a redelivered year-old order). A month's key is
+   * shared by the periods on either side of a renewal, so the grant's own
+   * time decides.
+   */
+  const linkMonths = async (ctx: RunWriteCtx, entityId: string, orderId: string, planKey: string, subscription: SubscriptionRow | null, orderedAt: number): Promise<void> => {
+    const periodStart = msOf(subscription?.currentPeriodStart)
+    const until = periodStart !== undefined && periodStart > orderedAt ? periodStart - 1 : undefined
+    const from = periodStartOf(subscription, orderedAt)
+    const externalIds = monthsBetween(from, until ?? Date.now()).map(month => `cycle:${entityId}:${planKey}:${month}`)
+    await ctx.runMutation(refs.linkGrants, { userId: entityId, orderId, externalIds, from, ...(until === undefined ? {} : { until }) })
   }
 
   /** A subscription's order that arrived before the subscription it renews: failed, the provider delivers it again. */

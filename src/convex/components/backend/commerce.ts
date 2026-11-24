@@ -338,15 +338,16 @@ export const revokeOrderGrants = mutation({
 /**
  * Tie the grants under `externalIds` that no order paid for yet to
  * `orderId`: a yearly plan's months the cycle granted before the order
- * that pays for them arrived.
+ * that pays for them arrived, granted between `from` and `until` (its
+ * period) where they are given.
  */
 export const linkGrants = mutation({
-  args: { userId: v.string(), orderId: v.string(), externalIds: v.array(v.string()) },
+  args: { userId: v.string(), orderId: v.string(), externalIds: v.array(v.string()), from: v.optional(v.number()), until: v.optional(v.number()) },
   returns: v.null(),
-  handler: async (ctx, { userId, orderId, externalIds }) => {
+  handler: async (ctx, { userId, orderId, externalIds, from = -Infinity, until = Infinity }) => {
     for (const externalId of externalIds) {
       const grant = await ctx.db.query('billingCreditGrants').withIndex('externalId', q => q.eq('externalId', externalId)).first()
-      if (grant && grant.userId === userId && grant.orderId === undefined) await ctx.db.patch('billingCreditGrants', grant._id, { orderId })
+      if (grant && grant.userId === userId && grant.orderId === undefined && grant.at >= from && grant.at <= until) await ctx.db.patch('billingCreditGrants', grant._id, { orderId })
     }
     return null
   },

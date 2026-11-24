@@ -4101,7 +4101,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       linkGrants: FunctionReference<
         "mutation",
         "internal",
-        { externalIds: Array<string>; orderId: string; userId: string },
+        {
+          externalIds: Array<string>;
+          from?: number;
+          orderId: string;
+          until?: number;
+          userId: string;
+        },
         null,
         Name
       >;

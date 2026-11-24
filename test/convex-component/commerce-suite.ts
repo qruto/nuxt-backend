@@ -276,14 +276,16 @@ export function commerceSuite(fixture: ProviderFixture, built: { billing: Billin
       vi.useFakeTimers({ toFake: ['setTimeout', 'Date'], now: Date.UTC(2027, 0, 10, 12) })
       try {
         const ada = await freeAda()
-        const subscription = events.yearly(ada.workspaceId!)
+        // A year paid for, its period ending on the 10th of next January.
+        const subscription = events.renewed(events.yearly(ada.workspaceId!), Date.UTC(2028, 0, 10, 12))
         api.subscriptions[String(subscription.id ?? subscription.subscription_id)] = subscription
         await deliver(events.created(subscription))
         await deliver(events.charge(subscription, 'order_year_1'))
         await runScheduledNow()
         expect(await credits(ada)).toBe(400)
         // A year on the subscription renews, and the cycle grants the new period's month before its order arrives.
-        vi.setSystemTime(Date.UTC(2028, 0, 10, 12))
+        // Ten days into the renewed year, the same calendar month the old one ended in.
+        vi.setSystemTime(Date.UTC(2028, 0, 20, 12))
         const renewed = events.renewed(subscription, Date.UTC(2029, 0, 10, 12))
         expect((await deliver(events.updated(renewed))).status).toBe(200)
         await runScheduledNow()
