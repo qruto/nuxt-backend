@@ -12,10 +12,10 @@ import {
   recordDigitalContentConsent,
   webhookSecretsFromEnv,
 } from '../../src/convex/integrations/billing/providers'
-import { createCreemProvider, readCreemEvent } from '../../src/convex/integrations/billing/providers/creem'
-import { createDodoProvider, readDodoEvent } from '../../src/convex/integrations/billing/providers/dodo'
-import { hmacSha256Hex, sha256Hex } from '../../src/convex/integrations/billing/providers/http'
-import { createStripeProvider, readStripeEvent, STRIPE_API_VERSION, verifyStripeSignature } from '../../src/convex/integrations/billing/providers/stripe'
+import { createCreemProvider, creemCheckoutOrder, creemRenewalOrder, creemSubscription, readCreemEvent } from '../../src/convex/integrations/billing/providers/creem'
+import { createDodoProvider, dodoOrder, dodoSubscription, readDodoEvent } from '../../src/convex/integrations/billing/providers/dodo'
+import { hmacSha256Hex, idOf, millis, providerClient, sha256Hex, stringMetadata } from '../../src/convex/integrations/billing/providers/http'
+import { createStripeProvider, readStripeEvent, STRIPE_API_VERSION, stripeInvoiceOrder, stripeSessionOrder, stripeSubscription, verifyStripeSignature } from '../../src/convex/integrations/billing/providers/stripe'
 import { providerFailurePasses, markPassing } from '../../src/convex/integrations/billing/provider-failure'
 import { backendError } from '../../src/convex/errors'
 import { signingSecret } from '../helpers/secrets'
@@ -220,9 +220,10 @@ describe('stripe managed payments', () => {
     expect(readStripeEvent({ type: 'charge.dispute.created', data: { object: { id: 'dp_1', charge: 'ch_1', payment_intent: null } } }))
       .toMatchObject({ type: 'order.disputed', orderId: 'ch_1', subscriptionId: null })
   })
-  it('has no pause under Managed Payments', async () => {
+  it('has no pause or resume under Managed Payments', async () => {
     const stripe = createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: fakeFetch(() => ({})).impl })
     await expect(stripe.pauseSubscription('sub_1')).rejects.toBeInstanceOf(ProviderUnsupportedError)
+    await expect(stripe.resumeSubscription('sub_1')).rejects.toThrow(/checkout/)
   })
 })
 
@@ -526,5 +527,148 @@ describe('the commerce webhook route', () => {
     expect((await createCommerceWebhookHandler({ provider: stripe, secrets: [secret], webhookLog, onEvent })(ctx, forged.clone())).status).toBe(403)
     expect((await createCommerceWebhookHandler({ provider: stripe, secrets: [], webhookLog, onEvent })(ctx, forged)).status).toBe(503)
     expect(onEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('reading what a provider leaves out', () => {
+  // A payload with only its id, as an older API version, a test event or a
+  // dashboard action can send: every reader answers its neutral defaults,
+  // never `undefined`, so the package's validators accept it.
+  const sparseOrder = { customerId: null, entityId: null, productId: null, subscriptionId: null, amount: 0, taxAmount: null, currency: '', metadata: {} }
+
+  it('reads a bare Stripe invoice, session and subscription, and the older shapes', () => {
+    expect(stripeInvoiceOrder({ id: 'in_1' })).toEqual({ id: 'in_1', ...sparseOrder })
+    expect(stripeSessionOrder({ id: 'cs_1' })).toEqual({ id: 'cs_1', ...sparseOrder })
+    expect(stripeSessionOrder({ id: 'cs_2', client_reference_id: 'ws_1' }).entityId).toBe('ws_1')
+    expect(stripeSubscription({ id: 'sub_1', status: 'something_new', cancel_at: 1_800_000_000 })).toMatchObject({ status: 'incomplete', cancelAtPeriodEnd: true, productId: null, currentPeriodEnd: null })
+    // Before basil: the subscription and tax on the invoice, the price on the line.
+    expect(stripeInvoiceOrder({ id: 'in_2', subscription: 'sub_1', tax: 80, lines: { data: [{ price: { id: 'price_1' } }] } }))
+      .toMatchObject({ subscriptionId: 'sub_1', taxAmount: 80, productId: 'price_1' })
+    expect(stripeInvoiceOrder({ id: 'in_3', total_taxes: [{ amount: 50 }, { amount: 'x' }] }).taxAmount).toBe(50)
+  })
+
+  it('reads each Stripe refund status, an unknown event, and an event with no object', () => {
+    const refund = (status: string) => readStripeEvent({ type: 'refund.updated', data: { object: { id: 're_1', status, charge: 'ch_1' } } })
+    expect(refund('succeeded')).toMatchObject({ refund: { status: 'succeeded', orderId: 'ch_1', currency: null } })
+    expect(refund('failed')).toMatchObject({ refund: { status: 'failed' } })
+    expect(refund('canceled')).toMatchObject({ refund: { status: 'failed' } })
+    expect(refund('pending')).toMatchObject({ refund: { status: 'pending' } })
+    expect(readStripeEvent({ type: 'customer.created' })).toEqual({ type: 'ignored', providerType: 'customer.created' })
+  })
+
+  it('reads a bare Dodo payment and subscription, and each refund status', () => {
+    expect(dodoOrder({ payment_id: 'pay_1' })).toEqual({ id: 'pay_1', ...sparseOrder })
+    expect(dodoSubscription({ subscription_id: 'sub_1', customer_id: 'cus_1', status: 'something_new' })).toMatchObject({ customerId: 'cus_1', status: 'incomplete', currentPeriodEnd: null })
+    const refund = (status: string) => readDodoEvent({ type: 'refund.succeeded', data: { refund_id: 'ref_1', status } })
+    expect(refund('succeeded')).toMatchObject({ refund: { status: 'succeeded', orderId: null } })
+    expect(refund('failed')).toMatchObject({ refund: { status: 'failed' } })
+    expect(refund('pending')).toMatchObject({ refund: { status: 'pending' } })
+    expect(readDodoEvent({ type: 'license_key.created' })).toEqual({ type: 'ignored', providerType: 'license_key.created' })
+  })
+
+  it('reads a bare Creem checkout, renewal and subscription, and each refund status', () => {
+    expect(creemCheckoutOrder({ id: 'ch_1' })).toEqual({ id: 'ch_1', ...sparseOrder })
+    expect(creemCheckoutOrder({ id: 'ch_2', order: { id: 'ord_2', amount: 900, customer: 'cust_1', product: 'prod_1' } }))
+      .toMatchObject({ id: 'ord_2', amount: 900, customerId: 'cust_1', productId: 'prod_1' })
+    expect(creemRenewalOrder({ id: 'sub_1' })).toEqual({ id: 'sub_1', ...sparseOrder, subscriptionId: 'sub_1' })
+    expect(creemRenewalOrder({ id: 'sub_1', last_transaction_id: 'tran_9', last_transaction: undefined }).id).toBe('tran_9')
+    expect(creemRenewalOrder({ id: 'sub_1', last_transaction: { id: 'tran_8', amount: 700 } }).amount).toBe(700)
+    expect(creemSubscription({ id: 'sub_1', status: 'something_new' })).toMatchObject({ status: 'incomplete', cancelAtPeriodEnd: false })
+    const refund = (status: string) => readCreemEvent({ eventType: 'refund.created', object: { id: 'ref_1', status } })
+    expect(refund('failed')).toMatchObject({ refund: { status: 'failed', orderId: null, currency: null } })
+    expect(refund('pending')).toMatchObject({ refund: { status: 'pending' } })
+    expect(readCreemEvent({ eventType: 'customer.created' })).toEqual({ type: 'ignored', providerType: 'customer.created' })
+  })
+})
+
+describe('the provider requests the other options make', () => {
+  it('sends a Dodo checkout for a returning customer with a code and a trial, and one for a guest', async () => {
+    const { impl, sent } = fakeFetch(() => ({ session_id: 'cks_1', checkout_url: 'https://checkout.dodopayments.com/cks_1' }))
+    const dodo = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: impl })
+    await dodo.createCheckout({ productId: 'pdt_m', kind: 'subscription', customer: { entityId: 'ws_1', providerCustomerId: 'cus_1' }, successUrl: 'https://comics.my/thanks', discountCode: 'LAUNCH', trialDays: 7 })
+    await dodo.createCheckout({ productId: 'pdt_1', kind: 'one_time', customer: { entityId: 'ws_1' }, successUrl: 'https://comics.my/thanks' })
+    expect(JSON.parse(sent[0]!.body!)).toMatchObject({ customer: { customer_id: 'cus_1' }, discount_codes: ['LAUNCH'], subscription_data: { trial_period_days: 7 } })
+    const guest = JSON.parse(sent[1]!.body!)
+    expect(guest.customer).toBeUndefined()
+    expect(guest.subscription_data).toBeUndefined()
+  })
+
+  it('keeps a Dodo reason the customer gave, and passes any other refusal on as it is', async () => {
+    const { impl, sent } = fakeFetch(() => ({ refund_id: 'ref_1', payment_id: 'pay_1', status: 'pending' }))
+    const dodo = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: impl })
+    await dodo.refundOrder({ orderId: 'pay_1', reason: 'Bought the wrong plan' })
+    expect(JSON.parse(sent[0]!.body!).reason).toBe('Bought the wrong plan')
+    const refusing = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: fakeFetch(() => ({ code: 'PAYMENT_NOT_FOUND' }), 404).impl })
+    await expect(refusing.refundOrder({ orderId: 'pay_x' })).rejects.toMatchObject({ statusCode: 404, code: 'PAYMENT_NOT_FOUND' })
+  })
+
+  it('sends a Creem checkout for a returning customer, and one with no customer at all', async () => {
+    const { impl, sent } = fakeFetch(() => ({ id: 'ch_1', checkout_url: 'https://checkout.creem.io/ch_1' }))
+    const creem = createCreemProvider({ apiKey: 'creem_test_1', environment: 'sandbox', fetch: impl })
+    await creem.createCheckout({ productId: 'prod_1', kind: 'one_time', customer: { entityId: 'ws_1', providerCustomerId: 'cust_1' }, successUrl: 'https://comics.my/thanks' })
+    await creem.createCheckout({ productId: 'prod_1', kind: 'one_time', customer: { entityId: 'ws_2' }, successUrl: 'https://comics.my/thanks' })
+    expect(JSON.parse(sent[0]!.body!)).toMatchObject({ customer: { id: 'cust_1' }, request_id: 'ws_1' })
+    expect(JSON.parse(sent[1]!.body!).customer).toBeUndefined()
+    // The redirect check takes parsed params as well as the raw query.
+    expect(await creem.verifyCheckoutRedirect(new URLSearchParams({ checkout_id: 'ch_1' }))).toBe(false)
+  })
+
+  it('refunds a Stripe one-time order with a key and a reason, and refuses an invoice nothing paid', async () => {
+    const { impl, sent } = fakeFetch(r => r.url.pathname.endsWith('/invoice_payments') ? { data: [] } : { id: 're_1', status: 'pending', payment_intent: 'pi_1' })
+    const stripe = createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: impl })
+    await stripe.refundOrder({ orderId: 'pi_1', amount: 200, reason: 'Duplicate purchase', idempotencyKey: 'refund_1' })
+    expect(sent[0]!.headers['idempotency-key']).toBe('refund_1')
+    const form = new URLSearchParams(sent[0]!.body)
+    expect([form.get('payment_intent'), form.get('amount'), form.get('metadata[reason]')]).toEqual(['pi_1', '200', 'Duplicate purchase'])
+    await expect(stripe.refundOrder({ orderId: 'in_unpaid' })).rejects.toThrow(/no paid PaymentIntent/)
+  })
+
+  it('defers a Stripe plan change on the same interval, and names a dispute by its invoice', async () => {
+    const monthly = { recurring: { interval: 'month' } }
+    const { impl, sent } = fakeFetch((r) => {
+      if (r.url.pathname.includes('/prices/')) return monthly
+      if (r.url.pathname.endsWith('/invoice_payments')) return { data: [{ invoice: { id: 'in_1', parent: { subscription_details: { subscription: 'sub_1' } } } }] }
+      return { id: 'sub_1', items: { data: [{ id: 'si_1', price: { id: 'price_a', ...monthly } }] } }
+    })
+    const stripe = createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: impl })
+    await stripe.changePlan({ subscriptionId: 'sub_1', productId: 'price_b', proration: 'next_period' })
+    expect(new URLSearchParams(sent.at(-1)!.body).get('proration_behavior')).toBe('none')
+
+    const secret = signingSecret()
+    const body = JSON.stringify({ id: 'evt_dp', type: 'charge.dispute.created', data: { object: { id: 'dp_1', payment_intent: 'pi_1', charge: 'ch_1' } } })
+    const at = Math.floor(NOW / 1000)
+    const headers = new Headers({ 'stripe-signature': `t=${at},v1=${await hmacSha256Hex(secret, `${at}.${body}`)}` })
+    expect((await stripe.verifyWebhook(body, headers, ['', secret], NOW))?.event).toMatchObject({ type: 'order.disputed', orderId: 'in_1', subscriptionId: 'sub_1' })
+  })
+})
+
+describe('the shared provider client', () => {
+  it('reads each shape of error code, an empty answer, and a base URL with its slash', async () => {
+    const refusal = async (body: unknown) => {
+      const impl = (async () => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status: 400 })) as unknown as typeof fetch
+      return createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: impl }).getSubscription('sub_1').catch((error: ProviderHttpError) => error.code)
+    }
+    expect(await refusal({ error: { type: 'invalid_request_error' } })).toBe('invalid_request_error')
+    expect(await refusal({ code: 'NOT_FOUND' })).toBe('NOT_FOUND')
+    expect(await refusal({ error: 'plain' })).toBeUndefined()
+    expect(await refusal({ code: 'x'.repeat(81) })).toBeUndefined()
+    expect(await refusal('null')).toBeUndefined()
+    expect(await refusal('not json')).toBeUndefined()
+
+    const empty = vi.fn(async () => new Response(null, { status: 204 })) as unknown as typeof fetch
+    const call = providerClient('dodo', 'https://test.dodopayments.com/', {}, empty)
+    expect(await call('pause', { method: 'PATCH', path: '/subscriptions/sub_1', query: { skip: undefined, flag: true } })).toBeUndefined()
+    expect(String((empty as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0])).toBe('https://test.dodopayments.com/subscriptions/sub_1?flag=true')
+  })
+
+  it('keeps metadata\'s scalar values as strings, and reads dates and numbers strictly', async () => {
+    expect(stringMetadata({ a: 'x', b: 2, c: true, d: null, e: { f: 1 } })).toEqual({ a: 'x', b: '2', c: 'true' })
+    expect(stringMetadata(null)).toEqual({})
+    expect(idOf('')).toBeNull()
+    expect(idOf(7)).toBeNull()
+    expect(millis('not a date')).toBeNull()
+    expect(millis(5)).toBeNull()
+    expect(millis('x', 'seconds')).toBeNull()
+    expect(await hmacSha256Hex(new TextEncoder().encode('k'), 'body')).toBe(await hmacSha256Hex('k', 'body'))
   })
 })
