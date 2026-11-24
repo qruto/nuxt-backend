@@ -35,8 +35,8 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-async function authProvider() {
-  return (await runDoctorChecks(rootDir, { prod: false })).filter(entry => entry.id === 'auth-provider')
+async function authProvider(only?: Parameters<typeof runDoctorChecks>[1]['only']) {
+  return (await runDoctorChecks(rootDir, { prod: false, only })).filter(entry => entry.id === 'auth-provider')
 }
 
 describe('auth-provider', () => {
@@ -48,6 +48,12 @@ describe('auth-provider', () => {
     expect(found!.message).toContain('workspaces, billing, AI credits and the account features are off')
     expect(found!.message).toContain('do not apply')
     expect(found!.fixHint).toContain('https://nuxt-backend.dev/docs/build/auth/convex-auth')
+  })
+
+  it('reports under `--only auth`, and not under another capability', async () => {
+    app(`export default { backend: { auth: 'convex-auth' } }\n`)
+    expect(await authProvider(['auth'])).toHaveLength(1)
+    expect(await authProvider(['data'])).toEqual([])
   })
 
   it('reads the option passed inline in modules too', async () => {

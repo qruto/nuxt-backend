@@ -27,7 +27,7 @@ import { registerProtection } from './nuxt/protection'
 import { registerSecurityRules, securityDefaults, securityDevOverrides, securityDisabled } from './nuxt/security'
 import { keepDevModulesUncached } from './nuxt/development'
 import { registerSearchIndexing } from './nuxt/site'
-import { authProviderOf, baseAuthOverrides, CONVEX_AUTH_NOTICE, pagesOff, type AuthProvider } from './nuxt/auth-provider'
+import { authProviderOf, baseAuthOverrides, configuredAuthOption, CONVEX_AUTH_NOTICE, pagesOff, type AuthProvider } from './nuxt/auth-provider'
 import { logger } from './nuxt/logger'
 
 // The module definition; the helpers setup calls live in nuxt/, one file
@@ -255,7 +255,7 @@ export default defineNuxtModule<ModuleOptions>({
           // the base module's Convex Auth stays off, even where
           // @convex-dev/auth is installed, unless `backend.auth` names it
           // (src/nuxt/auth-provider.ts).
-          ...baseAuthOverrides(authProviderOf(backend.auth), {
+          ...baseAuthOverrides(authProviderOf(configuredAuthOption(rawOptions)), {
             loginPath,
             betterAuth: {
               authClient: resolver.resolve('./runtime/vue/auth-client'),
@@ -281,7 +281,8 @@ export default defineNuxtModule<ModuleOptions>({
     const resolver = createResolver(moduleDir)
     // Convex Auth mode runs the base module's sign-in and none of what the
     // package builds on Better Auth's accounts (src/nuxt/auth-provider.ts).
-    const betterAuth = authProviderOf(options.auth) === 'better-auth'
+    // Read as moduleDependencies read it, so setup runs the provider the base module was configured for.
+    const betterAuth = authProviderOf(configuredAuthOption(nuxt.options as unknown as Record<string, unknown>) ?? options.auth) === 'better-auth'
 
     // `#backend/*` — the backend-branded aliases for the Convex functions
     // folder (same targets as the base module's `#convex/*`).

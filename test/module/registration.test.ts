@@ -1056,6 +1056,17 @@ describe('Convex Auth mode', () => {
   })
 })
 
+describe('Convex Auth mode, passed inline', () => {
+  // Nuxt resolves the dependencies before it merges inline options: the base
+  // module still gets the provider setup runs.
+  const getNuxt = useBoot({ modules: [['nuxt-backend', { auth: 'convex-auth' }]] })
+
+  it('configures the base module for the provider setup runs', async () => {
+    expect(dependencyOptions(getNuxt()).convex).toMatchObject({ betterAuth: false, convexAuth: { loginPath: '/login' }, polar: false })
+    expect((await extendImports(getNuxt())).filter(entry => entry.name === 'useAuth')).toEqual([])
+  })
+})
+
 describe('an auth option naming neither provider', () => {
   it('stops the boot with a named error', async () => {
     const error = await bootError({ backend: { auth: 'clerk' } })

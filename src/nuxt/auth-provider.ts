@@ -17,6 +17,19 @@ export function authProviderOf(option: unknown): AuthProvider {
   return option === 'convex-auth' ? 'convex-auth' : 'better-auth'
 }
 
+/**
+ * The `auth` option as the dependency phase must read it: Nuxt resolves the
+ * module's dependencies before it merges options passed inline
+ * (`modules: [['nuxt-backend', { auth }]]`) over the `backend` key, so
+ * both are read here, the inline one first, as Nuxt merges them. Setup then
+ * sees the same provider the base module was configured for.
+ */
+export function configuredAuthOption(options: { backend?: unknown, modules?: unknown }): unknown {
+  const modules = Array.isArray(options.modules) ? options.modules : []
+  const inline = modules.flatMap(entry => Array.isArray(entry) && entry[0] === 'nuxt-backend' && entry[1] && typeof entry[1] === 'object' && 'auth' in entry[1] ? [(entry[1] as { auth?: unknown }).auth] : [])
+  return inline[0] ?? (options.backend as { auth?: unknown } | undefined)?.auth
+}
+
 /** Refuse an `auth` option that names neither provider, rather than read it as Better Auth. */
 export function authOptionProblems(option: unknown): string[] {
   if (option === undefined || option === 'better-auth' || option === 'convex-auth') return []

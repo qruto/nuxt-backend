@@ -12,27 +12,26 @@ description: The core skill for Nuxt apps on nuxt-backend, the all-in-one SaaS b
   gifts, AI metering and the webhook log.
 
 The app's own Convex functions live in `backend/`, and each scaffolded file there re-exports the
-package's setup. Docs: https://nuxt-backend.dev, and for agents https://nuxt-backend.dev/llms.txt;
+package's setup. Docs: https://nuxt-backend.dev (agents: https://nuxt-backend.dev/llms.txt);
 any docs page answers as Markdown with `.md` added to its URL. The docs MCP server (read-only,
 no sign-in): https://mcp.nuxt-backend.dev/mcp.
 
 ## Install and version
 
-- **Not installed yet?** No `nuxt-backend` in `package.json`, or no Nuxt app at all: follow
-  [references/install.md](references/install.md) first.
+- **Not installed yet?** No `nuxt-backend` in `package.json`, or no Nuxt app: follow
+  [references/install.md](references/install.md).
 - **Which version.** `version` in `node_modules/nuxt-backend/package.json` is the one the app
-  runs. The skills in `node_modules/nuxt-backend/skills/` match it; a copy from the site or
-  `npx skills add` can be ahead.
+  runs. The skills in `node_modules/nuxt-backend/skills/` match it; a copy from the site can be ahead.
   `npx nuxt-backend init --agents` copies the installed version's skills into `.agents/skills/`,
   and `npx nuxt-backend doctor` warns (`agent-files`) while those copies or the `AGENTS.md`
   section belong to another version.
 - **After an upgrade**, run `npx nuxt-backend upgrade` first; the `nuxt-backend-upgrade`
-  skill has the steps and every renamed name.
+  skill has the steps.
 
 ## Ground rules
 
 - **Neutral names.** The public API says `auth`, `billing`, `email`, `backend`, never a provider
-  name. Keep provider names out of app code, UI labels and env var names.
+  name. Keep provider names out of app code, UI labels and env names.
 - **Never edit `backend/_generated/`.** `convex dev` rewrites it. Import from `#backend/api`,
   `#backend/dataModel` and `#backend/server` in the app, and from `./_generated/*` inside `backend/`.
 - **Keep the scaffolded exports.** The composables call functions by name (`getAuthUser` in
@@ -43,7 +42,8 @@ no sign-in): https://mcp.nuxt-backend.dev/mcp.
   `.filter()`, no `process.env` outside the env contract. `npx convex ai-files install` writes
   Convex's own guidelines.
 - **User-scoped functions use the builders** `backend/functions.ts` exports (`authed`, `workspace`,
-  `admin`), never the bare `query` and `mutation`.
+  `admin`), never the bare `query` and `mutation`. With `backend.auth:
+  'convex-auth'`, read the caller with `getAuthUserId(ctx)` instead.
 - **Refusals are codes:** a `ConvexError` with a stable code. Read it with `getBackendError(error)`;
   refuse from your own functions with `backendError(code, data)` from `nuxt-backend/functions`.
 - **App data goes in app tables**, keyed by user id; the component owns its own schema.
@@ -72,7 +72,7 @@ This skill's own tasks:
 
 ## Names that don't exist
 
-Common guesses that don't exist here; write the name after the arrow. For older names, see the
+Common guesses that don't exist here; write the name after the arrow. Older names: the
 `nuxt-backend-upgrade` skill.
 
 <!-- generated:wrong-names -->
@@ -96,8 +96,8 @@ Common guesses that don't exist here; write the name after the arrow. For older 
 | `npx nuxt-backend inbox [address]` | Prints the codes a dev deployment sent to a test address |
 | `npx nuxt-backend mcp` | The MCP server `.mcp.json` runs: project state, docs, provider consoles; writes ask first |
 
-No command prompts. `--json` prints one JSON document with progress on stderr, exit code `1`
-means refused or failed, and `--help` ends with what the command may change. Run a command that
+No command prompts. `--json` prints one JSON document (progress on stderr), exit code `1`
+means refused or failed, `--help` ends with what the command may change. Run a command that
 writes production only when the user asks for it.
 
 ## Environment

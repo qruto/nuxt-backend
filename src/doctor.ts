@@ -1134,7 +1134,6 @@ async function authProviderFindings(appConfig: () => Promise<AppConfig | null>):
 /** The scaffold's own checks, on local files only: the generated files, the dev script, the mounts and routes, the agent files, `.env.example` and name collisions. */
 async function scaffoldFindings(rootDir: string, appConfig: () => Promise<AppConfig | null>): Promise<PreflightFinding[]> {
   return [
-    ...await authProviderFindings(appConfig),
     ...await generatedFileFindings(rootDir, appConfig),
     ...devScriptFinding(rootDir),
     await convexConfigFinding(rootDir),
@@ -1221,6 +1220,7 @@ export async function runDoctorChecks(rootDir: string, { prod, only, deployedNam
       ...(deployed ? { deployedNames: new Set(deployed) } : {}),
     }),
     ...wants('scaffold') ? await scaffoldFindings(rootDir, appConfig) : [],
+    ...wantsCapability('auth') ? await authProviderFindings(appConfig) : [],
     // Under --prod the deployment is production's, whatever .env.local names.
     ...deploymentEnvFindings(rootDir, deployed, { prod, ...deploymentRoute(computeDeployment(rootDir, env).kind, prod), posture }),
     ...await localFeatureFindings(rootDir, { env, wants, deployed, prod, appConfig }),
