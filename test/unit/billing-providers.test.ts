@@ -255,6 +255,17 @@ describe('dodo payments', () => {
     expect(JSON.parse(sent[2]!.body!)).toMatchObject({ items: [{ item_id: 'pdt_monthly', amount: 300 }], currency: 'USD' })
   })
 
+  it('says where to go when an earlier refund left only the settlement currency', async () => {
+    const impl = (async (input: URL | RequestInfo) => {
+      const url = new URL(String(input))
+      if (url.pathname.endsWith('/line-items')) return Response.json({ currency: 'EUR', partial_refund_allowed: true, items: [{ items_id: 'pdt_1' }] })
+      if (url.pathname.startsWith('/payments/')) return Response.json({ currency: 'EUR' })
+      return Response.json({ code: 'REFUND_CURRENCY_NOT_SUPPORTED' }, { status: 422 })
+    }) as typeof fetch
+    const dodo = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: impl })
+    await expect(dodo.refundOrder({ orderId: 'pay_4', amount: 100 })).rejects.toThrow(/dashboard/)
+  })
+
   it('refuses a partial refund the payment method does not allow', async () => {
     const { impl, sent } = fakeFetch(r => r.url.pathname.endsWith('/line-items') ? { currency: 'USD', partial_refund_allowed: false, items: [{ items_id: 'pdt_1' }] } : { currency: 'USD' })
     const dodo = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: impl })

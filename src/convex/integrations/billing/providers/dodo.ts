@@ -11,7 +11,7 @@ import type {
   ProviderOptions,
   VerifiedDelivery,
 } from './types.js'
-import { ProviderUnsupportedError } from './types.js'
+import { ProviderHttpError, ProviderUnsupportedError } from './types.js'
 
 // Dodo Payments: a merchant of record that sells in its own name, collects
 // and remits sales tax and VAT, and emails the receipts. Its webhooks sign
@@ -186,6 +186,14 @@ export function createDodoProvider({ apiKey, environment, fetch: fetchImpl }: Pr
         path: 'refunds',
         // Dodo asks for a reason of 5 to 3,000 characters.
         body: { payment_id: orderId, ...partial, reason: (reason && reason.length >= 5 ? reason : 'Refund requested by the customer').slice(0, 3000) },
+      }).catch((error: unknown) => {
+        // An earlier refund made in the settlement currency (in the dashboard)
+        // leaves the payment refundable in that currency only; amounts here
+        // are always the currency the customer paid in.
+        if (partial && error instanceof ProviderHttpError && error.code === 'REFUND_CURRENCY_NOT_SUPPORTED') {
+          throw new ProviderUnsupportedError('dodo', 'refund part of this payment in the currency the customer paid', 'an earlier refund was made in the settlement currency: refund the rest in the Dodo dashboard.')
+        }
+        throw error
       })
       return dodoRefund(refund)
     },
