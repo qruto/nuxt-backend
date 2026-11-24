@@ -170,21 +170,29 @@ function pick<T extends Record<string, unknown>>(values: T): Partial<T> {
 /**
  * Close the meter's open plan grants that do not roll over, each with what
  * is left of it, as far as the balance still holds it, but those `keep`
- * names. What the meter consumed is taken from the oldest open grant first,
- * once: what an earlier grant took since a later one landed is not taken
- * from the later one again. Answers how many credits lapsed.
+ * names. What the meter consumed is taken once, from the oldest grant open
+ * at the time: each stretch between two grants' landings goes to the grants
+ * landed by then, oldest first. Answers how many credits lapsed.
  */
 async function lapsePlanGrants(ctx: MutationCtx, userId: string, meter: MeterState, keep: readonly string[] = []): Promise<number> {
-  let lapsed = 0
-  const earlier: Array<{ consumedAtGrant: number, used: number }> = []
+  const open: Array<Doc<'billingCreditGrants'>> = []
   const grants = ctx.db.query('billingCreditGrants').withIndex('userId_meterId', q => q.eq('userId', userId).eq('meterId', meter.meterId))
   for await (const grant of grants) {
-    if (grant.source !== 'plan' || grant.rollover || grant.closed !== undefined || keep.includes(grant.externalId)) continue
-    const since = Math.max(0, meter.consumedUnits - grant.consumedAtGrant)
-    const takenSince = earlier.reduce((sum, prior) => sum + Math.max(0, prior.used - Math.max(0, grant.consumedAtGrant - prior.consumedAtGrant)), 0)
-    const used = Math.min(grant.amount, Math.max(0, since - takenSince))
-    earlier.push({ consumedAtGrant: grant.consumedAtGrant, used })
-    const closed = Math.min(grant.amount - used, Math.max(0, meter.balance - lapsed))
+    if (grant.source === 'plan' && !grant.rollover && grant.closed === undefined) open.push(grant)
+  }
+  const left = open.map(grant => grant.amount)
+  open.forEach((grant, landed) => {
+    let stretch = Math.max(0, (open[landed + 1]?.consumedAtGrant ?? meter.consumedUnits) - grant.consumedAtGrant)
+    for (let at = 0; at <= landed && stretch > 0; at++) {
+      const taken = Math.min(left[at]!, stretch)
+      left[at]! -= taken
+      stretch -= taken
+    }
+  })
+  let lapsed = 0
+  for (const [at, grant] of open.entries()) {
+    if (keep.includes(grant.externalId)) continue
+    const closed = Math.min(left[at]!, Math.max(0, meter.balance - lapsed))
     lapsed += closed
     await ctx.db.patch('billingCreditGrants', grant._id, { closed })
   }

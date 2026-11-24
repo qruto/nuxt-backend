@@ -399,6 +399,21 @@ describe('the credit grant ledger of adapter mode', () => {
     expect(await balance('w5')).toBe(0)
   })
 
+  test('takes each spend once from the grants open when it settled, however they were staggered', async () => {
+    const month = ['a:m1', 'b:m1', 'c:m1']
+    const cycleGrant = (externalId: string, keep: string[]) =>
+      t.mutation(ledger.grantCredits, { userId: 'w8', meterId: 'credits', amount: 100, externalId, source: 'plan', rollover: false, keep })
+    await cycleGrant('a:m1', month)
+    await cycleGrant('b:m1', month)
+    await spend('w8', 150, 'w8-s1')
+    await cycleGrant('c:m1', month)
+    await spend('w8', 50, 'w8-s2')
+    expect(await balance('w8')).toBe(100)
+    const next = ['a:m2', 'b:m2', 'c:m2']
+    for (const key of next) await cycleGrant(key, next)
+    expect(await balance('w8')).toBe(300)
+  })
+
   test('leaves another grant\'s reservation alone when it revokes a grant already spent', async () => {
     await grant('w7', 'pA', 50, 'pack')
     await spend('w7', 50, 'w7-s1')
