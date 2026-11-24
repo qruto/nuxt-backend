@@ -1,6 +1,7 @@
 import { getAuthConfigProvider } from '@convex-dev/better-auth/auth-config'
 import type { AuthConfig } from 'convex/server'
 import { type BackendPaths, resolveBackendPaths } from './paths.js'
+import { SESSION_TOKEN_AUDIENCE } from './constants.js'
 
 export type { BackendPaths } from './paths.js'
 
@@ -14,6 +15,30 @@ export interface DefineBackendAuthConfigOptions {
   paths?: Partial<BackendPaths>
   /** A static JWKS, for a deployment that sets its signing keys itself instead of storing them. */
   jwks?: string
+  /**
+   * Which auth the app runs, as `setupAuth` takes it. `'convex-auth'`: the
+   * access tokens of Convex Auth sessions, which the `backend` component
+   * signs with the deployment's own key. `'better-auth'`, the default:
+   * the session JWTs Better Auth signs.
+   */
+  provider?: 'better-auth' | 'convex-auth'
+}
+
+/**
+ * The provider of a Convex Auth app's tokens: signed by the `backend`
+ * component (`ctx.auth.signJwt`), so issued under its path on the
+ * deployment, and verified against the deployment's own JWKS.
+ */
+function convexAuthProvider(): AuthConfig['providers'][number] {
+  const cloudUrl = process.env.CONVEX_CLOUD_URL
+  if (!cloudUrl) throw new Error('[nuxt-backend] defineBackendAuthConfig({ provider: \'convex-auth\' }) reads CONVEX_CLOUD_URL, which every Convex deployment sets.')
+  return {
+    type: 'customJwt',
+    applicationID: SESSION_TOKEN_AUDIENCE,
+    issuer: `${cloudUrl}/components/backend`,
+    jwks: `${cloudUrl}/.well-known/jwks.json`,
+    algorithm: 'ES256',
+  }
 }
 
 /**
@@ -30,11 +55,15 @@ export interface DefineBackendAuthConfigOptions {
  *
  * export default defineBackendAuthConfig({ paths })
  * ```
+ *
+ * A Convex Auth app (`setupAuth({ provider: 'convex-auth' })`) trusts the
+ * tokens of its sessions instead: `defineBackendAuthConfig({ provider: 'convex-auth' })`.
  */
 export function defineBackendAuthConfig(options: DefineBackendAuthConfigOptions = {}): AuthConfig {
   if ('basePath' in options) {
     throw new TypeError('[nuxt-backend] defineBackendAuthConfig no longer takes `basePath`: set `backend.authRoute` in nuxt.config, and pass the `paths` of paths.generated.ts, which the Nuxt module writes from it.')
   }
+  if (options.provider === 'convex-auth') return { providers: [convexAuthProvider()] }
   return {
     providers: [
       getAuthConfigProvider({

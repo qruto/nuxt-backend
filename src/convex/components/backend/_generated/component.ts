@@ -385,6 +385,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "activeOrganizationId"
                     | "passkeyRecovery"
                     | "signInMethod"
+                    | "authSessionId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -706,6 +707,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 data: {
                   activeOrganizationId?: null | string;
+                  authSessionId?: null | string;
                   createdAt: number;
                   expiresAt: number;
                   impersonatedBy?: null | string;
@@ -880,6 +882,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "activeOrganizationId"
                     | "passkeyRecovery"
                     | "signInMethod"
+                    | "authSessionId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -1245,6 +1248,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "activeOrganizationId"
                     | "passkeyRecovery"
                     | "signInMethod"
+                    | "authSessionId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -1702,6 +1706,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "session";
                 set?: {
                   activeOrganizationId?: null | string;
+                  authSessionId?: null | string;
                   createdAt?: number;
                   expiresAt?: number;
                   impersonatedBy?: null | string;
@@ -1727,6 +1732,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "activeOrganizationId"
                     | "passkeyRecovery"
                     | "signInMethod"
+                    | "authSessionId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -2163,6 +2169,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "session";
                 update: {
                   activeOrganizationId?: null | string;
+                  authSessionId?: null | string;
                   createdAt?: number;
                   expiresAt?: number;
                   impersonatedBy?: null | string;
@@ -2188,6 +2195,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "activeOrganizationId"
                     | "passkeyRecovery"
                     | "signInMethod"
+                    | "authSessionId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -2624,6 +2632,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "session";
                 update: {
                   activeOrganizationId?: null | string;
+                  authSessionId?: null | string;
                   createdAt?: number;
                   expiresAt?: number;
                   impersonatedBy?: null | string;
@@ -2649,6 +2658,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "activeOrganizationId"
                     | "passkeyRecovery"
                     | "signInMethod"
+                    | "authSessionId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -6251,6 +6261,19 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         {},
         Array<{ id: string; url: string | null }>,
+        Name
+      >;
+    };
+    sessionTokens: {
+      mint: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          claims: Record<string, any>;
+          expiresInSeconds: number;
+          subject: string;
+        },
+        string,
         Name
       >;
     };

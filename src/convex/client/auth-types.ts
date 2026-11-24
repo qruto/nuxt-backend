@@ -8,6 +8,7 @@ import type { AccessTicket } from '../access-tickets.js'
 import type { Access } from '../integrations/launch.js'
 import type { Email } from '../integrations/email.js'
 import type { BackendPaths } from '../paths.js'
+import type { ConvexAuthSessionOptions } from './convex-auth/core.js'
 
 // The public types of `nuxt-backend/auth`, which the entry re-exports, plus
 // the unexported helper types a public signature mentions
@@ -313,6 +314,19 @@ export interface WorkspaceOptions<DM extends GenericDataModel = GenericDataModel
 export interface SetupAuthOptions<
   DM extends GenericDataModel = GenericDataModel,
 > extends AuthIntegrations<DM> {
+  /**
+   * Which auth the app runs. `'convex-auth'`, what `nuxt-backend init`
+   * scaffolds: Convex Auth holds the sessions, their refresh tokens and the
+   * browser's cookies, and the account rules (codes, passkeys, workspaces,
+   * invitations, the admin console) run inside the app's functions, with no
+   * auth HTTP routes. Mount Convex Auth's core at `auth` in
+   * convex.config.ts, and export the functions this returns from
+   * `backend/auth.ts`. `'better-auth'`, the default when left out:
+   * Better Auth serves the auth routes, as before.
+   */
+  provider?: 'better-auth' | 'convex-auth'
+  /** A Convex Auth app's session lifetimes (`provider: 'convex-auth'`): the access token's, and the session's. */
+  sessions?: ConvexAuthSessionOptions
   /** Override the default auth config (e.g. to add custom providers) */
   authConfig?: AuthConfig
   /** Override Better Auth options (merged with defaults) */
@@ -359,6 +373,8 @@ export type PublicAuthComponentRef = AuthComponentApi | AnyComponents[string]
  */
 export interface AuthSetupComponents {
   backend: PublicAuthComponentRef
+  /** Convex Auth's core component, mounted at `auth`: what a Convex Auth app's sessions live in. */
+  auth?: unknown
 }
 
 /** One of the caller's latest sign-ins from a new device, as `listSignInAlerts` returns it. */
