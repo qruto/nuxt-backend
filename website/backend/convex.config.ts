@@ -1,7 +1,6 @@
 import { defineApp } from 'convex/server'
 import { backendEnv } from 'nuxt-backend/app'
 import backend from 'nuxt-backend/convex.config'
-import auth from '@convex-dev/auth/convex.config'
 import persistentTextStreaming from '@convex-dev/persistent-text-streaming/convex.config'
 import polar from '@convex-dev/polar/convex.config'
 import rateLimiter from '@convex-dev/rate-limiter/convex.config'
@@ -35,9 +34,6 @@ app.use(backend, {
     MONITORING_DSN: app.env.MONITORING_DSN,
   },
 })
-// Convex Auth's core, at its default name: it holds the sessions and their
-// refresh tokens, which makes this a Convex Auth app (backend/auth.ts).
-app.use(auth)
 app.use(persistentTextStreaming)
 app.use(polar)
 app.use(rateLimiter)

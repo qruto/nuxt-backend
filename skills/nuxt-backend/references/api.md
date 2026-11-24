@@ -178,7 +178,7 @@ The base module's, under neutral names: `<Authenticated>`, `<Unauthenticated>`, 
 |---|---|
 | `default` | The Nuxt module: list `'nuxt-backend'` in `modules`. |
 
-Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDeniedReason`, `PageAccessRules`, `AdminTabMeta`, `InstallableOptions`, `AuthProvider`, `ModuleRedirectsOptions`, `ModuleOptions`.
+Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDeniedReason`, `PageAccessRules`, `AdminTabMeta`, `InstallableOptions`, `ModuleRedirectsOptions`, `ModuleOptions`.
 
 ### `nuxt-backend/auth`
 
@@ -187,9 +187,9 @@ Types: `BackendAuthOptions`, `BackendAuthService`, `AccessDeniedData`, `AccessDe
 | `APIError` | Re-exported from `better-auth/api`. |
 | `resolveSignInMethod()` | Names a code sign-in (`/sign-in/email-otp`, which also signs a new account up) `email-otp`, and nothing else. |
 | `storesLastSignInCookie()` | Whether the browser that signs in allowed the `preferences` purpose of optional storage: its choice rides in a first-party cookie of the consent manager (`backend.storage`), which the request carries. |
-| `setupAuth()` | The implementation behind both overloads. |
+| `setupAuth()` | The app's auth, from one call: the auth instance factory, the functions the scaffold re-exports. |
 
-Types: `BackendPaths`, `ConvexAuthSessionOptions`, `CoreTokenBundle`, `EngineAnswer`, `AuthMutationCtx`, `AuthEmail`, `AuthRateLimitName`, `AuthRateLimiter`, `AuthCreatedUser`, `OnUserCreated`, `AuthDeletedUser`, `OnUserDeleted`, `CanSignInPurpose`, `CanSignInInput`, `CanSignInVerdict`, `CanSignIn`, `AuthAccount`, `AuthAudit`, `AuthBilling`, `AuthIntegrations`, `AdminPluginOptions`, `WorkspaceOptions`, `WorkspaceHook`, `WorkspaceHookWorkspace`, `WorkspaceCreatedEvent`, `WorkspaceMemberEvent`, `WorkspaceInviteInput`, `AuthAccess`, `SetupAuthOptions`, `AuthSetupComponents`, `DeviceSession`, `SignInAlert`, `SetupConvexAuthOptions`.
+Types: `BackendPaths`, `AuthMutationCtx`, `AuthEmail`, `AuthRateLimitName`, `AuthRateLimiter`, `AuthCreatedUser`, `OnUserCreated`, `AuthDeletedUser`, `OnUserDeleted`, `CanSignInPurpose`, `CanSignInInput`, `CanSignInVerdict`, `CanSignIn`, `AuthAccount`, `AuthAudit`, `AuthIntegrations`, `AdminPluginOptions`, `WorkspaceOptions`, `WorkspaceHook`, `WorkspaceHookWorkspace`, `WorkspaceCreatedEvent`, `WorkspaceMemberEvent`, `WorkspaceInviteInput`, `AuthAccess`, `SetupAuthOptions`, `AuthSetupComponents`, `DeviceSession`, `SignInAlert`.
 
 ### `nuxt-backend/http`
 

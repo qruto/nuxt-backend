@@ -52,14 +52,6 @@ export type ComponentTestKit = { register: (t: TestConvex<AnySchema>, name?: str
  */
 const optionalKits = await Promise.all(['@convex-dev/agent/test', '@convex-dev/rag/test'].map(loadKit))
 
-/**
- * Convex Auth's core, at `auth`, where a Convex Auth app mounts it
- * (`setupAuth({ provider: 'convex-auth' })`): its kit names its helper
- * `registerCore`. Loaded like the kits above, as TypeScript source.
- */
-const CONVEX_AUTH_KIT = '@convex-dev/auth/test'
-const convexAuthCore = await import(/* @vite-ignore */ CONVEX_AUTH_KIT).then(kit => kit.default as { registerCore: (t: unknown, name?: string) => void }, () => null)
-
 /** A test helper by its specifier: a variable one, because the kits ship TypeScript source this package's own type check must not compile. */
 function loadKit(specifier: string): Promise<ComponentTestKit | null> {
   return import(/* @vite-ignore */ specifier).then(kit => kit.default as ComponentTestKit, () => null)
@@ -195,7 +187,6 @@ export function defineBackendTestApp<Schema extends AnySchema>(
     workflow.register(any)
     workpool.register(any)
     for (const kit of optionalKits) kit?.register(any)
-    convexAuthCore?.registerCore(any)
     for (const [mount, kit] of mounts) kit.register(any, mount)
     return Object.assign(t, {
       upload: (file?: TestFile, fileOptions?: TestUploadOptions) => upload(t, file, fileOptions),
@@ -263,8 +254,6 @@ const DEPLOYMENT_ENV = {
   AUTH_SECRET: 'nuxt-backend-test-secret-0123456789abcdef0123456789abcdef',
   SITE_URL: 'https://app.test',
   CONVEX_SITE_URL: 'https://convex.test',
-  // What a Convex Auth app's tokens are issued under, as every deployment sets it.
-  CONVEX_CLOUD_URL: 'https://convex-cloud.test',
   // The moderation providers' keys: test values their fakes take, so a test of the policy needs none of its own.
   CONTENT_SAFETY_ENDPOINT: 'https://content-safety.test',
   CONTENT_SAFETY_KEY: 'test-content-safety-key',

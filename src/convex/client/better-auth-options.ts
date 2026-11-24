@@ -2,7 +2,6 @@ import type { createClient } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import type { BetterAuthOptions } from 'better-auth/minimal'
 import { emailOTP, organization } from 'better-auth/plugins'
-import { bearer } from 'better-auth/plugins/bearer'
 import type { GenericDataModel } from 'convex/server'
 import authConfig from '../auth.config.js'
 import { AUTH_TIME_CLAIM, IMPERSONATED_BY_CLAIM, OTP_EXPIRES_IN_SECONDS, RECENT_SIGN_IN_SECONDS, RESERVED_CLAIMS, SIGN_IN_METHOD_CLAIM, SIGN_IN_METHODS } from '../constants.js'
@@ -481,20 +480,15 @@ export function buildAuthOptions<DM extends GenericDataModel = GenericDataModel>
     hooks,
     plugins: [
       clientAddressPlugin(protection.proofSecret),
-      // A Convex Auth app's engine signs no tokens of its own: the backend
-      // component mints them (`sessionTokens.mint`), and the bearer plugin
-      // alone carries a session into its in-process requests.
-      options.provider === 'convex-auth'
-        ? bearer()
-        : convex({
-            authConfig: resolvedAuthConfig,
-            options: {
-              basePath: resolvedBasePath,
-            },
-            jwt: {
-              definePayload: sessionClaims,
-            },
-          }),
+      convex({
+        authConfig: resolvedAuthConfig,
+        options: {
+          basePath: resolvedBasePath,
+        },
+        jwt: {
+          definePayload: sessionClaims,
+        },
+      }),
       ...defaultPlugins,
       ...userPlugins,
     ],

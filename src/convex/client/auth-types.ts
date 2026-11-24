@@ -8,7 +8,6 @@ import type { AccessTicket } from '../access-tickets.js'
 import type { Access } from '../integrations/launch.js'
 import type { Email } from '../integrations/email.js'
 import type { BackendPaths } from '../paths.js'
-import type { ConvexAuthSessionOptions } from './convex-auth/core.js'
 
 // The public types of `nuxt-backend/auth`, which the entry re-exports, plus
 // the unexported helper types a public signature mentions
@@ -242,25 +241,6 @@ export interface AuthIntegrations<DM extends GenericDataModel = GenericDataModel
    * providers' records and the app's tables are left.
    */
   account?: AuthAccount
-  /**
-   * The app's `setupBilling` instance (`backend/billing.ts`): every
-   * workspace (or account, with `billTo: 'user'`) the auth layer makes
-   * starts the catalog's free plan through it, and a workspace that still
-   * holds a paid subscription is not deleted. A Convex Auth app needs it
-   * here, since its auth runs in its own functions and not on the routes
-   * `registerBackendRoutes` mounts (which connects it for a Better Auth
-   * app). Without it, a new entity's free plan is queued by name
-   * (`billing:startFreePlan`), and nothing holds a paid workspace's deletion.
-   */
-  billing?: AuthBilling
-}
-
-/** What `setupAuth` reads of the `setupBilling` instance. */
-export interface AuthBilling {
-  /** @internal */
-  entityCreated?: (ctx: never, entity: { kind: 'workspace' | 'user', id: string }) => Promise<void>
-  /** @internal */
-  deletionRefusal?: (ctx: never, entity: { kind: 'workspace' | 'user', id: string }) => Promise<string | null>
 }
 
 /** What `setupAuth` reads of the `setupAccess` instance. */
@@ -333,21 +313,6 @@ export interface WorkspaceOptions<DM extends GenericDataModel = GenericDataModel
 export interface SetupAuthOptions<
   DM extends GenericDataModel = GenericDataModel,
 > extends AuthIntegrations<DM> {
-  /**
-   * Which auth the app runs. `'convex-auth'`, what `nuxt-backend init`
-   * scaffolds: Convex Auth holds the sessions, their refresh tokens and the
-   * browser's cookies, and the account rules (codes, passkeys, workspaces,
-   * invitations, the admin console) run inside the app's functions, with no
-   * auth HTTP routes. Mount Convex Auth's core at `auth` in
-   * convex.config.ts, and export the functions this returns from
-   * `backend/auth.ts`. `'better-auth'`: Better Auth serves the auth routes,
-   * as before. Left out, an app whose components hold Convex Auth's core
-   * runs on it, any other on Better Auth; name it, for the functions'
-   * types.
-   */
-  provider?: 'better-auth' | 'convex-auth'
-  /** A Convex Auth app's session lifetimes (`provider: 'convex-auth'`): the access token's, and the session's. */
-  sessions?: ConvexAuthSessionOptions
   /** Override the default auth config (e.g. to add custom providers) */
   authConfig?: AuthConfig
   /** Override Better Auth options (merged with defaults) */
@@ -394,8 +359,6 @@ export type PublicAuthComponentRef = AuthComponentApi | AnyComponents[string]
  */
 export interface AuthSetupComponents {
   backend: PublicAuthComponentRef
-  /** Convex Auth's core component, mounted at `auth`: what a Convex Auth app's sessions live in. */
-  auth?: unknown
 }
 
 /** One of the caller's latest sign-ins from a new device, as `listSignInAlerts` returns it. */

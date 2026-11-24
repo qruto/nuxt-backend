@@ -43,18 +43,6 @@ export const ADDED_SINCE_BASE = {
  * only when it drops one of these three, and then the checkout throws and
  * names it.
  */
-/**
- * A `convex.config.ts` as a Better Auth app keeps it: the scaffold's,
- * without Convex Auth's core. The repair never adds that mount, since it
- * would move the app to Convex Auth's sessions, so an app made before it
- * comes out of the repair without it.
- */
-export function asBetterAuthApp(config: string): string {
-  return config
-    .replace('import auth from \'@convex-dev/auth/convex.config\'\n', '')
-    .replace(/\/\/ Convex Auth's core, at its default name:[^\n]*\n\/\/[^\n]*\napp\.use\(auth\)\n/, '')
-}
-
 export const DRIFT = { file: 'flags.ts', mount: 'workpool', forward: 'MONITORING_DSN' } as const
 
 /** Write a fixture's files into a new directory under `parent` and return it. */

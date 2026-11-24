@@ -9,12 +9,9 @@ import type { AuthBuildOptions, AuthIntegrations, AuthSetupComponents, DeviceSes
 import { buildAuthOptions } from './better-auth-options.js'
 import { type BackendPaths, resolveBackendPaths } from '../paths.js'
 import { componentAdapterRefs, createAuthComponent, resolveIntegrations } from './component.js'
-import { connectBilling, deletionGuardsOf, entityListenersOf } from './entities.js'
+import { deletionGuardsOf, entityListenersOf } from './entities.js'
 import { identitySessionId } from './identity.js'
 import { userSessions } from './sessions.js'
-import { convexAuthCore, resolveCoreTtl } from './convex-auth/core.js'
-import type { EngineFactory } from './convex-auth/engine.js'
-import { type ConvexAuthSetup, convexAuthFunctions } from './convex-auth/functions.js'
 
 /**
  * The auth layer's request error, re-exported so an app needs no direct
@@ -30,8 +27,6 @@ export { APIError }
 
 /** The app's paths `setupAuth({ paths })` takes: the `paths` of the generated `paths.generated.ts`. */
 export type { BackendPaths } from '../paths.js'
-export type { ConvexAuthSessionOptions, CoreTokenBundle } from './convex-auth/core.js'
-export type { EngineAnswer } from './convex-auth/functions.js'
 
 /**
  * `storesLastSignInCookie`, the consent check an app's own
@@ -60,7 +55,6 @@ export type {
   CanSignIn,
   AuthAccount,
   AuthAudit,
-  AuthBilling,
   AuthIntegrations,
   AdminPluginOptions,
   WorkspaceOptions,
@@ -283,14 +277,33 @@ function integrationsOf<DM extends GenericDataModel>(options: SetupAuthOptions<D
   return { email, rateLimiter, onUserCreated, canSignIn, onUserDeleted, audit, account }
 }
 
-/** What `setupAuth` returns for either provider: the auth instance factory and the functions the scaffold re-exports. */
-function setupAuthEngine<DM extends GenericDataModel>(
+/**
+ * The app's auth, from one call: the auth instance factory, the functions the
+ * scaffold re-exports. Every auth email goes
+ * out through the `email` instance, with the templates it holds.
+ *
+ * @example
+ * ```ts
+ * import { setupAuth } from 'nuxt-backend/auth'
+ * import { components } from './_generated/api'
+ * import { query } from './_generated/server'
+ * import { email } from './email'
+ *
+ * export const { authComponent, createAuth, getAuthUser } = setupAuth(components, query, {
+ *   email,
+ *   canSignIn: async (ctx, { email }) => email.endsWith('@acme.com'),
+ * })
+ * ```
+ */
+export function setupAuth<
+  DM extends GenericDataModel,
+>(
   components: AuthSetupComponents,
   queryBuilder: QueryBuilder<DM, 'public'>,
   options: SetupAuthOptions<DM>,
 ) {
   assertSetupOptions(options)
-  const { email: _email, rateLimiter: _rateLimiter, onUserCreated: _onUserCreated, canSignIn: _canSignIn, onUserDeleted: _onUserDeleted, audit: _audit, account: _account, access, sessions: _sessions, billing, ...buildOptions } = options
+  const { email: _email, rateLimiter: _rateLimiter, onUserCreated: _onUserCreated, canSignIn: _canSignIn, onUserDeleted: _onUserDeleted, audit: _audit, account: _account, access, ...buildOptions } = options
   const authComponent = createAuthComponent<DM>(components.backend)
   const runtime = { ...resolveIntegrations(components, integrationsOf(options)), ...(access ? { access: access.gate } : {}), paths: resolveBackendPaths(options.paths, 'setupAuth') }
 
@@ -300,88 +313,10 @@ function setupAuthEngine<DM extends GenericDataModel>(
   const createAuth = (ctx: GenericCtx<DM>) => betterAuth(buildAuthOptions(authComponent.adapter(ctx), buildOptions, { ctx, ...runtime, entityCreated: listened, entityDeleting: guarded }))
   const listened = entityListenersOf(createAuth)
   const guarded = deletionGuardsOf(createAuth)
-  if (billing) connectBilling(createAuth, billing)
 
   return {
     authComponent,
     createAuth,
     ...authApi(components, queryBuilder, buildOptions, createAuth, options.account?.keepPath),
-  }
-}
-
-/** A Convex Auth app's `setupAuth` options: `provider: 'convex-auth'`. */
-export type SetupConvexAuthOptions<DM extends GenericDataModel = GenericDataModel> = SetupAuthOptions<DM> & { provider: 'convex-auth' }
-
-/**
- * The parts of a Convex Auth app's components `setupAuth` needs beside
- * the engine's adapter: Convex Auth's core at `auth`, and the backend
- * component's token signer. Refused by name when one is missing: every
- * sign-in would fail at its first call otherwise.
- */
-function convexAuthParts(components: AuthSetupComponents) {
-  const core = convexAuthCore(components)
-  if (!core) {
-    throw new Error('[nuxt-backend] setupAuth({ provider: \'convex-auth\' }) needs Convex Auth\'s core component: mount it in backend/convex.config.ts with `import auth from \'@convex-dev/auth/convex.config\'` and `app.use(auth)` (at its default name, `auth`), then pass the generated `components`.')
-  }
-  const backend = components.backend as unknown as ConvexAuthSetup<GenericDataModel>['backend']
-  if (!backend?.sessionTokens?.mint) {
-    throw new Error('[nuxt-backend] setupAuth({ provider: \'convex-auth\' }) needs a backend component that signs session tokens: update nuxt-backend, and run `convex dev` once to deploy it.')
-  }
-  return { core, backend }
-}
-
-/**
- * The app's auth, from one call: the auth instance factory, the functions the
- * scaffold re-exports. Every auth email goes
- * out through the `email` instance, with the templates it holds.
- *
- * With `provider: 'convex-auth'` (what `nuxt-backend init` scaffolds),
- * Convex Auth holds the sessions, and it returns the five functions
- * `server/convex-auth.ts` names beside the rest: `refreshSession`,
- * `signOut`, `isAuthenticated`, `signIn` and `authRequest`.
- *
- * @example
- * ```ts
- * import { setupAuth } from 'nuxt-backend/auth'
- * import { components } from './_generated/api'
- * import { query } from './_generated/server'
- * import { email } from './email'
- *
- * export const { authComponent, createAuth, getAuthUser, refreshSession, signOut, isAuthenticated, signIn, authRequest } = setupAuth(components, query, {
- *   provider: 'convex-auth',
- *   email,
- *   canSignIn: async (ctx, { email }) => email.endsWith('@acme.com'),
- * })
- * ```
- */
-export function setupAuth<DM extends GenericDataModel>(
-  components: AuthSetupComponents,
-  queryBuilder: QueryBuilder<DM, 'public'>,
-  options: SetupConvexAuthOptions<DM>,
-): ReturnType<typeof setupAuthEngine<DM>> & ReturnType<typeof convexAuthFunctions<DM>>
-/** A Better Auth app's auth, or one whose provider the mounted components pick: the engine, its routes and the account functions. */
-export function setupAuth<DM extends GenericDataModel>(
-  components: AuthSetupComponents,
-  queryBuilder: QueryBuilder<DM, 'public'>,
-  options: SetupAuthOptions<DM>,
-): ReturnType<typeof setupAuthEngine<DM>>
-/** The implementation behind both overloads. */
-export function setupAuth<DM extends GenericDataModel>(
-  components: AuthSetupComponents,
-  queryBuilder: QueryBuilder<DM, 'public'>,
-  options: SetupAuthOptions<DM>,
-) {
-  // Unset, the components say: an app that mounts Convex Auth's core runs on it, as the Nuxt module reads it too.
-  const provider = options?.provider ?? (components.auth ? 'convex-auth' : 'better-auth')
-  if (provider !== 'convex-auth') return setupAuthEngine(components, queryBuilder, options)
-  const parts = convexAuthParts(components)
-  const ttl = resolveCoreTtl(options.sessions)
-  const engine = setupAuthEngine(components, queryBuilder, { ...options, provider })
-  // Marked, so `registerBackendRoutes` mounts no auth routes for it.
-  const authComponent = Object.assign(engine.authComponent, { provider: 'convex-auth' as const })
-  return {
-    ...engine,
-    authComponent,
-    ...convexAuthFunctions<DM>({ ...parts, createAuth: engine.createAuth as unknown as EngineFactory<DM>, ttl }),
   }
 }

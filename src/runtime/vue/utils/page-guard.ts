@@ -67,11 +67,6 @@ function granted(features: { benefits?: Array<{ metadata?: Record<string, unknow
   return features?.benefits?.some(benefit => grantsFeature(benefit as never, feature)) ?? false
 }
 
-/** The server's client of a Convex Auth app, which calls the account engine's routes itself. */
-function hasEngine<Service extends object>(service: Service): service is Service & { fetchEngine: (path: string) => Promise<unknown> } {
-  return typeof (service as { fetchEngine?: unknown }).fetchEngine === 'function'
-}
-
 /**
  * The signed-in person on a server render, or `null` when signed out or with
  * no request to read: the token the SSR plugin fetched for this request,
@@ -93,8 +88,7 @@ export async function serverSubject(context: PageGuardContext): Promise<AccessSu
   return {
     role,
     banned: claims.banned === true,
-    // A Convex Auth app has no auth route: the deployment answers the same route as the person.
-    workspaceRole: async () => memberRole(await (hasEngine(auth) ? auth.fetchEngine('/organization/get-active-member') : context.fetch(`${context.authRoute}/organization/get-active-member`)).catch(() => null)),
+    workspaceRole: async () => memberRole(await context.fetch(`${context.authRoute}/organization/get-active-member`).catch(() => null)),
     hasFeature: async feature => granted(await auth.fetchAuthQuery(FEATURES, {}).catch(() => null), feature),
   }
 }

@@ -145,9 +145,8 @@ const invalid = (field: 'action' | 'subject') => refusalResponse(backendError('i
  * first such call, `__Host-` over HTTPS), and carries the visitor's id, so
  * `verifyHuman` hands it to `jobs.enqueue` for a guest job.
  */
-async function proofForCall(event: RequestEvent): Promise<Response | { proof: string | null, address?: string | null }> {
-  const body = await readBody(event).catch(() => null) as { action?: unknown, subject?: unknown, auth?: unknown } | null
-  if (body?.auth !== undefined) return await proofForAuthCall(event, body.auth)
+async function proofForCall(event: RequestEvent): Promise<Response | { proof: string | null }> {
+  const body = await readBody(event).catch(() => null) as { action?: unknown, subject?: unknown } | null
   const action = body?.action
   if (!isActionName(action)) return invalid('action')
   const subject = body?.subject
@@ -161,33 +160,6 @@ async function proofForCall(event: RequestEvent): Promise<Response | { proof: st
   if (named) return { proof: await signProof(secret, { method: CALL_METHOD, path: action, audience, subject: named }) }
   const visitor = await visitorOf(event, secret, audience)
   return { proof: withVisitor(await signProof(secret, { method: VISITOR_METHOD, path: action, audience, subject: visitor }), visitor) }
-}
-
-/** The longest auth route a call may name. */
-const MAX_AUTH_PATH_LENGTH = 200
-
-/**
- * `POST /api/human-proof` with `{ auth: { path, body } }`, in a Convex Auth
- * app, where the auth routes run in the deployment's functions and never
- * pass through this server: what this server would have written on the
- * request it forwarded. The client's address, signed (`address`), which the
- * deployment's per-address limits key on, and for a route that sends a
- * code, creates an account or tries a password, the bot check's proof
- * (`proof`), signed for the route and the address its body names. `null`
- * for each this server signs none of; a bot gets the auth routes' refusal.
- */
-async function proofForAuthCall(event: RequestEvent, call: unknown): Promise<Response | { proof: string | null, address: string | null }> {
-  const { path, body } = (call ?? {}) as { path?: unknown, body?: unknown }
-  if (typeof path !== 'string' || !path.startsWith('/') || path.length > MAX_AUTH_PATH_LENGTH) return invalid('subject')
-  const secret = proofSecret()
-  const ip = secret ? getRequestIP(event, { xForwardedFor: true }) : undefined
-  const address = secret && ip ? await signClientAddress(secret, ip, serverAudience()) : null
-  const authRoute = (useRuntimeConfig().public.backend as { authRoute?: string } | undefined)?.authRoute ?? '/api/auth'
-  if (!isProtectedAuthPath(path, authRoute)) return { proof: null, address }
-  const verdict = await botVerdict()
-  if (verdict === 'bot' || verdict === 'unavailable') return verdictRefusal(verdict)
-  if (verdict !== 'human' || !secret) return { proof: null, address }
-  return { proof: await signProof(secret, { method: 'POST', path, audience: serverAudience(), subject: requestSubject(body) }), address }
 }
 
 /**

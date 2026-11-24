@@ -1103,7 +1103,7 @@ describe('option forwarding through moduleDependencies', () => {
       security: true,
       devScript: false,
       betterAuth: { authClient, loginPath: '/login', authRoute: '/api/session' },
-      // A Better Auth app (the fixture mounts no Convex Auth core): the base module's Convex Auth stays off.
+      // Better Auth is the package's auth: the base module's Convex Auth stays off.
       convexAuth: false,
       polar: true,
       clerk: false,
@@ -1332,29 +1332,5 @@ describe('dev boot under a test runner (test: true) with devtools: false', () =>
     expect(nuxt.options.dev).toBe(true)
     expect(nuxt.options.test).toBe(true)
     expect(devtoolsPlugins(nuxt)).toEqual([])
-  })
-})
-
-describe('a Convex Auth app', () => {
-  const getNuxt = useBoot({ backend: { auth: 'convex-auth' } })
-
-  // The base module is this one's dependency, so Nuxt installs it after this
-  // one, and it points these at its own files as it runs.
-  it('keeps the package\'s Convex Auth client and server entries over the base module\'s', () => {
-    const { alias, nitro } = getNuxt().options
-    expect(alias['#convex/auth-client']).toBe(join(runtimeDir, 'vue/convex-auth/auth-client'))
-    expect(alias['#convex/auth-server']).toBe(join(runtimeDir, 'server/convex-auth/auth-server'))
-    expect(nitro.alias?.['#convex/auth-server']).toBe(join(runtimeDir, 'server/convex-auth/auth-server'))
-    expect(alias['nuxt-convex-module/better-auth/client']).toBe(join(runtimeDir, 'vue/convex-auth/better-auth-client'))
-    expect(alias['nuxt-convex-module/better-auth/server']).toBe(join(runtimeDir, 'server/convex-auth/better-auth-server'))
-  })
-
-  it('types the base module\'s Better Auth entries by its own declarations, not the stand-ins', async () => {
-    const tsConfig = { compilerOptions: { paths: { 'nuxt-convex-module/better-auth/server': ['stand-in'], 'nuxt-convex-module/better-auth/client': ['stand-in'], '#convex/auth-client': ['kept'] } } }
-    await getNuxt().callHook('prepare:types', { tsConfig, references: [], declarations: [], nodeTsConfig: {}, nodeReferences: [], sharedTsConfig: {}, sharedReferences: [], serverTsConfig: {}, serverReferences: [] } as never)
-    const paths: Record<string, unknown> = tsConfig.compilerOptions.paths
-    expect(paths['nuxt-convex-module/better-auth/server']).toBeUndefined()
-    expect(paths['nuxt-convex-module/better-auth/client']).toBeUndefined()
-    expect(paths['#convex/auth-client']).toEqual(['kept'])
   })
 })

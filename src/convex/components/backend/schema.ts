@@ -73,17 +73,13 @@ export const tables = {
     // How the person signed in to this session (`passkey`, `email-otp`),
     // set once when it opens (SESSION_FIELDS, client/plugins.ts).
     signInMethod: v.optional(v.union(v.null(), v.string())),
-    // Convex Auth: the core component's session this one stands beside
-    // (`setupAuth({ provider: 'convex-auth' })`), which holds its refresh tokens.
-    authSessionId: v.optional(v.union(v.null(), v.string())),
   })
     .index('expiresAt', ['expiresAt'])
     .index('expiresAt_userId', ['expiresAt', 'userId'])
     .index('token', ['token'])
     .index('userId', ['userId'])
     // listSessions filters by user then range-checks expiry.
-    .index('userId_expiresAt', ['userId', 'expiresAt'])
-    .index('authSessionId', ['authSessionId']),
+    .index('userId_expiresAt', ['userId', 'expiresAt']),
   account: defineTable({
     accountId: v.string(),
     providerId: v.string(),

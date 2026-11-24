@@ -43,9 +43,6 @@ export const OTP_EXPIRES_IN_SECONDS = 300
  * signed out. `useReauthentication` sends it.
  */
 export const REAUTHENTICATE_HEADER = 'x-backend-reauthenticate'
-
-/** The audience of a Convex Auth app's access tokens: the `applicationID` its auth config trusts them under. */
-export const SESSION_TOKEN_AUDIENCE = 'nuxt-backend'
 /**
  * Claims a session token never takes from a field of the user: the ones only
  * the package writes, from the session, and the ones Convex reads the

@@ -6,7 +6,7 @@ import { repairProjectFiles } from '../../src/cli/repair'
 import { convexConfigFinding, readConvexConfigDrift } from '../../src/convex-config'
 import { renderLabelsFile } from '../../src/labels-file'
 import { BACKEND_FILE_TEMPLATES } from '../../src/templates'
-import { ADDED_SINCE_BASE, asBetterAuthApp, checkoutBaseStarter, removeFixture, UPGRADE_BASE } from '../helpers/upgrade-fixture'
+import { ADDED_SINCE_BASE, checkoutBaseStarter, removeFixture, UPGRADE_BASE } from '../helpers/upgrade-fixture'
 
 // The upgrade fixture: the starter as it shipped at UPGRADE_BASE, repaired
 // by `doctor --fix` (its file half; the env push needs a deployment). The
@@ -53,8 +53,7 @@ describe(`the ${UPGRADE_BASE} starter, after doctor --fix`, () => {
 
   it('comes out as the scaffold writes those files today, byte for byte', () => {
     for (const file of ['convex.config.ts', 'http.ts', ...ADDED_SINCE_BASE.files]) {
-      // An app made before Convex Auth keeps Better Auth: the repair adds no Convex Auth core.
-      expect(readFileSync(join(dir, 'backend', file), 'utf-8'), `backend/${file}`).toBe(asBetterAuthApp(BACKEND_FILE_TEMPLATES[file]!))
+      expect(readFileSync(join(dir, 'backend', file), 'utf-8'), `backend/${file}`).toBe(BACKEND_FILE_TEMPLATES[file])
     }
   })
 
@@ -71,7 +70,7 @@ describe(`the ${UPGRADE_BASE} starter, after doctor --fix`, () => {
       expect(await convexConfigFinding(dir)).toMatchObject({ status: 'pass' })
     }
     finally {
-      writeFileSync(join(dir, 'backend/convex.config.ts'), asBetterAuthApp(BACKEND_FILE_TEMPLATES['convex.config.ts']!))
+      writeFileSync(join(dir, 'backend/convex.config.ts'), BACKEND_FILE_TEMPLATES['convex.config.ts']!)
       rmSync(join(dir, 'backend/digest.ts'))
     }
   })

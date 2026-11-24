@@ -57,8 +57,6 @@ export const ACCOUNT_FIELDS = {
  */
 export const SESSION_FIELDS = {
   signInMethod: { type: 'string', required: false, input: false },
-  // Convex Auth: the core component's session beside this one, never a request's to set.
-  authSessionId: { type: 'string', required: false, input: false },
 } satisfies NonNullable<NonNullable<BetterAuthOptions['session']>['additionalFields']>
 
 /** The routes that open a session a person signed in to, by how they signed in. */

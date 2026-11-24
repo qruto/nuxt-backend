@@ -1,5 +1,5 @@
 import { httpActionGeneric, type HttpRouter } from 'convex/server'
-import { connectBilling } from '../client/entities.js'
+import { onEntityCreated, onEntityDeleting } from '../client/entities.js'
 import { DEFAULT_HEALTH_PATH } from '../constants.js'
 import { SIGNED_URL_PATH } from '../files.js'
 import { UNSUBSCRIBE_ROUTE } from './email-preferences.js'
@@ -23,19 +23,13 @@ import { healthRoute } from './health.js'
  */
 export interface RegisterBackendRoutesOptions {
   /**
-   * From `setupAuth`: mounts the auth HTTP routes (none for a Convex Auth app), and
-   * connects billing to the workspaces and accounts it makes.
+   * From `setupAuth`: mounts the auth HTTP routes.
    */
   auth: {
     // Param types are `never` so any concrete `registerRoutes` signature is
     // assignable (function params are contravariant); called via a cast.
     authComponent: {
       registerRoutes: (...args: never[]) => void
-      /**
-       * Which auth the app runs: a Convex Auth app (`setupAuth({ provider: 'convex-auth' })`)
-       * serves no auth routes, since its engine runs inside its functions.
-       */
-      provider?: 'better-auth' | 'convex-auth'
       /** The account behind a request's session: the health route serves its detail to an admin. */
       safeGetAuthUser?: (ctx: never) => Promise<{ role?: string | null, banned?: boolean | null } | null | undefined>
     }
@@ -143,12 +137,17 @@ export function registerBackendRoutes(http: HttpRouter, options: RegisterBackend
 
   const { auth, billing, email, ai } = options
   const registerAuthRoutes = auth.authComponent.registerRoutes as (http: HttpRouter, createAuth: unknown) => void
-  // A Convex Auth app's engine runs inside its functions: it serves no auth routes.
-  if (auth.authComponent.provider !== 'convex-auth') registerAuthRoutes(http, auth.createAuth)
-  // Each workspace (or account) the auth routes make starts on billing's
-  // free plan, and a workspace that still holds a paid subscription is not
-  // deleted: connected here unless setupAuth({ billing }) already did.
-  if (typeof auth.createAuth === 'function') connectBilling(auth.createAuth, billing)
+  registerAuthRoutes(http, auth.createAuth)
+  // Each workspace (or account) the auth routes make starts on billing's free plan.
+  const { entityCreated } = billing
+  if (typeof auth.createAuth === 'function' && typeof entityCreated === 'function') {
+    onEntityCreated(auth.createAuth, (ctx, entity) => entityCreated(ctx as never, entity))
+  }
+  // And a workspace that still holds a paid subscription is not deleted.
+  const { deletionRefusal } = billing
+  if (typeof auth.createAuth === 'function' && typeof deletionRefusal === 'function') {
+    onEntityDeleting(auth.createAuth, (ctx, entity) => deletionRefusal(ctx as never, entity))
+  }
 
   const post = (path: string, handle: (ctx: never, request: Request) => Promise<Response>): void => {
     http.route({

@@ -31,9 +31,6 @@ importers:
       '@convex-dev/aggregate':
         specifier: ^0.3.4
         version: 0.3.4(@standard-schema/spec@1.1.0)(convex@1.51.0(react@19.3.0))(hono@4.13.18)(prettier@3.9.10)(react@19.3.0)(typescript@6.0.3)(zod@4.6.7)
-      '@convex-dev/auth':
-        specifier: ^2.1.0
-        version: 2.1.0(@convex-dev/resend@0.2.10(@standard-schema/spec@1.1.0)(convex-helpers@0.1.136(@standard-schema/spec@1.1.0)(convex@1.51.0(react@19.3.0))(hono@4.13.18)(prettier@3.9.10)(react@19.3.0)(typescript@6.0.3)(zod@4.6.7))(convex@1.51.0(react@19.3.0))(hono@4.13.18)(prettier@3.9.10)(react@19.3.0)(typescript@6.0.3)(zod@4.6.7))(@standard-schema/spec@1.1.0)(convex@1.51.0(react@19.3.0))(hono@4.13.18)(prettier@3.9.10)(react@19.3.0)(typescript@6.0.3)(zod@4.6.7)
       '@convex-dev/batch-worker':
         specifier: 0.3.6
         version: 0.3.6(@standard-schema/spec@1.1.0)(convex@1.51.0(react@19.3.0))(hono@4.13.18)(prettier@3.9.10)(react@19.3.0)(typescript@6.0.3)(zod@4.6.7)
@@ -12202,6 +12199,7 @@ snapshots:
       - prettier
       - typescript
       - zod
+    optional: true
 
   '@convex-dev/batch-worker@0.2.2(convex@1.51.0(react@19.3.0))(react@19.3.0)':
     dependencies:
@@ -16646,6 +16644,7 @@ snapshots:
       '@peculiar/asn1-x509': 2.11.1
       asn1js: 3.0.10
       tslib: 2.8.1
+    optional: true
 
   '@peculiar/asn1-cms@2.11.1':
     dependencies:
@@ -16654,6 +16653,7 @@ snapshots:
       '@peculiar/asn1-x509-attr': 2.11.1
       asn1js: 3.0.10
       tslib: 2.8.1
+    optional: true
 
   '@peculiar/asn1-cms@2.9.4':
     dependencies:
@@ -16669,6 +16669,7 @@ snapshots:
       '@peculiar/asn1-x509': 2.11.1
       asn1js: 3.0.10
       tslib: 2.8.1
+    optional: true
 
   '@peculiar/asn1-csr@2.9.4':
     dependencies:
@@ -16683,6 +16684,7 @@ snapshots:
       '@peculiar/asn1-x509': 2.11.1
       asn1js: 3.0.10
       tslib: 2.8.1
+    optional: true
 
   '@peculiar/asn1-ecc@2.9.4':
     dependencies:
@@ -16699,6 +16701,7 @@ snapshots:
       '@peculiar/asn1-schema': 2.11.1
       asn1js: 3.0.10
       tslib: 2.8.1
+    optional: true
 
   '@peculiar/asn1-pfx@2.9.4':
     dependencies:
@@ -16715,6 +16718,7 @@ snapshots:
       '@peculiar/asn1-x509': 2.11.1
       asn1js: 3.0.10
       tslib: 2.8.1
+    optional: true
 
   '@peculiar/asn1-pkcs8@2.9.4':
     dependencies:
@@ -16733,6 +16737,7 @@ snapshots:
       '@peculiar/asn1-x509-attr': 2.11.1
       asn1js: 3.0.10
       tslib: 2.8.1
+    optional: true
 
   '@peculiar/asn1-pkcs9@2.9.4':
     dependencies:
@@ -16751,6 +16756,7 @@ snapshots:
       '@peculiar/asn1-x509': 2.11.1
       asn1js: 3.0.10
       tslib: 2.8.1
+    optional: true
 
   '@peculiar/asn1-rsa@2.9.4':
     dependencies:
@@ -16764,6 +16770,7 @@ snapshots:
       '@peculiar/utils': 2.0.3
       asn1js: 3.0.10
       tslib: 2.8.1
+    optional: true
 
   '@peculiar/asn1-schema@2.9.4':
     dependencies:
@@ -16777,6 +16784,7 @@ snapshots:
       '@peculiar/asn1-x509': 2.11.1
       asn1js: 3.0.10
       tslib: 2.8.1
+    optional: true
 
   '@peculiar/asn1-x509-attr@2.9.4':
     dependencies:
@@ -16792,6 +16800,7 @@ snapshots:
       '@peculiar/asn1-x509': 2.11.1
       asn1js: 3.0.10
       tslib: 2.8.1
+    optional: true
 
   '@peculiar/asn1-x509@2.11.1':
     dependencies:
@@ -16799,6 +16808,7 @@ snapshots:
       '@peculiar/utils': 2.0.3
       asn1js: 3.0.10
       tslib: 2.8.1
+    optional: true
 
   '@peculiar/asn1-x509@2.9.4':
     dependencies:
@@ -16838,6 +16848,7 @@ snapshots:
       pvtsutils: 1.3.6
       tslib: 2.8.1
       tsyringe: 4.10.0
+    optional: true
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
@@ -17457,7 +17468,8 @@ snapshots:
 
   '@simplewebauthn/browser@13.3.0': {}
 
-  '@simplewebauthn/browser@14.0.0': {}
+  '@simplewebauthn/browser@14.0.0':
+    optional: true
 
   '@simplewebauthn/server@13.3.3':
     dependencies:
@@ -17482,6 +17494,7 @@ snapshots:
       '@peculiar/asn1-x509-post-quantum': 2.11.1
       '@peculiar/x509': 2.2.0
       reflect-metadata: 0.2.2
+    optional: true
 
   '@sindresorhus/base62@1.0.0': {}
 
@@ -19798,7 +19811,8 @@ snapshots:
 
   cookie@0.7.2: {}
 
-  cookie@1.1.1: {}
+  cookie@1.1.1:
+    optional: true
 
   core-js-compat@3.50.0:
     dependencies:
@@ -21595,7 +21609,8 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  jose@5.10.0: {}
+  jose@5.10.0:
+    optional: true
 
   jose@6.2.12: {}
 
@@ -24209,7 +24224,8 @@ snapshots:
 
   parseurl@1.3.3: {}
 
-  password-hash-wasm@0.0.0: {}
+  password-hash-wasm@0.0.0:
+    optional: true
 
   path-browserify@1.0.1: {}
 

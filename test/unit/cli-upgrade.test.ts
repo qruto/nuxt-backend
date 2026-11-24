@@ -10,7 +10,7 @@ import { migrateData } from '../../src/cli/upgrade/data'
 import { backfillPools, POOL_BACKFILL } from '../../src/cli/upgrade/pools'
 import { ConvexCliError, runConvex } from '../../src/convex-cli'
 import { PACKAGE_MIGRATIONS, type PackageMigrationStatus } from '../../src/convex/package-migrations'
-import { asBetterAuthApp, checkoutBaseStarter, checkoutDriftedStarter, CUSTOM, customizeStarter, DRIFT, removeFixture } from '../helpers/upgrade-fixture'
+import { checkoutBaseStarter, checkoutDriftedStarter, CUSTOM, customizeStarter, DRIFT, removeFixture } from '../helpers/upgrade-fixture'
 
 // `nuxt-backend upgrade` on the upgrade fixture (test/fixtures/upgrade/): the
 // starter as the last release shipped it, with a file, a mount and a
@@ -108,8 +108,7 @@ describe('a starter that lacks what the scaffold has', () => {
       `backend/convex.config.ts: mounted ${DRIFT.mount}`,
       `backend/convex.config.ts: forwarded ${DRIFT.forward}`,
     ])
-    // An app made before Convex Auth keeps Better Auth: the repair adds no Convex Auth core.
-    for (const file of [DRIFT.file, 'convex.config.ts']) expect(after[`backend/${file}`], `backend/${file}`).toBe(asBetterAuthApp(readFileSync(join(__dirname, '../../templates/starter/backend', file), 'utf-8')))
+    for (const file of [DRIFT.file, 'convex.config.ts']) expect(after[`backend/${file}`], `backend/${file}`).toBe(readFileSync(join(__dirname, '../../templates/starter/backend', file), 'utf-8'))
     expect((await upgradeJson()).scaffold).toEqual({ written: [], changes: [] })
   })
 

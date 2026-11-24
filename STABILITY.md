@@ -87,7 +87,6 @@ Every name on this surface is brand-neutral: no export, value or type, and no re
 ### 2. Configuration names
 
 - `ModuleOptions` (`backend` in `nuxt.config`):
-  - `auth`, and its values `'convex-auth'` and `'better-auth'`
   - `authRoute`
   - `chunkRecovery`
   - `css`
@@ -390,7 +389,7 @@ A composable's call shape and return shape are part of this surface, and so are 
 
 The billing-history surface — `useOrders`, `useUsage`, `<BillingHistory>`, `<UsageHistory>` — ships **stable**, deliberately, not in the experimental tier: each one binds to a deployment function named in the scaffold contract below, which `nuxt-backend doctor` verifies, and each degrades to an empty state rather than an error when the backend has not deployed its half.
 
-The core data composables and components (`useQuery`, `useMutation`, `<Authenticated>`, …) are `nuxt-convex-module`'s surface and follow that package's guarantees. Its brand-named names are hidden from an app that uses this module: every auto-import and component of the base module whose name says Convex or Better Auth (`useConvex`, the `useConvex*` aliases, `useConvexAuth`, `provideConvexAuth`, `useBetterAuth`, `<ConvexImage>`, and `<ConvexProviderWithClerk>` or `<ConvexProviderWithAuth0>` when those integrations are on), its `<CheckoutLink>` and `<CustomerPortalLink>` components, the `convex-auth` and `convex-auth-guest` middleware and the `convexAuth` and `convexBetterAuthNuxt` Nitro imports. Most have a neutral name above, or under the base module's own neutral one (`useQuery`, `useMutation`, …). The rest — `provideConvexAuth`, the Clerk and Auth0 providers and `convexBetterAuthNuxt` — have none, and need an explicit import from `nuxt-convex-module`, which still works for every hidden name; it is no longer an auto-import. In development, `<ConvexImage>`, `<CheckoutLink>` and `<CustomerPortalLink>` still render their replacement and warn once, naming it.
+The core data composables and components (`useQuery`, `useMutation`, `<Authenticated>`, …) are `nuxt-convex-module`'s surface and follow that package's guarantees. Its brand-named names are hidden from an app that uses this module: every auto-import and component of the base module whose name says Convex or Better Auth (`useConvex`, the `useConvex*` aliases, `useConvexAuth`, `provideConvexAuth`, `useBetterAuth`, `<ConvexImage>`, and `<ConvexProviderWithClerk>` or `<ConvexProviderWithAuth0>` when those integrations are on), its `<CheckoutLink>` and `<CustomerPortalLink>` components, the `convex-auth` middleware and the `convexAuth` and `convexBetterAuthNuxt` Nitro imports. Most have a neutral name above, or under the base module's own neutral one (`useQuery`, `useMutation`, …). The rest — `provideConvexAuth`, the Clerk and Auth0 providers and `convexBetterAuthNuxt` — have none, and need an explicit import from `nuxt-convex-module`, which still works for every hidden name; it is no longer an auto-import. In development, `<ConvexImage>`, `<CheckoutLink>` and `<CustomerPortalLink>` still render their replacement and warn once, naming it.
 
 ### 4. The scaffold export contract
 
@@ -695,7 +694,7 @@ A public name is never removed in the release that replaces it. It is marked `@d
 
 - A **breaking change in a `better-auth` or `@convex-dev/*` minor** — an API that consumers of this package touch (auth plugin options, component function signatures, schema shape) — is a **major here** (a minor on the 0.x line, announced as breaking). The dependency ranges stay pinned to the last compatible line until then.
 - A non-breaking upstream update is a patch here.
-- `convex` follows its peer range (`>=1.48.0 <2` — the floor is what `@convex-dev/auth` 2 needs, above what `nuxt-convex-module` needs for `FunctionReference_future` and the lowest version every other bundled `@convex-dev/*` component and `convex-helpers` accept; `check:manifest` verifies it against the installed tree); a Convex major is a major here. `vue` is a peer too (`^3.5.41`, the floor the bundled MCP toolkit needs), satisfied by any Nuxt 4.6+ app. `@convex-dev/eslint-plugin` (`^5.0.0`) and `eslint` (`^9.0.0 || ^10.0.0`) are optional peers, needed only by `nuxt-backend/eslint`; a major of either is a minor here. So is `@sentry/nuxt` (`^11.10.0`, the first with the managed tunnel), the error-reporting SDK the module wires once it is installed and a DSN is set.
+- `convex` follows its peer range (`>=1.46.0 <2` — the floor is what `nuxt-convex-module` 0.11 needs for `FunctionReference_future`, above the lowest version every bundled `@convex-dev/*` component and `convex-helpers` accept; `check:manifest` verifies it against the installed tree); a Convex major is a major here. `vue` is a peer too (`^3.5.41`, the floor the bundled MCP toolkit needs), satisfied by any Nuxt 4.6+ app. `@convex-dev/eslint-plugin` (`^5.0.0`) and `eslint` (`^9.0.0 || ^10.0.0`) are optional peers, needed only by `nuxt-backend/eslint`; a major of either is a minor here. So is `@sentry/nuxt` (`^11.10.0`, the first with the managed tunnel), the error-reporting SDK the module wires once it is installed and a DSN is set.
 - Nuxt majors are majors here. `nuxt-convex-module` is a true dependency, installed and configured for you; its own stability policy applies to the core composables it registers.
 
 `test/unit/peer-ranges.test.ts` keeps the declared ranges honest against the installed versions and against what the upstreams declare for each other. [Ecosystem](https://nuxt-backend.dev/docs/reference/ecosystem) lists every upstream package this one ships, bundles, supports or plans, and the docs contract keeps that page in step with `package.json`.
@@ -707,7 +706,7 @@ Nuxt `^4.6.2` (Nuxt 4 from 4.6.2, where the `nuxt/server` API the server code is
 | Package | Range | Needed by |
 |---|---|---|
 | `vue` | `^3.5.41` | every app |
-| `convex` | `>=1.48.0 <2` | every app (the Convex CLI and client) |
+| `convex` | `>=1.46.0 <2` | every app (the Convex CLI and client) |
 | `convex-test` | `>=0.0.54` | `nuxt-backend/test` |
 | `eslint` | `^9.0.0 \|\| ^10.0.0` | `nuxt-backend/eslint` |
 | `@convex-dev/eslint-plugin` | `^5.0.0` | `nuxt-backend/eslint` |

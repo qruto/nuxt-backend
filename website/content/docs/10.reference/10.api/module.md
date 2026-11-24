@@ -59,7 +59,6 @@ Defined in: [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/
 | ------ | ------ | ------ | ------ |
 | <a id="url"></a> `url?` | `string` | The deployment's URL (the `.convex.cloud` origin). Else `NUXT_PUBLIC_BACKEND_URL`, else derived from `CONVEX_DEPLOYMENT`. The HTTP-routes origin (`.convex.site`) derives from it; a custom domain in front of them goes in `NUXT_PUBLIC_CONVEX_SITE_URL`. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="authroute"></a> `authRoute?` | `string` | - | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
-| <a id="auth"></a> `auth?` | [`AuthProvider`](#authprovider) | Which auth the app runs. `'convex-auth'`, what `nuxt-backend init` scaffolds: Convex Auth holds the sessions, and the account rules (codes, passkeys, workspaces, roles, the admin console) run in the deployment's own functions. `'better-auth'`: Better Auth's sessions, served on the auth route. Unset, an app whose `backend/convex.config.ts` mounts `@convex-dev/auth/convex.config` runs Convex Auth, any other Better Auth. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="pages"></a> `pages?` | `ModulePagesOptions` | Where the ready-made pages mount (sign-in, pricing, settings, profile, security and the invitation pages). Every page is on; give a key a path to move it, or `false` to turn it off. To replace a page, put an app page at its path: an app page always wins over the module's. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="redirects"></a> `redirects?` | [`ModuleRedirectsOptions`](#moduleredirectsoptions) | Where the ready-made pages send a person once they are done. See [ModuleRedirectsOptions](#moduleredirectsoptions). | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
 | <a id="devtools"></a> `devtools?` | `boolean` | The Backend tab in Nuxt DevTools (dev only): the deployment and its env names, live checks and doctor on demand, the signed-in account, billing, email and the webhook delivery log. Enabled by default whenever Nuxt DevTools is; set `false` to disable just the Backend tab. | [src/module.ts](https://github.com/qruto/nuxt-backend/blob/main/src/module.ts) |
@@ -146,18 +145,6 @@ Per-request Better Auth + Convex helper returned by [convexBetterAuthNuxt](https
 | <a id="fetchauthaction"></a> `fetchAuthAction` | \<`Action`\>(`action`, ...`args`) => `Promise`\<`FunctionReturnType`\<`Action`\>\> | Execute a Convex action with the current user's auth token. | node\_modules/nuxt-convex-module/runtime/better-auth/nuxt/server |
 
 ## Type Aliases
-
-### AuthProvider
-
-```ts
-type AuthProvider = "better-auth" | "convex-auth";
-```
-
-Defined in: [src/nuxt/convex-auth.ts](https://github.com/qruto/nuxt-backend/blob/main/src/nuxt/convex-auth.ts)
-
-The two auth providers.
-
-***
 
 ### AccessDeniedReason
 

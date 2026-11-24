@@ -42,7 +42,6 @@ import type * as preferences from "../preferences.js";
 import type * as push from "../push.js";
 import type * as referrals from "../referrals.js";
 import type * as reports from "../reports.js";
-import type * as sessionTokens from "../sessionTokens.js";
 import type * as storage from "../storage.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as suppressions from "../suppressions.js";
@@ -92,7 +91,6 @@ const fullApi: ApiFromModules<{
   push: typeof push;
   referrals: typeof referrals;
   reports: typeof reports;
-  sessionTokens: typeof sessionTokens;
   storage: typeof storage;
   subscriptions: typeof subscriptions;
   suppressions: typeof suppressions;

@@ -5,8 +5,7 @@ import { appCode, secretOf } from '../helpers/totp'
 
 // The authenticator app on a Better Auth app, through its routes: turned on
 // after a recent sign-in, asked for after every sign-in code (never after a
-// passkey, a second factor of its own), and turned off again. The same
-// engine runs in a Convex Auth app (test/convex-component/convex-auth.test.ts).
+// passkey, a second factor of its own), and turned off again.
 
 afterEach(() => {
   vi.unstubAllEnvs()

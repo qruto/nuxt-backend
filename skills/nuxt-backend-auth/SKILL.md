@@ -7,16 +7,7 @@ description: Sign-in, sessions and access control in a Nuxt app on nuxt-backend.
 
 Sign-in is passwordless: email codes and passkeys, and an authenticator app after a code for an
 account that turns one on. Every user gets a personal workspace on first sign-in, so a session
-always has an active one.
-
-A new app runs Convex Auth: `backend/convex.config.ts` mounts `@convex-dev/auth/convex.config`
-as `auth` and `setupAuth` takes `provider: 'convex-auth'`. Convex Auth holds the sessions;
-Better Auth's engine runs every account rule inside `auth:signIn` and `auth:authRequest`, and
-there are no auth HTTP routes. An app without the mount stays on Better Auth: never add or remove
-it to "fix" auth, it signs everyone out once. Keep every export of the scaffolded `auth.ts`
-(`refreshSession`, `signOut`, `isAuthenticated`, `signIn`, `authRequest`) and its
-`billing` option. The composables, components and claims are the same on both:
-https://nuxt-backend.dev/docs/build/auth/setup#convex-auth-or-better-auth. The `nuxt-backend` core skill
+always has an active one. The `nuxt-backend` core skill
 holds the rules every change follows; this one covers who the caller is and what they may do.
 
 ## Sign-in and pages

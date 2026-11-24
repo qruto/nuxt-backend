@@ -314,7 +314,7 @@ export function hideBaseBrandNames(nuxt: Nuxt): void {
         break
       case 'app:resolve':
         filterInPlace(args[0], (middleware: { name?: string, path?: string } | undefined) =>
-          !((middleware?.name === 'convex-auth' || middleware?.name === 'convex-auth-guest') && fromBaseModule(middleware.path)), 'middleware')
+          !(middleware?.name === 'convex-auth' && fromBaseModule(middleware.path)), 'middleware')
         break
       case 'nitro:config':
         filterInPlace((args[0] as Parameters<NuxtHooks['nitro:config']>[0] | undefined)?.imports, (entry: { name?: string, as?: string, from?: string }) => !hiddenImport(entry), 'imports')

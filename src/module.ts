@@ -26,7 +26,6 @@ import { registerPhotoDecoder } from './nuxt/photos'
 import { registerProtection } from './nuxt/protection'
 import { registerSecurityRules, securityDefaults, securityDevOverrides, securityDisabled } from './nuxt/security'
 import { keepDevModulesUncached } from './nuxt/development'
-import { type AuthProvider, detectAuthProvider, registerConvexAuth } from './nuxt/convex-auth'
 import { registerSearchIndexing } from './nuxt/site'
 
 // The module definition; the helpers setup calls live in nuxt/, one file
@@ -45,7 +44,6 @@ export type { ConvexBetterAuthOptions as BackendAuthOptions, ConvexBetterAuthSer
 export type { AccessDeniedData, AccessDeniedReason, PageAccessRules } from './runtime/vue/utils/access-rules'
 export type { AdminTabMeta } from './runtime/vue/components/admin/admin-tabs'
 export type { InstallableOptions } from './installable'
-export type { AuthProvider } from './nuxt/convex-auth'
 
 /** Where the ready-made pages send a person once they are done. */
 export interface ModuleRedirectsOptions {
@@ -66,16 +64,6 @@ export interface ModuleOptions {
    */
   url?: string
   authRoute?: string
-  /**
-   * Which auth the app runs. `'convex-auth'`, what `nuxt-backend init`
-   * scaffolds: Convex Auth holds the sessions, and the account rules
-   * (codes, passkeys, workspaces, roles, the admin console) run in the
-   * deployment's own functions. `'better-auth'`: Better Auth's sessions,
-   * served on the auth route. Unset, an app whose `backend/convex.config.ts`
-   * mounts `@convex-dev/auth/convex.config` runs Convex Auth, any other
-   * Better Auth.
-   */
-  auth?: AuthProvider
   /**
    * Where the ready-made pages mount (sign-in, pricing, settings, profile,
    * security and the invitation pages). Every page is on; give a key a path
@@ -185,7 +173,6 @@ export default defineNuxtModule<ModuleOptions>({
     const backend = (rawOptions.backend ?? {}) as ModuleOptions
     const convex = (rawOptions.convex ?? {}) as Record<string, unknown>
     const resolver = createResolver(moduleDir)
-    const provider = detectAuthProvider(nuxt.options.rootDir, backend.auth)
     // The page guard redirects to the sign-in page's path, wherever it
     // mounts (and whether the module's page or the app's own serves it).
     const loginPath = resolvePagePath(backend.pages, 'login')
@@ -198,19 +185,6 @@ export default defineNuxtModule<ModuleOptions>({
     // works and wins over a default: NUXT_PUBLIC_CONVEX_SITE_URL is how a
     // custom domain in front of the HTTP routes is named.
     const derived = deriveDeploymentUrls(nuxt.options.rootDir)
-    // Better Auth with this package's passwordless client (OTP + passkeys).
-    // A user-supplied `convex.betterAuth` object is spread over the package's
-    // seed, so its fields win (a custom `authClient` replaces ours) while an
-    // object that only sets other options (`crossDomainCallbackRoute`, …)
-    // keeps the bundled client. Only a disable is overridden outright.
-    const betterAuth = {
-      authClient: resolver.resolve('./runtime/vue/auth-client'),
-      loginPath,
-      // The same-origin proxy route (`betterAuth.authRoute` in the base
-      // module since 0.12). Unset, the base module mounts it at /api/auth.
-      ...(backend.authRoute !== undefined ? { authRoute: backend.authRoute } : {}),
-      ...(typeof convex.betterAuth === 'object' && convex.betterAuth !== null ? convex.betterAuth : {}),
-    }
     return {
       // The error-reporting SDK's module, only once it is installed and a
       // DSN is set: an app without either never bundles it (an optional
@@ -260,13 +234,26 @@ export default defineNuxtModule<ModuleOptions>({
           devScript: false,
         },
         overrides: {
-          // A Convex Auth app runs the base module's Convex Auth and no
-          // Better Auth: the package's session layer reads Convex Auth
-          // through its own wiring (src/nuxt/convex-auth.ts).
-          ...(provider === 'convex-auth' ? { betterAuth: false, convexAuth: { loginPath } } : { betterAuth, convexAuth: false }),
+          // Better Auth with this package's passwordless client (OTP +
+          // passkeys). A user-supplied `convex.betterAuth` object is spread
+          // over the package's seed, so its fields win (a custom `authClient`
+          // replaces ours) while an object that only sets other options
+          // (`crossDomainCallbackRoute`, …) keeps the bundled client. Only a
+          // disable is overridden outright.
+          betterAuth: {
+            authClient: resolver.resolve('./runtime/vue/auth-client'),
+            loginPath,
+            // The same-origin proxy route (`betterAuth.authRoute` in the base
+            // module since 0.12). Unset, the base module mounts it at /api/auth.
+            ...(backend.authRoute !== undefined ? { authRoute: backend.authRoute } : {}),
+            ...(typeof convex.betterAuth === 'object' && convex.betterAuth !== null ? convex.betterAuth : {}),
+          },
+          // Better Auth is this package's auth: the base module's Convex
+          // Auth stays off, even where @convex-dev/auth is installed.
+          convexAuth: false,
           polar: true,
-          // One auth provider — don't let auto-detect enable a second one
-          // just because its SDK is resolvable.
+          // This package's auth story is Better Auth — don't let auto-detect
+          // enable a second auth provider just because its SDK is resolvable.
           clerk: false,
           auth0: false,
         },
@@ -283,7 +270,6 @@ export default defineNuxtModule<ModuleOptions>({
     // folder (same targets as the base module's `#convex/*`).
     registerBackendAliases(nuxt, resolver.resolve('./runtime'))
     registerBackendApi(resolver, nuxt)
-    if (detectAuthProvider(nuxt.options.rootDir, options.auth) === 'convex-auth') registerConvexAuth(resolver, nuxt)
     // In development, no module of the dev server stays in the browser's
     // cache, where Safari mixed old copies of Vue with new ones.
     keepDevModulesUncached(nuxt)
