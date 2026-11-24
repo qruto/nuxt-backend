@@ -26,7 +26,7 @@ export const PROPER_NOUNS = [
   'Better Auth', 'Claude Code', 'Claude Desktop', 'VS Code', 'Convex', 'Nuxt', 'Nitro', 'Vue', 'Vite',
   'Polar', 'Resend', 'Vercel', 'Netlify', 'Cloudflare', 'Docus', 'Markdown', 'TypeScript', 'JavaScript',
   'Node', 'GitHub', 'Google', 'Stripe', 'Turnstile', 'Chrome', 'Safari', 'Firefox', 'Windows', 'macOS',
-  'Linux', 'Docker', 'Claude', 'Cursor', 'Inspector', 'Tailwind', 'ESLint', 'Vitest', 'Playwright',
+  'Linux', 'Docker', 'Claude', 'Cursor', 'Dodo', 'Creem', 'Inspector', 'Tailwind', 'ESLint', 'Vitest', 'Playwright',
   'Content Security Policy',
 ]
 

@@ -155,6 +155,14 @@ export interface WebhookDelivery<Ctx> {
   /** The provider's delivery id header (`webhook-id` / `svix-id`). */
   deliveryId: string | null
   /**
+   * The delivery id a provider writes in the body instead of a header
+   * (Stripe's and Creem's event `id`), read once the body is in and
+   * before anything verifies it, for the redelivery dedupe and the log row.
+   * Unverified, as a header id is: a forged body naming an id already
+   * handled only gets the same 200 the real redelivery would.
+   */
+  bodyDeliveryId?: (body: string) => string | null
+  /**
    * The inbound request. The edge reads its body, once, and only after the
    * secret check and a `Content-Length` over the cap have had their say.
    */
@@ -203,12 +211,15 @@ function logRejected(service: WebhookService, outcome: keyof typeof REFUSALS, st
 
 /** One delivery's log: its row in the delivery log, and the refusal that also writes the deployment-log line. */
 interface DeliveryRecorder {
+  /** Key the row by an id read from the body, once it is in. */
+  rekey: (deliveryId: string) => void
   record: (outcome: WebhookOutcome, details?: { type?: string, note?: string }) => Promise<void>
   refuse: (outcome: keyof typeof REFUSALS, response?: Response, note?: string) => Promise<Response>
 }
 
 /** The recorder for one delivery; a log write that fails is reported and never fails the delivery. */
-function deliveryRecorder(log: GuardCtx, refs: WebhookLogRefs, service: WebhookService, deliveryId: string): DeliveryRecorder {
+function deliveryRecorder(log: GuardCtx, refs: WebhookLogRefs, service: WebhookService, firstId: string): DeliveryRecorder {
+  let deliveryId = firstId
   const record: DeliveryRecorder['record'] = async (outcome, details) => {
     try {
       await log.runMutation(refs.record as never, { service, deliveryId, type: details?.type, outcome, note: details?.note } as never)
@@ -224,7 +235,10 @@ function deliveryRecorder(log: GuardCtx, refs: WebhookLogRefs, service: WebhookS
     logRejected(service, outcome, answer.status)
     return answer
   }
-  return { record, refuse }
+  const rekey: DeliveryRecorder['rekey'] = (id) => {
+    deliveryId = id
+  }
+  return { rekey, record, refuse }
 }
 
 /**
@@ -277,8 +291,10 @@ async function answerBeforeRoute<Ctx>(log: GuardCtx, refs: WebhookLogRefs, deliv
   }
   const body = await readCappedBody(delivery.request)
   if (body === null) return logged.refuse('oversized')
-  if (!delivery.deliveryId) return body
-  const prior = await log.runQuery(refs.find as never, { service, deliveryId: delivery.deliveryId } as never) as { outcome: WebhookOutcome } | null
+  const deliveryId = delivery.deliveryId ?? delivery.bodyDeliveryId?.(body) ?? null
+  if (!deliveryId) return body
+  if (!delivery.deliveryId) logged.rekey(deliveryId)
+  const prior = await log.runQuery(refs.find as never, { service, deliveryId } as never) as { outcome: WebhookOutcome } | null
   if (prior?.outcome !== 'ok') return body
   await logged.record('duplicate')
   return new Response('Already processed', { status: 200 })

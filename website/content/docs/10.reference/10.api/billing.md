@@ -10,6 +10,126 @@ navigation:
 
 # nuxt-backend/billing
 
+## Classes
+
+### ProviderUnsupportedError
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+**`Experimental`**
+
+A call a provider's API does not offer: the app shows the dashboard or the portal instead.
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+```ts
+new ProviderUnsupportedError(
+   provider, 
+   operation, 
+   hint
+): ProviderUnsupportedError;
+```
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+**`Experimental`**
+
+###### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `provider` | [`BillingProviderName`](#billingprovidername-3) |
+| `operation` | `string` |
+| `hint` | `string` |
+
+###### Returns
+
+[`ProviderUnsupportedError`](#providerunsupportederror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+| Property | Modifier | Type | Default value | Description | Overrides | Inherited from | Defined in |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| <a id="name-5"></a> `name` | `readonly` | `"ProviderUnsupportedError"` | `'ProviderUnsupportedError'` | **`Experimental`** | `Error.name` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="provider-1"></a> `provider` | `readonly` | [`BillingProviderName`](#billingprovidername-3) | `undefined` | **`Experimental`** | - | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="operation"></a> `operation` | `readonly` | `string` | `undefined` | **`Experimental`** | - | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="cause"></a> `cause?` | `public` | `unknown` | `undefined` | **`Experimental`** | - | `Error.cause` | node\_modules/typescript/lib/lib.es2022.error.d.ts:24 |
+| <a id="message"></a> `message` | `public` | `string` | `undefined` | **`Experimental`** | - | `Error.message` | node\_modules/typescript/lib/lib.es5.d.ts:1075 |
+| <a id="stack"></a> `stack?` | `public` | `string` | `undefined` | **`Experimental`** | - | `Error.stack` | node\_modules/typescript/lib/lib.es5.d.ts:1076 |
+
+***
+
+### ProviderHttpError
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+**`Experimental`**
+
+A provider's HTTP answer that was not a success. `statusCode` is read by
+provider-failure.ts to tell a provider having trouble (408, 429, 5xx) from
+one refusing the request. The body is never kept: it echoes the request.
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+```ts
+new ProviderHttpError(
+   provider, 
+   operation, 
+   statusCode, 
+   code?
+): ProviderHttpError;
+```
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+**`Experimental`**
+
+###### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `provider` | [`BillingProviderName`](#billingprovidername-3) |
+| `operation` | `string` |
+| `statusCode` | `number` |
+| `code?` | `string` |
+
+###### Returns
+
+[`ProviderHttpError`](#providerhttperror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+| Property | Modifier | Type | Default value | Description | Overrides | Inherited from | Defined in |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| <a id="name-6"></a> `name` | `readonly` | `"ProviderHttpError"` | `'ProviderHttpError'` | **`Experimental`** | `Error.name` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="provider-2"></a> `provider` | `readonly` | [`BillingProviderName`](#billingprovidername-3) | `undefined` | **`Experimental`** | - | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="operation-1"></a> `operation` | `readonly` | `string` | `undefined` | **`Experimental`** | - | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="statuscode"></a> `statusCode` | `readonly` | `number` | `undefined` | **`Experimental`** | - | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="code-1"></a> `code` | `readonly` | `string` \| `undefined` | `undefined` | **`Experimental`** | - | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="cause-1"></a> `cause?` | `public` | `unknown` | `undefined` | **`Experimental`** | - | `Error.cause` | node\_modules/typescript/lib/lib.es2022.error.d.ts:24 |
+| <a id="message-1"></a> `message` | `public` | `string` | `undefined` | **`Experimental`** | - | `Error.message` | node\_modules/typescript/lib/lib.es5.d.ts:1075 |
+| <a id="stack-1"></a> `stack?` | `public` | `string` | `undefined` | **`Experimental`** | - | `Error.stack` | node\_modules/typescript/lib/lib.es5.d.ts:1076 |
+
 ## Interfaces
 
 ### CatalogCreditGrant
@@ -269,6 +389,280 @@ Defined in: [src/convex/catalog.ts](https://github.com/qruto/nuxt-backend/blob/m
 
 ***
 
+### CommerceWebhookOptions
+
+Defined in: [src/convex/integrations/billing/commerce-webhooks.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/commerce-webhooks.ts)
+
+The options of [createCommerceWebhookHandler](#createcommercewebhookhandler).
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-ctx-1"></a> `Ctx` |
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="provider"></a> `provider` | [`CommerceProvider`](#commerceprovider) | - | [src/convex/integrations/billing/commerce-webhooks.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/commerce-webhooks.ts) |
+| <a id="secrets"></a> `secrets` | readonly `string`[] | The accepted signing secrets, first entry primary (`BILLING_WEBHOOK_SECRET`, comma-separated while rotating). | [src/convex/integrations/billing/commerce-webhooks.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/commerce-webhooks.ts) |
+| <a id="webhooklog"></a> `webhookLog` | `WebhookLogRefs` | `components.backend.webhooks`: the delivery log the dedupe reads. | [src/convex/integrations/billing/commerce-webhooks.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/commerce-webhooks.ts) |
+| <a id="onevent"></a> `onEvent` | [`CommerceEventHandler`](#commerceeventhandler)\<`Ctx`\> | - | [src/convex/integrations/billing/commerce-webhooks.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/commerce-webhooks.ts) |
+
+***
+
+### DigitalContentConsent
+
+Defined in: [src/convex/integrations/billing/providers/consent.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/consent.ts)
+
+What the buyer agreed to, as a checkout records it.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="at"></a> `at` | `number` | When they ticked it, in Unix milliseconds. | [src/convex/integrations/billing/providers/consent.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/consent.ts) |
+| <a id="version"></a> `version` | `string` | - | [src/convex/integrations/billing/providers/consent.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/consent.ts) |
+| <a id="texthash"></a> `textHash` | `string` | The SHA-256 hex of the exact text shown, in the language shown. | [src/convex/integrations/billing/providers/consent.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/consent.ts) |
+
+***
+
+### ProviderCapabilities
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+What one provider can do through its API, for the doctor, the docs and a refusal that names what is missing.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="onetime"></a> `oneTime` | `boolean` | One-time purchases (a comic issue, a credit pack). | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="subscriptions"></a> `subscriptions` | `boolean` | Renewing subscriptions. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="customerportal"></a> `customerPortal` | `boolean` | A hosted page where customers manage payment methods, invoices and cancellation. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="changeplan"></a> `changePlan` | `boolean` | Moving a subscription to another product, with proration. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="cancelatperiodend"></a> `cancelAtPeriodEnd` | `boolean` | Cancelling at period end, and taking that back before it ends. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="uncancel"></a> `uncancel` | `boolean` | Taking a scheduled cancellation back through the API. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="pause"></a> `pause` | `boolean` | Pausing and resuming a subscription. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="refundapi"></a> `refundApi` | `boolean` | Refunding an order through the API (every provider refunds from its dashboard). | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="invoices"></a> `invoices` | `boolean` | A link to, or the bytes of, an order's invoice or receipt. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="discountcodes"></a> `discountCodes` | `boolean` | Discount or promotion codes at checkout. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="merchantofrecord"></a> `merchantOfRecord` | `boolean` | The provider sells as merchant of record: it is the seller, and files and remits sales tax and VAT. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="sendsreceipts"></a> `sendsReceipts` | `boolean` | The provider emails receipts and invoices itself. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+
+***
+
+### CheckoutCustomer
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+A checkout's buyer, as the app knows them.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="entityid"></a> `entityId` | `string` | The billing entity id the order belongs to (the workspace or the user): stored on the provider as metadata and as the external reference. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="email"></a> `email?` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="name-3"></a> `name?` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="providercustomerid"></a> `providerCustomerId?` | `string` | The provider's own customer id, once one exists: the checkout reuses it instead of making another. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+
+***
+
+### CheckoutRequest
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+What a checkout sells.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="productid"></a> `productId` | `string` | The provider's product id (Dodo, Creem, Polar) or price id (Stripe). | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="kind"></a> `kind` | `"one_time"` \| `"subscription"` | Whether the product renews: Stripe needs to know (`mode`), the others read it off the product. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="quantity"></a> `quantity?` | `number` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="customer"></a> `customer` | [`CheckoutCustomer`](#checkoutcustomer) | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="successurl"></a> `successUrl` | `string` | Where the provider sends the buyer after paying. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="cancelurl"></a> `cancelUrl?` | `string` | Where it sends a buyer who leaves (Stripe, Dodo). | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="discountcode"></a> `discountCode?` | `string` | A discount or promotion code the buyer entered. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="locale"></a> `locale?` | `string` | The checkout page's language, as a BCP 47 tag (Stripe). | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="trialdays"></a> `trialDays?` | `number` | Free trial length in days, for a subscription (Stripe, Dodo). | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="metadata"></a> `metadata?` | `Record`\<`string`, `string`\> | Metadata carried through to the order and every webhook about it. The adapter adds `entity_id` (and the digital-content consent, see consent.ts) itself. Keys and values stay short: Stripe caps a key at 40 characters and a value at 500. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="idempotencykey"></a> `idempotencyKey?` | `string` | A key that makes a retried create return the first checkout instead of a second one. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+
+***
+
+### CheckoutSession
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+A created checkout: the page to send the buyer to.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="id"></a> `id` | `string` | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="url"></a> `url` | `string` | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+
+***
+
+### NeutralSubscription
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+A subscription as every provider reports it, in the package's words.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id-1"></a> `id` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="customerid"></a> `customerId` | `string` \| `null` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="entityid-1"></a> `entityId` | `string` \| `null` | The billing entity id the checkout carried in its metadata, when it did. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="productid-1"></a> `productId` | `string` \| `null` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="status"></a> `status` | [`NeutralSubscriptionStatus`](#neutralsubscriptionstatus) | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="cancelatperiodend-1"></a> `cancelAtPeriodEnd` | `boolean` | Whether it ends at the end of the current period instead of renewing. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="currentperiodend"></a> `currentPeriodEnd` | `number` \| `null` | When the current period ends (and the next charge falls), in Unix milliseconds. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="metadata-1"></a> `metadata` | `Record`\<`string`, `string`\> | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+
+***
+
+### NeutralOrder
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+An order (a one-time purchase or a subscription's charge) in neutral words.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="id-2"></a> `id` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="customerid-1"></a> `customerId` | `string` \| `null` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="entityid-2"></a> `entityId` | `string` \| `null` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="productid-2"></a> `productId` | `string` \| `null` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="subscriptionid"></a> `subscriptionId` | `string` \| `null` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="amount"></a> `amount` | `number` | The amount charged in the currency's minor unit, tax included. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="taxamount"></a> `taxAmount` | `number` \| `null` | The tax in it, in the minor unit, when the provider reports it. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="currency-1"></a> `currency` | `string` | ISO 4217, lowercase. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="metadata-2"></a> `metadata` | `Record`\<`string`, `string`\> | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+
+***
+
+### NeutralRefund
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+A refund in neutral words.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="id-3"></a> `id` | `string` | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="orderid"></a> `orderId` | `string` \| `null` | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="subscriptionid-1"></a> `subscriptionId` | `string` \| `null` | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="amount-1"></a> `amount` | `number` \| `null` | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="currency-2"></a> `currency` | `string` \| `null` | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="status-1"></a> `status` | `"failed"` \| `"pending"` \| `"succeeded"` | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+
+***
+
+### VerifiedDelivery
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+A verified delivery: its id (for the redelivery dedupe) and what it means.
+
+#### Properties
+
+| Property | Type | Defined in |
+| ------ | ------ | ------ |
+| <a id="id-4"></a> `id` | `string` | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="event"></a> `event` | [`NeutralBillingEvent`](#neutralbillingevent) | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+
+***
+
+### ChangePlanRequest
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+Changing a subscription's product.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="subscriptionid-2"></a> `subscriptionId` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="productid-3"></a> `productId` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="proration"></a> `proration` | `"next_period"` \| `"immediately"` | Charge (or credit) the difference now, or move without billing until the next renewal. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="quantity-1"></a> `quantity?` | `number` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+
+***
+
+### RefundRequest
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+Refunding an order, in full or in part.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="orderid-1"></a> `orderId` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="amount-2"></a> `amount?` | `number` | In the minor unit; the whole order without one. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="reason"></a> `reason?` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="idempotencykey-1"></a> `idempotencyKey?` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+
+***
+
+### CommerceProvider
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+The calls every commerce provider answers. A call its API lacks throws [ProviderUnsupportedError](#providerunsupportederror).
+
+#### Properties
+
+| Property | Modifier | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ | ------ |
+| <a id="name-4"></a> `name` | `readonly` | [`BillingProviderName`](#billingprovidername-3) | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="environment"></a> `environment` | `readonly` | [`ProviderEnvironment`](#providerenvironment) | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="capabilities"></a> `capabilities` | `readonly` | [`ProviderCapabilities`](#providercapabilities) | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="createcheckout"></a> `createCheckout` | `public` | (`request`) => `Promise`\<[`CheckoutSession`](#checkoutsession)\> | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="customerportalurl"></a> `customerPortalUrl` | `public` | (`providerCustomerId`, `options?`) => `Promise`\<`string`\> | The customer portal's link for one of the provider's customers. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="getsubscription"></a> `getSubscription` | `public` | (`subscriptionId`) => `Promise`\<[`NeutralSubscription`](#neutralsubscription)\> | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="changeplan-1"></a> `changePlan` | `public` | (`request`) => `Promise`\<`void`\> | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="cancelsubscription"></a> `cancelSubscription` | `public` | (`subscriptionId`, `options?`) => `Promise`\<`void`\> | Cancel now (`immediately`), or at the end of the period. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="uncancelsubscription"></a> `uncancelSubscription` | `public` | (`subscriptionId`) => `Promise`\<`void`\> | Take a scheduled cancellation back. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="pausesubscription"></a> `pauseSubscription` | `public` | (`subscriptionId`) => `Promise`\<`void`\> | Stop billing (and access) until resumed. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="resumesubscription"></a> `resumeSubscription` | `public` | (`subscriptionId`) => `Promise`\<`void`\> | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="refundorder"></a> `refundOrder` | `public` | (`request`) => `Promise`\<[`NeutralRefund`](#neutralrefund)\> | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="invoice"></a> `invoice` | `public` | (`orderId`) => `Promise`\<[`InvoiceAnswer`](#invoiceanswer)\> | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="verifywebhook"></a> `verifyWebhook` | `public` | (`body`, `headers`, `secrets`, `now?`) => `Promise`\<[`VerifiedDelivery`](#verifieddelivery) \| `null`\> | Verify a delivery against the accepted secrets (a rotation accept-list, first entry primary) and read it. `null` when no secret verifies it: the route answers 401 and reads nothing of the body. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+
+***
+
+### ProviderOptions
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+What every adapter is built with.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="apikey"></a> `apiKey` | `string` | The provider's secret API key (Stripe `sk_…`/`rk_…`, Dodo `dodo_…`, Creem `creem_…`). | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="environment-1"></a> `environment` | [`ProviderEnvironment`](#providerenvironment) | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="fetch"></a> `fetch?` | \{ (`input`, `init?`): `Promise`\<`Response`\>; (`input`, `init?`): `Promise`\<`Response`\>; \} | A `fetch` to call the provider with: the global one by default, a fake in tests. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+
+***
+
 ### BillingRateLimiter
 
 Defined in: [src/convex/integrations/billing/types/base.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/base.ts)
@@ -367,7 +761,7 @@ Shared addressing for the subscription-lifecycle operations.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="subscriptionid"></a> `subscriptionId?` | `string` | Which subscription to act on. Omit for the account's single live subscription — required once `multipleSubscriptions` ([SetupBillingConfig](#setupbillingconfig)) is on and an entity can hold several at once. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="subscriptionid-3"></a> `subscriptionId?` | `string` | Which subscription to act on. Omit for the account's single live subscription — required once `multipleSubscriptions` ([SetupBillingConfig](#setupbillingconfig)) is on and an entity can hold several at once. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 
 ***
 
@@ -385,9 +779,9 @@ Options for [Billing.updateSubscription](#updatesubscription) (upgrade / downgra
 
 | Property | Type | Description | Inherited from | Defined in |
 | ------ | ------ | ------ | ------ | ------ |
-| <a id="subscriptionid-1"></a> `subscriptionId?` | `string` | Which subscription to act on. Omit for the account's single live subscription — required once `multipleSubscriptions` ([SetupBillingConfig](#setupbillingconfig)) is on and an entity can hold several at once. | [`SubscriptionTarget`](#subscriptiontarget).[`subscriptionId`](#subscriptionid) | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="productid"></a> `productId?` | `string` | The product to switch to. | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="proration"></a> `proration?` | [`ProrationBehavior`](#prorationbehavior) | How to settle the mid-period money difference. | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="subscriptionid-4"></a> `subscriptionId?` | `string` | Which subscription to act on. Omit for the account's single live subscription — required once `multipleSubscriptions` ([SetupBillingConfig](#setupbillingconfig)) is on and an entity can hold several at once. | [`SubscriptionTarget`](#subscriptiontarget).[`subscriptionId`](#subscriptionid-3) | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="productid-4"></a> `productId?` | `string` | The product to switch to. | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="proration-1"></a> `proration?` | [`ProrationBehavior`](#prorationbehavior) | How to settle the mid-period money difference. | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 
 ***
 
@@ -395,7 +789,7 @@ Options for [Billing.updateSubscription](#updatesubscription) (upgrade / downgra
 
 Defined in: [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts)
 
-Options for [Billing.cancelSubscription](#cancelsubscription).
+Options for [Billing.cancelSubscription](#cancelsubscription-1).
 
 #### Extends
 
@@ -405,9 +799,9 @@ Options for [Billing.cancelSubscription](#cancelsubscription).
 
 | Property | Type | Description | Inherited from | Defined in |
 | ------ | ------ | ------ | ------ | ------ |
-| <a id="subscriptionid-2"></a> `subscriptionId?` | `string` | Which subscription to act on. Omit for the account's single live subscription — required once `multipleSubscriptions` ([SetupBillingConfig](#setupbillingconfig)) is on and an entity can hold several at once. | [`SubscriptionTarget`](#subscriptiontarget).[`subscriptionId`](#subscriptionid) | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="subscriptionid-5"></a> `subscriptionId?` | `string` | Which subscription to act on. Omit for the account's single live subscription — required once `multipleSubscriptions` ([SetupBillingConfig](#setupbillingconfig)) is on and an entity can hold several at once. | [`SubscriptionTarget`](#subscriptiontarget).[`subscriptionId`](#subscriptionid-3) | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="atperiodend"></a> `atPeriodEnd?` | `boolean` | Keep the subscription running until the period it is paid for ends (default). `false` revokes it immediately — benefits are withdrawn on the spot and the remainder is not refunded. | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="reason"></a> `reason?` | [`CancellationReason`](#cancellationreason) | The customer's own churn reason. | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="reason-1"></a> `reason?` | [`CancellationReason`](#cancellationreason) | The customer's own churn reason. | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="comment"></a> `comment?` | `string` | The customer's own words. Never an internal note — they can read it back. | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 
 ***
@@ -416,7 +810,7 @@ Options for [Billing.cancelSubscription](#cancelsubscription).
 
 Defined in: [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts)
 
-Options for [Billing.pauseSubscription](#pausesubscription).
+Options for [Billing.pauseSubscription](#pausesubscription-1).
 
 #### Extends
 
@@ -426,7 +820,7 @@ Options for [Billing.pauseSubscription](#pausesubscription).
 
 | Property | Type | Description | Inherited from | Defined in |
 | ------ | ------ | ------ | ------ | ------ |
-| <a id="subscriptionid-3"></a> `subscriptionId?` | `string` | Which subscription to act on. Omit for the account's single live subscription — required once `multipleSubscriptions` ([SetupBillingConfig](#setupbillingconfig)) is on and an entity can hold several at once. | [`SubscriptionTarget`](#subscriptiontarget).[`subscriptionId`](#subscriptionid) | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="subscriptionid-6"></a> `subscriptionId?` | `string` | Which subscription to act on. Omit for the account's single live subscription — required once `multipleSubscriptions` ([SetupBillingConfig](#setupbillingconfig)) is on and an entity can hold several at once. | [`SubscriptionTarget`](#subscriptiontarget).[`subscriptionId`](#subscriptionid-3) | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="resumesat"></a> `resumesAt?` | `Date` | When the paused subscription resumes by itself (must be after the current period ends). Omit to pause until it is resumed by hand. | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 
 ***
@@ -494,17 +888,17 @@ Options for [Billing.getUsageHistory](#getusagehistory).
 
 Defined in: [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts)
 
-Options for [Billing.refundOrder](#refundorder).
+Options for [Billing.refundOrder](#refundorder-1).
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="orderid"></a> `orderId` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="amount"></a> `amount?` | `number` | Amount to refund in the currency's minor unit (cents). Omit to refund everything still refundable on the order. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="reason-1"></a> `reason` | [`RefundReason`](#refundreason) | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="orderid-2"></a> `orderId` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="amount-3"></a> `amount?` | `number` | Amount to refund in the currency's minor unit (cents). Omit to refund everything still refundable on the order. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="reason-2"></a> `reason` | [`RefundReason`](#refundreason) | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="revokebenefits"></a> `revokeBenefits?` | `boolean` | Withdraw the order's benefits as well. The provider only allows this for one-time purchases — a subscription's benefits are withdrawn when the subscription itself is revoked. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="metadata"></a> `metadata?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | Extra key-value data stored on the refund. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="metadata-3"></a> `metadata?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | Extra key-value data stored on the refund. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 
 ***
 
@@ -512,18 +906,18 @@ Options for [Billing.refundOrder](#refundorder).
 
 Defined in: [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts)
 
-The outcome of [Billing.refundOrder](#refundorder), JSON-normalized.
+The outcome of [Billing.refundOrder](#refundorder-1), JSON-normalized.
 
 #### Properties
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="id"></a> `id` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="orderid-1"></a> `orderId` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="status"></a> `status` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="reason-2"></a> `reason` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="amount-1"></a> `amount` | `number` | Refunded amount in the currency's minor unit (cents). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="currency-1"></a> `currency` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="id-5"></a> `id` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="orderid-3"></a> `orderId` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="status-2"></a> `status` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="reason-3"></a> `reason` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="amount-4"></a> `amount` | `number` | Refunded amount in the currency's minor unit (cents). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="currency-3"></a> `currency` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="revokebenefits-1"></a> `revokeBenefits` | `boolean` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 
 ***
@@ -573,9 +967,9 @@ What [Billing.applyDiscount](#applydiscount) takes.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="entityid"></a> `entityId` | `string` | The billing entity whose subscription takes the discount, by id: the workspace id (`billTo: 'workspace'`, the default) or the user id. Server code that passes it has decided the entity qualifies; never pass an id a caller sent. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="entityid-3"></a> `entityId` | `string` | The billing entity whose subscription takes the discount, by id: the workspace id (`billTo: 'workspace'`, the default) or the user id. Server code that passes it has decided the entity qualifies; never pass an id a caller sent. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="discount"></a> `discount` | `string` \| `null` | A catalog discount's key, or `null` to remove the subscription's discount. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="subscriptionid-4"></a> `subscriptionId?` | `string` | The subscription, when the entity holds several (`multipleSubscriptions`). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="subscriptionid-7"></a> `subscriptionId?` | `string` | The subscription, when the entity holds several (`multipleSubscriptions`). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 
 ***
 
@@ -590,8 +984,8 @@ default the customer can still change — the provider owns the form.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="name-3"></a> `name?` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="email"></a> `email?` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="name-7"></a> `name?` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="email-1"></a> `email?` | `string` | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="billingname"></a> `billingName?` | `string` | The name that should appear on the invoice, when it differs from `name`. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="billingaddress"></a> `billingAddress?` | \{ `country`: `string`; `line1?`: `string`; `line2?`: `string`; `postalCode?`: `string`; `city?`: `string`; `state?`: `string`; \} | - | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | `billingAddress.country` | `string` | ISO 3166-1 alpha-2 country code — the one field the provider requires. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
@@ -668,16 +1062,16 @@ A single granted benefit (entitlement) in a customer's billing state.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="id-1"></a> `id` | `string` | The grant's id. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="id-6"></a> `id` | `string` | The grant's id. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="benefitid"></a> `benefitId` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="type"></a> `type` | `string` | The provider's own benefit type; `kind` says the same in neutral words. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="kind"></a> `kind?` | [`BenefitKind`](#benefitkind) | What the benefit gives (see [BenefitKind](#benefitkind)). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="name-4"></a> `name?` | `string` | The benefit's name, as the provider lists it to the customer. Absent until the benefit was read once. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="kind-1"></a> `kind?` | [`BenefitKind`](#benefitkind) | What the benefit gives (see [BenefitKind](#benefitkind)). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="name-8"></a> `name?` | `string` | The benefit's name, as the provider lists it to the customer. Absent until the benefit was read once. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="grantedat"></a> `grantedAt?` | `number` | When it was granted (epoch ms). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="licensekey"></a> `licenseKey?` | `string` | A license key's display key: masked but for its last characters. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="files"></a> `files?` | `number` | How many files a download benefit grants. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="repository"></a> `repository?` | `string` | The repository a repository benefit opens, as `owner/name`. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="metadata-2"></a> `metadata?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | The benefit's **live** provider metadata (read from the benefit, not the grant-time snapshot in customer state). Lets consumers feature-gate by a friendly key — set e.g. `{ key: 'premium' }` on the benefit and check `useFeatures().has('premium')`. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="metadata-5"></a> `metadata?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | The benefit's **live** provider metadata (read from the benefit, not the grant-time snapshot in customer state). Lets consumers feature-gate by a friendly key — set e.g. `{ key: 'premium' }` on the benefit and check `useFeatures().has('premium')`. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
 ***
 
@@ -713,7 +1107,7 @@ credit-meter balances — normalized for caching into the reactive component tab
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="customerid"></a> `customerId` | `string` \| `null` | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="customerid-2"></a> `customerId` | `string` \| `null` | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="activeproductids"></a> `activeProductIds` | `string`[] | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="benefits"></a> `benefits` | [`EntitlementBenefit`](#entitlementbenefit)[] | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="meters-1"></a> `meters` | [`EntitlementMeter`](#entitlementmeter)[] | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
@@ -752,9 +1146,9 @@ are ISO strings, amounts in the currency's smallest unit.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="id-2"></a> `id` | `string` | The provider's discount id. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="name-5"></a> `name` | `string` | The name the customer sees at checkout. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="code-1"></a> `code?` | `string` | Its code: a public promotion. Absent on one only the server applies. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="id-7"></a> `id` | `string` | The provider's discount id. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="name-9"></a> `name` | `string` | The name the customer sees at checkout. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="code-2"></a> `code?` | `string` | Its code: a public promotion. Absent on one only the server applies. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="percentoff"></a> `percentOff?` | `number` | Percent off, `20` for 20%. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="amountoff"></a> `amountOff?` | `Record`\<`string`, `number`\> | A fixed amount off per currency, lower-case ISO 4217 code → cents. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="duration-1"></a> `duration` | `"once"` \| `"forever"` \| `"repeating"` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
@@ -777,7 +1171,7 @@ A plan's pass products in the generated map, and the length of its reverse trial
 | ------ | ------ | ------ | ------ |
 | <a id="pass"></a> `pass` | `string` | The free pass product that carries the plan's benefits. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="months-2"></a> `months` | `Record`\<`string`, `string`\> | The private purchase product per gift length in months, keyed `'3'`. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="trialdays"></a> `trialDays?` | `number` | Days of the reverse trial every new workspace starts on this pass for. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="trialdays-1"></a> `trialDays?` | `number` | Days of the reverse trial every new workspace starts on this pass for. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
 ***
 
@@ -803,7 +1197,7 @@ The environment-keyed id map `nuxt-backend billing sync` generates.
 | <a id="welcome"></a> `welcome?` | \{ `meter`: `string`; `units`: `number`; \} | The free plan's welcome credits (`credits: { once: true }` in the catalog): the meter they land on and how many, granted once per person as the first billing entity they own first starts on the free plan. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | `welcome.meter` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | `welcome.units` | `number` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="currency-3"></a> `currency?` | `string` | The currency a visitor pays in when the catalog does not price theirs, lower-case ISO 4217: written for a catalog that prices more than one. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="currency-5"></a> `currency?` | `string` | The currency a visitor pays in when the catalog does not price theirs, lower-case ISO 4217: written for a catalog that prices more than one. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="discounts-1"></a> `discounts?` | `Record`\<`string`, [`BillingCatalogDiscount`](#billingcatalogdiscount)\> | Discount key → the discount and its terms. A retired one is left out: nothing applies it again. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
 ***
@@ -820,11 +1214,11 @@ A prepaid-credit consumption event (drawn from the customer's meter balance).
 | ------ | ------ | ------ | ------ |
 | <a id="userid-1"></a> `userId?` | `string` | The billing entity id — the workspace id (`billTo: 'workspace'`, the default) or the auth user id (`billTo: 'user'`). Omit to resolve it from the caller's identity (the active workspace / signed-in user). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="meter-3"></a> `meter?` | `string` | A configured credit meter name (`setupBilling({ credits })` / catalog key) — the preferred spend target: resolves the meter id, event name, and ingestion shape in one word. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="name-6"></a> `name?` | `string` | The meter event name. Defaults to the configured meter's `eventName`/key. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="name-10"></a> `name?` | `string` | The meter event name. Defaults to the configured meter's `eventName`/key. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="meterid-2"></a> `meterId?` | `string` | A raw credit meter id to guard against (escape hatch when no named meter config exists). When a meter resolves (by `meter` or `meterId`), the spend is **reserved** against the cached balance first and **blocked** (throws) if it is below `value` — keeping credits strictly prepaid (never billed as overage). The reservation settles after the provider event ingests, or releases on failure, so a failed run never consumes credits. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="value"></a> `value?` | `number` | Credits required for this spend (default `1`): a finite number above zero. Anything else is refused before the balance or the provider sees it. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="allowoverage"></a> `allowOverage?` | `boolean` | Let the balance go negative instead of refusing the spend — the pay-as-you-go case: the meter has no credit benefit behind it, so every unit is overage the provider invoices at the end of the cycle. Off by default: credits stay strictly prepaid. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="metadata-3"></a> `metadata?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | Event properties used by the meter's aggregation/filter. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="metadata-6"></a> `metadata?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | Event properties used by the meter's aggregation/filter. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="externalid"></a> `externalId?` | `string` | Idempotency key to prevent double-counting (defaults to a random UUID). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="timestamp"></a> `timestamp?` | `Date` | Event time (defaults to now). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
@@ -843,7 +1237,7 @@ settles: a `value` that is not a finite number above zero is refused.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="entityid-1"></a> `entityId` | `string` | The billing entity the spend belongs to. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="entityid-4"></a> `entityId` | `string` | The billing entity the spend belongs to. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="externalid-1"></a> `externalId` | `string` | Idempotency key shared by the reservation and the provider event. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="reserved"></a> `reserved` | `boolean` | Whether a meter guard actually reserved cached balance. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="meter-4"></a> `meter?` | `string` | The configured meter name (when reserved via one). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
@@ -863,7 +1257,7 @@ What some work cost the app, for the billing provider's cost insights ([Billing.
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="userid-2"></a> `userId` | `string` | The billing entity the work was for. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="name-7"></a> `name` | `string` | The event's name. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="name-11"></a> `name` | `string` | The event's name. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="externalid-2"></a> `externalId` | `string` | Idempotency key: the same report sent twice counts once. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="parentid"></a> `parentId?` | `string` | The charge this cost belongs to, by its `externalId`. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="cents"></a> `cents?` | `number` | What the work cost, in US cents; left out when nothing reported a cost. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
@@ -890,7 +1284,7 @@ A prepaid-credit refund (compensating event on a sum meter).
 | <a id="userid-3"></a> `userId?` | `string` | The billing entity id; omit to resolve from the caller's identity. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="meter-5"></a> `meter` | `string` | The configured credit meter name to refund on (must be a sum meter). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="value-2"></a> `value` | `number` | Credits to give back: a finite number above zero. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="metadata-4"></a> `metadata?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | Extra event properties. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="metadata-7"></a> `metadata?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | Extra event properties. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="externalid-3"></a> `externalId?` | `string` | Idempotency key (defaults to a random UUID). | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
 ***
@@ -906,21 +1300,21 @@ A gift purchase record, as stored by the `backend` component
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="id-3"></a> `id` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="id-8"></a> `id` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="recipientemail"></a> `recipientEmail` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="purchaseruserid"></a> `purchaserUserId` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="purchaseremail"></a> `purchaserEmail?` | `string` | Before 0.2 only: gifts no longer keep the purchaser's email. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="purchasername"></a> `purchaserName?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="productids-2"></a> `productIds` | `string`[] | The credit pack's provider product: what the recipient's claim grants. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="message"></a> `message?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="status-1"></a> `status` | `string` | `'pending'` (the purchaser's checkout is open) → `'paid'` (the purchase is paid and claimable) → `'claimed'`, or `'refunded'` when the purchase was refunded before the claim. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="message-2"></a> `message?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="status-3"></a> `status` | `string` | `'pending'` (the purchaser's checkout is open) → `'paid'` (the purchase is paid and claimable) → `'claimed'`, or `'refunded'` when the purchase was refunded before the claim. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="billingcustomerid"></a> `billingCustomerId?` | `string` | Before 0.2 only: the customer keyed by the recipient's email that the purchase was billed to. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="billingorderid"></a> `billingOrderId?` | `string` | The purchase order, on the purchaser's own customer. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="purchaserentityid"></a> `purchaserEntityId?` | `string` | The billing entity that paid. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="pack"></a> `pack?` | `string` | The pack's catalog key. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="giftproductid"></a> `giftProductId?` | `string` | The private gift product the purchaser bought. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="amount-2"></a> `amount?` | `number` | What the purchase charged, in the currency's smallest unit. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="currency-4"></a> `currency?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="amount-5"></a> `amount?` | `number` | What the purchase charged, in the currency's smallest unit. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="currency-6"></a> `currency?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="discountid"></a> `discountId?` | `string` | The single-use 100% discount the recipient claims the pack with. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="claimingentityid"></a> `claimingEntityId?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="claiminguserid"></a> `claimingUserId?` | `string` | - | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
@@ -960,7 +1354,7 @@ A task the gift sweep found due.
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="kind-1"></a> `kind` | `"deliver"` \| `"remind"` \| `"schedule_return"` \| `"end_pass"` \| `"pass_notice"` | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="kind-2"></a> `kind` | `"deliver"` \| `"remind"` \| `"schedule_return"` \| `"end_pass"` \| `"pass_notice"` | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="giftid"></a> `giftId` | `string` | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
 ***
@@ -980,8 +1374,8 @@ priced in it.
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="months-4"></a> `months` | `number` | **`Experimental`** How many months the pass holds the plan: 1, 3 or 12. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="amount-3"></a> `amount` | `number` | **`Experimental`** What the gift costs, in the currency's smallest unit. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
-| <a id="currency-5"></a> `currency` | `string` | **`Experimental`** Lower-case ISO 4217 code. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="amount-6"></a> `amount` | `number` | **`Experimental`** What the gift costs, in the currency's smallest unit. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
+| <a id="currency-7"></a> `currency` | `string` | **`Experimental`** Lower-case ISO 4217 code. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="monthly"></a> `monthly` | `number` | **`Experimental`** The same per month: the amount divided by the months, unrounded. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 | <a id="savings"></a> `savings?` | `number` | **`Experimental`** How many percent it saves against as many months at the plan's monthly price in the same currency, rounded down; absent when it saves nothing. | [src/convex/integrations/billing/types/records.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/records.ts) |
 
@@ -1035,7 +1429,7 @@ One period of a read: when it starts, and its values.
 | <a id="succeededcheckouts"></a> `succeededCheckouts` | `number` \| `null` | - | `RevenueValues.succeededCheckouts` |  |
 | <a id="checkoutsconversion"></a> `checkoutsConversion` | `number` \| `null` | - | `RevenueValues.checkoutsConversion` |  |
 | <a id="grossmarginpercentage"></a> `grossMarginPercentage` | `number` \| `null` | - | `RevenueValues.grossMarginPercentage` |  |
-| <a id="at"></a> `at` | `number` | The period's first moment, in epoch milliseconds. | - | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
+| <a id="at-1"></a> `at` | `number` | The period's first moment, in epoch milliseconds. | - | [src/convex/integrations/billing/types/revenue.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/revenue.ts) |
 
 ***
 
@@ -1119,11 +1513,11 @@ A save offer's terms as the component keeps them.
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="kind-2"></a> `kind` | `"downgrade"` \| `"pause"` \| `"discount"` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="kind-3"></a> `kind` | `"downgrade"` \| `"pause"` \| `"discount"` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="months-5"></a> `months?` | `number` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="resumesat-1"></a> `resumesAt?` | `number` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="plan-1"></a> `plan?` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="productid-1"></a> `productId?` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="productid-5"></a> `productId?` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="discount-2"></a> `discount?` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 
 ***
@@ -1250,7 +1644,7 @@ workspace the owner owns.
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="name-8"></a> `name` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="name-12"></a> `name` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="personal"></a> `personal` | `boolean` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="owner"></a> `owner` | \| \{ `userId`: `string`; `email`: `string`; `name`: `string`; `emailVerified`: `boolean`; \} \| `null` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="ownedentityids"></a> `ownedEntityIds` | `string`[] | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
@@ -1271,7 +1665,7 @@ way.
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
 | <a id="userid-4"></a> `userId` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
-| <a id="email-1"></a> `email` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="email-2"></a> `email` | `string` | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 
 ***
 
@@ -1345,7 +1739,7 @@ override, not required wiring.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="email-2"></a> `email` | [`BillingEmail`](#billingemail) | The app's `setupEmail` instance. A gift's recipient hears of it through its `gift` template once the purchase is paid; restyle it there, with `setupEmail(components, { templates: { gift } })`. Checked when `setupBilling` runs: an import cycle through `email.ts` can hand it over as `undefined` despite the type, and that fails the deploy instead of the first paid gift. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
+| <a id="email-3"></a> `email` | [`BillingEmail`](#billingemail) | The app's `setupEmail` instance. A gift's recipient hears of it through its `gift` template once the purchase is paid; restyle it there, with `setupEmail(components, { templates: { gift } })`. Checked when `setupBilling` runs: an import cycle through `email.ts` can hand it over as `undefined` despite the type, and that fails the deploy instead of the first paid gift. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="audit"></a> `audit?` | [`BillingAudit`](#billingaudit) | The app's `setupAudit` instance (`backend/audit.ts`): billing records its events through it — a checkout opened, the plan changed, a webhook's subscription, order, refund and benefit, a gift, a credit balance at its mark — so they reach its `onEvent` too. Without it they are recorded on the component's own trail. A free plan's own events record nothing. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="paths"></a> `paths?` | `Partial`\<[`BackendPaths`](/docs/reference/api/auth#backendpaths)\> | The app's paths, from the `paths.generated.ts` the Nuxt module writes from nuxt.config: the plan-pass and renewal emails link billing managers to `{SITE_URL}{paths.settings}` (`pages.settings`, `/settings` by default). | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
 | <a id="accesstoken"></a> `accessToken?` | `string` | Provider access token. Defaults to the required `BILLING_ACCESS_TOKEN` env var. | [src/convex/integrations/billing/types/setup.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/setup.ts) |
@@ -1396,8 +1790,8 @@ One billing entity's part of an account's export.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="entityid-2"></a> `entityId` | `string` | - | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="subscriptions"></a> `subscriptions` | `unknown`[] | Its subscriptions, as the app synced them from the provider. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="entityid-5"></a> `entityId` | `string` | - | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="subscriptions-1"></a> `subscriptions` | `unknown`[] | Its subscriptions, as the app synced them from the provider. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="orders"></a> `orders` | \| \{ `id`: `string`; `createdAt`: `string`; `status`: `string`; `productId`: `string` \| `null`; `amount`: `number`; `currency`: `string`; `billingReason`: `string`; \}[] \| `null` | Its newest orders at the provider; `null` when the provider could not be read. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 
 ***
@@ -1438,15 +1832,15 @@ Defined in: [src/convex/integrations/billing/types/surface.ts](https://github.co
 | <a id="discounts-2"></a> `discounts` | [`BillingDiscounts`](#billingdiscounts) | Discount (coupon) management: `create`, `list`, `remove`. Server-side by design — minting discounts is privileged, so wire it through an `internalAction` or your own admin-tier action. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="applydiscount"></a> `applyDiscount` | (`ctx`, `options`) => `Promise`\<`Subscription`\> | Put a catalog discount on a billing entity's subscription, by key, from server code that decided the entity qualifies: a win-back offer, a referral reward, a code a subscriber redeems in your own UI. The provider takes it off from the next payment, replacing any discount the subscription had (one at a time; `null` removes it). It checks the dates, the total cap and the plan, never the per-customer limit: keep your own record of who got it. A `once` discount, or one of 12 months or less, covers a whole yearly payment, and a discount follows the subscription across plan changes. Refused as `invalid_input`: a key the catalog does not have or one that does not apply to the plan (`discount`), and the free plan (`subscriptionId`, reason `free_plan`). Call from an action; no client can reach it. **Example** `export const winBack = internalAction({ args: { workspaceId: v.string() }, handler: (ctx, { workspaceId }) => billing.applyDiscount(ctx, { entityId: workspaceId, discount: 'winback' }), })` | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="updatesubscription"></a> `updateSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Switch a subscription to another product (upgrade / downgrade), optionally choosing how the mid-period difference is settled. A switch from a yearly price to a monthly one is scheduled for the paid year's end (`next_period`) whatever `proration` says: the yearly price granted the year's credits up front, so an immediate switch would refund most of the year while those credits stay spent. Call from an **action**; the ready-made `updateSubscription` function does it for the caller. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="cancelsubscription"></a> `cancelSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Cancel a subscription — at period end by default, immediately with `atPeriodEnd: false`. The reason and comment are the customer's own words and are visible to them; the comment is trimmed and refused as `invalid_input` (`comment`) over 500 characters. A period-end cancel of a subscription already set to cancel is refused as `invalid_input` (`subscriptionId`, reason `cancel_scheduled`) before the provider, which takes one cancellation per period, is asked. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="uncancelsubscription"></a> `uncancelSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Undo a scheduled cancellation, putting the subscription back on renewal. Refused as `invalid_input` (`subscriptionId`, reason `no_cancel_scheduled`) when none is scheduled. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="cancelsubscription-1"></a> `cancelSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Cancel a subscription — at period end by default, immediately with `atPeriodEnd: false`. The reason and comment are the customer's own words and are visible to them; the comment is trimmed and refused as `invalid_input` (`comment`) over 500 characters. A period-end cancel of a subscription already set to cancel is refused as `invalid_input` (`subscriptionId`, reason `cancel_scheduled`) before the provider, which takes one cancellation per period, is asked. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="uncancelsubscription-1"></a> `uncancelSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Undo a scheduled cancellation, putting the subscription back on renewal. Refused as `invalid_input` (`subscriptionId`, reason `no_cancel_scheduled`) when none is scheduled. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="cancelpendingchange"></a> `cancelPendingChange` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Undo a plan change scheduled for the start of the next period, so the subscription renews on the plan it has. Refused as `invalid_input` (`subscriptionId`, reason `no_change_scheduled`) when none is scheduled. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="pausesubscription"></a> `pauseSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Pause a subscription at the end of the current period, optionally with an automatic resume date. Pause/resume are newer than the rest of the lifecycle: the provider's `subscription.paused` / `subscription.resumed` webhooks are known to the installed SDK but not confirmed live here, so entitlement reads treat a paused subscription as still live rather than assuming an event will arrive to say so. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="resumesubscription"></a> `resumeSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Resume a paused subscription immediately, starting a new billing period. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="pausesubscription-1"></a> `pauseSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Pause a subscription at the end of the current period, optionally with an automatic resume date. Pause/resume are newer than the rest of the lifecycle: the provider's `subscription.paused` / `subscription.resumed` webhooks are known to the installed SDK but not confirmed live here, so entitlement reads treat a paused subscription as still live rather than assuming an event will arrive to say so. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="resumesubscription-1"></a> `resumeSubscription` | (`ctx`, `options?`) => `Promise`\<`Subscription`\> | Resume a paused subscription immediately, starting a new billing period. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="getorders"></a> `getOrders` | (`ctx`, `options?`) => `Promise`\<[`BillingPage`](#billingpage)\<[`BillingOrder`](#billingorder)\> \| `null`\> | The billing entity's order history, read **live** from the provider — this package keeps no local order table (that would be a ledger, and the provider already is one). `null` when no access token is configured. The history lists charges: a subscription's order that charged nothing (a free plan's cycle, a trial's start, a cycle a full discount brought to nothing) is left out, while the provider's pages and `pagination` still count it, so a page may list fewer than `limit`. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="getinvoiceurl"></a> `getInvoiceUrl` | (`ctx`, `orderId`) => `Promise`\< \| \{ `url`: `string`; \} \| `null`\> | A URL to one of the entity's own invoices. `null` when no access token is configured, and `null` while the provider is still generating the PDF (the call asks for generation, then the next call returns the URL). Throws if the order belongs to a different billing account. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 | <a id="getusagehistory"></a> `getUsageHistory` | (`ctx`, `options?`) => `Promise`\<[`BillingPage`](#billingpage)\<[`UsageEvent`](#usageevent)\> \| `null`\> | The billing entity's metered consumption history, read **live** from the provider's events API. There is no local usage ledger by design: the events this package ingests when it spends credits *are* the record, and the provider bills from them. `null` when no access token is configured. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
-| <a id="refundorder"></a> `refundOrder` | (`ctx`, `options`) => `Promise`\<[`RefundRecord`](#refundrecord)\> | Refund an order — admin-tier, gated by `requireAdmin` ([SetupBillingConfig](#setupbillingconfig)). Omit `amount` to refund whatever is still refundable. Credits are **not** reversed here: meter credits come from the provider's own benefit grants, so the refund's `order.refunded` webhook is what reverses them. This package only drops the entity's in-flight spend reservations and re-reads the provider's balance. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
+| <a id="refundorder-1"></a> `refundOrder` | (`ctx`, `options`) => `Promise`\<[`RefundRecord`](#refundrecord)\> | Refund an order — admin-tier, gated by `requireAdmin` ([SetupBillingConfig](#setupbillingconfig)). Omit `amount` to refund whatever is still refundable. Credits are **not** reversed here: meter credits come from the provider's own benefit grants, so the refund's `order.refunded` webhook is what reverses them. This package only drops the entity's in-flight spend reservations and re-reads the provider's balance. | [src/convex/integrations/billing/types/surface.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/surface.ts) |
 
 ***
 
@@ -1524,7 +1918,7 @@ One referral as its referrer reads it: a state and a time, never who the other p
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="id-4"></a> `id` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="id-9"></a> `id` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="state"></a> `state` | [`ReferralState`](#referralstate) | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="claimedat-1"></a> `claimedAt` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="rewardedat"></a> `rewardedAt` | `number` \| `null` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
@@ -1541,12 +1935,12 @@ A referral as the sweep grants it.
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="id-5"></a> `id` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="id-10"></a> `id` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="state-1"></a> `state` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="referrerid"></a> `referrerId` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="referredid"></a> `referredId` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
-| <a id="orderid-2"></a> `orderId` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
-| <a id="entityid-3"></a> `entityId` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="orderid-4"></a> `orderId` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="entityid-6"></a> `entityId` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="terms"></a> `terms` | [`StoredTerms`](#storedterms) | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="grant"></a> `grant?` | \{ `discountId?`: `string`; `endsAt?`: `number`; `done?`: `boolean`; \} | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | `grant.discountId?` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
@@ -1565,7 +1959,7 @@ One referral row of the admin console.
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="id-6"></a> `id` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="id-11"></a> `id` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="referrerid-1"></a> `referrerId` | `string` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="state-2"></a> `state` | [`ReferralState`](#referralstate) | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="claimedat-2"></a> `claimedAt` | `number` | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
@@ -1663,7 +2057,7 @@ A person's own code and the program it belongs to.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="code-2"></a> `code` | `string` | The code, `/r/<code>` or `?ref=<code>`. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
+| <a id="code-3"></a> `code` | `string` | The code, `/r/<code>` or `?ref=<code>`. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="sharepages"></a> `sharePages` | `boolean` | Whether the share pages the person's rows have carry the code. | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 | <a id="program-1"></a> `program` | [`ReferralProgram`](#referralprogram) | - | [src/convex/integrations/referrals.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/referrals.ts) |
 
@@ -1955,6 +2349,132 @@ Records events through the shared event path: the app's `setupAudit` instance, o
 
 ***
 
+### CommerceEventHandler
+
+```ts
+type CommerceEventHandler<Ctx> = (ctx, event, delivery) => Promise<void>;
+```
+
+Defined in: [src/convex/integrations/billing/commerce-webhooks.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/commerce-webhooks.ts)
+
+What the app does with a verified, neutral billing event. It must be idempotent: a provider retries until it gets a 2xx.
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-ctx"></a> `Ctx` |
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `ctx` | `Ctx` |
+| `event` | [`NeutralBillingEvent`](#neutralbillingevent) |
+| `delivery` | \{ `id`: `string`; \} |
+| `delivery.id` | `string` |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+***
+
+### BillingProviderName
+
+```ts
+type BillingProviderName = "polar" | "stripe" | "dodo" | "creem";
+```
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+The merchants of record the package sells through.
+
+***
+
+### ProviderEnvironment
+
+```ts
+type ProviderEnvironment = "sandbox" | "production";
+```
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+The provider's environment: its sandbox (test mode) or production (live mode).
+
+***
+
+### NeutralSubscriptionStatus
+
+```ts
+type NeutralSubscriptionStatus = "trialing" | "active" | "past_due" | "paused" | "ended" | "incomplete";
+```
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+A subscription's status in neutral words.
+
+***
+
+### NeutralBillingEvent
+
+```ts
+type NeutralBillingEvent = 
+  | {
+  type: "order.paid";
+  order: NeutralOrder;
+  providerType: string;
+}
+  | {
+  type: "order.refunded";
+  refund: NeutralRefund;
+  providerType: string;
+}
+  | {
+  type: "order.disputed";
+  orderId: string | null;
+  subscriptionId: string | null;
+  providerType: string;
+}
+  | {
+  type: "subscription.updated";
+  subscription: NeutralSubscription;
+  providerType: string;
+}
+  | {
+  type: "ignored";
+  providerType: string;
+};
+```
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+A verified delivery, read into what it means for the app. A provider's
+event that changes nothing the package keeps reads as `ignored`, with its
+own type kept for the delivery log.
+
+***
+
+### InvoiceAnswer
+
+```ts
+type InvoiceAnswer = 
+  | {
+  kind: "url";
+  url: string;
+}
+  | {
+  kind: "pdf";
+  bytes: ArrayBuffer;
+};
+```
+
+Defined in: [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts)
+
+Where a customer reads an order's invoice: a link, or the PDF itself (Dodo serves the bytes).
+
+***
+
 ### DiscountInput
 
 ```ts
@@ -2208,17 +2728,17 @@ a discount by id are the server's choice, through [Billing.checkout](#checkout).
 | ------ | ------ | ------ | ------ |
 | <a id="productids"></a> `productIds` | `string`[] | Provider product ids, each one from the app's catalog. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="origin"></a> `origin` | `string` | The origin of the page embedding the checkout (for the iframe handshake). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="successurl"></a> `successUrl` | `string` | Where the buyer lands after paying. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="subscriptionid-5"></a> `subscriptionId?` | `string` | Upgrade one of the entity's own free subscriptions instead of starting a new one. A plan's checkout upgrades the entity's free plan without it: the server names it. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="metadata-1"></a> `metadata?` | `Record`\<`string`, `string`\> | The app's own keys: none the package reads back (see `RESERVED_METADATA_KEYS`). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="locale"></a> `locale?` | `string` | BCP-47 language tag for the checkout UI. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="currency-2"></a> `currency?` | `string` | The currency to pay in, lower-case ISO 4217: one the catalog prices every product of the checkout in (`getPricing` lists them), else the checkout is refused as `invalid_input` (`currency`). Omit for the catalog's own. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="successurl-1"></a> `successUrl` | `string` | Where the buyer lands after paying. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="subscriptionid-8"></a> `subscriptionId?` | `string` | Upgrade one of the entity's own free subscriptions instead of starting a new one. A plan's checkout upgrades the entity's free plan without it: the server names it. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="metadata-4"></a> `metadata?` | `Record`\<`string`, `string`\> | The app's own keys: none the package reads back (see `RESERVED_METADATA_KEYS`). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="locale-1"></a> `locale?` | `string` | BCP-47 language tag for the checkout UI. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="currency-4"></a> `currency?` | `string` | The currency to pay in, lower-case ISO 4217: one the catalog prices every product of the checkout in (`getPricing` lists them), else the checkout is refused as `invalid_input` (`currency`). Omit for the catalog's own. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="customeripaddress"></a> `customerIpAddress?` | `string` | The visitor's IP address, for the provider's local pricing: it picks the currency and pre-fills the billing country from the address that creates the checkout, which is otherwise the deployment's. The `useBilling` checkout reads it from the app's server (`/api/backend/visitor-ip`) and sends it; nothing keeps it. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="prefill"></a> `prefill?` | [`CheckoutPrefill`](#checkoutprefill) | Pre-filled customer details. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="customfields-3"></a> `customFields?` | `Record`\<`string`, `string` \| `number` \| `boolean`\> | Values for the organization's custom checkout fields, keyed by field slug. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="requirebillingaddress"></a> `requireBillingAddress?` | `boolean` | Require the full billing address, not just the country. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="allowdiscountcodes"></a> `allowDiscountCodes?` | `boolean` | Let the customer type a discount code into the provider's own checkout (default `true`). The provider validates it against the live catalog. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
-| <a id="discountcode"></a> `discountCode?` | `string` | A discount code to apply up front: a campaign link's code, say. The provider checks it like one the customer typed, and a code it does not know refuses the checkout as `invalid_input` (`discountCode`). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
+| <a id="discountcode-1"></a> `discountCode?` | `string` | A discount code to apply up front: a campaign link's code, say. The provider checks it like one the customer typed, and a code it does not know refuses the checkout as `invalid_input` (`discountCode`). | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="discount-1"></a> `discount?` | `string` | A public promotion of the catalog to apply, by its key (`'launch'`): one with a `code`, for a product it applies to. Any other key is refused as `invalid_input` (`discount`), and so is one the provider no longer redeems (ended, used up), so the caller can check out without it. One discount per checkout: not beside `discountCode`. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="utm"></a> `utm?` | [`CampaignAttribution`](#campaignattribution) | Campaign attribution, stored as `utm_*` metadata. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
 | <a id="emailoptout"></a> `emailOptOut?` | `boolean` | The EU soft opt-in's box, where the checkout showed one (a topic of `setupEmail` has `softOptIn`): `true` when the person ticked "Don't email me", `false` when they left it. Paid, a checkout with `false` joins the person who opened it to those topics, recorded on the consent ledger with the checkout. Omit it where no box was shown: the order then joins nothing. | [src/convex/integrations/billing/types/options.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/types/options.ts) |
@@ -2529,6 +3049,74 @@ one of these, so any verified delivery gets logging, dedupe, and consumer
 dispatch — events outside it (a newer provider than this package) land in
 `onUnknownEvent` with a 202 instead of an error loop.
 
+***
+
+### PROVIDER\_CAPABILITIES
+
+```ts
+const PROVIDER_CAPABILITIES: Readonly<Record<BillingProviderName, ProviderCapabilities>>;
+```
+
+Defined in: [src/convex/integrations/billing/providers/capabilities.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/capabilities.ts)
+
+**`Experimental`**
+
+What each provider's API offers, checked against its docs on 2026-11-24.
+The doctor and the docs read this table; a call a provider lacks throws
+`ProviderUnsupportedError` and the app sends the customer to the portal
+(or the seller to the dashboard) instead.
+
+- Stripe Managed Payments: docs.stripe.com/payments/managed-payments
+- Dodo Payments: docs.dodopayments.com/api-reference
+- Creem: docs.creem.io/api-reference. No refund or invoice endpoint is
+  documented: refunds are made in the dashboard (the `refund.created`
+  webhook still reaches the app) and Creem emails every receipt.
+
+***
+
+### DIGITAL\_CONTENT\_CONSENT\_VERSION
+
+```ts
+const DIGITAL_CONTENT_CONSENT_VERSION: "2026-11-24" = '2026-11-24';
+```
+
+Defined in: [src/convex/integrations/billing/providers/consent.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/consent.ts)
+
+**`Experimental`**
+
+The version of the wording below: bump it whenever the text changes, so a record names what was shown.
+
+***
+
+### DIGITAL\_CONTENT\_CONSENT\_TEXT
+
+```ts
+const DIGITAL_CONTENT_CONSENT_TEXT: "I want access to start right away, and I understand that I lose my right to withdraw from this purchase once it starts." = 'I want access to start right away, and I understand that I lose my right to withdraw from this purchase once it starts.';
+```
+
+Defined in: [src/convex/integrations/billing/providers/consent.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/consent.ts)
+
+**`Experimental`**
+
+The checkbox's text, in English. Translate it with the app's labels; the record keeps the hash of what was shown.
+
+***
+
+### STRIPE\_API\_VERSION
+
+```ts
+const STRIPE_API_VERSION: "2026-04-22.dahlia" = '2026-04-22.dahlia';
+```
+
+Defined in: [src/convex/integrations/billing/providers/stripe.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/stripe.ts)
+
+**`Experimental`**
+
+The API version every request pins. `2026-04-22.dahlia` is the first that
+types `managed_payments` on Checkout Sessions, Payment Links and
+Subscriptions. Set the webhook endpoint to the same version, or the
+deliveries keep an older shape.
+
 ## Functions
 
 ### defineBillingCatalog()
@@ -2628,6 +3216,250 @@ export const {
   startFreePlan, resyncEntitlements, getReceivedGifts, claimGift,
 } = billing.api
 ```
+
+***
+
+### createCommerceWebhookHandler()
+
+```ts
+function createCommerceWebhookHandler<Ctx>(__namedParameters): (ctx, request) => Promise<Response>;
+```
+
+Defined in: [src/convex/integrations/billing/commerce-webhooks.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/commerce-webhooks.ts)
+
+**`Experimental`**
+
+The handler `registerBackendRoutes` mounts at `/billing/events` for an adapter provider.
+
+#### Type Parameters
+
+| Type Parameter |
+| ------ |
+| <a id="type-parameter-ctx-2"></a> `Ctx` |
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `__namedParameters` | [`CommerceWebhookOptions`](#commercewebhookoptions)\<`Ctx`\> |
+
+#### Returns
+
+(`ctx`, `request`) => `Promise`\<`Response`\>
+
+***
+
+### recordDigitalContentConsent()
+
+```ts
+function recordDigitalContentConsent(input): Promise<DigitalContentConsent>;
+```
+
+Defined in: [src/convex/integrations/billing/providers/consent.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/consent.ts)
+
+**`Experimental`**
+
+The proof for a checkout of digital content, from what the page sent: it
+refuses unless `accepted` is the literal `true` (a pre-ticked box or a
+missing field is no consent), and hashes the text the page showed.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `input` | \{ `accepted`: `unknown`; `text?`: `string`; `version?`: `string`; `now?`: `number`; \} |
+| `input.accepted` | `unknown` |
+| `input.text?` | `string` |
+| `input.version?` | `string` |
+| `input.now?` | `number` |
+
+#### Returns
+
+`Promise`\<[`DigitalContentConsent`](#digitalcontentconsent)\>
+
+***
+
+### consentMetadata()
+
+```ts
+function consentMetadata(consent): Record<string, string>;
+```
+
+Defined in: [src/convex/integrations/billing/providers/consent.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/consent.ts)
+
+**`Experimental`**
+
+The proof as checkout metadata.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `consent` | [`DigitalContentConsent`](#digitalcontentconsent) |
+
+#### Returns
+
+`Record`\<`string`, `string`\>
+
+***
+
+### consentFromMetadata()
+
+```ts
+function consentFromMetadata(metadata): DigitalContentConsent | null;
+```
+
+Defined in: [src/convex/integrations/billing/providers/consent.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/consent.ts)
+
+**`Experimental`**
+
+The proof an order's metadata carries back in a webhook, or `null` when the checkout had none.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `metadata` | `Readonly`\<`Record`\<`string`, `string`\>\> |
+
+#### Returns
+
+[`DigitalContentConsent`](#digitalcontentconsent) \| `null`
+
+***
+
+### verifyCreemRedirect()
+
+```ts
+function verifyCreemRedirect(search, apiKey): Promise<boolean>;
+```
+
+Defined in: [src/convex/integrations/billing/providers/creem.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/creem.ts)
+
+**`Experimental`**
+
+Whether the query Creem appends to a checkout's success URL is its own:
+a SHA-256 hex over the `key=value` pairs in URL order, empty ones
+dropped, joined by `|`, with `salt=<api key>` last. A success page that
+shows "Thanks" can trust its ids after this; access is still granted by
+the webhook, never by the redirect.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `search` | `string` \| `URLSearchParams` |
+| `apiKey` | `string` |
+
+#### Returns
+
+`Promise`\<`boolean`\>
+
+***
+
+### billingProviderName()
+
+```ts
+function billingProviderName(value): BillingProviderName;
+```
+
+Defined in: [src/convex/integrations/billing/providers/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/index.ts)
+
+**`Experimental`**
+
+The provider `BILLING_PROVIDER` names, `polar` when it is unset. A name
+the package does not know is refused, so a typo never sells through the
+wrong provider.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `value` | `string` \| `undefined` |
+
+#### Returns
+
+[`BillingProviderName`](#billingprovidername-3)
+
+***
+
+### createCommerceProvider()
+
+```ts
+function createCommerceProvider(name, options): CommerceProvider;
+```
+
+Defined in: [src/convex/integrations/billing/providers/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/index.ts)
+
+**`Experimental`**
+
+The adapter for `name`.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `"stripe"` \| `"dodo"` \| `"creem"` |
+| `options` | [`ProviderOptions`](#provideroptions) |
+
+#### Returns
+
+[`CommerceProvider`](#commerceprovider)
+
+***
+
+### commerceProviderFromEnv()
+
+```ts
+function commerceProviderFromEnv(
+   env, 
+   environment, 
+   fetchImpl?
+): CommerceProvider | null;
+```
+
+Defined in: [src/convex/integrations/billing/providers/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/index.ts)
+
+**`Experimental`**
+
+The adapter the deployment's env names: `BILLING_PROVIDER`, the key in
+`BILLING_ACCESS_TOKEN`, and the provider's sandbox everywhere but
+production. `null` for Polar, which the component path serves.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `env` | `Readonly`\<`Record`\<`string`, `string` \| `undefined`\>\> |
+| `environment` | [`ProviderEnvironment`](#providerenvironment) |
+| `fetchImpl?` | \{ (`input`, `init?`): `Promise`\<`Response`\>; (`input`, `init?`): `Promise`\<`Response`\>; \} |
+
+#### Returns
+
+[`CommerceProvider`](#commerceprovider) \| `null`
+
+***
+
+### webhookSecretsFromEnv()
+
+```ts
+function webhookSecretsFromEnv(env): string[];
+```
+
+Defined in: [src/convex/integrations/billing/providers/index.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/index.ts)
+
+**`Experimental`**
+
+The webhook secrets the env accepts: a rotation list, first entry primary.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `env` | `Readonly`\<`Record`\<`string`, `string` \| `undefined`\>\> |
+
+#### Returns
+
+`string`[]
 
 ***
 

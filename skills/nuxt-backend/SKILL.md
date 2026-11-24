@@ -61,7 +61,7 @@ Each feature has a task skill in `node_modules/nuxt-backend/skills/<name>/`, and
 - `nuxt-backend-ai`: metered AI actions, streams and the job queue. 13 tasks; reach for `nuxt-backend/ai`, `useAiStream()`.
 - `nuxt-backend-data`: the function tiers, queries and mutations, errors, search, workflows, uploads, share links, retention, tokens and the Convex components for counts, queues, cached actions, crons and migrations. 12 tasks; reach for `nuxt-backend/functions`, `nuxt-backend/search`, `nuxt-backend/workflows`.
 - `nuxt-backend-ui`: the packaged pages and components, their parts, theming, labels, translation, slots, the headless composables and eject. 10 tasks; reach for `useLabels()`.
-- `nuxt-backend-ship`: provider setup, tests, deploying, production checks, monitoring, flags and kill switches, webhooks and rate limits. 40 tasks; reach for `nuxt-backend/rate-limit`, `nuxt-backend/http`, `nuxt-backend/monitoring`.
+- `nuxt-backend-ship`: provider setup, tests, deploying, production checks, monitoring, flags and kill switches, webhooks and rate limits. 41 tasks; reach for `billingProviderName()`, `commerceProviderFromEnv()`, `nuxt-backend/rate-limit`.
 - `nuxt-backend-upgrade`: moving an app to a new version, and every name a release renamed or removed. 2 tasks.
 <!-- /generated:router -->
 
@@ -103,7 +103,7 @@ writes production only when the user asks for it.
 ## Environment
 
 The deployment holds the env, not Nuxt. `AUTH_SECRET` and `SITE_URL` are required. The `EMAIL_*` and `BILLING_*` names are optional: each missing one degrades a
-feature, as documented. `AI_GATEWAY_API_KEY` keeps the AI Gateway's own
+feature. `AI_GATEWAY_API_KEY` keeps the AI Gateway's own
 name: set it once the backend names a `provider/model` id. `BACKEND_ENVIRONMENT` decides every provider's mode: `env push` derives it. The Nuxt side reads `NUXT_PUBLIC_BACKEND_URL`, usually derived for you. `CONVEX_DEPLOYMENT`, `CONVEX_SITE_URL` and `CONVEX_SELF_HOSTED_URL` belong
 to the Convex CLI: read them, never write or rename them. `MONITORING_DSN` receives
 errors and cron check-ins; the `NEXT_PUBLIC_SENTRY_DSN` Sentry's Vercel integration sets fills it. Put
@@ -120,7 +120,7 @@ name, [references/surface.json](references/surface.json) the same as data.
 - `nuxt-backend/http`: `registerBackendRoutes`
 - `nuxt-backend/functions`: `backendError`, `getBackendError`
 - `nuxt-backend/app`: `backendEnvironment`
-- `nuxt-backend/billing`: `defineBillingCatalog`, `setupReferrals`
+- `nuxt-backend/billing`: `defineBillingCatalog`, `billingProviderName`
 - `nuxt-backend/email`: `setupEmail`, `escapeHtml`
 - `nuxt-backend/rate-limit`: `setupRateLimiter`
 - `nuxt-backend/search`: `search`, `defineSearch`
