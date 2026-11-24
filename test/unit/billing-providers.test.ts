@@ -225,30 +225,41 @@ describe('dodo payments', () => {
     expect(JSON.parse(sent[4]!.body!)).toEqual({ status: 'paused' })
   })
 
-  it('refunds part of a payment by its product, and serves the invoice PDF', async () => {
+  it('refunds part of a payment by its line item, and serves the invoice PDF', async () => {
     const pdf = new TextEncoder().encode('%PDF').buffer as ArrayBuffer
     const { impl, sent } = fakeFetch((r) => {
+      if (r.url.pathname.endsWith('/line-items')) return { currency: 'EUR', partial_refund_allowed: true, items: [{ items_id: 'pdt_issue1', amount: 499, tax: 80, refundable_amount: 499 }] }
       if (r.url.pathname.startsWith('/payments/')) return { currency: 'EUR', product_cart: [{ product_id: 'pdt_issue1' }] }
       if (r.url.pathname.startsWith('/invoices/')) return pdf
       return { refund_id: 'ref_1', payment_id: 'pay_1', amount: 200, currency: 'EUR', status: 'pending' }
     })
     const dodo = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: impl })
     expect(await dodo.refundOrder({ orderId: 'pay_1', amount: 200 })).toMatchObject({ id: 'ref_1', orderId: 'pay_1', status: 'pending', currency: 'eur' })
-    expect(JSON.parse(sent[1]!.body!)).toMatchObject({ payment_id: 'pay_1', items: [{ item_id: 'pdt_issue1', amount: 200 }], currency: 'EUR' })
-    expect(JSON.parse(sent[1]!.body!).reason.length).toBeGreaterThanOrEqual(5)
+    expect(sent[1]!.url.searchParams.get('currency')).toBe('EUR')
+    expect(JSON.parse(sent[2]!.body!)).toMatchObject({ payment_id: 'pay_1', items: [{ item_id: 'pdt_issue1', amount: 200 }], currency: 'EUR' })
+    expect(JSON.parse(sent[2]!.body!).reason.length).toBeGreaterThanOrEqual(5)
     const invoice = await dodo.invoice('pay_1')
     expect(invoice.kind).toBe('pdf')
   })
 
-  it('refunds part of a subscription charge by the subscription\'s product', async () => {
+  it('refunds part of a subscription charge by the line it was charged for, after a plan change too', async () => {
     const { impl, sent } = fakeFetch((r) => {
+      // The subscription has since moved to pdt_yearly; the payment's own line still names pdt_monthly.
+      if (r.url.pathname.endsWith('/line-items')) return { currency: 'USD', partial_refund_allowed: true, items: [{ items_id: 'pdt_monthly', amount: 900, tax: 0, refundable_amount: 900 }] }
       if (r.url.pathname.startsWith('/payments/')) return { currency: 'USD', subscription_id: 'sub_1' }
-      if (r.url.pathname.startsWith('/subscriptions/')) return { subscription_id: 'sub_1', product_id: 'pdt_monthly' }
       return { refund_id: 'ref_2', payment_id: 'pay_2', status: 'pending' }
     })
     const dodo = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: impl })
     await dodo.refundOrder({ orderId: 'pay_2', amount: 300 })
+    expect(sent.some(r => r.url.pathname.startsWith('/subscriptions/'))).toBe(false)
     expect(JSON.parse(sent[2]!.body!)).toMatchObject({ items: [{ item_id: 'pdt_monthly', amount: 300 }], currency: 'USD' })
+  })
+
+  it('refuses a partial refund the payment method does not allow', async () => {
+    const { impl, sent } = fakeFetch(r => r.url.pathname.endsWith('/line-items') ? { currency: 'USD', partial_refund_allowed: false, items: [{ items_id: 'pdt_1' }] } : { currency: 'USD' })
+    const dodo = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: impl })
+    await expect(dodo.refundOrder({ orderId: 'pay_3', amount: 100 })).rejects.toBeInstanceOf(ProviderUnsupportedError)
+    expect(sent.every(r => r.method === 'GET')).toBe(true)
   })
 
   it('verifies a Standard Webhooks delivery and reads its events', async () => {

@@ -106,14 +106,18 @@ export function createDodoProvider({ apiKey, environment, fetch: fetchImpl }: Pr
   const call = providerClient('dodo', DODO_BASE_URLS[environment], { authorization: `Bearer ${apiKey}` }, fetchImpl)
   const subscriptionPath = (id: string) => `subscriptions/${encodeURIComponent(id)}`
   const patch = (operation: string, id: string, body: Record<string, unknown>) => call(operation, { method: 'PATCH', path: subscriptionPath(id), body })
-  /** The product a payment refunds part of: its cart's first one, or a subscription charge's product (which has no cart). */
-  const refundableItemOf = async (payment: any): Promise<string | null> => {
-    const fromCart = str(payment.product_cart?.[0]?.product_id)
-    if (fromCart) return fromCart
-    const subscriptionId = str(payment.subscription_id)
-    if (!subscriptionId) return null
-    const subscription = await call<any>('subscription read', { method: 'GET', path: subscriptionPath(subscriptionId) })
-    return str(subscription.product_id)
+  /**
+   * The line item a partial refund names: the payment's own first line, as
+   * the payment was charged (a subscription's product may have changed
+   * since), with the amounts in the currency the customer paid in.
+   */
+  const refundableItemOf = async (paymentId: string): Promise<{ itemId: string, currency: string }> => {
+    const payment = await call<any>('payment read', { method: 'GET', path: `payments/${encodeURIComponent(paymentId)}` })
+    const lines = await call<any>('payment line items read', { method: 'GET', path: `payments/${encodeURIComponent(paymentId)}/line-items`, query: { currency: str(payment.currency) ?? undefined } })
+    if (lines.partial_refund_allowed === false) throw new ProviderUnsupportedError('dodo', 'refund part of this payment', 'its payment method refunds in full only: refund the whole order.')
+    const itemId = str(lines.items?.[0]?.items_id)
+    if (!itemId) throw new Error(`[nuxt-backend] Dodo payment ${paymentId} has no line item to refund part of.`)
+    return { itemId, currency: String(lines.currency) }
   }
 
   return {
@@ -172,12 +176,10 @@ export function createDodoProvider({ apiKey, environment, fetch: fetchImpl }: Pr
     },
     refundOrder: async ({ orderId, amount, reason }) => {
       // A partial refund names the item it refunds, in the payment's currency.
-      let partial: { items: Array<{ item_id: string, amount: number }>, currency?: string } | undefined
+      let partial: { items: Array<{ item_id: string, amount: number }>, currency: string } | undefined
       if (amount !== undefined) {
-        const payment = await call<any>('payment read', { method: 'GET', path: `payments/${encodeURIComponent(orderId)}` })
-        const itemId = await refundableItemOf(payment)
-        if (!itemId) throw new Error(`[nuxt-backend] Dodo payment ${orderId} names no product to refund part of.`)
-        partial = { items: [{ item_id: itemId, amount }], currency: str(payment.currency) ?? undefined }
+        const { itemId, currency } = await refundableItemOf(orderId)
+        partial = { items: [{ item_id: itemId, amount }], currency }
       }
       const refund = await call('refund', {
         method: 'POST',

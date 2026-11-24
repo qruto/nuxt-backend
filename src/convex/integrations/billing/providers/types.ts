@@ -78,7 +78,8 @@ export interface CheckoutRequest {
   /**
    * Metadata carried through to the order, the subscription and their
    * events (refund and dispute events carry only the order's or the
-   * subscription's id). The adapter adds `entity_id` and nothing else: to
+   * subscription's id). The adapter adds `entity_id` (and Stripe
+   * `product_id`, the price, which its session does not echo) and no consent: to
    * keep the digital-content consent with the sale, record the buyer's
    * explicit acceptance with `recordDigitalContentConsent` and pass
    * `consentMetadata(...)` in here. Keys and values stay short: Stripe caps
@@ -87,10 +88,11 @@ export interface CheckoutRequest {
   metadata?: Record<string, string>
   /**
    * A key that makes a retried create return the first checkout instead of
-   * a second one, on Stripe (`Idempotency-Key`) and Creem (`request_id`).
-   * Dodo's checkout API takes none, so a retry there opens a second
-   * checkout: harmless, as only a paid one becomes an order, but dedupe on
-   * the `order.paid` event, never on the checkout.
+   * a second one. Only Stripe honors it (`Idempotency-Key`). Creem keeps
+   * it as `request_id`, a reference it echoes, not a dedupe; Dodo takes
+   * none. On those two a retry can open a second checkout, and a buyer could
+   * pay both: keep the open checkout's URL and send the buyer back to it,
+   * and refund a second `order.paid` for the same purchase.
    */
   idempotencyKey?: string
 }
