@@ -639,6 +639,14 @@
       "kind": "Setup helpers",
       "items": [
         {
+          "name": "createCommerceProvider",
+          "to": "/docs/reference/api/billing"
+        },
+        {
+          "name": "createCommerceWebhookHandler",
+          "to": "/docs/reference/api/billing"
+        },
+        {
           "name": "defineBillingCatalog",
           "to": "/docs/reference/api/billing"
         },
@@ -655,6 +663,10 @@
     {
       "kind": "Environment variables",
       "items": [
+        {
+          "name": "BILLING_PROVIDER",
+          "to": "/docs/reference/configuration/environment-variables#every-variable"
+        },
         {
           "name": "BILLING_ACCESS_TOKEN",
           "to": "/docs/reference/configuration/environment-variables#every-variable"
@@ -1645,9 +1657,9 @@
       "kind": "Setup helpers",
       "items": [
         {
-          "name": "26 in all",
+          "name": "28 in all",
           "to": "/docs/reference/backend",
-          "label": "26 setup helpers in all"
+          "label": "28 setup helpers in all"
         }
       ]
     },
@@ -1655,9 +1667,9 @@
       "kind": "Environment variables",
       "items": [
         {
-          "name": "25 in all",
+          "name": "26 in all",
           "to": "/docs/reference/configuration/environment-variables#every-variable",
-          "label": "25 environment variables in all"
+          "label": "26 environment variables in all"
         }
       ]
     },

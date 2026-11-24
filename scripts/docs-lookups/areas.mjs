@@ -174,6 +174,8 @@ export const HELPER_AREAS = {
   setupBilling: 'billing',
   defineBillingCatalog: 'billing',
   setupReferrals: 'billing',
+  createCommerceProvider: 'billing',
+  createCommerceWebhookHandler: 'billing',
   setupEmail: 'email',
   setupAi: 'ai',
   defineJobQueue: 'ai',
