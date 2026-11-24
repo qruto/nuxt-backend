@@ -179,9 +179,11 @@ export interface ChangePlanRequest {
   /**
    * Charge (or credit) the difference now, or move without billing until
    * the next renewal. Stripe refuses `next_period` for a change of billing
-   * interval (monthly to yearly), which it would bill at once.
+   * interval (monthly to yearly) or from a free price to a paid one, which
+   * it would bill at once.
    */
   proration: 'immediately' | 'next_period'
+  /** The new quantity. Creem refuses it: its plan change takes a product only. */
   quantity?: number
 }
 

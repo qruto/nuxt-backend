@@ -599,8 +599,8 @@ Changing a subscription's product.
 | ------ | ------ | ------ | ------ |
 | <a id="subscriptionid-2"></a> `subscriptionId` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 | <a id="productid-3"></a> `productId` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
-| <a id="proration"></a> `proration` | `"next_period"` \| `"immediately"` | Charge (or credit) the difference now, or move without billing until the next renewal. Stripe refuses `next_period` for a change of billing interval (monthly to yearly), which it would bill at once. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
-| <a id="quantity-1"></a> `quantity?` | `number` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="proration"></a> `proration` | `"next_period"` \| `"immediately"` | Charge (or credit) the difference now, or move without billing until the next renewal. Stripe refuses `next_period` for a change of billing interval (monthly to yearly) or from a free price to a paid one, which it would bill at once. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="quantity-1"></a> `quantity?` | `number` | The new quantity. Creem refuses it: its plan change takes a product only. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 
 ***
 

@@ -172,6 +172,16 @@ describe('stripe managed payments', () => {
     expect(new URLSearchParams(sent.at(-1)!.body).get('proration_behavior')).toBe('always_invoice')
   })
 
+  it('refuses a free plan moved to a paid price at the next renewal, which Stripe would bill at once', async () => {
+    const monthly = { interval: 'month', interval_count: 1 }
+    const { impl, sent } = fakeFetch(r => r.url.pathname.includes('/prices/')
+      ? { id: 'price_paid', unit_amount: 900, recurring: monthly }
+      : { id: 'sub_1', items: { data: [{ id: 'si_1', price: { unit_amount: 0, recurring: monthly } }] } })
+    const stripe = createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: impl })
+    await expect(stripe.changePlan({ subscriptionId: 'sub_1', productId: 'price_paid', proration: 'next_period' })).rejects.toThrow(/free subscription/)
+    expect(sent.every(r => r.method === 'GET')).toBe(true)
+  })
+
   it('answers a refusal as a ProviderHttpError a retry policy can read', async () => {
     const { impl } = fakeFetch(() => ({ error: { code: 'rate_limit', message: 'secret details' } }), 429)
     const stripe = createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: impl })
@@ -420,6 +430,13 @@ describe('creem', () => {
     expect(readCreemEvent({ eventType: 'dispute.created', object: { id: 'dis_1', transaction: { id: 'tran_1' }, subscription: { id: 'sub_1' } } }))
       .toMatchObject({ type: 'order.disputed', orderId: 'tran_1', subscriptionId: 'sub_1' })
     expect(await creem.verifyCheckoutRedirect('?checkout_id=ch_1')).toBe(false)
+  })
+
+  it('refuses a quantity in a plan change, which its upgrade cannot carry', async () => {
+    const { impl, sent } = fakeFetch(() => ({}))
+    const creem = createCreemProvider({ apiKey: 'creem_test_1', environment: 'sandbox', fetch: impl })
+    await expect(creem.changePlan({ subscriptionId: 'sub_1', productId: 'prod_y', proration: 'immediately', quantity: 3 })).rejects.toBeInstanceOf(ProviderUnsupportedError)
+    expect(sent).toHaveLength(0)
   })
 
   it('has no refund or invoice API: it says where to go instead', async () => {

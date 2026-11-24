@@ -185,7 +185,9 @@ export function createCreemProvider({ apiKey, environment, fetch: fetchImpl }: P
       return portal.customer_portal_link
     },
     getSubscription: async id => creemSubscription(await call('subscription read', { method: 'GET', path: 'subscriptions', query: { subscription_id: id } })),
-    changePlan: async ({ subscriptionId, productId, proration }) => {
+    changePlan: async ({ subscriptionId, productId, proration, quantity }) => {
+      // Creem's upgrade takes a product only: units change in a separate update.
+      if (quantity !== undefined) throw new ProviderUnsupportedError('creem', 'change the quantity in a plan change', 'change the product alone, or let the customer change seats in the Creem portal.')
       await call('plan change', {
         method: 'POST',
         path: `${subscriptionPath(subscriptionId)}/upgrade`,

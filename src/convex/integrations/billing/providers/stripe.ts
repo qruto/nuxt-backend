@@ -270,11 +270,15 @@ export function createStripeProvider({ apiKey, environment, fetch: fetchImpl }: 
       const current = await call<any>('subscription read', { method: 'GET', path: `subscriptions/${encodeURIComponent(subscriptionId)}` })
       const item = current.items?.data?.[0]
       if (proration === 'next_period') {
-        // Stripe bills a change of interval at once, whatever proration says.
+        // Stripe bills a change of interval, or from a free price to a paid
+        // one, at once, whatever proration says.
         const price = await call<any>('price read', { method: 'GET', path: `prices/${encodeURIComponent(productId)}` })
         const [from, to] = [item?.price?.recurring, price.recurring]
         if (from?.interval !== to?.interval || (from?.interval_count ?? 1) !== (to?.interval_count ?? 1)) {
           throw new ProviderUnsupportedError('stripe', 'change the billing interval at the next renewal', 'change it with proration "immediately", or cancel at period end and check out the new plan.')
+        }
+        if (item?.price?.unit_amount === 0 && (num(price.unit_amount) ?? 1) > 0) {
+          throw new ProviderUnsupportedError('stripe', 'move a free subscription to a paid price at the next renewal', 'change it with proration "immediately": Stripe bills it at once either way.')
         }
       }
       await call('plan change', {
