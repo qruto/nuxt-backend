@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { busyAttributes } from '../../a11y'
 import { useLabels, type BackendLabels, type LabelOverrides } from '../../composables/use-labels'
 import { type Passkey, usePasskeys } from '../../composables/use-passkeys'
@@ -159,6 +159,18 @@ const recoveryCode = ref<string | null>(null)
 // The authenticator app: the first code typed, and the backup codes a setup answered, shown until the page goes.
 const twoFactorCode = ref('')
 const backupCodes = ref<string[] | null>(null)
+// Codes belong to the account that asked for them: another account, or signing out, drops them.
+const accountId = () => (auth.user.value as { id?: string } | null | undefined)?.id ?? null
+watch(accountId, () => {
+  backupCodes.value = null
+  twoFactorCode.value = ''
+})
+/** Keep an answer only while the account that asked for it is still the signed-in one. */
+async function forSameAccount<T>(action: () => Promise<T>): Promise<T | undefined> {
+  const askedFor = accountId()
+  const answer = await action()
+  return accountId() === askedFor ? answer : undefined
+}
 
 provideSecurityView({
   labels,
@@ -189,7 +201,8 @@ provideSecurityView({
   twoFactorCode,
   backupCodes,
   startTwoFactor: () => run('two-factor:start', async () => {
-    const setup = await withReauthentication(() => twoFactor.start())
+    const setup = await forSameAccount(() => withReauthentication(() => twoFactor.start()))
+    if (!setup) return
     twoFactorCode.value = ''
     backupCodes.value = setup.backupCodes
   }),
@@ -208,7 +221,8 @@ provideSecurityView({
     }, () => t('twoFactorDisabled'))
   },
   regenerateBackupCodes: () => run('two-factor:backup-codes', async () => {
-    backupCodes.value = await withReauthentication(() => twoFactor.regenerateBackupCodes())
+    const codes = await forSameAccount(() => withReauthentication(() => twoFactor.regenerateBackupCodes()))
+    if (codes) backupCodes.value = codes
   }),
   saveRename: row => run(`passkey:rename:${row.id}`, async () => {
     const name = editName.value.trim()

@@ -1351,6 +1351,19 @@ describe('useLoginFlow, the authenticator app', () => {
     expect(flow.error.value).toMatchObject({ code: 'invalid_input', data: { field: 'twoFactorCode' } })
   })
 
+  it('finishes a sign-in that failed after the code checked without asking for the code again', async () => {
+    const flow = await atTwoFactor()
+    sessionRefetch.mockRejectedValueOnce(new Error('offline'))
+    flow.twoFactorCode.value = '123456'
+    await flow.verifyTwoFactor()
+    expect(flow.step.value).toBe('two-factor')
+    expect(flow.error.value).not.toBeNull()
+
+    await flow.verifyTwoFactor()
+    expect(client.twoFactor.verifyTotp).toHaveBeenCalledTimes(1)
+    expect(flow.step.value).toBe('passkey-offer')
+  })
+
   it('says a challenge that ended asks for a new sign-in code, and going back clears the code', async () => {
     const flow = await atTwoFactor()
     client.twoFactor.verifyTotp.mockResolvedValueOnce(expired)
@@ -1376,6 +1389,17 @@ describe('useLoginFlow, the authenticator app', () => {
     expect(wrapper.find('[data-auth="input-two-factor-code"]').attributes('autocomplete')).toBe('one-time-code')
     await wrapper.find('[data-auth="two-factor-switch"]').trigger('click')
     expect(wrapper.find('[data-auth="input-two-factor-code"]').attributes('autocomplete')).toBe('off')
+
+    // The check is said while it runs, and the status is empty otherwise.
+    const status = wrapper.find('[data-auth="two-factor-status"]')
+    expect(status.attributes()).toMatchObject({ 'role': 'status', 'aria-live': 'polite' })
+    expect(status.text()).toBe('')
+    let answer!: (value: unknown) => void
+    client.twoFactor.verifyBackupCode.mockImplementationOnce(() => new Promise(resolve => (answer = resolve)) as never)
+    await wrapper.find('[data-auth="input-two-factor-code"]').setValue('ABCDE-12345')
+    await wrapper.find('[data-auth="step-two-factor"]').trigger('submit')
+    await vi.waitFor(() => expect(wrapper.find('[data-auth="two-factor-status"]').text()).not.toBe(''))
+    answer(ok({ token: 't' }))
     wrapper.unmount()
   })
 })

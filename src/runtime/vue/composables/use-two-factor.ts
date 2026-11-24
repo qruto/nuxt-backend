@@ -1,4 +1,4 @@
-import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
 import { useAuthSession } from '../utils/auth-session'
 import { unwrapAuth } from '../utils/auth-result'
 import { useActionState } from '../utils/action-state'
@@ -77,6 +77,11 @@ export function useTwoFactor(): UseTwoFactorReturn {
   const signedOut = () => !auth.isLoading.value && !auth.isAuthenticated.value
   const { isPending, failure, run } = useActionState(signedOut)
   const pendingSetup = ref<TwoFactorSetup | null>(null)
+  // A setup belongs to the account that started it: another account, or none, drops it.
+  const account = () => (auth.user.value as { id?: string } | null | undefined)?.id ?? null
+  watch(account, () => {
+    pendingSetup.value = null
+  })
 
   return {
     enabled: computed(() => (auth.user.value as { twoFactorEnabled?: boolean | null } | null | undefined)?.twoFactorEnabled === true),
@@ -84,9 +89,12 @@ export function useTwoFactor(): UseTwoFactorReturn {
     isPending,
     error: computed(() => (signedOut() ? null : failure.value)),
     start: () => run(async () => {
+      const startedFor = account()
       const answer = unwrapAuth<{ totpURI: string, backupCodes: string[] }>(await client.twoFactor.enable({} as Parameters<typeof client.twoFactor.enable>[0]))
-      pendingSetup.value = { ...answer, secret: secretOf(answer.totpURI) }
-      return pendingSetup.value
+      const setup = { ...answer, secret: secretOf(answer.totpURI) }
+      // An answer for an account no longer signed in here is not shown.
+      if (account() === startedFor) pendingSetup.value = setup
+      return setup
     }),
     confirm: code => run(async () => {
       unwrapAuth(await client.twoFactor.verifyTotp({ code: code.replace(/\s+/g, '') }))

@@ -84,6 +84,34 @@ describe('the authenticator app', () => {
     expect((await flow.post('/two-factor/enable', {}, { cookie: visited.cookie })).status).toBe(403)
   })
 
+  it('skips the step on a browser the person trusted, and only there', async () => {
+    const flow = await authFlow()
+    const { cookie } = await flow.signInWithCode(ADA)
+    const { secret } = await turnOn(flow, cookie)
+    const first = await flow.post('/sign-in/email-otp', { email: ADA, otp: (await flow.sendCode(ADA)).code })
+    const trusted = await flow.post('/two-factor/verify-totp', { code: appCode(secret), trustDevice: true }, { cookie: cookiesOf(first) })
+    expect(trusted.status).toBe(200)
+    const browser = cookiesOf(trusted).split('; ').filter(pair => pair.includes('trust_device')).join('; ')
+    expect(browser).not.toBe('')
+
+    const again = await (await flow.post('/sign-in/email-otp', { email: ADA, otp: (await flow.sendCode(ADA)).code }, { cookie: browser })).json() as { token?: string, twoFactorRedirect?: boolean }
+    expect(again.twoFactorRedirect).toBeUndefined()
+    expect(typeof again.token).toBe('string')
+    const elsewhere = await (await flow.post('/sign-in/email-otp', { email: ADA, otp: (await flow.sendCode(ADA)).code })).json()
+    expect(elsewhere).toMatchObject({ twoFactorRedirect: true })
+  })
+
+  it('asks for the app\'s code when verifying the address signs the person in', async () => {
+    const flow = await authFlow({ build: { authOptions: { emailVerification: { autoSignInAfterVerification: true } } } })
+    const { cookie, userId } = await flow.signInWithCode(ADA)
+    await turnOn(flow, cookie)
+    for (const row of flow.db.user!) if (row.id === userId) row.emailVerified = false
+    const { code } = await flow.sendCode(ADA, 'email-verification')
+    const verified = await flow.post('/email-otp/verify-email', { email: ADA, otp: code })
+    expect(await verified.json()).toMatchObject({ twoFactorRedirect: true })
+    expect(verified.headers.getSetCookie().some(entry => /session_token=[^;]+/.test(entry) && !/max-age=0/i.test(entry))).toBe(false)
+  })
+
   it('turned off, a sign-in code opens the session on its own again', async () => {
     const flow = await authFlow()
     const { cookie } = await flow.signInWithCode(ADA)

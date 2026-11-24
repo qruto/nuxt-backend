@@ -107,7 +107,9 @@ export const tables = {
     updatedAt: v.number(),
   })
     .index('expiresAt', ['expiresAt'])
-    .index('identifier', ['identifier']),
+    .index('identifier', ['identifier'])
+    // A device the authenticator app trusts holds its account's id here (`trust-device-…`): its erasure finds it by it.
+    .index('value', ['value']),
   rateLimit: defineTable({
     key: v.string(),
     count: v.number(),

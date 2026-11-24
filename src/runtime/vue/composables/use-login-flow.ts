@@ -253,6 +253,9 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   const inviteCode = ref('')
   const age = ref('')
   const twoFactorCode = ref('')
+  // The second factor checked, and the session open: a retry after a failed
+  // finish goes straight to it instead of asking for a code already spent.
+  let twoFactorPassed = false
   const withBackupCode = ref(false)
   const trustDevice = ref(false)
   const waitlist = ref<{ position: number, total: number, token: string } | null>(null)
@@ -436,6 +439,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
       const failure = failureOf(cause)
       // The account has an authenticator app: the code checked, the app's comes next.
       if (failure.code === 'forbidden' && failure.data.reason === 'two_factor_required') {
+        twoFactorPassed = false
         step.value = 'two-factor'
         return false
       }
@@ -466,10 +470,13 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   })
 
   const verifyTwoFactor = () => run(async () => {
-    const code = twoFactorCode.value.replace(/\s+/g, '')
-    if (!code) throw backendError('invalid_input', { field: 'twoFactorCode', reason: 'required' })
-    await auth.verifyTwoFactor({ code, backup: withBackupCode.value, trustDevice: trustDevice.value })
-    twoFactorCode.value = ''
+    if (!twoFactorPassed) {
+      const code = twoFactorCode.value.replace(/\s+/g, '')
+      if (!code) throw backendError('invalid_input', { field: 'twoFactorCode', reason: 'required' })
+      await auth.verifyTwoFactor({ code, backup: withBackupCode.value, trustDevice: trustDevice.value })
+      twoFactorPassed = true
+      twoFactorCode.value = ''
+    }
     await finishSignIn()
   })
 
@@ -523,6 +530,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
     // The ticket steps send the same code again: it stays.
     if (!(target === 'invite-code' && step.value === 'waitlisted')) otp.value = ''
     twoFactorCode.value = ''
+    twoFactorPassed = false
     withBackupCode.value = false
     step.value = target
   }

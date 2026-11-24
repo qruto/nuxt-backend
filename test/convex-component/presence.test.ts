@@ -49,6 +49,12 @@ describe('presence behind the sign-in', () => {
     await expect(t.mutation(refs.heartbeat, { roomId: 'doc:1', userId: 'someone', sessionId: 's', interval: 10_000 })).rejects.toThrow(/unauthenticated|sign in/i)
   })
 
+  test('lists nobody to a token held signed out', async () => {
+    const ada = await asUser(t, { name: 'Ada' })
+    const { roomToken } = await ada.mutation(refs.heartbeat, { roomId: 'doc:1', userId: ada.userId, sessionId: 'tab-a', interval: 10_000 })
+    await expect(t.query(refs.list, { roomToken })).rejects.toThrow(/unauthenticated|sign in/i)
+  })
+
   test('counts the signed-in account only, never an id the browser names', async () => {
     const ada = await asUser(t)
     const grace = await asUser(t)

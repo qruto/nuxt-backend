@@ -1123,7 +1123,7 @@
     },
     "useRoomPresence": {
       "tab": "Data",
-      "tier": "stable",
+      "tier": "experimental",
       "summary": "Who is here: keep the signed-in person in a room (a page, a document, `workspace:<id>`) while the page is open and visible, and list who else is there, live.",
       "url": "/docs/reference/nuxt/composables"
     },

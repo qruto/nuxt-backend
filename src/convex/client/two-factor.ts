@@ -9,8 +9,14 @@ import { twoFactor } from 'better-auth/plugins'
 // here after the code. A passkey is a second factor of its own (the device,
 // and the person's fingerprint or PIN), so a passkey sign-in asks for none.
 
-/** The routes after which an account with an authenticator app is asked for its code. */
-const FIRST_FACTOR_ROUTES: ReadonlySet<string> = new Set(['/sign-in/email-otp'])
+/**
+ * The routes after which an account with an authenticator app is asked for
+ * its code: the sign-in code, and verifying the address, which opens a
+ * session too where an app sets `emailVerification.autoSignInAfterVerification`.
+ * The step acts only where the route opened one, and honours a trusted
+ * device on each.
+ */
+const FIRST_FACTOR_ROUTES: ReadonlySet<string> = new Set(['/sign-in/email-otp', '/email-otp/verify-email'])
 
 /** The id of the step that asks for the second factor after a code. */
 export const TWO_FACTOR_STEP_PLUGIN_ID = 'two-factor-after-code'

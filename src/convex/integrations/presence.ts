@@ -66,13 +66,19 @@ export interface RoomMember {
 
 /** What {@link setupPresence} returns: the three functions `backend/presence.ts` exports, and the component's own client. */
 export interface PresenceSetup {
-  /** The room's people, by the room token a heartbeat handed back: who is online first, as the component orders them. */
+  /**
+   * The room's people, by the room token a heartbeat handed back: who is online first, as the component orders them.
+   * Signed out, or as an administrator acting as someone, it lists nobody and refuses.
+   */
   list: RegisteredQuery<'public', { roomToken: string }, Promise<RoomMember[]>>
   /** Keep the signed-in account in a room. The browser's `userId` is checked against the account, never trusted. */
   heartbeat: RegisteredMutation<'public', { roomId: string, userId: string, sessionId: string, interval: number }, Promise<{ roomToken: string, sessionToken: string }>>
   /** Leave the room the session token names, as a tab closes. */
   disconnect: RegisteredMutation<'public', { sessionToken: string }, Promise<null>>
-  /** The component's client, for a room of your own (`listRoom`, `removeRoomUser`, `removeRoom`), which checks no sign-in. */
+  /**
+   * The component's client, for a room of your own (`listRoom`, `removeRoomUser`, `removeRoom`), which checks no sign-in.
+   * A room token stays valid once `canJoin` stops letting its holder in: `removeRoomUser` ends it at once.
+   */
   presence: Presence
 }
 
@@ -120,6 +126,8 @@ export function setupPresence(components: PresenceComponents, options: SetupPres
   const list = queryGeneric({
     args: { roomToken: v.string() },
     handler: async (ctx, { roomToken }): Promise<RoomMember[]> => {
+      // A token outlives the sign-in that earned it: names and pictures go to a signed-in caller only.
+      await ownCaller(ctx, 'presence:list')
       const people = await presence.list(ctx, roomToken, limit)
       return Promise.all(people.map(async ({ userId, online, lastDisconnected }) => {
         const user = await ctx.runQuery(findUser, { model: 'user', where: [{ field: '_id', value: userId }] }) as { name?: unknown, image?: unknown } | null

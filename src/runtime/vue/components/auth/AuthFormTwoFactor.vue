@@ -44,6 +44,14 @@ const { t } = view.labels
       >
       {{ t('twoFactorTrustDevice') }}
     </label>
+    <!-- The busy button's words, said: a polite status that is empty until the code is being checked. -->
+    <p
+      data-auth="two-factor-status"
+      role="status"
+      aria-live="polite"
+    >
+      {{ flow.isPending.value ? t('twoFactorChecking') : '' }}
+    </p>
     <button
       data-auth="submit"
       v-bind="flow.bind.submit"

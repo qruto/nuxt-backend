@@ -201,6 +201,24 @@ describe('useTwoFactor', () => {
     expect(twoFactor.pendingSetup.value).not.toBeNull()
   })
 
+  it('drops a setup when the account changes, and one that answers for an account no longer here', async () => {
+    user.value = { ...user.value, id: 'ada' }
+    const twoFactor = inSetup(() => useTwoFactor())
+    await twoFactor.start()
+    user.value = { email: 'grace@example.com', id: 'grace' }
+    await nextTick()
+    expect(twoFactor.pendingSetup.value).toBeNull()
+
+    let answer!: (value: unknown) => void
+    client.twoFactor.enable.mockImplementationOnce(() => new Promise(resolve => (answer = resolve)) as never)
+    const started = twoFactor.start()
+    user.value = null
+    await nextTick()
+    answer(ok({ totpURI: 'otpauth://totp/App:grace?secret=JBSWY3DPEHPK3PXP', backupCodes: ['DDDDD-44444'] }))
+    await started.catch(() => {})
+    expect(twoFactor.pendingSetup.value).toBeNull()
+  })
+
   it('turns off, and answers new backup codes', async () => {
     const twoFactor = inSetup(() => useTwoFactor())
     await twoFactor.disable()

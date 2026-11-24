@@ -212,6 +212,8 @@ export const ERASURE_PARTICIPANTS = {
       await budget.remove(ctx, 'account', () => ctx.db.query('account').withIndex('userId', q => q.eq('userId', userId)).take(budget.left))
       await budget.remove(ctx, 'passkey', () => ctx.db.query('passkey').withIndex('userId', q => q.eq('userId', userId)).take(budget.left))
       await budget.remove(ctx, 'twoFactor', () => ctx.db.query('twoFactor').withIndex('userId', q => q.eq('userId', userId)).take(budget.left))
+      // The devices the authenticator app trusts: each row holds the account's id as its value.
+      await budget.remove(ctx, 'verification', async () => (await ctx.db.query('verification').withIndex('value', q => q.eq('value', userId)).take(budget.left)).filter(row => row.identifier.startsWith('trust-device-')))
     }
     if (email) {
       for (const identifier of [`sign-in-otp-${email}`, `email-verification-otp-${email}`, `forget-password-otp-${email}`]) {
