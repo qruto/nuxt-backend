@@ -10,14 +10,12 @@ import {
   ProviderHttpError,
   ProviderUnsupportedError,
   recordDigitalContentConsent,
-  STRIPE_API_VERSION,
-  verifyCreemRedirect,
   webhookSecretsFromEnv,
 } from '../../src/convex/integrations/billing/providers'
 import { createCreemProvider, readCreemEvent } from '../../src/convex/integrations/billing/providers/creem'
 import { createDodoProvider, readDodoEvent } from '../../src/convex/integrations/billing/providers/dodo'
 import { hmacSha256Hex, sha256Hex } from '../../src/convex/integrations/billing/providers/http'
-import { createStripeProvider, readStripeEvent, verifyStripeSignature } from '../../src/convex/integrations/billing/providers/stripe'
+import { createStripeProvider, readStripeEvent, STRIPE_API_VERSION, verifyStripeSignature } from '../../src/convex/integrations/billing/providers/stripe'
 import { providerFailurePasses, markPassing } from '../../src/convex/integrations/billing/provider-failure'
 import { backendError } from '../../src/convex/errors'
 import { signingSecret } from '../helpers/secrets'
@@ -148,6 +146,32 @@ describe('stripe managed payments', () => {
     expect(form.get('metadata[reason]')).toBe('EU withdrawal')
   })
 
+  it('names a subscription refund by the invoice order.paid named, and a one-time one by its PaymentIntent', async () => {
+    const at = Math.floor(NOW / 1000)
+    const secret = signingSecret()
+    const deliver = async (stripe: ReturnType<typeof createStripeProvider>, event: object) => {
+      const body = JSON.stringify(event)
+      return stripe.verifyWebhook(body, new Headers({ 'stripe-signature': `t=${at},v1=${await hmacSha256Hex(secret, `${at}.${body}`)}` }), [secret], NOW)
+    }
+    const { impl, sent } = fakeFetch(() => ({ data: [{ invoice: { id: 'in_1', parent: { subscription_details: { subscription: 'sub_1' } } } }] }))
+    const refund = await deliver(createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: impl }), { id: 'evt_r', type: 'refund.created', data: { object: { id: 're_1', payment_intent: 'pi_9', status: 'succeeded' } } })
+    expect(refund?.event).toMatchObject({ type: 'order.refunded', refund: { orderId: 'in_1', subscriptionId: 'sub_1' } })
+    expect(sent[0]!.url.searchParams.get('payment[payment_intent]')).toBe('pi_9')
+    const oneTime = await deliver(createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: fakeFetch(() => ({ data: [] })).impl }), { id: 'evt_d', type: 'charge.dispute.created', data: { object: { payment_intent: 'pi_1' } } })
+    expect(oneTime?.event).toMatchObject({ type: 'order.disputed', orderId: 'pi_1', subscriptionId: null })
+  })
+
+  it('refuses a change of billing interval at the next renewal, which Stripe would bill at once', async () => {
+    const { impl, sent } = fakeFetch(r => r.url.pathname.includes('/prices/')
+      ? { id: 'price_yearly', recurring: { interval: 'year', interval_count: 1 } }
+      : { id: 'sub_1', items: { data: [{ id: 'si_1', price: { recurring: { interval: 'month', interval_count: 1 } } }] } })
+    const stripe = createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: impl })
+    await expect(stripe.changePlan({ subscriptionId: 'sub_1', productId: 'price_yearly', proration: 'next_period' })).rejects.toBeInstanceOf(ProviderUnsupportedError)
+    expect(sent.every(r => r.method === 'GET')).toBe(true)
+    await stripe.changePlan({ subscriptionId: 'sub_1', productId: 'price_yearly', proration: 'immediately' })
+    expect(new URLSearchParams(sent.at(-1)!.body).get('proration_behavior')).toBe('always_invoice')
+  })
+
   it('answers a refusal as a ProviderHttpError a retry policy can read', async () => {
     const { impl } = fakeFetch(() => ({ error: { code: 'rate_limit', message: 'secret details' } }), 429)
     const stripe = createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: impl })
@@ -204,16 +228,27 @@ describe('dodo payments', () => {
   it('refunds part of a payment by its product, and serves the invoice PDF', async () => {
     const pdf = new TextEncoder().encode('%PDF').buffer as ArrayBuffer
     const { impl, sent } = fakeFetch((r) => {
-      if (r.url.pathname.startsWith('/payments/')) return { product_cart: [{ product_id: 'pdt_issue1' }] }
+      if (r.url.pathname.startsWith('/payments/')) return { currency: 'EUR', product_cart: [{ product_id: 'pdt_issue1' }] }
       if (r.url.pathname.startsWith('/invoices/')) return pdf
       return { refund_id: 'ref_1', payment_id: 'pay_1', amount: 200, currency: 'EUR', status: 'pending' }
     })
     const dodo = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: impl })
     expect(await dodo.refundOrder({ orderId: 'pay_1', amount: 200 })).toMatchObject({ id: 'ref_1', orderId: 'pay_1', status: 'pending', currency: 'eur' })
-    expect(JSON.parse(sent[1]!.body!)).toMatchObject({ payment_id: 'pay_1', items: [{ item_id: 'pdt_issue1', amount: 200 }] })
+    expect(JSON.parse(sent[1]!.body!)).toMatchObject({ payment_id: 'pay_1', items: [{ item_id: 'pdt_issue1', amount: 200 }], currency: 'EUR' })
     expect(JSON.parse(sent[1]!.body!).reason.length).toBeGreaterThanOrEqual(5)
     const invoice = await dodo.invoice('pay_1')
     expect(invoice.kind).toBe('pdf')
+  })
+
+  it('refunds part of a subscription charge by the subscription\'s product', async () => {
+    const { impl, sent } = fakeFetch((r) => {
+      if (r.url.pathname.startsWith('/payments/')) return { currency: 'USD', subscription_id: 'sub_1' }
+      if (r.url.pathname.startsWith('/subscriptions/')) return { subscription_id: 'sub_1', product_id: 'pdt_monthly' }
+      return { refund_id: 'ref_2', payment_id: 'pay_2', status: 'pending' }
+    })
+    const dodo = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: impl })
+    await dodo.refundOrder({ orderId: 'pay_2', amount: 300 })
+    expect(JSON.parse(sent[2]!.body!)).toMatchObject({ items: [{ item_id: 'pdt_monthly', amount: 300 }], currency: 'USD' })
   })
 
   it('verifies a Standard Webhooks delivery and reads its events', async () => {
@@ -265,8 +300,11 @@ describe('creem', () => {
     const pairs = 'checkout_id=ch_1|order_id=ord_1|customer_id=cust_1|product_id=prod_1'
     const signature = await sha256Hex(`${pairs}|salt=creem_test_1`)
     const search = `?checkout_id=ch_1&order_id=ord_1&customer_id=cust_1&subscription_id=&product_id=prod_1&signature=${signature}`
-    expect(await verifyCreemRedirect(search, 'creem_test_1')).toBe(true)
-    expect(await verifyCreemRedirect(search.replace('ord_1', 'ord_2'), 'creem_test_1')).toBe(false)
+    const creem = createCreemProvider({ apiKey: 'creem_test_1', environment: 'sandbox', fetch: fakeFetch(() => ({})).impl })
+    expect(await creem.verifyCheckoutRedirect(search)).toBe(true)
+    expect(await creem.verifyCheckoutRedirect(search.replace('ord_1', 'ord_2'))).toBe(false)
+    const stripe = createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: fakeFetch(() => ({})).impl })
+    await expect(stripe.verifyCheckoutRedirect(search)).rejects.toBeInstanceOf(ProviderUnsupportedError)
   })
 
   it('has no refund or invoice API: it says where to go instead', async () => {
@@ -322,6 +360,20 @@ describe('the commerce webhook route', () => {
     expect(rows.at(-1)).toMatchObject({ service: 'billing', deliveryId: 'evt_route', outcome: 'ok', type: 'customer.subscription.created' })
 
     expect(await (await handler(ctx, await request())).text()).toBe('Already processed')
+    expect(onEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('dedupes Stripe and Creem by the signed body id, never by a header a replay can change', async () => {
+    const creem = createCreemProvider({ apiKey: 'creem_test_1', environment: 'sandbox', fetch: fakeFetch(() => ({})).impl })
+    const onEvent = vi.fn(async (_ctx: unknown, _event: unknown) => {})
+    const handler = createCommerceWebhookHandler({ provider: creem, secrets: [secret], webhookLog, onEvent })
+    const body = JSON.stringify({ id: 'evt_creem', eventType: 'subscription.active', object: { id: 'sub_1', status: 'active' } })
+    const signature = await hmacSha256Hex(secret, body)
+    const request = (id: string) => new Request('https://x/billing/events', { method: 'POST', body, headers: { 'creem-signature': signature, 'webhook-id': id } })
+    const { ctx, rows } = logCtx()
+    expect((await handler(ctx, request('first'))).status).toBe(200)
+    expect(rows.at(-1)).toMatchObject({ deliveryId: 'evt_creem' })
+    expect(await (await handler(ctx, request('other'))).text()).toBe('Already processed')
     expect(onEvent).toHaveBeenCalledTimes(1)
   })
 

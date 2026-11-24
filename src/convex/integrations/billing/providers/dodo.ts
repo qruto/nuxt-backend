@@ -11,6 +11,7 @@ import type {
   ProviderOptions,
   VerifiedDelivery,
 } from './types.js'
+import { ProviderUnsupportedError } from './types.js'
 
 // Dodo Payments: a merchant of record that sells in its own name, collects
 // and remits sales tax and VAT, and emails the receipts. Its webhooks sign
@@ -105,6 +106,15 @@ export function createDodoProvider({ apiKey, environment, fetch: fetchImpl }: Pr
   const call = providerClient('dodo', DODO_BASE_URLS[environment], { authorization: `Bearer ${apiKey}` }, fetchImpl)
   const subscriptionPath = (id: string) => `subscriptions/${encodeURIComponent(id)}`
   const patch = (operation: string, id: string, body: Record<string, unknown>) => call(operation, { method: 'PATCH', path: subscriptionPath(id), body })
+  /** The product a payment refunds part of: its cart's first one, or a subscription charge's product (which has no cart). */
+  const refundableItemOf = async (payment: any): Promise<string | null> => {
+    const fromCart = str(payment.product_cart?.[0]?.product_id)
+    if (fromCart) return fromCart
+    const subscriptionId = str(payment.subscription_id)
+    if (!subscriptionId) return null
+    const subscription = await call<any>('subscription read', { method: 'GET', path: subscriptionPath(subscriptionId) })
+    return str(subscription.product_id)
+  }
 
   return {
     name: 'dodo',
@@ -161,19 +171,19 @@ export function createDodoProvider({ apiKey, environment, fetch: fetchImpl }: Pr
       await patch('resume', id, { status: 'active' })
     },
     refundOrder: async ({ orderId, amount, reason }) => {
-      // A partial refund names the item it refunds: the payment's first product.
-      let items: Array<{ item_id: string, amount: number }> | undefined
+      // A partial refund names the item it refunds, in the payment's currency.
+      let partial: { items: Array<{ item_id: string, amount: number }>, currency?: string } | undefined
       if (amount !== undefined) {
         const payment = await call<any>('payment read', { method: 'GET', path: `payments/${encodeURIComponent(orderId)}` })
-        const itemId = str(payment.product_cart?.[0]?.product_id)
+        const itemId = await refundableItemOf(payment)
         if (!itemId) throw new Error(`[nuxt-backend] Dodo payment ${orderId} names no product to refund part of.`)
-        items = [{ item_id: itemId, amount }]
+        partial = { items: [{ item_id: itemId, amount }], currency: str(payment.currency) ?? undefined }
       }
       const refund = await call('refund', {
         method: 'POST',
         path: 'refunds',
         // Dodo asks for a reason of 5 to 3,000 characters.
-        body: { payment_id: orderId, items, reason: (reason && reason.length >= 5 ? reason : 'Refund requested by the customer').slice(0, 3000) },
+        body: { payment_id: orderId, ...partial, reason: (reason && reason.length >= 5 ? reason : 'Refund requested by the customer').slice(0, 3000) },
       })
       return dodoRefund(refund)
     },
@@ -184,6 +194,9 @@ export function createDodoProvider({ apiKey, environment, fetch: fetchImpl }: Pr
     verifyWebhook: async (body, headers, secrets): Promise<VerifiedDelivery | null> => {
       if (!verifyWebhookSignature(secrets, body, headers)) return null
       return { id: headers.get('webhook-id') ?? '', event: readDodoEvent(JSON.parse(body)) }
+    },
+    verifyCheckoutRedirect: async () => {
+      throw new ProviderUnsupportedError('dodo', 'verify the success redirect', 'read the payment by the payment_id in the success URL, or wait for order.paid.')
     },
   }
 }

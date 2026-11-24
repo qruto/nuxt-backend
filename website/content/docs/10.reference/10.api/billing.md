@@ -448,6 +448,7 @@ What one provider can do through its API, for the doctor, the docs and a refusal
 | <a id="refundapi"></a> `refundApi` | `boolean` | Refunding an order through the API (every provider refunds from its dashboard). | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 | <a id="invoices"></a> `invoices` | `boolean` | A link to, or the bytes of, an order's invoice or receipt. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 | <a id="discountcodes"></a> `discountCodes` | `boolean` | Discount or promotion codes at checkout. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="signedredirect"></a> `signedRedirect` | `boolean` | The provider signs the query it appends to the success URL, so the success page can trust its ids. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 | <a id="merchantofrecord"></a> `merchantOfRecord` | `boolean` | The provider sells as merchant of record: it is the seller, and files and remits sales tax and VAT. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 | <a id="sendsreceipts"></a> `sendsReceipts` | `boolean` | The provider emails receipts and invoices itself. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 
@@ -489,8 +490,8 @@ What a checkout sells.
 | <a id="discountcode"></a> `discountCode?` | `string` | A discount or promotion code the buyer entered. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 | <a id="locale"></a> `locale?` | `string` | The checkout page's language, as a BCP 47 tag (Stripe). | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 | <a id="trialdays"></a> `trialDays?` | `number` | Free trial length in days, for a subscription (Stripe, Dodo). | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
-| <a id="metadata"></a> `metadata?` | `Record`\<`string`, `string`\> | Metadata carried through to the order and every webhook about it. The adapter adds `entity_id` (and the digital-content consent, see consent.ts) itself. Keys and values stay short: Stripe caps a key at 40 characters and a value at 500. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
-| <a id="idempotencykey"></a> `idempotencyKey?` | `string` | A key that makes a retried create return the first checkout instead of a second one. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="metadata"></a> `metadata?` | `Record`\<`string`, `string`\> | Metadata carried through to the order, the subscription and their events (refund and dispute events carry only the order's or the subscription's id). The adapter adds `entity_id` and nothing else: to keep the digital-content consent with the sale, record the buyer's explicit acceptance with `recordDigitalContentConsent` and pass `consentMetadata(...)` in here. Keys and values stay short: Stripe caps a key at 40 characters and a value at 500. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="idempotencykey"></a> `idempotencyKey?` | `string` | A key that makes a retried create return the first checkout instead of a second one, on Stripe (`Idempotency-Key`) and Creem (`request_id`). Dodo's checkout API takes none, so a retry there opens a second checkout: harmless, as only a paid one becomes an order, but dedupe on the `order.paid` event, never on the checkout. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 
 ***
 
@@ -598,7 +599,7 @@ Changing a subscription's product.
 | ------ | ------ | ------ | ------ |
 | <a id="subscriptionid-2"></a> `subscriptionId` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 | <a id="productid-3"></a> `productId` | `string` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
-| <a id="proration"></a> `proration` | `"next_period"` \| `"immediately"` | Charge (or credit) the difference now, or move without billing until the next renewal. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="proration"></a> `proration` | `"next_period"` \| `"immediately"` | Charge (or credit) the difference now, or move without billing until the next renewal. Stripe refuses `next_period` for a change of billing interval (monthly to yearly), which it would bill at once. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 | <a id="quantity-1"></a> `quantity?` | `number` | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 
 ***
@@ -643,6 +644,7 @@ The calls every commerce provider answers. A call its API lacks throws [Provider
 | <a id="resumesubscription"></a> `resumeSubscription` | `public` | (`subscriptionId`) => `Promise`\<`void`\> | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 | <a id="refundorder"></a> `refundOrder` | `public` | (`request`) => `Promise`\<[`NeutralRefund`](#neutralrefund)\> | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 | <a id="invoice"></a> `invoice` | `public` | (`orderId`) => `Promise`\<[`InvoiceAnswer`](#invoiceanswer)\> | - | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
+| <a id="verifycheckoutredirect"></a> `verifyCheckoutRedirect` | `public` | (`search`) => `Promise`\<`boolean`\> | Whether the query the provider appended to the success URL is its own (`capabilities.signedRedirect`; the others throw `ProviderUnsupportedError`). It lets a success page trust the ids it shows; access is still granted by `order.paid`, never by the redirect. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 | <a id="verifywebhook"></a> `verifyWebhook` | `public` | (`body`, `headers`, `secrets`, `now?`) => `Promise`\<[`VerifiedDelivery`](#verifieddelivery) \| `null`\> | Verify a delivery against the accepted secrets (a rotation accept-list, first entry primary) and read it. `null` when no secret verifies it: the route answers 401 and reads nothing of the body. | [src/convex/integrations/billing/providers/types.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/types.ts) |
 
 ***
@@ -3100,23 +3102,6 @@ Defined in: [src/convex/integrations/billing/providers/consent.ts](https://githu
 
 The checkbox's text, in English. Translate it with the app's labels; the record keeps the hash of what was shown.
 
-***
-
-### STRIPE\_API\_VERSION
-
-```ts
-const STRIPE_API_VERSION: "2026-04-22.dahlia" = '2026-04-22.dahlia';
-```
-
-Defined in: [src/convex/integrations/billing/providers/stripe.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/stripe.ts)
-
-**`Experimental`**
-
-The API version every request pins. `2026-04-22.dahlia` is the first that
-types `managed_payments` on Checkout Sessions, Payment Links and
-Subscriptions. Set the webhook endpoint to the same version, or the
-deliveries keep an older shape.
-
 ## Functions
 
 ### defineBillingCatalog()
@@ -3229,7 +3214,8 @@ Defined in: [src/convex/integrations/billing/commerce-webhooks.ts](https://githu
 
 **`Experimental`**
 
-The handler `registerBackendRoutes` mounts at `/billing/events` for an adapter provider.
+The handler an app passes as `billing.webhookHandler` to `registerBackendRoutes`
+for an adapter provider. `BILLING_PROVIDER` does not mount it.
 
 #### Type Parameters
 
@@ -3324,35 +3310,6 @@ The proof an order's metadata carries back in a webhook, or `null` when the chec
 #### Returns
 
 [`DigitalContentConsent`](#digitalcontentconsent) \| `null`
-
-***
-
-### verifyCreemRedirect()
-
-```ts
-function verifyCreemRedirect(search, apiKey): Promise<boolean>;
-```
-
-Defined in: [src/convex/integrations/billing/providers/creem.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/billing/providers/creem.ts)
-
-**`Experimental`**
-
-Whether the query Creem appends to a checkout's success URL is its own:
-a SHA-256 hex over the `key=value` pairs in URL order, empty ones
-dropped, joined by `|`, with `salt=<api key>` last. A success page that
-shows "Thanks" can trust its ids after this; access is still granted by
-the webhook, never by the redirect.
-
-#### Parameters
-
-| Parameter | Type |
-| ------ | ------ |
-| `search` | `string` \| `URLSearchParams` |
-| `apiKey` | `string` |
-
-#### Returns
-
-`Promise`\<`boolean`\>
 
 ***
 

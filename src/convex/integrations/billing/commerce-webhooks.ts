@@ -32,15 +32,18 @@ function bodyEventId(body: string): string | null {
 }
 
 /**
- * The handler `registerBackendRoutes` mounts at `/billing/events` for an adapter provider.
+ * The handler an app passes as `billing.webhookHandler` to `registerBackendRoutes`
+ * for an adapter provider. `BILLING_PROVIDER` does not mount it.
  *
  * @experimental
  */
 export function createCommerceWebhookHandler<Ctx>({ provider, secrets, webhookLog, onEvent }: CommerceWebhookOptions<Ctx>) {
   return (ctx: Ctx, request: Request): Promise<Response> => handleWebhookDelivery(ctx, webhookLog, {
     service: 'billing',
-    // Dodo signs to Standard Webhooks and sends its id as a header; Stripe and Creem put it in the body.
-    deliveryId: request.headers.get('webhook-id'),
+    // The id the signature covers: Dodo signs to Standard Webhooks, which
+    // covers the `webhook-id` header; Stripe and Creem sign the body alone,
+    // so a header there could be changed on a replay to slip the dedupe.
+    deliveryId: provider.name === 'dodo' ? request.headers.get('webhook-id') : null,
     bodyDeliveryId: bodyEventId,
     request,
     secretsConfigured: secrets.length > 0,

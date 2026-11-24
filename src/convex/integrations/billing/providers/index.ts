@@ -5,8 +5,6 @@ import { BILLING_PROVIDER_NAMES, type BillingProviderName, type CommerceProvider
 
 export { PROVIDER_CAPABILITIES } from './capabilities.js'
 export * from './consent.js'
-export { verifyCreemRedirect } from './creem.js'
-export { STRIPE_API_VERSION } from './stripe.js'
 export * from './types.js'
 
 /** The adapters built on the neutral seam. Polar is served by its Convex component (context.ts). */

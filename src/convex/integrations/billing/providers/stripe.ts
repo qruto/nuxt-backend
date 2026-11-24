@@ -27,8 +27,6 @@ import { ProviderUnsupportedError } from './types.js'
  * types `managed_payments` on Checkout Sessions, Payment Links and
  * Subscriptions. Set the webhook endpoint to the same version, or the
  * deliveries keep an older shape.
- *
- * @experimental
  */
 export const STRIPE_API_VERSION = '2026-04-22.dahlia'
 
@@ -231,6 +229,33 @@ export function createStripeProvider({ apiKey, environment, fetch: fetchImpl }: 
     return intent
   }
 
+  /**
+   * The invoice order a PaymentIntent paid, as `order.paid` named it: a
+   * refund or a dispute names the PaymentIntent, a subscription's order is
+   * its invoice. `null` for a one-time order, whose id is the PaymentIntent.
+   */
+  const invoiceOrderOf = async (paymentIntent: string): Promise<{ orderId: string, subscriptionId: string | null } | null> => {
+    const payments = await call<{ data: any[] }>('invoice payment read', {
+      method: 'GET',
+      path: 'invoice_payments',
+      query: { 'payment[type]': 'payment_intent', 'payment[payment_intent]': paymentIntent, 'limit': 1, 'expand[]': 'data.invoice' },
+    })
+    const invoice = payments.data[0]?.invoice
+    const orderId = idOf(invoice)
+    return orderId ? { orderId, subscriptionId: idOf(invoice?.parent?.subscription_details?.subscription) } : null
+  }
+
+  /** A refund or dispute event with the order id `order.paid` gave it. */
+  const withOrderIds = async (event: NeutralBillingEvent): Promise<NeutralBillingEvent> => {
+    const named = event.type === 'order.refunded' ? event.refund.orderId : event.type === 'order.disputed' ? event.orderId : null
+    if (!named?.startsWith('pi_')) return event
+    const order = await invoiceOrderOf(named)
+    if (!order) return event
+    return event.type === 'order.refunded'
+      ? { ...event, refund: { ...event.refund, ...order } }
+      : { ...event, ...order }
+  }
+
   return {
     name: 'stripe',
     environment,
@@ -243,12 +268,20 @@ export function createStripeProvider({ apiKey, environment, fetch: fetchImpl }: 
     getSubscription,
     changePlan: async ({ subscriptionId, productId, proration, quantity }) => {
       const current = await call<any>('subscription read', { method: 'GET', path: `subscriptions/${encodeURIComponent(subscriptionId)}` })
-      const itemId = current.items?.data?.[0]?.id
+      const item = current.items?.data?.[0]
+      if (proration === 'next_period') {
+        // Stripe bills a change of interval at once, whatever proration says.
+        const price = await call<any>('price read', { method: 'GET', path: `prices/${encodeURIComponent(productId)}` })
+        const [from, to] = [item?.price?.recurring, price.recurring]
+        if (from?.interval !== to?.interval || (from?.interval_count ?? 1) !== (to?.interval_count ?? 1)) {
+          throw new ProviderUnsupportedError('stripe', 'change the billing interval at the next renewal', 'change it with proration "immediately", or cancel at period end and check out the new plan.')
+        }
+      }
       await call('plan change', {
         method: 'POST',
         path: `subscriptions/${encodeURIComponent(subscriptionId)}`,
         body: stripeForm({
-          items: [{ id: itemId, price: productId, quantity }],
+          items: [{ id: item?.id, price: productId, quantity }],
           proration_behavior: proration === 'immediately' ? 'always_invoice' : 'none',
           cancel_at_period_end: false,
         }),
@@ -297,7 +330,10 @@ export function createStripeProvider({ apiKey, environment, fetch: fetchImpl }: 
     verifyWebhook: async (body, headers, secrets, now): Promise<VerifiedDelivery | null> => {
       if (!await verifyStripeSignature(body, headers.get('stripe-signature'), secrets, now)) return null
       const event = JSON.parse(body)
-      return { id: String(event.id), event: readStripeEvent(event) }
+      return { id: String(event.id), event: await withOrderIds(readStripeEvent(event)) }
+    },
+    verifyCheckoutRedirect: async () => {
+      throw new ProviderUnsupportedError('stripe', 'verify the success redirect', 'read the session with {CHECKOUT_SESSION_ID} in the success URL, or wait for order.paid.')
     },
   }
 }

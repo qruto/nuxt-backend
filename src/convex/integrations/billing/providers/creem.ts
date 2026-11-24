@@ -139,13 +139,9 @@ export async function verifyCreemSignature(body: string, signature: string | nul
 /**
  * Whether the query Creem appends to a checkout's success URL is its own:
  * a SHA-256 hex over the `key=value` pairs in URL order, empty ones
- * dropped, joined by `|`, with `salt=<api key>` last. A success page that
- * shows "Thanks" can trust its ids after this; access is still granted by
- * the webhook, never by the redirect.
- *
- * @experimental
+ * dropped, joined by `|`, with `salt=<api key>` last.
  */
-export async function verifyCreemRedirect(search: string | URLSearchParams, apiKey: string): Promise<boolean> {
+async function verifyCreemRedirect(search: string | URLSearchParams, apiKey: string): Promise<boolean> {
   const params = typeof search === 'string' ? new URLSearchParams(search) : search
   const signature = params.get('signature')
   if (!signature) return false
@@ -220,6 +216,7 @@ export function createCreemProvider({ apiKey, environment, fetch: fetchImpl }: P
       const event = JSON.parse(body)
       return { id: String(event.id), event: readCreemEvent(event) }
     },
+    verifyCheckoutRedirect: search => verifyCreemRedirect(search, apiKey),
   }
 }
 

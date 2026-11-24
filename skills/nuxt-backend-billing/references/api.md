@@ -54,10 +54,8 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `ProviderHttpError` | A provider's HTTP answer that was not a success. |
 | `ProviderUnsupportedError` | A call a provider's API does not offer: the app shows the dashboard or the portal instead. |
 | `recordDigitalContentConsent()` | The proof for a checkout of digital content, from what the page sent: it refuses unless `accepted` is the literal `true` (a pre-ticked box or a missing field is no consent), and hashes the text the page showed. |
-| `STRIPE_API_VERSION` | The API version every request pins. |
-| `verifyCreemRedirect()` | Whether the query Creem appends to a checkout's success URL is its own: a SHA-256 hex over the `key=value` pairs in URL order, empty ones dropped, joined by `\|`, with `salt=<api key>` last. |
 | `webhookSecretsFromEnv()` | The webhook secrets the env accepts: a rotation list, first entry primary. |
-| `createCommerceWebhookHandler()` | The handler `registerBackendRoutes` mounts at `/billing/events` for an adapter provider. |
+| `createCommerceWebhookHandler()` | The handler an app passes as `billing.webhookHandler` to `registerBackendRoutes` for an adapter provider. |
 | `setupReferrals()` | Set the referral program up in its own backend file (`backend/referrals.ts`). |
 | `setupBilling()` | Configure billing for subscriptions, discounts, prepaid credits, and gift purchases — linked to your auth users and cached reactively inside the `backend` component (so consumers add nothing to their own schema). |
 

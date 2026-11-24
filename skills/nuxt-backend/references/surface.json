@@ -121,7 +121,6 @@
         "PROVIDER_CAPABILITIES",
         "ProviderHttpError",
         "ProviderUnsupportedError",
-        "STRIPE_API_VERSION",
         "billingProviderName",
         "commerceProviderFromEnv",
         "consentFromMetadata",
@@ -132,7 +131,6 @@
         "recordDigitalContentConsent",
         "setupBilling",
         "setupReferrals",
-        "verifyCreemRedirect",
         "webhookSecretsFromEnv"
       ],
       "types": [

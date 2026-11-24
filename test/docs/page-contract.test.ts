@@ -48,6 +48,7 @@ const EXPERIMENTAL: Record<string, string[]> = {
   '`nuxt-backend/ai`': ['/docs/build/ai'],
   '`useSandboxInbox`': ['/docs/develop/dev-inbox'],
   '`<Gate quota>`': ['/docs/build/billing/subscriptions/quotas'],
+  '`createCommerceProvider`': ['/docs/services/merchants'],
 }
 
 describe('stability chips', () => {

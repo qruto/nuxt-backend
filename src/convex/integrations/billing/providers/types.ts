@@ -39,6 +39,8 @@ export interface ProviderCapabilities {
   invoices: boolean
   /** Discount or promotion codes at checkout. */
   discountCodes: boolean
+  /** The provider signs the query it appends to the success URL, so the success page can trust its ids. */
+  signedRedirect: boolean
   /** The provider sells as merchant of record: it is the seller, and files and remits sales tax and VAT. */
   merchantOfRecord: boolean
   /** The provider emails receipts and invoices itself. */
@@ -74,13 +76,22 @@ export interface CheckoutRequest {
   /** Free trial length in days, for a subscription (Stripe, Dodo). */
   trialDays?: number
   /**
-   * Metadata carried through to the order and every webhook about it. The
-   * adapter adds `entity_id` (and the digital-content consent, see
-   * consent.ts) itself. Keys and values stay short: Stripe caps a key at 40
-   * characters and a value at 500.
+   * Metadata carried through to the order, the subscription and their
+   * events (refund and dispute events carry only the order's or the
+   * subscription's id). The adapter adds `entity_id` and nothing else: to
+   * keep the digital-content consent with the sale, record the buyer's
+   * explicit acceptance with `recordDigitalContentConsent` and pass
+   * `consentMetadata(...)` in here. Keys and values stay short: Stripe caps
+   * a key at 40 characters and a value at 500.
    */
   metadata?: Record<string, string>
-  /** A key that makes a retried create return the first checkout instead of a second one. */
+  /**
+   * A key that makes a retried create return the first checkout instead of
+   * a second one, on Stripe (`Idempotency-Key`) and Creem (`request_id`).
+   * Dodo's checkout API takes none, so a retry there opens a second
+   * checkout: harmless, as only a paid one becomes an order, but dedupe on
+   * the `order.paid` event, never on the checkout.
+   */
   idempotencyKey?: string
 }
 
@@ -163,7 +174,11 @@ export interface VerifiedDelivery {
 export interface ChangePlanRequest {
   subscriptionId: string
   productId: string
-  /** Charge (or credit) the difference now, or move without billing until the next renewal. */
+  /**
+   * Charge (or credit) the difference now, or move without billing until
+   * the next renewal. Stripe refuses `next_period` for a change of billing
+   * interval (monthly to yearly), which it would bill at once.
+   */
   proration: 'immediately' | 'next_period'
   quantity?: number
 }
@@ -199,6 +214,13 @@ export interface CommerceProvider {
   resumeSubscription: (subscriptionId: string) => Promise<void>
   refundOrder: (request: RefundRequest) => Promise<NeutralRefund>
   invoice: (orderId: string) => Promise<InvoiceAnswer>
+  /**
+   * Whether the query the provider appended to the success URL is its own
+   * (`capabilities.signedRedirect`; the others throw
+   * `ProviderUnsupportedError`). It lets a success page trust the ids it
+   * shows; access is still granted by `order.paid`, never by the redirect.
+   */
+  verifyCheckoutRedirect: (search: string | URLSearchParams) => Promise<boolean>
   /**
    * Verify a delivery against the accepted secrets (a rotation accept-list,
    * first entry primary) and read it. `null` when no secret verifies it:
