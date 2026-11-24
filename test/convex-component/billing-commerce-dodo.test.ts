@@ -79,6 +79,7 @@ commerceSuite({
     yearly(entityId) {
       return this.subscription(entityId, { product_id: fixture.ids['pro:year'] })
     },
+    renewed: (subscription, periodEnd) => ({ ...subscription, next_billing_date: new Date(periodEnd).toISOString() }),
     created: subscription => ({ type: 'subscription.active', object: subscription }),
     updated: subscription => ({ type: 'subscription.updated', object: subscription }),
     ended: subscription => ({ type: 'subscription.cancelled', object: { ...subscription, status: 'cancelled' } }),

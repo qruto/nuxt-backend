@@ -4063,6 +4063,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           externalId: string;
           keep?: Array<string>;
           meterId: string;
+          orderId?: string;
           rollover: boolean;
           source: "plan" | "pack" | "grant";
           userId: string;
@@ -4077,10 +4078,29 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         boolean,
         Name
       >;
+      holdReversal: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          amount?: number;
+          kind: "refund" | "dispute";
+          orderId: string;
+          refundId?: string;
+        },
+        boolean,
+        Name
+      >;
       linkCustomer: FunctionReference<
         "mutation",
         "internal",
         { customerId: string; entityId: string; provider: string },
+        null,
+        Name
+      >;
+      linkGrants: FunctionReference<
+        "mutation",
+        "internal",
+        { externalIds: Array<string>; orderId: string; userId: string },
         null,
         Name
       >;
@@ -4159,6 +4179,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { externalId: string; userId: string },
+        number,
+        Name
+      >;
+      revokeOrderGrants: FunctionReference<
+        "mutation",
+        "internal",
+        { orderId: string; userId: string },
         number,
         Name
       >;

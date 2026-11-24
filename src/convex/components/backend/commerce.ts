@@ -68,14 +68,49 @@ export const linkCustomer = mutation({
   },
 })
 
-/** Record a paid order once: `false` for one recorded before (a redelivery). */
+/** Where an order stands with `amount` more refunded (all of what is left when it names none). */
+function refunded(row: Pick<Doc<'billingCommerceOrders'>, 'amount' | 'refundedAmount'>, amount: number | undefined) {
+  const refundedAmount = Math.min(row.amount, row.refundedAmount + (amount === undefined || !Number.isFinite(amount) ? row.amount : Math.max(0, amount)))
+  return { refundedAmount, status: refundedAmount >= row.amount ? 'refunded' as const : 'partially_refunded' as const }
+}
+
+/**
+ * Record a paid order once: `false` for one recorded before (a
+ * redelivery). The refunds and the dispute held for it, which arrived
+ * first, apply as it lands, in the order they came.
+ */
 export const recordOrder = mutation({
   args: commerceOrderFields,
   returns: v.boolean(),
   handler: async (ctx, order) => {
     const existing = await orderRow(ctx, order.orderId)
     if (existing) return false
-    await ctx.db.insert('billingCommerceOrders', { ...order, status: 'paid', refundedAmount: 0, refundIds: [], createdAt: Date.now() })
+    let row: Omit<Doc<'billingCommerceOrders'>, '_id' | '_creationTime'> = { ...order, status: 'paid', refundedAmount: 0, refundIds: [], createdAt: Date.now() }
+    for await (const reversal of ctx.db.query('billingCommerceReversals').withIndex('orderId', q => q.eq('orderId', order.orderId))) {
+      if (reversal.kind === 'dispute') row = { ...row, status: 'disputed' }
+      else if (!row.refundIds.includes(reversal.refundId)) row = { ...row, ...refunded(row, reversal.amount), refundIds: [...row.refundIds, reversal.refundId] }
+      await ctx.db.delete('billingCommerceReversals', reversal._id)
+    }
+    await ctx.db.insert('billingCommerceOrders', row)
+    return true
+  },
+})
+
+/**
+ * Hold a refund or a dispute that names an order not recorded yet, for
+ * the order to apply as it lands (`recordOrder`). Answers `false` when the
+ * order is recorded by now: the caller moves it as it would any other.
+ */
+export const holdReversal = mutation({
+  args: { orderId: v.string(), kind: v.union(v.literal('refund'), v.literal('dispute')), refundId: v.optional(v.string()), amount: v.optional(v.number()) },
+  returns: v.boolean(),
+  handler: async (ctx, { orderId, kind, refundId, amount }) => {
+    if (await orderRow(ctx, orderId)) return false
+    const id = kind === 'dispute' ? 'dispute' : refundId ?? 'refund'
+    for await (const held of ctx.db.query('billingCommerceReversals').withIndex('orderId', q => q.eq('orderId', orderId))) {
+      if (held.refundId === id) return true
+    }
+    await ctx.db.insert('billingCommerceReversals', { orderId, kind, refundId: id, ...(amount === undefined ? {} : { amount }), at: Date.now() })
     return true
   },
 })
@@ -109,9 +144,7 @@ export const refundOrder = mutation({
     const row = await orderRow(ctx, orderId)
     if (!row) return null
     if (row.refundIds.includes(refundId)) return { order: orderOf(row), counted: false }
-    // A refund that names no amount refunds what is left of the order.
-    const refundedAmount = Math.min(row.amount, row.refundedAmount + (amount === undefined || !Number.isFinite(amount) ? row.amount : Math.max(0, amount)))
-    const status = refundedAmount >= row.amount ? 'refunded' as const : 'partially_refunded' as const
+    const { refundedAmount, status } = refunded(row, amount)
     await ctx.db.patch('billingCommerceOrders', row._id, { refundedAmount, status, refundIds: [...row.refundIds, refundId] })
     return { order: { ...orderOf(row), refundedAmount, status }, counted: true }
   },
@@ -227,9 +260,10 @@ export const grantCredits = mutation({
     cycleStart: v.optional(v.number()),
     cycleEnd: v.optional(v.number()),
     keep: v.optional(v.array(v.string())),
+    orderId: v.optional(v.string()),
   },
   returns: v.object({ granted: v.boolean(), balance: v.number() }),
-  handler: async (ctx, { userId, meterId, amount, externalId, source, rollover, cycleStart, cycleEnd, keep }) => {
+  handler: async (ctx, { userId, meterId, amount, externalId, source, rollover, cycleStart, cycleEnd, keep, orderId }) => {
     if (!Number.isFinite(amount) || amount <= 0) throw new Error(`[nuxt-backend] commerce.grantCredits: \`amount\` must be a finite number above zero (got ${amount}).`)
     const row = await entitlementRow(ctx, userId)
     const index = row.meters.findIndex(meter => meter.meterId === meterId)
@@ -239,7 +273,7 @@ export const grantCredits = mutation({
     }
     const lapsed = source === 'plan' ? await lapsePlanGrants(ctx, userId, meter, keep) : 0
     const now = Date.now()
-    await ctx.db.insert('billingCreditGrants', { userId, meterId, externalId, amount, source, rollover, consumedAtGrant: meter.consumedUnits, at: now })
+    await ctx.db.insert('billingCreditGrants', { userId, meterId, externalId, amount, source, rollover, consumedAtGrant: meter.consumedUnits, ...(orderId === undefined ? {} : { orderId }), at: now })
     const next = {
       ...meter,
       balance: meter.balance - lapsed + amount,
@@ -266,23 +300,62 @@ export const revokeGrant = mutation({
   returns: v.number(),
   handler: async (ctx, { userId, externalId }) => {
     const grant = await ctx.db.query('billingCreditGrants').withIndex('externalId', q => q.eq('externalId', externalId)).first()
-    if (!grant || grant.userId !== userId || grant.closed !== undefined) return 0
-    const row = await ctx.db.query('billingEntitlements').withIndex('userId', q => q.eq('userId', userId)).unique()
-    const index = row ? row.meters.findIndex(meter => meter.meterId === grant.meterId) : -1
-    const meter = index === -1 ? undefined : row!.meters[index]!
-    const held = activePendings(row?.pendingSpends, Date.now()).filter(entry => entry.meterId === grant.meterId).reduce((sum, entry) => sum + entry.amount, 0)
-    // Of what open reservations hold, only as much as this grant still has unspent: settled spends since it landed came out of it first.
-    const settledSince = Math.max(0, (meter?.consumedUnits ?? 0) - held - grant.consumedAtGrant)
-    const heldOfIt = Math.min(held, Math.max(0, grant.amount - settledSince))
-    const taken = meter ? Math.min(grant.amount, Math.max(0, meter.balance + heldOfIt)) : 0
-    await ctx.db.patch('billingCreditGrants', grant._id, { closed: taken })
-    if (meter && taken > 0) {
-      const meters = row!.meters.map((entry, at) => at === index ? { ...entry, balance: entry.balance - taken, creditedUnits: entry.creditedUnits - taken } : entry)
-      await ctx.db.patch('billingEntitlements', row!._id, { meters, updatedAt: Date.now() })
+    return grant && grant.userId === userId ? await revoke(ctx, grant) : 0
+  },
+})
+
+/**
+ * Take back every grant an order paid for, each once as `revokeGrant`
+ * takes one: its own, and a yearly plan's months. Answers how many left
+ * the balance.
+ */
+export const revokeOrderGrants = mutation({
+  args: { userId: v.string(), orderId: v.string() },
+  returns: v.number(),
+  handler: async (ctx, { userId, orderId }) => {
+    let taken = 0
+    for (const grant of await ctx.db.query('billingCreditGrants').withIndex('userId_orderId', q => q.eq('userId', userId).eq('orderId', orderId)).collect()) {
+      taken += await revoke(ctx, grant)
     }
     return taken
   },
 })
+
+/**
+ * Tie the grants under `externalIds` that no order paid for yet to
+ * `orderId`: a yearly plan's months the cycle granted before the order
+ * that pays for them arrived.
+ */
+export const linkGrants = mutation({
+  args: { userId: v.string(), orderId: v.string(), externalIds: v.array(v.string()) },
+  returns: v.null(),
+  handler: async (ctx, { userId, orderId, externalIds }) => {
+    for (const externalId of externalIds) {
+      const grant = await ctx.db.query('billingCreditGrants').withIndex('externalId', q => q.eq('externalId', externalId)).first()
+      if (grant && grant.userId === userId && grant.orderId === undefined) await ctx.db.patch('billingCreditGrants', grant._id, { orderId })
+    }
+    return null
+  },
+})
+
+/** Close one grant, as many of its credits as the balance still holds: `0` for one already closed. */
+async function revoke(ctx: MutationCtx, grant: Doc<'billingCreditGrants'>): Promise<number> {
+  if (grant.closed !== undefined) return 0
+  const row = await ctx.db.query('billingEntitlements').withIndex('userId', q => q.eq('userId', grant.userId)).unique()
+  const index = row ? row.meters.findIndex(meter => meter.meterId === grant.meterId) : -1
+  const meter = index === -1 ? undefined : row!.meters[index]!
+  const held = activePendings(row?.pendingSpends, Date.now()).filter(entry => entry.meterId === grant.meterId).reduce((sum, entry) => sum + entry.amount, 0)
+  // Of what open reservations hold, only as much as this grant still has unspent: settled spends since it landed came out of it first.
+  const settledSince = Math.max(0, (meter?.consumedUnits ?? 0) - held - grant.consumedAtGrant)
+  const heldOfIt = Math.min(held, Math.max(0, grant.amount - settledSince))
+  const taken = meter ? Math.min(grant.amount, Math.max(0, meter.balance + heldOfIt)) : 0
+  await ctx.db.patch('billingCreditGrants', grant._id, { closed: taken })
+  if (meter && taken > 0) {
+    const meters = row!.meters.map((entry, at) => at === index ? { ...entry, balance: entry.balance - taken, creditedUnits: entry.creditedUnits - taken } : entry)
+    await ctx.db.patch('billingEntitlements', row!._id, { meters, updatedAt: Date.now() })
+  }
+  return taken
+}
 
 /** Whether a grant was made under `externalId`. */
 export const hasGrant = query({

@@ -58,6 +58,8 @@ export interface ProviderFixture {
     subscription: (entityId: string, fields?: Record<string, unknown>) => Record<string, unknown>
     /** The same, to the yearly Pro price. */
     yearly: (entityId: string) => Record<string, unknown>
+    /** The subscription renewed: its period now ends at `periodEnd` (epoch ms). */
+    renewed: (subscription: Record<string, unknown>, periodEnd: number) => Record<string, unknown>
     created: (subscription: Record<string, unknown>) => FakeEvent
     updated: (subscription: Record<string, unknown>) => FakeEvent
     ended: (subscription: Record<string, unknown>) => FakeEvent
@@ -247,6 +249,54 @@ export function commerceSuite(fixture: ProviderFixture, built: { billing: Billin
       // A chargeback on the year takes back the month its order paid for.
       expect((await deliver(events.dispute('order_year_1'))).status).toBe(200)
       expect(await credits(ada)).toBe(0)
+    })
+
+    test('holds a refund and a dispute that arrive before their order, and applies each as the order lands', async () => {
+      const ada = await freeAda()
+      // The refund first, delivered twice: held once, acknowledged so the provider stops sending it.
+      expect((await deliver(events.refund('order_pack_early', 'refund_early'))).status).toBe(200)
+      expect((await deliver(events.refund('order_pack_early', 'refund_early'))).status).toBe(200)
+      await deliver(events.pack(ada.workspaceId!, 'order_pack_early'))
+      expect(await credits(ada)).toBe(30)
+      // The order again changes nothing: its credits went back once.
+      await deliver(events.pack(ada.workspaceId!, 'order_pack_early'))
+      expect(await credits(ada)).toBe(30)
+      expect((await deliver(events.dispute('order_pack_late'))).status).toBe(200)
+      await deliver(events.pack(ada.workspaceId!, 'order_pack_late'))
+      expect(await credits(ada)).toBe(30)
+      // An order no reversal came before keeps its credits.
+      await deliver(events.pack(ada.workspaceId!, 'order_pack_kept'))
+      expect(await credits(ada)).toBe(130)
+    })
+
+    test('takes back a yearly order\'s months alone, past its renewal and a renewal order that arrives after its month', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'Date'], now: Date.UTC(2027, 0, 10, 12) })
+      try {
+        const ada = await freeAda()
+        const subscription = events.yearly(ada.workspaceId!)
+        api.subscriptions[String(subscription.id ?? subscription.subscription_id)] = subscription
+        await deliver(events.created(subscription))
+        await deliver(events.charge(subscription, 'order_year_1'))
+        await runScheduledNow()
+        expect(await credits(ada)).toBe(400)
+        // A year on the subscription renews, and the cycle grants the new period's month before its order arrives.
+        vi.setSystemTime(Date.UTC(2028, 0, 10, 12))
+        const renewed = events.renewed(subscription, Date.UTC(2029, 0, 10, 12))
+        expect((await deliver(events.updated(renewed))).status).toBe(200)
+        await runScheduledNow()
+        expect(await credits(ada)).toBe(400)
+        expect((await deliver(events.charge(renewed, 'order_year_2'))).status).toBe(200)
+        await runScheduledNow()
+        expect(await credits(ada)).toBe(400)
+        // A chargeback on the first year leaves the renewal's month alone; one on the renewal takes it back.
+        await deliver(events.dispute('order_year_1'))
+        expect(await credits(ada)).toBe(400)
+        await deliver(events.dispute('order_year_2'))
+        expect(await credits(ada)).toBe(0)
+      }
+      finally {
+        vi.useRealTimers()
+      }
     })
 
     test(fixture.schedulesChanges ? 'keeps a plan change for the next period through later deliveries' : 'makes a plan change for the next period at once, as the provider does', async () => {

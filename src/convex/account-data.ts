@@ -510,6 +510,7 @@ export const NO_PERSONAL_DATA: Readonly<Record<string, string>> = {
   monitoringAlerts: 'Which alert fired for which day or month.',
   billingGiftSweep: 'The handle the gift sweep wakes the app by.',
   referralSweep: 'The handle the referral sweep wakes the app by.',
+  billingCommerceReversals: 'A refund or a dispute held for an order not recorded yet: the provider\'s order and refund ids and an amount, naming no one until the order lands.',
   billingLifecycleMarks: 'What the billing lifecycle did once and when, by subscription or checkout id: an annual reminder, an abandoned checkout\'s hand-off.',
   quotaCounters: 'The quota keys storage counts files and bytes under, the same for every account.',
   urlClock: 'When the signed URL clock last ticked: one time for the whole app.',

@@ -522,6 +522,18 @@ export const billingTables = {
   })
     .index('orderId', ['orderId'])
     .index('entityId_createdAt', ['entityId', 'createdAt']),
+  // A refund or a dispute that arrived before the order it names, held
+  // until the order's own delivery records it: the order then lands
+  // refunded or disputed, and its credits go back with it. One row per
+  // refund id (a dispute's is `dispute`), so a redelivery is held once.
+  billingCommerceReversals: defineTable({
+    orderId: v.string(),
+    kind: v.union(v.literal('refund'), v.literal('dispute')),
+    refundId: v.string(),
+    amount: v.optional(v.number()),
+    at: v.number(),
+  })
+    .index('orderId', ['orderId']),
   // Each credit grant on an adapter provider, where no provider meter keeps
   // the balance: once per `externalId` (an order, a free plan's month, a
   // welcome, a refund), so a redelivered event grants once. A plan's grant
@@ -538,10 +550,13 @@ export const billingTables = {
     consumedAtGrant: v.number(),
     /** Set once the grant lapsed or was taken back: what of it left the balance. */
     closed: v.optional(v.number()),
+    /** The order that paid for it, which a refund or a dispute takes it back with: its own, or a yearly plan's month. */
+    orderId: v.optional(v.string()),
     at: v.number(),
   })
     .index('externalId', ['externalId'])
-    .index('userId_meterId', ['userId', 'meterId']),
+    .index('userId_meterId', ['userId', 'meterId'])
+    .index('userId_orderId', ['userId', 'orderId']),
   // What the provider's subscription carries and the synced subscriptions
   // table does not: the plan change scheduled for the next period and when a
   // paused subscription resumes. One row per subscription, written from its
