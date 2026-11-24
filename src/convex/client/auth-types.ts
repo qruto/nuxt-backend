@@ -242,6 +242,25 @@ export interface AuthIntegrations<DM extends GenericDataModel = GenericDataModel
    * providers' records and the app's tables are left.
    */
   account?: AuthAccount
+  /**
+   * The app's `setupBilling` instance (`backend/billing.ts`): every
+   * workspace (or account, with `billTo: 'user'`) the auth layer makes
+   * starts the catalog's free plan through it, and a workspace that still
+   * holds a paid subscription is not deleted. A Convex Auth app needs it
+   * here, since its auth runs in its own functions and not on the routes
+   * `registerBackendRoutes` mounts (which connects it for a Better Auth
+   * app). Without it, a new entity's free plan is queued by name
+   * (`billing:startFreePlan`), and nothing holds a paid workspace's deletion.
+   */
+  billing?: AuthBilling
+}
+
+/** What `setupAuth` reads of the `setupBilling` instance. */
+export interface AuthBilling {
+  /** @internal */
+  entityCreated?: (ctx: never, entity: { kind: 'workspace' | 'user', id: string }) => Promise<void>
+  /** @internal */
+  deletionRefusal?: (ctx: never, entity: { kind: 'workspace' | 'user', id: string }) => Promise<string | null>
 }
 
 /** What `setupAuth` reads of the `setupAccess` instance. */

@@ -115,3 +115,24 @@ export async function announceEntity<DM extends GenericDataModel>(runtime: AuthR
     }
   }
 }
+
+/** The `createAuth` functions billing is connected to already, so a second connection adds nothing. */
+const connected = new WeakSet<object>()
+
+/**
+ * Connect billing to the entities one `createAuth` makes and deletes:
+ * `setupAuth({ billing })`, and `registerBackendRoutes` for an app that
+ * passed none there. Once per `createAuth`.
+ *
+ * @internal
+ */
+export function connectBilling(createAuth: object, billing: {
+  entityCreated?: (ctx: never, entity: CreatedEntity) => Promise<void>
+  deletionRefusal?: (ctx: never, entity: CreatedEntity) => Promise<string | null>
+}): void {
+  if (connected.has(createAuth)) return
+  connected.add(createAuth)
+  const { entityCreated, deletionRefusal } = billing
+  if (typeof entityCreated === 'function') onEntityCreated(createAuth, (ctx, entity) => entityCreated(ctx as never, entity))
+  if (typeof deletionRefusal === 'function') onEntityDeleting(createAuth, (ctx, entity) => deletionRefusal(ctx as never, entity))
+}

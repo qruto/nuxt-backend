@@ -3,6 +3,7 @@ import { components, internal } from './_generated/api'
 import { query } from './_generated/server'
 import { account } from './account'
 import { audit } from './audit'
+import { billing } from './billing'
 import { email } from './email'
 import { paths } from './paths.generated'
 import { rateLimiter } from './rateLimiter'
@@ -49,6 +50,9 @@ export const {
   // Erase a deleted account everywhere through account.ts: the backend's
   // tables, the billing customer, the email contact and your sources.
   account,
+  // Start each new workspace on the catalog's free plan, and keep a
+  // workspace that still pays from being deleted, through billing.ts.
+  billing,
   // Launching in phases (early access, invite only)? Add backend/access.ts
   // with setupAccess, and pass it here as `access`.
   // Start the onboarding sequence (workflows.ts) when a user signs up. The

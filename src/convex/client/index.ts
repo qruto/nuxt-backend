@@ -9,7 +9,7 @@ import type { AuthBuildOptions, AuthIntegrations, AuthSetupComponents, DeviceSes
 import { buildAuthOptions } from './better-auth-options.js'
 import { type BackendPaths, resolveBackendPaths } from '../paths.js'
 import { componentAdapterRefs, createAuthComponent, resolveIntegrations } from './component.js'
-import { deletionGuardsOf, entityListenersOf } from './entities.js'
+import { connectBilling, deletionGuardsOf, entityListenersOf } from './entities.js'
 import { identitySessionId } from './identity.js'
 import { userSessions } from './sessions.js'
 import { convexAuthCore, resolveCoreTtl } from './convex-auth/core.js'
@@ -287,7 +287,7 @@ function setupAuthEngine<DM extends GenericDataModel>(
   options: SetupAuthOptions<DM>,
 ) {
   assertSetupOptions(options)
-  const { email: _email, rateLimiter: _rateLimiter, onUserCreated: _onUserCreated, canSignIn: _canSignIn, onUserDeleted: _onUserDeleted, audit: _audit, account: _account, access, sessions: _sessions, ...buildOptions } = options
+  const { email: _email, rateLimiter: _rateLimiter, onUserCreated: _onUserCreated, canSignIn: _canSignIn, onUserDeleted: _onUserDeleted, audit: _audit, account: _account, access, sessions: _sessions, billing, ...buildOptions } = options
   const authComponent = createAuthComponent<DM>(components.backend)
   const runtime = { ...resolveIntegrations(components, integrationsOf(options)), ...(access ? { access: access.gate } : {}), paths: resolveBackendPaths(options.paths, 'setupAuth') }
 
@@ -297,6 +297,7 @@ function setupAuthEngine<DM extends GenericDataModel>(
   const createAuth = (ctx: GenericCtx<DM>) => betterAuth(buildAuthOptions(authComponent.adapter(ctx), buildOptions, { ctx, ...runtime, entityCreated: listened, entityDeleting: guarded }))
   const listened = entityListenersOf(createAuth)
   const guarded = deletionGuardsOf(createAuth)
+  if (billing) connectBilling(createAuth, billing)
 
   return {
     authComponent,
