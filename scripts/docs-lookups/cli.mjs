@@ -111,7 +111,7 @@ export const FINDING_DOCS = {
     fix: 'Pass the generated `paths` on as the scaffold does, then let `npx convex dev` push, or deploy.',
   },
   'auth-provider': {
-    checks: 'Whether `nuxt.config` runs Convex Auth (`backend.auth: \'convex-auth\'`). Only then is there a finding: it warns that the app is sign-in only, with the package\'s pages, page guard, workspaces, billing, AI credits and account features off, and that the checks of `AUTH_SECRET`, the sign-in pages and those features do not apply. No finding for a Better Auth app, or when `nuxt.config` cannot be read.',
+    checks: 'Whether `nuxt.config` runs Convex Auth (`backend.auth: \'convex-auth\'`). Only then is there a finding: it warns that the app is sign-in only, with the package\'s pages, page guard, workspaces, billing, AI credits and account features off, and doctor leaves out the checks that do not apply: `auth-secret`, `site-url`, `backend-site-url` and every billing check. No finding for a Better Auth app, or when `nuxt.config` cannot be read.',
     why: 'In this mode the package\'s account features do not run, so a failing check of one says nothing about the app.',
     fix: 'Nothing to fix: it reports the mode. To run Better Auth again, remove `backend.auth` ([Sign in with Convex Auth](/docs/build/auth/convex-auth)).',
   },

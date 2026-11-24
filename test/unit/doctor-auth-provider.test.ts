@@ -46,7 +46,7 @@ describe('auth-provider', () => {
     expect(rest).toEqual([])
     expect(found).toMatchObject({ status: 'warn', capability: 'auth' })
     expect(found!.message).toContain('workspaces, billing, AI credits and the account features are off')
-    expect(found!.message).toContain('do not apply')
+    expect(found!.message).toContain('do not apply, and are left out')
     expect(found!.fixHint).toContain('https://nuxt-backend.dev/docs/build/auth/convex-auth')
   })
 
@@ -64,5 +64,16 @@ describe('auth-provider', () => {
   it('says nothing for a Better Auth app', async () => {
     app(`export default { backend: {} }\n`)
     expect(await authProvider()).toEqual([])
+  })
+
+  it('leaves out the checks of Better Auth and billing, which do not apply', async () => {
+    const skipped = (ids: string[]) => ids.filter(id => ['auth-secret', 'site-url', 'backend-site-url'].includes(id) || id.startsWith('billing-'))
+    app(`export default { backend: {} }\n`)
+    expect(skipped((await runDoctorChecks(rootDir, { prod: false })).map(entry => entry.id))).toEqual(expect.arrayContaining(['auth-secret', 'site-url', 'billing-access']))
+    app(`export default { backend: { auth: 'convex-auth' } }\n`)
+    const found = await runDoctorChecks(rootDir, { prod: false })
+    expect(skipped(found.map(entry => entry.id))).toEqual([])
+    expect(found.some(entry => entry.capability === 'billing')).toBe(false)
+    expect(await runDoctorChecks(rootDir, { prod: false, only: ['billing'] })).toEqual([])
   })
 })
