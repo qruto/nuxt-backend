@@ -236,6 +236,23 @@ describe('billing on Stripe Managed Payments (BILLING_PROVIDER=stripe)', { timeo
     expect(await credits(ada)).toBe(30)
   })
 
+  test('reads the customer state from the plan and the ledger, and forgets both on the entity\'s erasure', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    const entityId = ada.workspaceId!
+    await t.action(internalFn('billing:startFreePlan'), { entityId })
+    stripe.subscriptions.sub_test_1 = subscriptionOf(entityId)
+    await deliver('customer.subscription.created', stripe.subscriptions.sub_test_1)
+    await deliver('invoice.paid', invoiceOf(entityId))
+    const billing = built.billing!
+    const state = await t.run(ctx => billing.getCustomerState(ctx as never, { userId: entityId }))
+    expect(state).toMatchObject({ customerId: 'cus_test_1', activeProductIds: ['price_pro_month'], meters: [{ meterId: 'credits', balance: 400 }] })
+    expect(state.benefits).toContainEqual(expect.objectContaining({ kind: 'feature', metadata: expect.objectContaining({ key: 'priority_queue' }) }))
+    expect(state.benefits.some(benefit => benefit.kind === 'credits')).toBe(true)
+    await t.run(ctx => billing.forgetEntity!(ctx as never, entityId))
+    expect(await t.query(components.backend.commerce.customerOf, { entityId, provider: 'stripe' })).toBeNull()
+    expect(await t.query(components.backend.billing.getByUser, { userId: entityId })).toBeNull()
+  })
+
   test('cancels at the period\'s end through Stripe, and returns to the free plan when the subscription ends', async () => {
     const ada = await asUser(t, { email: 'ada@example.com' })
     const subscription = subscriptionOf(ada.workspaceId!)
@@ -466,5 +483,55 @@ describe('the credit grant ledger of adapter mode', () => {
     expect(await t.mutation(ledger.refundOrder, { orderId: 'none', refundId: 'r3' })).toBeNull()
     expect(await t.mutation(ledger.disputeOrder, { orderId: 'o2' })).toMatchObject({ status: 'disputed' })
     expect(await t.mutation(ledger.disputeOrder, { orderId: 'none' })).toBeNull()
+  })
+
+  test('applies the refunds and the dispute held for an order as it lands, each refund once and in the order they came', async () => {
+    const order = { orderId: 'o3', provider: 'dodo', entityId: 'w7', amount: 1000, currency: 'usd' }
+    expect(await t.mutation(ledger.holdReversal, { orderId: 'o3', kind: 'refund', refundId: 'r1', amount: 300 })).toBe(true)
+    expect(await t.mutation(ledger.holdReversal, { orderId: 'o3', kind: 'refund', refundId: 'r1', amount: 300 })).toBe(true)
+    expect(await t.mutation(ledger.holdReversal, { orderId: 'o3', kind: 'refund', refundId: 'r2', amount: 200 })).toBe(true)
+    expect(await t.mutation(ledger.recordOrder, order)).toBe(true)
+    expect(await t.query(ledger.getOrder, { orderId: 'o3' })).toMatchObject({ status: 'partially_refunded', refundedAmount: 500 })
+    // Recorded now: a later reversal moves the order as any other, and nothing is held for it.
+    expect(await t.mutation(ledger.holdReversal, { orderId: 'o3', kind: 'dispute' })).toBe(false)
+    expect((await t.mutation(ledger.refundOrder, { orderId: 'o3', refundId: 'r1', amount: 300 }))?.counted).toBe(false)
+    // A dispute, then a refund naming no amount: refunded whole.
+    await t.mutation(ledger.holdReversal, { orderId: 'o4', kind: 'dispute' })
+    await t.mutation(ledger.holdReversal, { orderId: 'o4', kind: 'refund' })
+    await t.mutation(ledger.recordOrder, { ...order, orderId: 'o4' })
+    expect(await t.query(ledger.getOrder, { orderId: 'o4' })).toMatchObject({ status: 'disputed', refundedAmount: 1000 })
+    // A refund alone, in part: the order lands part paid, its credits kept.
+    await t.mutation(ledger.holdReversal, { orderId: 'o9', kind: 'refund', refundId: 'r9', amount: 100 })
+    await t.mutation(ledger.recordOrder, { ...order, orderId: 'o9' })
+    expect(await t.query(ledger.getOrder, { orderId: 'o9' })).toMatchObject({ status: 'partially_refunded', refundedAmount: 100 })
+  })
+
+  test('grants a yearly plan\'s month to the order paying for its period, read as it lands, and none once that order is taken back', async () => {
+    const month = (externalId: string, since: number) =>
+      t.mutation(ledger.grantCredits, { userId: 'w10', meterId: 'credits', amount: 100, externalId, source: 'plan', rollover: true, paidBy: { subscriptionId: 'sub_y', since } })
+    // Before its order: granted, tied to none.
+    expect((await month('y:m1', 0)).granted).toBe(true)
+    await t.mutation(ledger.recordOrder, { orderId: 'oy', provider: 'dodo', entityId: 'w10', subscriptionId: 'sub_y', amount: 12000, currency: 'usd' })
+    expect((await month('y:m2', 0)).granted).toBe(true)
+    // An order recorded before the period began pays for none of it.
+    await month('y:m3', Date.now() + 60_000)
+    expect(await t.mutation(ledger.revokeOrderGrants, { userId: 'w10', orderId: 'oy' })).toBe(100)
+    await t.mutation(ledger.disputeOrder, { orderId: 'oy' })
+    expect(await month('y:m4', 0)).toMatchObject({ granted: false })
+  })
+
+  test('takes back every grant an order paid for, and ties to it only the grants no order paid for yet', async () => {
+    await t.mutation(ledger.grantCredits, { userId: 'w8', meterId: 'credits', amount: 100, externalId: 'year:m1', source: 'plan', rollover: true, orderId: 'o5' })
+    await grant('w8', 'year:m2', 100, 'plan', true)
+    await grant('w9', 'year:m2-other', 100, 'plan', true)
+    await t.mutation(ledger.linkGrants, { userId: 'w8', orderId: 'o6', externalIds: ['year:m1', 'year:m2', 'year:m2-other', 'missing'] })
+    // m1 stays the first order's; m2 is the second's; another entity's grant is left alone.
+    expect(await t.mutation(ledger.revokeOrderGrants, { userId: 'w8', orderId: 'o5' })).toBe(100)
+    expect(await t.mutation(ledger.revokeOrderGrants, { userId: 'w8', orderId: 'o6' })).toBe(100)
+    expect(await t.mutation(ledger.revokeOrderGrants, { userId: 'w8', orderId: 'o6' })).toBe(0)
+    // A grant is taken back only for the entity it was made to.
+    expect(await t.mutation(ledger.revokeGrant, { userId: 'w8', externalId: 'year:m2-other' })).toBe(0)
+    expect(await balance('w8')).toBe(0)
+    expect(await balance('w9')).toBe(100)
   })
 })

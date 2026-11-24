@@ -120,6 +120,22 @@ function periodBounds(subscription: Pick<SubscriptionRow, 'currentPeriodStart' |
   return { ...(cycleStart === undefined ? {} : { cycleStart }), ...(cycleEnd === undefined ? {} : { cycleEnd }) }
 }
 
+/**
+ * Where the period an order pays for starts: its subscription's period
+ * start while that period holds the order, else a day before the order.
+ * The subscription's own delivery can start the cycle first, so its first
+ * month can be the one before the order's.
+ */
+function periodStartOf(subscription: Pick<SubscriptionRow, 'currentPeriodStart'> | null, orderedAt: number): number {
+  const start = msOf(subscription?.currentPeriodStart)
+  return start !== undefined && start <= orderedAt ? start : orderedAt - DAY_MS
+}
+
+/** Whether a recorded order was taken back whole: refunded in full or disputed. */
+function reversed(order: { status: string }): boolean {
+  return order.status === 'refunded' || order.status === 'disputed'
+}
+
 /** The provider component's subscription read, which the structural refs leave out. */
 type GetSubscription = FunctionReference<'query', 'internal', { id: string }, SubscriptionRow | null>
 
@@ -244,21 +260,37 @@ export function createCommerceEvents(
    * the monthly cycle instead, once its subscription is synced: before
    * that, the subscription's own delivery starts it.
    */
-  const grantOrder = async (ctx: RunWriteCtx, entityId: string, order: NeutralOrder, product: CatalogProduct): Promise<void> => {
+  const grantOrder = async (ctx: RunWriteCtx, entityId: string, order: NeutralOrder, product: CatalogProduct, orderedAt: number): Promise<void> => {
     if (product?.kind === 'pack') {
       const pack = definition.packs![product.key]!
-      await ctx.runMutation(refs.grantCredits, { userId: entityId, meterId: pack.credits.meter, amount: pack.credits.units, externalId: `order:${order.id}`, source: 'pack', rollover: pack.credits.rollover ?? true })
+      await ctx.runMutation(refs.grantCredits, { userId: entityId, meterId: pack.credits.meter, amount: pack.credits.units, externalId: `order:${order.id}`, source: 'pack', rollover: pack.credits.rollover ?? true, orderId: order.id })
       return
     }
     const credits = product?.kind === 'plan' ? product.plan.credits : undefined
     if (product?.kind !== 'plan' || !credits || credits.once) return
     const subscription = await subscriptionOf(ctx, order.subscriptionId)
     if (monthlyCycleOf(product)) {
+      await linkMonths(ctx, entityId, order.id, product.key, subscription, orderedAt)
       if (subscription && subscription.endedAt == null) await (ctx as QueueCtx).scheduler.runAfter(0, cycleReference, { entityId })
       return
     }
     const units = planCreditUnits(credits, product.interval)
-    if (units) await ctx.runMutation(refs.grantCredits, { userId: entityId, meterId: credits.meter, amount: units, externalId: `order:${order.id}`, source: 'plan', rollover: credits.rollover ?? false, ...periodBounds(subscription) })
+    if (units) await ctx.runMutation(refs.grantCredits, { userId: entityId, meterId: credits.meter, amount: units, externalId: `order:${order.id}`, source: 'plan', rollover: credits.rollover ?? false, orderId: order.id, ...periodBounds(subscription) })
+  }
+
+  /**
+   * The months of an order's period the cycle granted before the order
+   * arrived, tied to it to take back: from when it was recorded, never past
+   * a later period's start (a redelivered year-old order). A month's key is
+   * shared by the periods on either side of a renewal, so the grant's own
+   * time decides.
+   */
+  const linkMonths = async (ctx: RunWriteCtx, entityId: string, orderId: string, planKey: string, subscription: SubscriptionRow | null, orderedAt: number): Promise<void> => {
+    const periodStart = msOf(subscription?.currentPeriodStart)
+    const until = periodStart !== undefined && periodStart > orderedAt ? periodStart - 1 : undefined
+    const from = periodStartOf(subscription, orderedAt)
+    const externalIds = monthsBetween(from, until ?? Date.now()).map(month => `cycle:${entityId}:${planKey}:${month}`)
+    await ctx.runMutation(refs.linkGrants, { userId: entityId, orderId, externalIds, from, ...(until === undefined ? {} : { until }) })
   }
 
   /** A subscription's order that arrived before the subscription it renews: failed, the provider delivers it again. */
@@ -289,47 +321,53 @@ export function createCommerceEvents(
     })
     // A redelivered order grants again what an earlier attempt may not have: each grant lands once by its key.
     const product = productOf(productId)
-    await grantOrder(ctx, entityId, order, product)
+    const stored = await ctx.runQuery(refs.getOrder, { orderId: order.id })
+    await grantOrder(ctx, entityId, order, product, stored?.createdAt ?? Date.now())
+    await settleRecorded(ctx, entityId, order, product, recorded, stored)
+  }
+
+  /**
+   * The rest of a paid order's delivery once its grants landed and its
+   * months were linked: a refund or a dispute that came before it (applied
+   * as it was recorded) or while they landed takes them back at once, the
+   * order read again for it; then the plan is written again, and a first
+   * delivery goes on the activity trail.
+   */
+  const settleRecorded = async (ctx: RunWriteCtx, entityId: string, order: NeutralOrder, product: CatalogProduct, recorded: boolean, stored: { refundedAmount: number } | null): Promise<void> => {
+    const now = await ctx.runQuery(refs.getOrder, { orderId: order.id })
+    if (now && reversed(now)) await takeBack(ctx, now)
     await refreshEntitlements(ctx, entityId)
-    if (recorded) await recordEvent(ctx, entityId, { type: 'billing.order_paid', actor: null, targetId: order.id, data: { amount: order.amount, currency: order.currency, ...(product?.kind === 'plan' ? { interval: product.interval } : {}) } })
+    if (!recorded) return
+    await recordEvent(ctx, entityId, { type: 'billing.order_paid', actor: null, targetId: order.id, data: { amount: order.amount, currency: order.currency, ...(product?.kind === 'plan' ? { interval: product.interval } : {}) } })
+    if (stored?.refundedAmount) await recordEvent(ctx, entityId, { type: 'billing.order_refunded', actor: null, targetId: order.id, data: { amount: stored.refundedAmount, currency: order.currency } })
   }
 
   /**
    * A refunded or disputed order's credits taken back, as many as the
-   * balance still holds: its own grant, and a yearly plan's on a monthly
-   * cycle, the cycle grants of its months since. Each closes once, so a
-   * second attempt takes nothing twice.
+   * balance still holds: every grant it paid for, its own and a yearly
+   * plan's months on a monthly cycle. Each closes once, so a second attempt
+   * takes nothing twice.
    */
-  const takeBack = async (ctx: RunWriteCtx, order: { entityId: string, orderId: string, productId?: string, subscriptionId?: string, createdAt: number }): Promise<void> => {
-    await ctx.runMutation(refs.revokeGrant, { userId: order.entityId, externalId: `order:${order.orderId}` })
-    const product = productOf(order.productId)
-    if (!monthlyCycleOf(product)) return
-    for (const month of monthsBetween(await periodStartOf(ctx, order), Date.now())) {
-      await ctx.runMutation(refs.revokeGrant, { userId: order.entityId, externalId: `cycle:${order.entityId}:${product!.key}:${month}` })
-    }
+  const takeBack = async (ctx: RunWriteCtx, order: { entityId: string, orderId: string }): Promise<void> => {
+    await ctx.runMutation(refs.revokeOrderGrants, { userId: order.entityId, orderId: order.orderId })
   }
 
   /**
-   * Where an order's year of cycle months starts: its subscription's period
-   * start while that period holds the order, else a day before the order.
-   * The subscription's own delivery can start the cycle first, so its first
-   * month can be the one before the order's.
+   * Whether a refund or a dispute moves its order now: not while the
+   * order's entity is being erased, nor before the order is recorded, when
+   * it is held for the order to apply as it lands.
    */
-  const periodStartOf = async (ctx: RunWriteCtx, order: { subscriptionId?: string, createdAt: number }): Promise<number> => {
-    const start = msOf((await subscriptionOf(ctx, order.subscriptionId ?? null))?.currentPeriodStart)
-    return start !== undefined && start <= order.createdAt ? start : order.createdAt - DAY_MS
-  }
-
-  /** The recorded order a refund or a dispute names, unless its entity is being erased. */
-  const orderToMove = async (ctx: RunWriteCtx, orderId: string) => {
+  const movesNow = async (ctx: RunWriteCtx, orderId: string, reversal: { kind: 'refund' | 'dispute', refundId?: string, amount?: number }): Promise<boolean> => {
     const order = await ctx.runQuery(refs.getOrder, { orderId })
-    return order && !await entityDeleting(ctx, order.entityId) ? order : null
+    if (order) return !await entityDeleting(ctx, order.entityId)
+    return !await ctx.runMutation(refs.holdReversal, { orderId, ...reversal })
   }
 
   const onRefund = async (ctx: RunWriteCtx, event: Extract<NeutralBillingEvent, { type: 'order.refunded' }>): Promise<void> => {
     const { refund } = event
     // A refund pending or failed moves nothing: its `succeeded` delivery does.
-    if (refund.status !== 'succeeded' || !refund.orderId || !await orderToMove(ctx, refund.orderId)) return
+    if (refund.status !== 'succeeded' || !refund.orderId) return
+    if (!await movesNow(ctx, refund.orderId, { kind: 'refund', refundId: refund.id, ...(refund.amount === null ? {} : { amount: refund.amount }) })) return
     const counted = await ctx.runMutation(refs.refundOrder, { orderId: refund.orderId, refundId: refund.id, ...(refund.amount === null ? {} : { amount: refund.amount }) })
     if (!counted) return
     const { order } = counted
@@ -340,7 +378,7 @@ export function createCommerceEvents(
   }
 
   const onDispute = async (ctx: RunWriteCtx, orderId: string | null): Promise<void> => {
-    if (!orderId || !await orderToMove(ctx, orderId)) return
+    if (!orderId || !await movesNow(ctx, orderId, { kind: 'dispute' })) return
     const order = await ctx.runMutation(refs.disputeOrder, { orderId })
     if (!order) return
     await takeBack(ctx, order)
@@ -356,10 +394,10 @@ export function createCommerceEvents(
     if (commerce.config.onEvent) await commerce.config.onEvent(ctx, event, delivery)
   }
 
-  /** The products of the entity's live subscriptions. */
-  const liveProducts = async (ctx: RunWriteCtx, entityId: string): Promise<string[]> => {
-    const all = await provider.listAllUserSubscriptions(ctx as unknown as ProviderCtx, { userId: entityId }) as Array<{ productId: string, status: string, endedAt?: string | null }>
-    return all.filter(subscription => subscription.endedAt == null && LIVE_STATUSES.has(subscription.status)).map(subscription => subscription.productId)
+  /** The entity's live subscriptions. */
+  const liveSubscriptions = async (ctx: RunWriteCtx, entityId: string): Promise<SubscriptionRow[]> => {
+    const all = await provider.listAllUserSubscriptions(ctx as unknown as ProviderCtx, { userId: entityId }) as SubscriptionRow[]
+    return all.filter(subscription => subscription.endedAt == null && LIVE_STATUSES.has(subscription.status))
   }
 
   /** The month of credits one plan grants, with its key; `null` for none. */
@@ -375,13 +413,17 @@ export function createCommerceEvents(
    * free plan's while it holds no subscription. The provider's invoices
    * grant the rest.
    */
-  const monthlyCredits = async (ctx: RunWriteCtx, entityId: string) => {
-    const live = await liveProducts(ctx, entityId)
+  const monthlyCredits = async (ctx: RunWriteCtx, entityId: string): Promise<Array<NonNullable<ReturnType<typeof monthOfPlan>> & { paidBy?: { subscriptionId: string, since: number } }>> => {
+    const live = await liveSubscriptions(ctx, entityId)
     if (live.length === 0) {
       const free = context.catalogIds?.free ? monthOfPlan(productOf(context.freePlan?.productId)) : null
       return free ? [free] : []
     }
-    return live.map(productOf).filter(monthlyCycleOf).map(monthOfPlan).filter(month => month !== null)
+    return live.filter(subscription => monthlyCycleOf(productOf(subscription.productId))).flatMap((subscription) => {
+      const month = monthOfPlan(productOf(subscription.productId))
+      // Paid for by the subscription's order of this period, which the grant reads as it lands.
+      return month ? [{ ...month, paidBy: { subscriptionId: subscription.id, since: periodStartOf(subscription, Date.now()) - DAY_MS } }] : []
+    })
   }
 
   /**
@@ -418,6 +460,7 @@ export function createCommerceEvents(
           cycleEnd: nextMonth(now),
           // Each plan's month lapses the months before it, never another live plan's of this one.
           keep: months.map(keyOf),
+          ...(month.paidBy ? { paidBy: month.paidBy } : {}),
         })
         granted ||= grant.granted
       }
