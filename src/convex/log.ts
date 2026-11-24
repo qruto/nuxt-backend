@@ -74,6 +74,7 @@ export const LOG_CODES = {
   'billing.withdrawal_receipt_failed': 'An EU withdrawal went through at the provider, but its receipt email could not be sent; the activity trail holds its date and time.',
   'billing.consent_unrecorded': 'A renewing checkout was created, but the proof of its renewal consent could not be kept.',
   'billing.reverse_trial_failed': 'A new workspace stayed on the free plan: its reverse trial could not start.',
+  'billing.commerce_unknown_entity': 'A billing delivery from Stripe, Dodo or Creem named no billing entity the app knows; it was acknowledged and left out.',
   'billing.welcome_credits_unqueued': 'A new billing entity started on the free plan, but its welcome credits could not be queued.',
   'billing.welcome_credits_unsynced': 'Welcome credits were granted, but the balance could not be read back yet.',
   'billing.pass_period_unaligned': 'A claimed plan pass kept the provider\'s billing period instead of starting its first month at the claim; its end date still holds, enforced by the sweep.',

@@ -192,6 +192,7 @@
         "CheckoutTrial",
         "ClaimRefusal",
         "ClientProrationBehavior",
+        "CommerceConfig",
         "CommerceEventHandler",
         "CommerceProvider",
         "CommerceWebhookOptions",

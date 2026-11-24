@@ -1,4 +1,5 @@
 import { createCheckout } from './billing/checkout.js'
+import { createCommerceEvents } from './billing/commerce-events.js'
 import { BILLING_METERS, BILLING_TO, createBillingContext } from './billing/context.js'
 import { createCredits } from './billing/credits.js'
 import { createCustomers } from './billing/customers.js'
@@ -79,7 +80,7 @@ export type {
   Pricing,
   QuotaUsage,
 } from './billing/types/records.js'
-export type { BillingWebhookEventHandlers, SaveOfferTerms, BillingComponents, BillingEmail, BillingEntity, BillingAccessRule, BillingEntityCtx, EntityProfile, SetupBillingConfig } from './billing/types/setup.js'
+export type { BillingWebhookEventHandlers, SaveOfferTerms, BillingComponents, BillingEmail, BillingEntity, BillingAccessRule, BillingEntityCtx, EntityProfile, SetupBillingConfig, CommerceConfig } from './billing/types/setup.js'
 export type { AccountBillingErasure, AccountBillingErasureInput, AccountBillingExport, AccountBillingRecord, Billing } from './billing/types/surface.js'
 export type { BillingAudit } from './billing/activity.js'
 export type { BillingLifecycle, CancelFlowState, CancelOutcome, BillingConsole, SaveOffer, SaveOfferRule, WithdrawalPeriod } from './billing/types/lifecycle.js'
@@ -216,7 +217,10 @@ export function setupBilling(
   const { giftCheckout, claimGift, getReceivedGifts, getSentGifts, resendGift, changeGiftRecipient, rescheduleGift, cancelGift, runGiftSweep } = gifts
   const functions = createBillingFunctions(context, entitlements, subscriptions, history, customers, quotas, freePlan, lifecycle, revenue, gifts)
   const { resyncEntitlements } = createResync(context, entitlements)
-  const { webhookEvents, webhookHandler } = createWebhooks(context, entitlements, gifts, customers, subscriptions, freePlan, lifecycle, createReferralOrders(context, rewards))
+  // Adapter mode: the provider's neutral events and the credit cycle it does not run.
+  const commerceEvents = context.commerce ? createCommerceEvents(context, entitlements, customers, freePlan) : null
+  if (commerceEvents) freePlan.hooks.localStart = commerceEvents.cycle
+  const { webhookEvents, webhookHandler: polarWebhookHandler } = createWebhooks(context, entitlements, gifts, customers, subscriptions, freePlan, lifecycle, createReferralOrders(context, rewards))
   const { hasFeature, requireFeature, activePlans } = createFeatures(context, pricing)
   // The counts first: they are found by the grants the cache still holds.
   const forgetBillingEntity: Billing['forgetEntity'] = async (ctx, userId) => {
@@ -270,7 +274,7 @@ export function setupBilling(
       getRevenue: functions.getRevenueFn,
     },
     webhookEvents,
-    webhookHandler,
+    webhookHandler: commerceEvents ? commerceEvents.webhookHandler : polarWebhookHandler,
     getCustomerState,
     checkout,
     portal: customers.portal,

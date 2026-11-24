@@ -1,5 +1,6 @@
 import { benefitsGet } from '@polar-sh/sdk/funcs/benefitsGet.js'
 import { customersGetStateExternal } from '@polar-sh/sdk/funcs/customersGetStateExternal.js'
+import { createCommerceEntitlements } from './commerce-entitlements.js'
 import { type BillingContext, isProviderNotFound } from './context.js'
 import type { BillingCustomers } from './customers.js'
 import type { RunQueryCtx, RunWriteCtx } from './types/base.js'
@@ -64,9 +65,12 @@ function grantDetails(grant: StateGrant): Pick<EntitlementBenefit, 'licenseKey' 
 
 /** The entitlement cache: read live from the provider, written to the component, forgotten on erasure. */
 export function createEntitlements(
-  { provider, cache, unwrapProvider }: BillingContext,
+  context: BillingContext,
   { keyedCustomer }: Pick<BillingCustomers, 'keyedCustomer'>,
 ) {
+  // Adapter mode keeps no provider customer state: the app's records are the state.
+  if (context.commerce) return createCommerceEntitlements(context)
+  const { provider, cache, unwrapProvider } = context
   /**
    * An entity's customer state, by the entity's id, the customer's external
    * id. An entity that never paid has no customer, and the provider says so.

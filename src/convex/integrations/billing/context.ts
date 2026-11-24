@@ -5,6 +5,7 @@ import { type BillingLaunch, billingLaunch } from '../../billing-launch.js'
 import { BILLING_MANAGER_ROLES, RECENT_SIGN_IN_SECONDS } from '../../constants.js'
 import { type AdapterFindOne, type CallerRule, callerRefusal, createAccessReads, hasAnyRole, refuseCaller, refuseStaleSignIn, sandboxAdminRefusal } from '../access.js'
 import { createBillingActivity, type RecordBillingEvent } from './activity.js'
+import { catalogProductRows, type CommerceMode, commerceModeOf, refusingPolarClient } from './commerce.js'
 import { syncProviderProducts } from './provider-events.js'
 import { markPassing } from './provider-failure.js'
 import { markRateLimited } from './rate-limit.js'
@@ -159,6 +160,13 @@ export interface BillingContext {
   /** The account as the user table holds it now (role, ban), read once per call; `null` once it is deleted. */
   account: (ctx: RunQueryCtx, userId: string) => Promise<{ role: string, banned: boolean } | null>
   provider: Polar
+  /**
+   * Adapter mode (`BILLING_PROVIDER` stripe, dodo or creem): the adapter,
+   * the component's records and the ids in force; `null` on Polar. In
+   * adapter mode `provider` reads the component's tables only: its SDK
+   * client refuses every call.
+   */
+  commerce: CommerceMode | null
   cache: BillingComponents['backend']['billing']
   providerLib: ProviderLibRefs['lib']
   webhookLog: BillingComponents['backend']['webhooks']
@@ -203,10 +211,13 @@ export function createBillingContext(components: BillingComponents, config: Setu
   const environment = billingEnvironment(backendEnvironment())
   const accessToken = config.accessToken ?? readEnv('BILLING_ACCESS_TOKEN')
   const webhookSecret = config.webhookSecret ?? readEnv('BILLING_WEBHOOK_SECRET')
+  // A provider on the neutral adapters keeps nothing of the catalog: its
+  // definition and the provider's ids stand in for billing sync's map.
+  const commerce = commerceModeOf(components, config, readEnv('BILLING_PROVIDER'), environment, accessToken)
 
   // The generated catalog (billing.generated.ts) supplies the environment's
   // product ids and named credit meters; explicit config wins over it.
-  const catalogIds = config.catalog?.[environment]
+  const catalogIds = commerce ? commerce.ids : config.catalog?.[environment]
   const products = config.products ?? catalogIds?.products
   const retiredProductIds = new Set((catalogIds?.retired ?? []).flatMap(key => Object.values(catalogIds?.plans?.[key] ?? {})))
   const freePlan = freePlanIds(catalogIds)
@@ -350,6 +361,7 @@ export function createBillingContext(components: BillingComponents, config: Setu
     organizationToken: accessToken,
     server: environment,
   })
+  if (commerce) provider.polar = refusingPolarClient(commerce.name)
   const cache = components.backend.billing
   const providerLib = (components.polar as unknown as ProviderLibRefs).lib
   const webhookLog = components.backend.webhooks
@@ -502,6 +514,7 @@ export function createBillingContext(components: BillingComponents, config: Setu
     memberRole: (ctx, userId, workspaceId) => reads.memberRole(ctx, userId, workspaceId),
     account: (ctx, userId) => reads.account(ctx, userId),
     provider,
+    commerce,
     cache,
     providerLib,
     webhookLog,
@@ -509,7 +522,11 @@ export function createBillingContext(components: BillingComponents, config: Setu
     launch,
     requireLaunched,
     unwrapProvider,
-    syncProducts: ctx => syncProviderProducts(ctx, async page => unwrapProvider(await productsList(provider.polar, { page, limit: 100 }), 'product sync'), providerLib.updateProduct),
+    syncProducts: commerce
+      ? async (ctx) => {
+        for (const product of catalogProductRows(commerce.config.definition, commerce.ids)) await ctx.runMutation(providerLib.updateProduct, { product })
+      }
+      : ctx => syncProviderProducts(ctx, async page => unwrapProvider(await productsList(provider.polar, { page, limit: 100 }), 'product sync'), providerLib.updateProduct),
     throttle,
     customerOwner,
     requireAdmin,

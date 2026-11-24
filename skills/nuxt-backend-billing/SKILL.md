@@ -60,6 +60,21 @@ credits and gifts.
   `billing-customer-mapping`. On a dev deployment, run `npx nuxt-backend billing reset` (sync,
   clear, free plan again); never clear the tables by hand.
 
+## Stripe, Dodo or Creem instead of Polar
+
+- `BILLING_PROVIDER=stripe|dodo|creem` sells through that merchant of record, and then
+  `setupBilling` needs `commerce: { definition, products: { sandbox, production } }`: the catalog's
+  default export and the provider's ids by catalog key (`pro`, `pro:year`, a pack's key; Stripe's
+  price ids, Dodo's and Creem's product ids). `billing sync` is Polar's only: create the products
+  in the provider's dashboard, then run `npx convex run billing:syncProducts` after each deploy.
+- The same composables, credits, quotas, checkout and `/billing/events` route run on it; the
+  component keeps the credit ledger and the orders. The free plan is the app's own there: no
+  subscription row (`subscription` is null, `isFree` true). React to events with
+  `commerce.onEvent`, idempotent.
+- Gifts, passes, catalog discounts, save offers, the reverse trial, usage history, revenue and
+  referral rewards are Polar's for now: they refuse with `unavailable` (reason
+  `provider_unsupported`). See https://nuxt-backend.dev/docs/services/merchants.
+
 ## Reading state and gating
 
 - Read state with `useBilling()`, `useFeatures()` and `useCredits({ meter: 'credits' })`, gate UI

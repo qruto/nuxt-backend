@@ -5,6 +5,7 @@ import { ordersInvoice } from '@polar-sh/sdk/funcs/ordersInvoice.js'
 import { ordersList } from '@polar-sh/sdk/funcs/ordersList.js'
 import { refundsCreate } from '@polar-sh/sdk/funcs/refundsCreate.js'
 import { ADMIN_WRITE, BILLING_ACCESS, type BillingContext, isProviderNotFound, resolveLimit, resolvePage } from './context.js'
+import { createCommerceHistory } from './commerce-history.js'
 import type { BillingCustomers } from './customers.js'
 import type { ProviderCtx } from './types/base.js'
 import type { BillingOrder, UsageEvent } from './types/options.js'
@@ -45,6 +46,14 @@ function isFreeCycle(order: { totalAmount?: number, billingReason?: string, subs
 
 /** Orders, invoices, usage and refunds: live provider reads — no local ledger. */
 export function createHistory(
+  context: BillingContext,
+  customers: Pick<BillingCustomers, 'keyedCustomer'>,
+) {
+  // Adapter mode reads the app's order ledger, and its provider's invoice and refund.
+  return context.commerce ? createCommerceHistory(context) : createPolarHistory(context, customers)
+}
+
+function createPolarHistory(
   {
     components,
     accessToken,

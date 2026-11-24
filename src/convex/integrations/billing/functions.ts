@@ -41,7 +41,7 @@ const LIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'p
 
 /** The registered queries and actions `setupBilling` hands the app in `billing.api`. */
 export function createBillingFunctions(
-  { components, config, products, creditMeters, meterNameById, provider, cache, allowedEntity, requireEntity, throttle, requireAdmin, requireProviderAccess, syncProducts: syncProductsTable }: BillingContext,
+  { components, config, products, creditMeters, meterNameById, provider, commerce, cache, allowedEntity, requireEntity, throttle, requireAdmin, requireProviderAccess, syncProducts: syncProductsTable }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
   { withChanges, updateSubscription, uncancelSubscription, cancelPendingChange, pauseSubscription, resumeSubscription }: BillingSubscriptions,
   { getOrders, getInvoiceUrl, getUsageHistory, refundOrder }: BillingHistory,
@@ -259,7 +259,8 @@ export function createBillingFunctions(
       // can't loop this to burn the access token's quota / trip provider limits.
       await throttle(ctx, userId, 'entitlement syncs')
       // A gift the return cannot settle is the webhook's to settle: the refresh goes ahead.
-      if (checkoutId) {
+      // Gifts are Polar's: an adapter provider's checkout settles none.
+      if (checkoutId && !commerce) {
         await settleCheckout(ctx, checkoutId.slice(0, 200)).catch((error: unknown) => {
           logBackend('warn', 'billing.gift_settle_failed', 'A return from a gift checkout could not settle the gift; its order.paid webhook still does.', error)
         })

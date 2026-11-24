@@ -258,6 +258,9 @@ export const ERASURE_PARTICIPANTS = {
       await budget.remove(ctx, 'billingDiscountAttempts', () => ctx.db.query('billingDiscountAttempts').withIndex('userId', q => q.eq('userId', entityId)).take(budget.left))
       await budget.remove(ctx, 'billingQuotaKeys', () => ctx.db.query('billingQuotaKeys').withIndex('userId_key', q => q.eq('userId', entityId)).take(budget.left))
       await budget.remove(ctx, 'billingSaveOffers', () => ctx.db.query('billingSaveOffers').withIndex('entityId_madeAt', q => q.eq('entityId', entityId)).take(budget.left))
+      await budget.remove(ctx, 'billingCommerceCustomers', () => ctx.db.query('billingCommerceCustomers').withIndex('entityId_provider', q => q.eq('entityId', entityId)).take(budget.left))
+      await budget.remove(ctx, 'billingCommerceOrders', () => ctx.db.query('billingCommerceOrders').withIndex('entityId_createdAt', q => q.eq('entityId', entityId)).take(budget.left))
+      await budget.remove(ctx, 'billingCreditGrants', () => ctx.db.query('billingCreditGrants').withIndex('userId_meterId', q => q.eq('userId', entityId)).take(budget.left))
     }
     const { userId } = erasure
     if (userId) await budget.remove(ctx, 'billingTrials', () => ctx.db.query('billingTrials').withIndex('ownerUserId', q => q.eq('ownerUserId', userId)).take(budget.left))
@@ -900,6 +903,20 @@ async function giftsReceived(ctx: QueryCtx, email: string) {
 }
 
 /**
+ * What an adapter provider (Stripe, Dodo, Creem) left here for the account's
+ * billing entities: their customer ids there, their paid orders and the
+ * credit grants those made. Empty on Polar, which keeps all three itself.
+ */
+async function commerceRows(ctx: QueryCtx, entities: readonly string[]) {
+  const each = async <T>(read: (entityId: string) => Promise<T[]>) => (await Promise.all(entities.map(read))).flat()
+  return {
+    billingCustomers: (await each(entityId => ctx.db.query('billingCommerceCustomers').withIndex('entityId_provider', q => q.eq('entityId', entityId)).take(MEMBERSHIPS_MAX))).map(exported),
+    billingOrders: (await each(entityId => ctx.db.query('billingCommerceOrders').withIndex('entityId_createdAt', q => q.eq('entityId', entityId)).take(MEMBERSHIPS_MAX))).map(exported),
+    billingCreditGrants: (await each(entityId => ctx.db.query('billingCreditGrants').withIndex('userId_meterId', q => q.eq('userId', entityId)).take(MEMBERSHIPS_MAX))).map(exported),
+  }
+}
+
+/**
  * What the component keeps of an account, for its export: the account,
  * its sessions, sign-in accounts and passkeys, its workspaces and
  * invitations, the gifts it bought and was sent, the billing
@@ -953,6 +970,7 @@ export const exportData = query({
       billing: (await Promise.all(entities.map(entityId => ctx.db.query('billingEntitlements').withIndex('userId', q => q.eq('userId', entityId)).first())))
         .filter(row => row !== null)
         .map(row => exported(row)),
+      ...await commerceRows(ctx, entities),
       // A deletion waiting out its grace period, when there is one.
       deletion: await ctx.db.query('accountDeletions').withIndex('userId', q => q.eq('userId', userId)).first().then(row => row ? { requestedAt: row.requestedAt, deletesAt: row.deletesAt } : null),
       activity: (await ctx.db.query('auditEvents').withIndex('subjectId_at', q => q.eq('subjectId', userId)).order('desc').take(EXPORT_ACTIVITY_MAX)).map(exported),

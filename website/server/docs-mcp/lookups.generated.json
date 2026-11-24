@@ -775,7 +775,7 @@
       "capability": "billing",
       "readOn": "Deployment",
       "required": "Optional",
-      "takes": "`polar`, `stripe` (Stripe Managed Payments), `dodo` (Dodo Payments) or `creem`: the merchant of record the adapters in `nuxt-backend/billing` sell through. A name outside the four fails the deploy",
+      "takes": "`polar`, `stripe` (Stripe Managed Payments), `dodo` (Dodo Payments) or `creem`: the merchant of record `setupBilling` sells through. `stripe`, `dodo` and `creem` need `setupBilling({ commerce })`, with the catalog and the provider's product ids. Any other name fails the deploy",
       "example": "polar",
       "without": "billing sells through Polar, on the Convex component setupBilling is built on",
       "checkedBy": [],

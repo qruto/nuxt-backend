@@ -16,6 +16,7 @@ import type * as alerts from "../alerts.js";
 import type * as announcements from "../announcements.js";
 import type * as audit from "../audit.js";
 import type * as billing from "../billing.js";
+import type * as commerce from "../commerce.js";
 import type * as consents from "../consents.js";
 import type * as costs from "../costs.js";
 import type * as crons from "../crons.js";
@@ -65,6 +66,7 @@ const fullApi: ApiFromModules<{
   announcements: typeof announcements;
   audit: typeof audit;
   billing: typeof billing;
+  commerce: typeof commerce;
   consents: typeof consents;
   costs: typeof costs;
   crons: typeof crons;

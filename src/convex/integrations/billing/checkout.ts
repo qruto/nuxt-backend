@@ -2,6 +2,8 @@ import { checkoutsClientUpdate } from '@polar-sh/sdk/funcs/checkoutsClientUpdate
 import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
 import { actionGeneric, type Auth, type GenericActionCtx, type GenericDataModel } from 'convex/server'
 import { v } from 'convex/values'
+import { providerTrialOf } from '../../catalog.js'
+import { catalogProductOf, commerceCall, polarOnly, pricesManyCurrencies } from './commerce.js'
 import { BILLING_ACCESS, type BillingContext } from './context.js'
 import type { BillingCustomers } from './customers.js'
 import { type CatalogDiscounts, type KeyedDiscount, refusedDiscount } from './discounts.js'
@@ -58,13 +60,13 @@ const CHECKOUT_ID_PLACEHOLDER = '{CHECKOUT_ID}'
  * and all: the provider fills in every placeholder. A URL that already
  * carries the package's parameter keeps it.
  */
-export function withCheckoutReturn(successUrl: string): string {
+export function withCheckoutReturn(successUrl: string, returnId: string = CHECKOUT_ID_PLACEHOLDER): string {
   if (new URL(successUrl).searchParams.has(CHECKOUT_RETURN_PARAM)) return successUrl
   const hash = successUrl.indexOf('#')
   const base = hash === -1 ? successUrl : successUrl.slice(0, hash)
   const fragment = hash === -1 ? '' : successUrl.slice(hash)
   const separator = !base.includes('?') ? '?' : base.endsWith('?') || base.endsWith('&') ? '' : '&'
-  return `${base}${separator}${CHECKOUT_RETURN_PARAM}=${CHECKOUT_ID_PLACEHOLDER}${fragment}`
+  return `${base}${separator}${CHECKOUT_RETURN_PARAM}=${returnId}${fragment}`
 }
 
 /**
@@ -77,9 +79,29 @@ export function isIpAddress(value: string): boolean {
   return value.length <= 45 && value.includes(':') && /^[\da-f:.]+$/i.test(value) && (value.match(/::/g)?.length ?? 0) <= 1
 }
 
+/** Days in each unit a checkout trial counts in. */
+const TRIAL_UNIT_DAYS = { day: 1, week: 7, month: 30, year: 365 } as const
+
+/** A trial in days, as an adapter provider takes it. */
+function trialDaysOf(trial: { interval: keyof typeof TRIAL_UNIT_DAYS, count?: number } | undefined): number | undefined {
+  return trial ? TRIAL_UNIT_DAYS[trial.interval] * (trial.count ?? 1) : undefined
+}
+
+/** What a checkout carries beside the app's own metadata: the campaign, who opened it, the soft opt-in's box. */
+function checkoutMetadata(options: ServerCheckoutOptions, openedBy: string | undefined): Record<string, string> {
+  return {
+    ...options.metadata,
+    ...campaignMetadata(options.utm),
+    // Who opened it, for an abandoned checkout's lifecycle email (`billing.checkout_abandoned`).
+    ...(openedBy ? { openedBy } : {}),
+    // The soft opt-in's box, read back on the paid order (`order.paid`).
+    ...(options.emailOptOut === undefined ? {} : { [EMAIL_OPT_OUT_METADATA]: String(options.emailOptOut) }),
+  }
+}
+
 /** The checkout link: the entity's own provider customer, then a checkout session by its external id. */
 export function createCheckout(
-  { components, config, provider, cache, catalogIds, requireEntity, requireLaunched, unwrapProvider, throttle, recordEvent }: BillingContext,
+  { components, config, provider, commerce, cache, catalogIds, requireEntity, requireLaunched, unwrapProvider, throttle, recordEvent }: BillingContext,
   { requireTrustedUrl, requireCatalogProducts, requireClientMetadata, requireCurrency }: PurchaseRules,
   { ensureCustomer, profileOf, trialAllowed }: BillingCustomers,
   { freeSubscriptionOf, isFreeProduct }: Pick<BillingFreePlan, 'freeSubscriptionOf' | 'isFreeProduct'>,
@@ -104,14 +126,7 @@ export function createCheckout(
    */
   const buildCheckoutPayload = (options: ServerCheckoutOptions, entityId: string, hasCode: boolean, trialUsed: boolean, openedBy: string | undefined): CheckoutCreateInput => {
     const prefill = options.prefill ?? {}
-    // Who opened it, for an abandoned checkout's lifecycle email (`billing.checkout_abandoned`).
-    const metadata = {
-      ...options.metadata,
-      ...campaignMetadata(options.utm),
-      ...(openedBy ? { openedBy } : {}),
-      // The soft opt-in's box, read back on the paid order (`order.paid`).
-      ...(options.emailOptOut === undefined ? {} : { [EMAIL_OPT_OUT_METADATA]: String(options.emailOptOut) }),
-    }
+    const metadata = checkoutMetadata(options, openedBy)
     return {
       products: options.productIds,
       // By the entity's id, never the email: the customer is the entity's own.
@@ -358,6 +373,52 @@ export function createCheckout(
   }
 
   /**
+   * A checkout on an adapter provider (commerce.ts): one catalog product,
+   * at the provider's hosted checkout, for the entity's own customer there
+   * once it has one. The entity's id rides in the metadata, which every
+   * delivery of the order and the subscription carries back. A plan change
+   * goes through `updateSubscription`, never a checkout; a discount by key
+   * or id, and a currency other than the product's own, are Polar's for
+   * now, and a code is the provider's to check.
+   */
+  const commerceCheckout = async (ctx: RunWriteCtx & { auth?: Auth }, entity: BillingEntity, options: ServerCheckoutOptions, discountCode: string | undefined): Promise<{ url: string }> => {
+    const mode = commerce!
+    const { userId } = entity
+    if (options.discount !== undefined || options.discountId) throw polarOnly(mode.name, 'a discount of the catalog at checkout')
+    // One provider product per catalog product, priced in one currency there: a second one can't be picked here.
+    if (options.currency && pricesManyCurrencies(mode.config.definition)) throw polarOnly(mode.name, 'choosing the currency at checkout')
+    if (options.subscriptionId) throw backendError('invalid_input', { field: 'subscriptionId' }, '[nuxt-backend] Billing: a checkout starts a subscription — switch a plan with updateSubscription (useBilling().changePlan).')
+    const [productId, ...more] = options.productIds
+    const product = catalogProductOf(mode.config.definition, mode.ids, productId)
+    if (!productId || more.length > 0 || !product) throw backendError('invalid_input', { field: 'productIds' }, `[nuxt-backend] Billing: a ${mode.name} checkout sells one product of the catalog.`)
+    await requireNoHeldSubscription(ctx, userId, options)
+    const profile = await profileOf(ctx, userId)
+    const trial = product.kind !== 'plan' || options.trial === false ? undefined : trialDaysOf(options.trial ?? providerTrialOf(product.plan.trial))
+    const trialDays = trial && await trialAllowed(ctx, userId, profile, true) ? trial : undefined
+    const openedBy = (await ctx.auth?.getUserIdentity())?.subject
+    const providerCustomerId = await ctx.runQuery(mode.refs.customerOf, { entityId: userId, provider: mode.name })
+    const returnId = crypto.randomUUID()
+    const session = await commerceCall('checkout', () => mode.client().createCheckout({
+      productId,
+      kind: product.kind === 'plan' ? 'subscription' : 'one_time',
+      customer: {
+        entityId: userId,
+        ...(options.prefill?.email || entity.email ? { email: options.prefill?.email || entity.email } : {}),
+        ...(options.prefill?.name ? { name: options.prefill.name } : {}),
+        ...(providerCustomerId ? { providerCustomerId } : {}),
+      },
+      // A plan or pack checkout comes back with an id, which the client's checkout-return plugin reads to refresh the entitlements once.
+      successUrl: withCheckoutReturn(options.successUrl, returnId),
+      ...(discountCode ? { discountCode } : {}),
+      ...(options.locale ? { locale: options.locale } : {}),
+      ...(trialDays ? { trialDays } : {}),
+      metadata: checkoutMetadata(options, openedBy),
+      idempotencyKey: returnId,
+    }))
+    return { url: session.url }
+  }
+
+  /**
    * What a referral promised the person it brought, on their first paid
    * checkout: the discount the program named, locked on, or its trial
    * days, kept on the referral as it was claimed. Only for the entity the
@@ -416,6 +477,12 @@ export function createCheckout(
     trialPayload(options.trial)
     await throttle(ctx, userId, 'checkouts')
     const { discount: _key, ...checked } = { ...options, currency }
+    if (commerce) {
+      const opened = await commerceCheckout(ctx, entity, { ...checked, discount: options.discount }, discountCode)
+      const productId = options.productIds[0]
+      if (productId) await recordEvent(ctx, userId, { type: 'billing.checkout_started', data: { productId } })
+      return opened
+    }
     // With none named, the person's referral may have promised one.
     const referral = discountCode || named || options.discountId ? undefined : await referralOffer(ctx, entity, options)
     const opened = referral?.discount
