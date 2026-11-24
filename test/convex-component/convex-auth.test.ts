@@ -200,3 +200,89 @@ describe('the engine transport', () => {
     expect(decodeJwt(refreshed.tokens.accessToken).activeOrganizationId).toBe(workspace)
   })
 })
+
+/** Make an account an administrator, as `nuxt-backend admin` does. */
+async function makeAdmin(userId: string): Promise<void> {
+  await t.mutation(components.backend.adapter.updateOne, { input: { model: 'user', where: [{ field: '_id', value: userId }], update: { role: 'admin' } } } as never)
+}
+
+type Complete = { status: 'complete', tokens: { accessToken: string, refreshToken: string, userId: string }, response: Answer }
+
+/** A sign-in that must have completed. */
+function completed(result: unknown): Complete {
+  const done = result as Complete | { status: 'error', userError: { response: Answer } }
+  if (done.status !== 'complete') throw new Error(`sign-in failed: ${JSON.stringify(done.userError.response.body)}`)
+  return done
+}
+
+describe('sessions the engine replaces', () => {
+  test('a re-authentication opens a new session and ends the one it replaces, keeping its workspace', async () => {
+    const first = completed((await signInByCode('ada@example.com')).result)
+    const ada = t.withIdentity(identityOf(first.tokens.accessToken))
+    const jar: Jar = {}
+    const asked = await ada.action(refs.authRequest, { method: 'POST', path: '/email-otp/send-verification-otp', body: { email: 'ada@example.com', type: 'sign-in' }, jar, client: BROWSER, reauthenticate: true }) as Answer
+    expect(asked.status).toBe(200)
+    keep(jar, asked)
+    const again = completed(await ada.action(refs.signIn, { method: 'POST', path: '/sign-in/email-otp', body: { email: 'ada@example.com', otp: codeFor('ada@example.com') }, jar, client: BROWSER, reauthenticate: true }))
+    const before = decodeJwt(first.tokens.accessToken)
+    const after = decodeJwt(again.tokens.accessToken)
+    expect(after.sub).toBe(before.sub)
+    expect(after.sessionId).not.toBe(before.sessionId)
+    expect(after.activeOrganizationId).toBe(before.activeOrganizationId)
+    expect(await t.mutation(refs.refreshSession, { refreshToken: first.tokens.refreshToken })).toEqual({ kind: 'noSession' })
+    expect(await ada.query(refs.isAuthenticated, {})).toBe(false)
+    expect(await t.withIdentity(identityOf(again.tokens.accessToken)).query(refs.isAuthenticated, {})).toBe(true)
+  })
+
+  test('a code for another account refuses the re-authentication and keeps the session', async () => {
+    const first = completed((await signInByCode('ada@example.com')).result)
+    const ada = t.withIdentity(identityOf(first.tokens.accessToken))
+    const asked = await ada.action(refs.authRequest, { method: 'POST', path: '/email-otp/send-verification-otp', body: { email: 'mallory@example.com', type: 'sign-in' }, jar: {}, client: BROWSER, reauthenticate: true }) as Answer
+    expect(asked.status).toBe(403)
+    expect(asked.body).toMatchObject({ code: 'forbidden', reason: 'other_account' })
+    expect(await ada.query(refs.isAuthenticated, {})).toBe(true)
+  })
+
+  test('an administrator\'s visit is a session of the account visited, and its end hands the administrator a session back', async () => {
+    const admin = completed((await signInByCode('root@example.com')).result)
+    await makeAdmin(admin.tokens.userId)
+    const ada = completed((await signInByCode('ada@example.com')).result)
+    // The role reaches the administrator's claims at their next refresh.
+    const refreshed = await t.mutation(refs.refreshSession, { refreshToken: admin.tokens.refreshToken }) as { tokens: { accessToken: string, refreshToken: string } }
+    expect(decodeJwt(refreshed.tokens.accessToken).role).toBe('admin')
+    const asAdmin = t.withIdentity(identityOf(refreshed.tokens.accessToken))
+
+    const visit = completed(await asAdmin.action(refs.signIn, { method: 'POST', path: '/admin/impersonate-user', body: { userId: ada.tokens.userId }, client: BROWSER }))
+    const visitClaims = decodeJwt(visit.tokens.accessToken)
+    expect(visitClaims.sub).toBe(ada.tokens.userId)
+    expect(visitClaims.impersonatedBy).toBe(admin.tokens.userId)
+    expect(visitClaims.signInMethod).toBeUndefined()
+    // The administrator's browser holds the visit now: their own session waits aside.
+    expect(await t.mutation(refs.refreshSession, { refreshToken: refreshed.tokens.refreshToken })).toEqual({ kind: 'noSession' })
+
+    const visiting = t.withIdentity(identityOf(visit.tokens.accessToken))
+    const back = completed(await visiting.action(refs.signIn, { method: 'POST', path: '/admin/stop-impersonating', body: {}, client: BROWSER }))
+    const backClaims = decodeJwt(back.tokens.accessToken)
+    expect(backClaims.sub).toBe(admin.tokens.userId)
+    expect(backClaims.impersonatedBy).toBeUndefined()
+    expect(backClaims.sessionId).toBe(decodeJwt(refreshed.tokens.accessToken).sessionId)
+    expect(await t.mutation(refs.refreshSession, { refreshToken: visit.tokens.refreshToken })).toEqual({ kind: 'noSession' })
+    expect(await t.withIdentity(identityOf(back.tokens.accessToken)).query(refs.isAuthenticated, {})).toBe(true)
+    // Ada's own session never moved.
+    expect(await t.withIdentity(identityOf(ada.tokens.accessToken)).query(refs.isAuthenticated, {})).toBe(true)
+  })
+
+  test('a ban ends every session of the account', async () => {
+    const admin = completed((await signInByCode('root@example.com')).result)
+    await makeAdmin(admin.tokens.userId)
+    const refreshed = await t.mutation(refs.refreshSession, { refreshToken: admin.tokens.refreshToken }) as { tokens: { accessToken: string } }
+    const ada = completed((await signInByCode('ada@example.com')).result)
+    const banned = await t.withIdentity(identityOf(refreshed.tokens.accessToken)).action(refs.authRequest, { method: 'POST', path: '/admin/ban-user', body: { userId: ada.tokens.userId, banReason: 'spam' }, client: BROWSER }) as Answer
+    expect(banned.status).toBe(200)
+    expect(await t.withIdentity(identityOf(ada.tokens.accessToken)).query(refs.isAuthenticated, {})).toBe(false)
+    expect(await t.mutation(refs.refreshSession, { refreshToken: ada.tokens.refreshToken })).toEqual({ kind: 'noSession' })
+    // And no new one opens.
+    const again = await signInByCode('ada@example.com').catch(error => error as Error)
+    expect(again instanceof Error ? again.message : (again.result as { status: string }).status).not.toBe('complete')
+  })
+})
