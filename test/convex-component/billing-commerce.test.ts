@@ -7,6 +7,7 @@ import type { BillingCatalog } from '../../src/convex/catalog'
 import { hmacSha256Hex } from '../../src/convex/integrations/billing/providers/http'
 import type { Billing } from '../../src/convex/integrations/billing/types/surface'
 import { asUser, defineBackendTestApp } from '../../src/convex/test'
+import { getBackendError } from '../../src/convex/errors'
 
 // Billing on Stripe Managed Payments, end to end from the package's
 // sources: `BILLING_PROVIDER=stripe` and the catalog definition in
@@ -84,10 +85,16 @@ function fakeStripe(): FakeStripe {
     if (path === 'billing_portal/sessions') return json({ url: 'https://billing.stripe.com/p/session/test_1' })
     if (path === 'invoice_payments') return json({ data: [] })
     if (path === 'refunds') return json({ id: 're_test_1', payment_intent: body.get('payment_intent'), amount: Number(body.get('amount') ?? 500), currency: 'usd', status: 'succeeded' })
+    if (path.startsWith('invoices/')) return json({ id: path.slice('invoices/'.length), hosted_invoice_url: 'https://invoice.stripe.com/i/test_1' })
+    if (path.startsWith('payment_intents/')) return json({ id: path.slice('payment_intents/'.length), latest_charge: { receipt_url: 'https://pay.stripe.com/receipts/test_1' } })
+    if (path.startsWith('prices/')) return json({ id: path.slice('prices/'.length), unit_amount: 1200, recurring: { interval: path.endsWith('year') ? 'year' : 'month' } })
     const subscription = /^subscriptions\/(.+)$/.exec(path)?.[1]
     if (subscription && state.subscriptions[subscription]) {
-      if (method === 'POST' && body.has('cancel_at_period_end')) state.subscriptions[subscription]!.cancel_at_period_end = body.get('cancel_at_period_end') === 'true'
-      return json(state.subscriptions[subscription])
+      const held = state.subscriptions[subscription]!
+      if (method === 'POST' && body.has('cancel_at_period_end')) held.cancel_at_period_end = body.get('cancel_at_period_end') === 'true'
+      if (method === 'POST' && body.has('items[0][price]')) held.items = { data: [{ id: 'si_1', price: { id: body.get('items[0][price]') }, current_period_end: Math.floor(Date.now() / 1000) + 365 * 24 * 3600 }] }
+      if (method === 'DELETE') held.status = 'canceled'
+      return json(held)
     }
     return new Response(JSON.stringify({ error: { code: 'resource_missing' } }), { status: 404 })
   })
@@ -250,6 +257,85 @@ describe('billing on Stripe Managed Payments (BILLING_PROVIDER=stripe)', { timeo
   test('refuses a delivery Stripe did not sign', async () => {
     const forged = await t.fetch('/billing/events', { method: 'POST', body: '{"id":"evt_forged","type":"invoice.paid"}', headers: { 'stripe-signature': 't=1,v1=00' } })
     expect(forged.status).toBe(403)
+  })
+})
+
+describe('the orders, the lifecycle and the refusals on Stripe', { timeout: 30_000 }, () => {
+  const refusal = (promise: Promise<unknown>) => promise.then(() => null, (error: unknown) => getBackendError(error))
+  /** Ada with a paid pack order on file, its credits granted. */
+  const withPack = async (orderId = 'pi_pack') => {
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    await t.action(internalFn('billing:startFreePlan'), { entityId: ada.workspaceId! })
+    await deliver('checkout.session.completed', { id: `cs_${orderId}`, mode: 'payment', payment_status: 'paid', payment_intent: orderId, customer: 'cus_test_1', amount_total: 500, currency: 'usd', metadata: { entity_id: ada.workspaceId, product_id: 'price_pack_100' } })
+    return ada
+  }
+
+  test('lists the orders a page at a time, newest first, and links each one\'s receipt for its owner alone', async () => {
+    const ada = await withPack('pi_one')
+    await deliver('checkout.session.completed', { id: 'cs_two', mode: 'payment', payment_status: 'paid', payment_intent: 'pi_two', customer: 'cus_test_1', amount_total: 500, currency: 'usd', metadata: { entity_id: ada.workspaceId, product_id: 'price_pack_100' } })
+    const first = await ada.action(fn<'action'>('billing:getOrders'), { limit: 1 }) as { items: Array<{ id: string }>, nextCursor?: string }
+    expect(first.items).toHaveLength(1)
+    expect(first.nextCursor).toBeTypeOf('string')
+    const second = await ada.action(fn<'action'>('billing:getOrders'), { limit: 1, cursor: first.nextCursor }) as { items: Array<{ id: string }> }
+    expect([...first.items, ...second.items].map(order => order.id).sort()).toEqual(['pi_one', 'pi_two'])
+    expect(await ada.action(fn<'action'>('billing:getInvoiceUrl'), { orderId: 'pi_one' })).toEqual({ url: 'https://pay.stripe.com/receipts/test_1' })
+    const bob = await asUser(t, { email: 'bob@example.com' })
+    expect(await refusal(bob.action(fn<'action'>('billing:getInvoiceUrl'), { orderId: 'pi_one' }))).toMatchObject({ code: 'forbidden', data: { reason: 'not_owner' } })
+  })
+
+  test('refunds an order from the admin tier through Stripe, once its delivery counts it nothing is left to refund', async () => {
+    await withPack()
+    const admin = await asUser(t, { email: 'admin@example.com', role: 'admin' })
+    const refund = await admin.action(fn<'action'>('billing:refundOrder'), { orderId: 'pi_pack', reason: 'customer_request' }) as { id: string, amount: number, orderId: string }
+    expect(refund).toMatchObject({ id: 're_test_1', orderId: 'pi_pack', amount: 500 })
+    const asked = stripe.calls.find(call => call.path === 'refunds')!
+    expect(asked.body.get('payment_intent')).toBe('pi_pack')
+    await deliver('refund.created', { id: 're_test_1', payment_intent: 'pi_pack', amount: 500, currency: 'usd', status: 'succeeded' })
+    expect(await refusal(admin.action(fn<'action'>('billing:refundOrder'), { orderId: 'pi_pack', reason: 'customer_request' }))).toMatchObject({ code: 'invalid_input', data: { field: 'amount' } })
+    expect(await refusal(admin.action(fn<'action'>('billing:refundOrder'), { orderId: 'pi_none', reason: 'customer_request' }))).toMatchObject({ code: 'invalid_input', data: { field: 'orderId' } })
+  })
+
+  test('takes a pack\'s credits back when its charge is disputed, and leaves a delivery for no known entity alone', async () => {
+    const ada = await withPack()
+    expect(await credits(ada)).toBe(130)
+    expect((await deliver('charge.dispute.created', { id: 'dp_1', payment_intent: 'pi_pack', amount: 500 })).status).toBe(200)
+    expect(await credits(ada)).toBe(30)
+    const stranger = { id: 'cs_stranger', mode: 'payment', payment_status: 'paid', payment_intent: 'pi_stranger', customer: 'cus_unknown', amount_total: 500, currency: 'usd', metadata: { product_id: 'price_pack_100' } }
+    expect((await deliver('checkout.session.completed', stranger)).status).toBe(200)
+    expect(await refusal(ada.action(fn<'action'>('billing:getInvoiceUrl'), { orderId: 'pi_stranger' }))).toMatchObject({ code: 'forbidden' })
+  })
+
+  test('moves the plan to its yearly price, takes a cancellation back, and ends it now', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    const subscription = subscriptionOf(ada.workspaceId!, { items: { data: [{ id: 'si_1', price: { id: 'price_pro_month' }, current_period_end: Math.floor(Date.now() / 1000) + 30 * 24 * 3600 }] } })
+    stripe.subscriptions.sub_test_1 = subscription
+    await deliver('customer.subscription.created', subscription)
+    await ada.action(fn<'action'>('billing:updateSubscription'), { productId: 'price_pro_year', proration: 'invoice' })
+    const change = stripe.calls.find(call => call.method === 'POST' && call.body.has('items[0][price]'))!
+    expect(change.body.get('items[0][price]')).toBe('price_pro_year')
+    expect(change.body.get('proration_behavior')).toBe('always_invoice')
+    await deliver('customer.subscription.updated', stripe.subscriptions.sub_test_1!)
+    expect(await current(ada)).toMatchObject({ productId: 'price_pro_year' })
+    await ada.action(fn<'action'>('billing:cancelSubscription'), { offer: false })
+    await deliver('customer.subscription.updated', stripe.subscriptions.sub_test_1!)
+    await ada.action(fn<'action'>('billing:uncancelSubscription'), {})
+    expect(stripe.calls.filter(call => call.body.get('cancel_at_period_end') === 'false').length).toBeGreaterThan(0)
+    await ada.action(fn<'action'>('billing:cancelSubscription'), { offer: false, atPeriodEnd: false })
+    expect(stripe.calls.some(call => call.method === 'DELETE')).toBe(true)
+  })
+
+  test('refuses what Stripe or adapter mode has no call for: a pause, usage history, a discount, two products or one outside the catalog', async () => {
+    const ada = await asUser(t, { email: 'ada@example.com' })
+    const subscription = subscriptionOf(ada.workspaceId!)
+    stripe.subscriptions.sub_test_1 = subscription
+    await deliver('customer.subscription.created', subscription)
+    expect(await refusal(ada.action(fn<'action'>('billing:pauseSubscription'), {}))).toMatchObject({ code: 'unavailable', data: { reason: 'provider_unsupported' } })
+    expect(await refusal(ada.action(fn<'action'>('billing:getUsageHistory'), {}))).toMatchObject({ code: 'unavailable', data: { reason: 'provider_unsupported' } })
+    const checkout = (args: Record<string, unknown>) => refusal(ada.action(fn<'action'>('billing:generateCheckoutLink'), { origin: SITE, successUrl: `${SITE}/billing`, ...args }))
+    // The catalog's discounts are Polar's: none is known here, so none is redeemed.
+    expect(await checkout({ productIds: ['price_pack_100'], discount: 'launch' })).toMatchObject({ code: 'invalid_input', data: { field: 'discount' } })
+    expect(await checkout({ productIds: ['price_pack_100', 'price_pro_year'] })).toMatchObject({ code: 'invalid_input', data: { field: 'productIds' } })
+    expect(await checkout({ productIds: ['price_unknown'] })).toMatchObject({ code: 'invalid_input' })
   })
 })
 
