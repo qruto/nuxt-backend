@@ -24,6 +24,7 @@ export const USE_FOR = {
   './app': '`backendEnv`: the typed deployment env contract `convex.config.ts` passes to `defineApp`',
   './billing': '`setupBilling` and `defineBillingCatalog`: subscriptions, credits, gifts and the catalog',
   './email': '`setupEmail`: transactional and marketing email, and every template the package sends',
+  './presence': '`setupPresence`: who is in a room, behind the sign-in, for `useRoomPresence`',
   './rate-limit': '`setupRateLimiter` and `DEFAULT_LIMITS`, with the time units',
   './search': '`defineSearch` and `search`: typed full-text search over a search index',
   './workflows': '`setupWorkflows` and `defineEmailSequence`: durable multi-step functions',

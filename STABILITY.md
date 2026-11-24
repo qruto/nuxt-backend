@@ -35,7 +35,7 @@ Every `nuxt-backend/<subpath>` in the package `exports` map, and every value and
   - `nuxt-backend/search`
   - `nuxt-backend/storage`
   - `nuxt-backend/workflows`
-- `nuxt-backend/ai` and `nuxt-backend/monitoring` — experimental, see below
+- `nuxt-backend/ai`, `nuxt-backend/monitoring` and `nuxt-backend/presence` — experimental, see below
 - `nuxt-backend/convex.config` · `nuxt-backend/_generated/component` — the all-in-one `backend` component and the types of its API
 - `nuxt-backend/test` — the convex-test registration helper (`register`); the test app and its callers are experimental, see below
 - `nuxt-backend/test-utils` — the backend mock for an app's component and page tests (`createBackendMock`, `resetBackendMock`, `backendMockProvides`, `backendTestAliases`) and `renderEmail`; experimental, see below
@@ -259,6 +259,7 @@ The names the module registers, exactly as it registers them (`src/module.ts` an
   - `useReportAppeal` — the appeal of a content decision without its markup: the decision the `#appeal=<token>` link names, the appeal's state, and sending it once through `appealDecision`
   - `useReportForm` — a report about content without its markup: by default a notice (DSA Art. 16) through `sendNotice`, with the page's address, the reason, why, the reporter, the good-faith statement, the honeypot and the deployment's refusals; or, with `mode: 'quick'`, a signed-in person's one-click report through `reportContent`
   - `useReturnPath` — where the person goes once a page that interrupted them is done: the `?redirect=` kept to this site, else the sign-in landing
+  - `useRoomPresence` — who is in a room: keeps the signed-in person there while the page is open and lists the others, live
   - `useSandboxInbox`
   - `useSearch`
   - `useSessions`
@@ -671,6 +672,7 @@ Tagged `@experimental` in the source and in the API reference. These may change 
 - `nuxt-backend/monitoring` — `reportError`, `reportingErrors`, `checkIn` and `checkingIn`: error reports and cron check-ins from an app's own actions. Their options follow the monitoring service's cron monitors, which may still move. The tags a report carries and the health routes are stable (above).
 - `nuxt-backend/ai` — `setupAi`: the reserve → run → settle metering model over provider meter events, and the models it calls: `provider/model` ids through the AI gateways in the order `setupAi({ gateway })` names, the cost each call reports (`ReportedCost`), `ctx.model()` and `modelStatus`, and `getCosts` from `ai.api`, what each person's AI calls cost. A model call is refused, saying why, where no route answers it. `defineJobQueue`: the generation queue, its tiers, model limits and credit hold, a kind charged by output (`charge: 'output'`, `job.charge` and its options, `JobChargeOptions`, with the metadata limits it checks) and a free job (`{ free: true }`), the functions `jobs.api` exports, `jobs.get` and `jobs.cancel` for the app's own functions, `onJobEnd` with the args it receives (`vJobEnd`), and an owed charge: which refusals of `job.charge` leave it owed and which give it up at once, `owed` on a job's view (`JobOwed`), and `onOwedCharge` with the args it receives (`vOwedCharge`). Image models in job steps (`ctx.image()`), a step's `ctx.job` with the job's `owner` and `userId` (`StepJob`), a step's `timeout` and `callSettings`, `retryable`, and per-model gateway `routes`. The moderation policy (`moderation: { block, escalate, log }`), `blocked` and `escalate` on a verdict, and `listModerationFlags`. `ai.chat` and `ai.knowledge`: chat threads and knowledge search on the Agent and RAG components (both pre-1.0), the functions each exports, and the EU inference pin (`inferenceRegion`). Content safety's providers (`azureContentSafety`, `openaiModeration` and `arachnidShield`), the shared categories (`MODERATION_CATEGORIES`, `DEFAULT_THRESHOLDS`), and `getModerationStatement` from `ai.api`.
 - `useAiStream` — paired with `nuxt-backend/ai`.
+- `nuxt-backend/presence` — `setupPresence` on Convex's presence component (pre-1.0): the three functions it returns, `canJoin`, the room's `RoomMember` rows, and `useRoomPresence`, paired with it.
 - `useJob` — paired with `defineJobQueue`.
 - `useInboxAdmin` — paired with the support inbox (`setupEmail({ inbound: { support } })`), which follows the email provider's Inboxes, new in October 2026; with `getInboxConsole`, `replyToInbox` and `syncInbound` of `setupEmail(…).api`, and the admin console's Inbox tab.
 - `useChat` — paired with `ai.chat`, which follows the Agent component's pre-1.0 shapes.
@@ -718,6 +720,7 @@ Nuxt `^4.6.2` (Nuxt 4 from 4.6.2, where the `nuxt/server` API the server code is
 | `@modelcontextprotocol/sdk` | `^1.32.1` | `npx nuxt-backend mcp`, the developer MCP server: `init` adds it to the app's `devDependencies` beside the server it writes into `.mcp.json`; without it the command names the install |
 | `@convex-dev/bundle-analyzer` | `0.1.0` | the Convex half of `npx nuxt-backend analyze`, pinned because it is in alpha; without it `analyze` names the install and still measures the Nuxt half |
 | `@convex-dev/agent` | `^0.7.8` | chat threads (`ai.chat` in `nuxt-backend/ai`): Convex's Agent component, installed and mounted by the app (`app.use(agent)`). Loaded only when a chat runs |
+| `@convex-dev/presence` | `^0.4.0` | who is here (`nuxt-backend/presence` and `useRoomPresence`): Convex's presence component, installed and mounted by the app (`app.use(presence)`) |
 | `@convex-dev/rag` | `^0.7.8` | knowledge search (`ai.knowledge` in `nuxt-backend/ai`): Convex's RAG component, installed and mounted by the app (`app.use(rag)`). Loaded only when a store runs |
 
 The Backend tab works with the Nuxt DevTools that Nuxt 4 installs (3.x). CI installs the packed package into the starter and both examples with the newest Nuxt and Convex every week, builds them and serves a page from each, so the newest release in every range above is one this package has run on.

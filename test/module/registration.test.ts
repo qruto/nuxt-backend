@@ -91,6 +91,7 @@ const COMPOSABLE_NAMES = [
   'useSessions',
   'useSignInAlerts',
   'useTwoFactor',
+  'useRoomPresence',
   'useReauthentication',
   'useAuditLog',
   'useAccount',

@@ -55,9 +55,10 @@ function appAuthServer(nuxt: Nuxt): string | undefined {
 function alias(nuxt: Nuxt, name: string, target: string): void {
   nuxt.hook('modules:done', () => {
     nuxt.options.alias[name] = target
-    nuxt.options.nitro ||= {}
-    nuxt.options.nitro.alias ||= {}
-    nuxt.options.nitro.alias[name] = target
+    // Typed loosely: where Nitro's own types don't resolve (a consumer's type check of this file), its config reads as a fallback without `alias`.
+    const nitro = (nuxt.options.nitro ||= {}) as { alias?: Record<string, string> }
+    nitro.alias ||= {}
+    nitro.alias[name] = target
   })
 }
 
@@ -77,7 +78,7 @@ function typeStandInsAsBase(nuxt: Nuxt): void {
   }
   nuxt.hook('prepare:types', options => drop(options.tsConfig, options.nodeTsConfig, options.sharedTsConfig, options.serverTsConfig))
   nuxt.hook('nitro:init', (nitro) => {
-    nitro.hooks.hook('types:extend', types => drop(types.tsConfig))
+    nitro.hooks.hook('types:extend', (types: { tsConfig?: { compilerOptions?: { paths?: Record<string, unknown> } } }) => drop(types.tsConfig))
   })
 }
 

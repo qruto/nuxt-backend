@@ -113,10 +113,10 @@ export const TASK_SKILLS = [
   },
   {
     name: 'nuxt-backend-data',
-    covers: 'the function tiers, queries and mutations, errors, search, workflows, uploads, share links, retention, tokens and the Convex components for counts, queues, cached actions, crons and migrations',
+    covers: 'the function tiers, queries and mutations, errors, search, workflows, uploads, share links, presence, retention, tokens and the Convex components for counts, queues, cached actions, crons and migrations',
     docs: ['/docs/build/data'],
-    entrypoints: ['nuxt-backend/functions', 'nuxt-backend/search', 'nuxt-backend/workflows', 'nuxt-backend/storage'],
-    composables: ['getBackendError', 'useBackendClient', 'useConnectionState', 'useSearch', 'useWorkflowStatus', 'useShareLink', 'useUploadField', 'preparePhoto', 'isPhotoFile', 'PhotoPrepError'],
+    entrypoints: ['nuxt-backend/functions', 'nuxt-backend/search', 'nuxt-backend/workflows', 'nuxt-backend/storage', 'nuxt-backend/presence'],
+    composables: ['getBackendError', 'useBackendClient', 'useConnectionState', 'useSearch', 'useWorkflowStatus', 'useRoomPresence', 'useShareLink', 'useUploadField', 'preparePhoto', 'isPhotoFile', 'PhotoPrepError'],
     components: ['ConnectionStatus', 'UploadField'],
   },
   {

@@ -30,6 +30,7 @@ navigation:
 | [nuxt-backend/http](/docs/reference/api/http) | - |
 | [nuxt-backend/monitoring](/docs/reference/api/monitoring) | Error reports and cron check-ins from the backend's own actions, sent to the monitoring service the deployment's DSN names. They are posted straight to its ingest endpoint with `fetch`: no SDK runs in the backend. Without `MONITORING_DSN` on the deployment every call is a no-op that resolves `false`. Reports name the environment `BACKEND_ENVIRONMENT` says (`env push` derives it from the deployment's kind), so they sit beside the app's own. |
 | [nuxt-backend/notifications](/docs/reference/api/notifications) | - |
+| [nuxt-backend/presence](/docs/reference/api/presence) | Who is here: Convex's presence component, behind the backend's sign-in. A heartbeat counts the signed-in account, never an id the browser names; the room token it hands back is what lists the room, so only someone the room let in reads who else is there, by name. |
 | [nuxt-backend/rate-limit](/docs/reference/api/rate-limit) | - |
 | [nuxt-backend/search](/docs/reference/api/search) | - |
 | [nuxt-backend/storage](/docs/reference/api/storage) | - |

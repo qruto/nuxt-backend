@@ -37,6 +37,7 @@ skill's own `references/api.md` has the part it covers. The docs: https://nuxt-b
 | `useReferralAdmin()` | The admin console's Referrals tab, as data: the program's totals, the top referrers, the flagged queue and one referrer's history, through `backend/referrals.ts`, and the decision an administrator makes on a flagged referral. |
 | `usePasskeys()` | Passkey management over the auth client — list, register, rename, remove. |
 | `useTwoFactor()` | The authenticator app as a second step after a sign-in code (TOTP), for the signed-in account: turn it on (`start`, then `confirm` with the app's first code), off, and new backup codes. |
+| `useRoomPresence()` | Who is here: keep the signed-in person in a room (a page, a document, `workspace:<id>`) while the page is open and visible, and list who else is there, live. |
 | `useSessions()` | Device-session management: list, revoke one, revoke the rest. |
 | `useSignInAlerts()` | What an account shows around its sign-ins, without the markup: the latest sign-ins from a device it had not used before, and with its recovery code (the ones the person is also emailed about), each with its device and time, and a button that signs that session out while it is still signed in and is not this browser's. |
 | `useReauthentication()` | Asking the person to confirm it is them before a sensitive action: the client half of `requireRecentSignIn` and of the routes that take a recent sign-in. |
@@ -252,6 +253,14 @@ Types: `BillingRateLimiter`, `DiscountInput`, `ProrationBehavior`, `ClientProrat
 | `plainName()` | A name someone typed as an email shows it: every link and bare domain taken out, whitespace collapsed, at most `max` characters; `undefined` when nothing is left. |
 
 Types: `EmailBlock`, `DeletionCanceledEmailData`, `DeletionScheduledEmailData`, `EmailBrand`, `EmailChangedEmailData`, `EmailColors`, `EmailFonts`, `EmailLocalePaths`, `EmailMessage`, `EmailMessages`, `EmailPreview`, `EmailRenderContext`, `EmailScheme`, `EmailTemplateData`, `EmailTemplateName`, `EmailTemplateOverrides`, `EmailTemplates`, `EmailTheme`, `GiftEmailData`, `GiftPassEndingEmailData`, `RenewalReminderEmailData`, `WithdrawalReceiptEmailData`, `InviteEmailData`, `OtpEmailData`, `OtpPurpose`, `ResolvedEmailTheme`, `PasskeyRecoveredEmailData`, `NewDeviceEmailData`, `RequestOrigin`, `TopicConfirmationEmailData`, `TrustedHtml`, `WaitlistAdmittedEmailData`, `WaitlistConfirmationEmailData`, `WelcomeEmailData`, `NoticeReceivedEmailData`, `NoticeDecidedEmailData`, `ContentRestrictedEmailData`, `AppealDecidedEmailData`, `NotificationEmailData`, `AppLabels`, `AppNotificationLabels`, `LabelParams`, `Translate`, `ClockTime`, `EmailCaps`, `EmailTopic`, `EmailTopics`, `TopicSource`, `TopicState`, `EmailLinkView`, `EmailPreferencesApi`, `EmailTopicPreference`, `EmailContactProperty`, `EmailSyncAction`, `EmailSyncLogEntry`, `EmailSyncReport`, `EmailAutomations`, `EmailLifecycle`, `EmailRunCtx`, `LifecycleFlow`, `LifecycleFlowOptions`, `LifecycleKind`, `Suppression`, `SuppressionOrigin`, `SuppressionsApi`, `SuppressionsPage`, `AnnouncementAudience`, `AnnouncementBroadcastState`, `AnnouncementRow`, `AnnouncementsApi`, `AnnouncementsConsole`, `LiveAnnouncement`, `PublishAnnouncementInput`, `ContactOptions`, `InboundMessage`, `InboundOptions`, `InboundRateLimiter`, `InboundSyncReport`, `InboxConsole`, `InboxRow`, `EmailComponents`, `SandboxMessage`, `EmailStatus`, `EmailRecord`, `SendEmailOptions`, `EmailWebhookEventType`, `EmailEventData`, `InboxEmailEventData`, `ContactEventData`, `ContactTopicsEventData`, `SuppressionEventData`, `TopicEventData`, `DomainEventData`, `EmailWebhookEvent`, `EmailWebhookEventHandlers`, `EmailRetention`, `SetupEmailOptions`, `Email`.
+
+### `nuxt-backend/presence`
+
+| Export | What it is |
+|---|---|
+| `setupPresence()` | Who is here, for a page, a document or a workspace: Convex's presence component (`@convex-dev/presence`, mounted as `presence` in `convex.config.ts`) behind the backend's sign-in. |
+
+Types: `PresenceComponents`, `PresenceRoomCheck`, `SetupPresenceOptions`, `RoomMember`, `PresenceSetup`.
 
 ### `nuxt-backend/rate-limit`
 

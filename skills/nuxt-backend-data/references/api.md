@@ -2,7 +2,7 @@
 
 # nuxt-backend-data: the API
 
-The public names of the function tiers, queries and mutations, errors, search, workflows, uploads, share links, retention, tokens and the Convex components for counts, queues, cached actions, crons and migrations, each with the first sentence of its doc comment.
+The public names of the function tiers, queries and mutations, errors, search, workflows, uploads, share links, presence, retention, tokens and the Convex components for counts, queues, cached actions, crons and migrations, each with the first sentence of its doc comment.
 
 The file ships inside the package, so it describes exactly the version in `node_modules`. The
 core skill, `nuxt-backend`, lists every public name in its own `references/api.md`.
@@ -16,6 +16,7 @@ core skill, `nuxt-backend`, lists every public name in its own `references/api.m
 | `useConnectionState()` | The base module's, from `nuxt-convex-module/client`, under a neutral name. |
 | `useSearch()` | Reactive, debounced full-text search. |
 | `useWorkflowStatus()` | Reactively track a durable Workflow's status. |
+| `useRoomPresence()` | Who is here: keep the signed-in person in a room (a page, a document, `workspace:<id>`) while the page is open and visible, and list who else is there, live. |
 | `useShareLink()` | One row's share link: whether it has a live one and since when, read live, and the actions that turn it on (or mint a new one) and off, through `getShareLink`, `enableShareLink` and `revokeShareLink` of `backend/storage.ts`. |
 | `useUploadField()` | The upload field without its markup: pick a file (by the button or by dropping it), run your `prepare` on it, upload it with the base module's `useUploadQueue` through the upload URL `setupStorage` mints, then hand the storage id to your `claim`, where the deployment checks it. |
 | `preparePhoto()` | Make one photo ready to send, in the browser: decoded (a HEIC through `heic-to` when this browser can't open it, loaded only then), turned upright by its EXIF orientation, scaled down to `longEdge`, and re-encoded as `type` (JPEG by default) on a canvas, which keeps the pixels and drops every metadata tag, GPS included. |
@@ -81,3 +82,11 @@ Types: `WorkflowId`, `WorkflowStatus`, `WorkflowComponents`, `EmailSequenceStep`
 | `stripImageMetadata()` | An image's bytes without its EXIF, XMP, IPTC and GPS data, its container rewritten and its pixels untouched, so quality is unchanged: JPEG, PNG and WebP. |
 
 Types: `FileOwner`, `StoredFile`, `ResolvedShareLink`, `ShareLinkState`, `MintedShareLink`, `StorageApi`, `StorageReadCtx`, `StorageWriteCtx`, `ShareCtx`, `ShareMutationCtx`, `EnabledShareLink`, `ShareableOptions`, `UploadSafety`, `AcceptUploadOptions`, `StorageQuota`, `SetupStorageOptions`, `Storage`, `StorageComponents`.
+
+### `nuxt-backend/presence`
+
+| Export | What it is |
+|---|---|
+| `setupPresence()` | Who is here, for a page, a document or a workspace: Convex's presence component (`@convex-dev/presence`, mounted as `presence` in `convex.config.ts`) behind the backend's sign-in. |
+
+Types: `PresenceComponents`, `PresenceRoomCheck`, `SetupPresenceOptions`, `RoomMember`, `PresenceSetup`.

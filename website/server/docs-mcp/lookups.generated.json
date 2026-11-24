@@ -1121,6 +1121,12 @@
       "summary": "The authenticator app as a second step after a sign-in code (TOTP), for the signed-in account: turn it on (`start`, then `confirm` with the app's first code), off, and new backup codes.",
       "url": "/docs/reference/nuxt/composables"
     },
+    "useRoomPresence": {
+      "tab": "Data",
+      "tier": "stable",
+      "summary": "Who is here: keep the signed-in person in a room (a page, a document, `workspace:<id>`) while the page is open and visible, and list who else is there, live.",
+      "url": "/docs/reference/nuxt/composables"
+    },
     "useSessions": {
       "tab": "Auth",
       "tier": "stable",

@@ -368,6 +368,18 @@
         "WithdrawalReceiptEmailData"
       ]
     },
+    "nuxt-backend/presence": {
+      "values": [
+        "setupPresence"
+      ],
+      "types": [
+        "PresenceComponents",
+        "PresenceRoomCheck",
+        "PresenceSetup",
+        "RoomMember",
+        "SetupPresenceOptions"
+      ]
+    },
     "nuxt-backend/rate-limit": {
       "values": [
         "DAY",
@@ -944,6 +956,7 @@
       "useReportAppeal",
       "useReportForm",
       "useReturnPath",
+      "useRoomPresence",
       "useSandboxInbox",
       "useSearch",
       "useSessions",

@@ -1147,6 +1147,10 @@
           "to": "/docs/reference/api/use-search"
         },
         {
+          "name": "useRoomPresence",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
           "name": "useShareLink",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
@@ -1182,6 +1186,10 @@
         {
           "name": "defineRetention",
           "to": "/docs/reference/api/functions"
+        },
+        {
+          "name": "setupPresence",
+          "to": "/docs/reference/api/presence"
         },
         {
           "name": "defineSearch",
@@ -1619,9 +1627,9 @@
       "kind": "Composables",
       "items": [
         {
-          "name": "75 in all",
+          "name": "76 in all",
           "to": "/docs/reference/nuxt/composables",
-          "label": "75 composables in all"
+          "label": "76 composables in all"
         }
       ]
     },
@@ -1649,9 +1657,9 @@
       "kind": "Setup helpers",
       "items": [
         {
-          "name": "26 in all",
+          "name": "27 in all",
           "to": "/docs/reference/backend",
-          "label": "26 setup helpers in all"
+          "label": "27 setup helpers in all"
         }
       ]
     },
@@ -1982,6 +1990,10 @@
         },
         {
           "name": "useTwoFactor",
+          "to": "/docs/reference/nuxt/composables#at-a-glance"
+        },
+        {
+          "name": "useRoomPresence",
           "to": "/docs/reference/nuxt/composables#at-a-glance"
         },
         {

@@ -54,6 +54,7 @@
     "src/convex/integrations/email.ts",
     "src/convex/integrations/ai.ts",
     "src/convex/integrations/monitoring.ts",
+    "src/convex/integrations/presence.ts",
     "src/convex/integrations/rate-limit.ts",
     "src/convex/integrations/search.ts",
     "src/convex/integrations/workflows.ts",

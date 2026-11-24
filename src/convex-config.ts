@@ -64,6 +64,7 @@ const OPTIONAL_MOUNTS = [
   { from: '@convex-dev/aggregate/convex.config', local: 'aggregate', neededBy: '@convex-dev/aggregate:TableAggregate', requires: '@convex-dev/aggregate', after: LAST_SCAFFOLD_MOUNT },
   { from: '@convex-dev/migrations/convex.config', local: 'migrations', neededBy: '@convex-dev/migrations:Migrations', requires: '@convex-dev/migrations', after: LAST_SCAFFOLD_MOUNT },
   { from: '@convex-dev/crons/convex.config', local: 'crons', neededBy: '@convex-dev/crons:Crons', requires: '@convex-dev/crons', after: LAST_SCAFFOLD_MOUNT },
+  { from: '@convex-dev/presence/convex.config', local: 'presence', neededBy: 'nuxt-backend/presence:setupPresence', requires: '@convex-dev/presence', after: LAST_SCAFFOLD_MOUNT },
 ] as const
 
 /**

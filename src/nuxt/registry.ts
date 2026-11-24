@@ -57,6 +57,7 @@ export function registerSaasComposables(resolver: Resolver): void {
     { name: 'useReferralAdmin', from: resolver.resolve('./runtime/vue/composables/use-referral-admin') },
     { name: 'usePasskeys', from: resolver.resolve('./runtime/vue/composables/use-passkeys') },
     { name: 'useTwoFactor', from: resolver.resolve('./runtime/vue/composables/use-two-factor') },
+    { name: 'useRoomPresence', from: resolver.resolve('./runtime/vue/composables/use-room-presence') },
     { name: 'useSessions', from: resolver.resolve('./runtime/vue/composables/use-sessions') },
     { name: 'useSignInAlerts', from: resolver.resolve('./runtime/vue/composables/use-sign-in-alerts') },
     { name: 'useReauthentication', from: resolver.resolve('./runtime/vue/composables/use-reauthentication') },

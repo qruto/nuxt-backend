@@ -73,6 +73,10 @@
       "types": "./dist/convex/integrations/email.d.ts",
       "default": "./dist/convex/integrations/email.js"
     },
+    "./presence": {
+      "types": "./dist/convex/integrations/presence.d.ts",
+      "default": "./dist/convex/integrations/presence.js"
+    },
     "./rate-limit": {
       "types": "./dist/convex/integrations/rate-limit.d.ts",
       "default": "./dist/convex/integrations/rate-limit.js"
@@ -278,6 +282,7 @@
     "@convex-dev/bundle-analyzer": "0.1.0",
     "@convex-dev/crons": "^0.2.3",
     "@convex-dev/eslint-plugin": "^5.0.0",
+    "@convex-dev/presence": "^0.4.0",
     "@convex-dev/rag": "^0.7.8",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@sentry/nuxt": "^11.10.0",
@@ -298,6 +303,7 @@
     "@convex-dev/bundle-analyzer": "0.1.0",
     "@convex-dev/crons": "^0.2.3",
     "@convex-dev/eslint-plugin": "^5.0.0",
+    "@convex-dev/presence": "^0.4.1",
     "@convex-dev/rag": "^0.7.8",
     "@edge-runtime/vm": "^5.0.0",
     "@intlify/message-compiler": "^11.4.16",
@@ -389,6 +395,9 @@
       "optional": true
     },
     "@convex-dev/agent": {
+      "optional": true
+    },
+    "@convex-dev/presence": {
       "optional": true
     },
     "heic-to": {
