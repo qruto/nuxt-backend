@@ -52,6 +52,9 @@ function monthOf(at: number): string {
   return new Date(at).toISOString().slice(0, 7)
 }
 
+/** A day in ms. */
+const DAY_MS = 24 * 60 * 60 * 1000
+
 /** The first moment of the next UTC month: when the next cycle grant runs. */
 function nextMonth(at: number): number {
   const date = new Date(at)
@@ -297,13 +300,24 @@ export function createCommerceEvents(
    * cycle, the cycle grants of its months since. Each closes once, so a
    * second attempt takes nothing twice.
    */
-  const takeBack = async (ctx: RunWriteCtx, order: { entityId: string, orderId: string, productId?: string, createdAt: number }): Promise<void> => {
+  const takeBack = async (ctx: RunWriteCtx, order: { entityId: string, orderId: string, productId?: string, subscriptionId?: string, createdAt: number }): Promise<void> => {
     await ctx.runMutation(refs.revokeGrant, { userId: order.entityId, externalId: `order:${order.orderId}` })
     const product = productOf(order.productId)
     if (!monthlyCycleOf(product)) return
-    for (const month of monthsBetween(order.createdAt, Date.now())) {
+    for (const month of monthsBetween(await periodStartOf(ctx, order), Date.now())) {
       await ctx.runMutation(refs.revokeGrant, { userId: order.entityId, externalId: `cycle:${order.entityId}:${product!.key}:${month}` })
     }
+  }
+
+  /**
+   * Where an order's year of cycle months starts: its subscription's period
+   * start while that period holds the order, else a day before the order.
+   * The subscription's own delivery can start the cycle first, so its first
+   * month can be the one before the order's.
+   */
+  const periodStartOf = async (ctx: RunWriteCtx, order: { subscriptionId?: string, createdAt: number }): Promise<number> => {
+    const start = msOf((await subscriptionOf(ctx, order.subscriptionId ?? null))?.currentPeriodStart)
+    return start !== undefined && start <= order.createdAt ? start : order.createdAt - DAY_MS
   }
 
   /** The recorded order a refund or a dispute names, unless its entity is being erased. */
@@ -389,17 +403,21 @@ export function createCommerceEvents(
       const now = Date.now()
       const { scheduler } = ctx as QueueCtx
       const successor = await scheduler.runAt(nextMonth(now), cycleReference, { entityId })
+      const cycleStart = Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), 1)
+      const keyOf = (month: { key: string }) => `cycle:${entityId}:${month.key}:${monthOf(now)}`
       let granted = false
       for (const month of months) {
         const grant = await ctx.runMutation(refs.grantCredits, {
           userId: entityId,
           meterId: month.meter,
           amount: month.units,
-          externalId: `cycle:${entityId}:${month.key}:${monthOf(now)}`,
+          externalId: keyOf(month),
           source: 'plan',
           rollover: month.rollover,
-          cycleStart: Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), 1),
+          cycleStart,
           cycleEnd: nextMonth(now),
+          // Each plan's month lapses the months before it, never another live plan's of this one.
+          keep: months.map(keyOf),
         })
         granted ||= grant.granted
       }

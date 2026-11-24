@@ -358,6 +358,23 @@ describe('the credit grant ledger of adapter mode', () => {
     expect(await grant('w1', 'm2', 100, 'plan')).toEqual({ granted: false, balance: 100 })
   })
 
+  test('keeps another plan\'s grant of the same month on a shared meter, and lapses both at the next', async () => {
+    const month = ['basic:m1', 'pro:m1']
+    const cycleGrant = (externalId: string, keep: string[]) =>
+      t.mutation(ledger.grantCredits, { userId: 'w6', meterId: 'credits', amount: 100, externalId, source: 'plan', rollover: false, keep })
+    await grant('w6', 'free:m1', 30, 'plan')
+    // The second plan's month first, as a retry after a run that stopped would: the free month lapses, neither plan's does.
+    await cycleGrant('pro:m1', month)
+    await cycleGrant('basic:m1', month)
+    expect(await balance('w6')).toBe(200)
+    expect(await cycleGrant('pro:m1', month)).toEqual({ granted: false, balance: 200 })
+    // The next month lapses both of this one's.
+    const next = ['basic:m2', 'pro:m2']
+    await cycleGrant('basic:m2', next)
+    await cycleGrant('pro:m2', next)
+    expect(await balance('w6')).toBe(200)
+  })
+
   test('keeps a pack\'s credits through a plan\'s new month, and takes them back on a refund once', async () => {
     await grant('w2', 'm1', 100, 'plan')
     await grant('w2', 'p1', 50, 'pack')

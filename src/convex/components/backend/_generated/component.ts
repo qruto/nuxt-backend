@@ -4061,6 +4061,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           cycleEnd?: number;
           cycleStart?: number;
           externalId: string;
+          keep?: Array<string>;
           meterId: string;
           rollover: boolean;
           source: "plan" | "pack" | "grant";

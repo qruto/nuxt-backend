@@ -174,14 +174,14 @@ function pick<T extends Record<string, unknown>>(values: T): Partial<T> {
 
 /**
  * Close the meter's open plan grants that do not roll over, each with what
- * is left of it, as far as the balance still holds it. Answers how many
- * credits lapsed.
+ * is left of it, as far as the balance still holds it, but those `keep`
+ * names. Answers how many credits lapsed.
  */
-async function lapsePlanGrants(ctx: MutationCtx, userId: string, meter: MeterState): Promise<number> {
+async function lapsePlanGrants(ctx: MutationCtx, userId: string, meter: MeterState, keep: readonly string[] = []): Promise<number> {
   let lapsed = 0
   const grants = ctx.db.query('billingCreditGrants').withIndex('userId_meterId', q => q.eq('userId', userId).eq('meterId', meter.meterId))
   for await (const grant of grants) {
-    if (grant.source !== 'plan' || grant.rollover || grant.closed !== undefined) continue
+    if (grant.source !== 'plan' || grant.rollover || grant.closed !== undefined || keep.includes(grant.externalId)) continue
     const closed = Math.min(remainingOf(grant, meter.consumedUnits), Math.max(0, meter.balance - lapsed))
     lapsed += closed
     await ctx.db.patch('billingCreditGrants', grant._id, { closed })
@@ -194,7 +194,9 @@ async function lapsePlanGrants(ctx: MutationCtx, userId: string, meter: MeterSta
  * A plan's grant (`source: 'plan'`) first lapses what is left of the
  * meter's earlier plan grants that do not roll over: a month's allowance
  * ends where the next begins, and what was spent since it landed came out
- * of it first. Answers whether the grant was new, and the balance.
+ * of it first. `keep` names the grants that stay open: the monthly cycle's
+ * other plans' of the same month. Answers whether the grant was new, and
+ * the balance.
  */
 export const grantCredits = mutation({
   args: {
@@ -206,9 +208,10 @@ export const grantCredits = mutation({
     rollover: v.boolean(),
     cycleStart: v.optional(v.number()),
     cycleEnd: v.optional(v.number()),
+    keep: v.optional(v.array(v.string())),
   },
   returns: v.object({ granted: v.boolean(), balance: v.number() }),
-  handler: async (ctx, { userId, meterId, amount, externalId, source, rollover, cycleStart, cycleEnd }) => {
+  handler: async (ctx, { userId, meterId, amount, externalId, source, rollover, cycleStart, cycleEnd, keep }) => {
     if (!Number.isFinite(amount) || amount <= 0) throw new Error(`[nuxt-backend] commerce.grantCredits: \`amount\` must be a finite number above zero (got ${amount}).`)
     const row = await entitlementRow(ctx, userId)
     const index = row.meters.findIndex(meter => meter.meterId === meterId)
@@ -216,7 +219,7 @@ export const grantCredits = mutation({
     if (await ctx.db.query('billingCreditGrants').withIndex('externalId', q => q.eq('externalId', externalId)).first()) {
       return { granted: false, balance: meter.balance }
     }
-    const lapsed = source === 'plan' ? await lapsePlanGrants(ctx, userId, meter) : 0
+    const lapsed = source === 'plan' ? await lapsePlanGrants(ctx, userId, meter, keep) : 0
     const now = Date.now()
     await ctx.db.insert('billingCreditGrants', { userId, meterId, externalId, amount, source, rollover, consumedAtGrant: meter.consumedUnits, at: now })
     const next = {
