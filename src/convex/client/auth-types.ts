@@ -321,8 +321,10 @@ export interface SetupAuthOptions<
    * invitations, the admin console) run inside the app's functions, with no
    * auth HTTP routes. Mount Convex Auth's core at `auth` in
    * convex.config.ts, and export the functions this returns from
-   * `backend/auth.ts`. `'better-auth'`, the default when left out:
-   * Better Auth serves the auth routes, as before.
+   * `backend/auth.ts`. `'better-auth'`: Better Auth serves the auth routes,
+   * as before. Left out, an app whose components hold Convex Auth's core
+   * runs on it, any other on Better Auth; name it, for the functions'
+   * types.
    */
   provider?: 'better-auth' | 'convex-auth'
   /** A Convex Auth app's session lifetimes (`provider: 'convex-auth'`): the access token's, and the session's. */

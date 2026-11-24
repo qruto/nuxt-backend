@@ -1,0 +1,40 @@
+/*
+ * AuthFormTwoFactor's default styles, on its data-* hooks. Theme through the
+ * --bk-* tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-auth='two-factor-note'] {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--auth-muted);
+    line-height: 1.5;
+  }
+
+  /* Six digits from the app: a short field, the digits in columns. */
+  [data-auth='input-two-factor-code'][inputmode='numeric'] {
+    max-width: 10rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.15em;
+  }
+
+  [data-auth='label-trust-device'] {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  /* The way to a backup code and back: quieter than the code itself. */
+  [data-auth='two-factor-switch'] {
+    align-self: center;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    translate: none;
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: var(--auth-muted);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+}

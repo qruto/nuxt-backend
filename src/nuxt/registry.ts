@@ -56,6 +56,7 @@ export function registerSaasComposables(resolver: Resolver): void {
     { name: 'useReferralInvite', from: resolver.resolve('./runtime/vue/composables/use-referral-invite') },
     { name: 'useReferralAdmin', from: resolver.resolve('./runtime/vue/composables/use-referral-admin') },
     { name: 'usePasskeys', from: resolver.resolve('./runtime/vue/composables/use-passkeys') },
+    { name: 'useTwoFactor', from: resolver.resolve('./runtime/vue/composables/use-two-factor') },
     { name: 'useSessions', from: resolver.resolve('./runtime/vue/composables/use-sessions') },
     { name: 'useSignInAlerts', from: resolver.resolve('./runtime/vue/composables/use-sign-in-alerts') },
     { name: 'useReauthentication', from: resolver.resolve('./runtime/vue/composables/use-reauthentication') },
@@ -312,7 +313,7 @@ export function hideBaseBrandNames(nuxt: Nuxt): void {
         break
       case 'app:resolve':
         filterInPlace(args[0], (middleware: { name?: string, path?: string } | undefined) =>
-          !(middleware?.name === 'convex-auth' && fromBaseModule(middleware.path)), 'middleware')
+          !((middleware?.name === 'convex-auth' || middleware?.name === 'convex-auth-guest') && fromBaseModule(middleware.path)), 'middleware')
         break
       case 'nitro:config':
         filterInPlace((args[0] as Parameters<NuxtHooks['nitro:config']>[0] | undefined)?.imports, (entry: { name?: string, as?: string, from?: string }) => !hiddenImport(entry), 'imports')

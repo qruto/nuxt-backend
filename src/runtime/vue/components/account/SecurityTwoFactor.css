@@ -1,0 +1,68 @@
+/*
+ * SecurityTwoFactor's default styles, on its data-* hooks. Theme through the
+ * --bk-* tokens (tokens.css) or the hooks themselves: every rule sits in
+ * `@layer nuxt-backend`, so any rule of the app's wins.
+ */
+@layer nuxt-backend {
+  [data-security='two-factor-hint'],
+  [data-security='two-factor-scan'],
+  [data-security='backup-codes-note'] {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--bk-muted);
+    line-height: 1.5;
+  }
+
+  /* The setup: a frame of its own, so the link, the key and the field read as one step. */
+  [data-security='two-factor-setup'],
+  [data-security='backup-codes'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.75rem 0.8rem;
+    border: var(--bk-border-width-surface, var(--bk-border-width)) solid var(--bk-edge);
+    box-shadow: var(--bk-shadow);
+    border-radius: var(--bk-radius);
+  }
+
+  [data-security='two-factor-key'],
+  [data-security='backup-code'] code {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+    overflow-wrap: anywhere;
+  }
+
+  [data-security='input-two-factor-code'] {
+    max-width: 10rem;
+    padding: 0.3rem 0.5rem;
+    border: var(--bk-border-width-control, var(--bk-border-width)) solid var(--bk-edge);
+    border-radius: var(--bk-radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.15em;
+  }
+
+  [data-security='two-factor-start'],
+  [data-security='two-factor-confirm'] {
+    align-self: flex-start;
+    background: var(--bk-accent);
+    border-color: var(--bk-accent);
+    color: var(--bk-on-accent);
+  }
+
+  /* On: said by the frame's tone as well as the words. */
+  [data-security='section-two-factor'][data-state='on'] [data-security='two-factor-hint'] {
+    color: var(--bk-ok);
+  }
+
+  [data-security='backup-code-list'] {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: 0.35rem 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+}

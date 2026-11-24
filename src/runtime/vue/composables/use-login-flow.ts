@@ -33,7 +33,7 @@ export type { LoginBindings } from '../utils/login-bindings'
  */
 export type { SignInMethod } from '../utils/auth-session'
 
-export type LoginStep = 'choose' | 'request-code' | 'verify-code' | 'passkey-offer' | 'recover' | 'waitlisted' | 'invite-code' | 'age' | 'undeliverable'
+export type LoginStep = 'choose' | 'request-code' | 'verify-code' | 'passkey-offer' | 'recover' | 'waitlisted' | 'invite-code' | 'age' | 'undeliverable' | 'two-factor'
 
 export interface UseLoginFlowOptions {
   /**
@@ -119,6 +119,12 @@ export interface UseLoginFlowReturn {
    * otherwise.
    */
   waitlist: Ref<{ position: number, total: number, token: string } | null>
+  /** The code from the authenticator app (or, with `useBackupCode`, a backup code) an account with one types on `two-factor`. */
+  twoFactorCode: Ref<string>
+  /** Whether `two-factor` takes a backup code instead of the app's code. Switching clears the field and `error`. */
+  useBackupCode: Ref<boolean>
+  /** Whether this browser skips the `two-factor` step for thirty days once the code checks. */
+  trustDevice: Ref<boolean>
   /** `true` on `passkey-offer` after a recovery: a passkey must be saved, and `skipPasskey()` does nothing. */
   passkeyRequired: ComputedRef<boolean>
   /** `true` while a step's call runs. */
@@ -145,6 +151,14 @@ export interface UseLoginFlowReturn {
    * done at once where this browser can save no passkey.
    */
   verifyCode: () => Promise<void>
+  /**
+   * Check `twoFactorCode` on `two-factor`, the step a sign-in code moves
+   * an account with an authenticator app to → `passkey-offer`, as
+   * `verifyCode`. A wrong code stays, refused as `invalid_input` on
+   * `twoFactorCode`; once the ten minutes after the sign-in code passed
+   * (reason `two_factor_expired`), `goTo('request-code')` starts again.
+   */
+  verifyTwoFactor: () => Promise<void>
   /**
    * Check `inviteCode` and sign up with it and the code already typed →
    * `passkey-offer`. A code that admits nobody stays on `invite-code`,
@@ -238,6 +252,9 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   const recoveryCode = ref('')
   const inviteCode = ref('')
   const age = ref('')
+  const twoFactorCode = ref('')
+  const useBackupCode = ref(false)
+  const trustDevice = ref(false)
   const waitlist = ref<{ position: number, total: number, token: string } | null>(null)
   const access = useApiNamespace<AccessApiRefs>('access')
   const checkInvite = access?.checkInvite ? useMutation(access.checkInvite) : null
@@ -252,6 +269,11 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   const trimmedEmail = () => email.value.trim()
 
   const { run, clearError, refuse } = stepRunner({ pending, error, retryAfter })
+  // A switch between the app's code and a backup code starts the field again.
+  watch(useBackupCode, () => {
+    twoFactorCode.value = ''
+    clearError()
+  }, { flush: 'sync' })
 
   async function refreshSession() {
     await auth.session.value.refetch()
@@ -412,6 +434,11 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
     }
     catch (cause) {
       const failure = failureOf(cause)
+      // The account has an authenticator app: the code checked, the app's comes next.
+      if (failure.code === 'forbidden' && failure.data.reason === 'two_factor_required') {
+        step.value = 'two-factor'
+        return false
+      }
       if (failure.code === 'forbidden' && failure.data.reason === 'age_required') {
         step.value = 'age'
         return false
@@ -436,6 +463,14 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
 
   const verifyCode = () => run(async () => {
     if (await signIn(keptInvite())) await finishSignIn()
+  })
+
+  const verifyTwoFactor = () => run(async () => {
+    const code = twoFactorCode.value.replace(/\s+/g, '')
+    if (!code) throw backendError('invalid_input', { field: 'twoFactorCode', reason: 'required' })
+    await auth.verifyTwoFactor({ code, backup: useBackupCode.value, trustDevice: trustDevice.value })
+    twoFactorCode.value = ''
+    await finishSignIn()
   })
 
   const redeemInviteCode = () => run(async () => {
@@ -487,6 +522,8 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
     clearError()
     // The ticket steps send the same code again: it stays.
     if (!(target === 'invite-code' && step.value === 'waitlisted')) otp.value = ''
+    twoFactorCode.value = ''
+    useBackupCode.value = false
     step.value = target
   }
 
@@ -499,6 +536,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
     recoveryCode.value = ''
     inviteCode.value = ''
     age.value = ''
+    trustDevice.value = false
     waitlist.value = null
     pending.value = false
   }
@@ -528,6 +566,9 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
     recoveryCode,
     inviteCode,
     age,
+    twoFactorCode,
+    useBackupCode,
+    trustDevice,
     waitlist,
     passkeyRequired: computed(() => recovering.value),
     isPending: computed(() => pending.value),
@@ -539,6 +580,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
     verifyCode,
     redeemInviteCode,
     submitAge,
+    verifyTwoFactor,
     addPasskey,
     skipPasskey,
     recover,

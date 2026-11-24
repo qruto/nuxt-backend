@@ -563,6 +563,7 @@ const REGISTRY = {
     'useReferralAdmin',
     'useWorkspace',
     'usePasskeys',
+    'useTwoFactor',
     'usePlanChange',
     'usePricing',
     'useReauthentication',
@@ -630,11 +631,11 @@ const REGISTRY = {
   // The parts of the components above (src/ui/registry.ts): an app component of
   // the same name replaces one everywhere.
   parts: [
-    'AuthFormHeader', 'AuthFormChoose', 'AuthFormPasskey', 'AuthFormEmail', 'AuthFormCode', 'AuthFormRecover', 'AuthFormWaitlisted', 'AuthFormInviteCode', 'AuthFormAge', 'AuthFormUndeliverable', 'AuthFormPasskeyOffer', 'AuthFormAgreement', 'AuthFormError',
+    'AuthFormHeader', 'AuthFormChoose', 'AuthFormPasskey', 'AuthFormEmail', 'AuthFormCode', 'AuthFormRecover', 'AuthFormWaitlisted', 'AuthFormInviteCode', 'AuthFormAge', 'AuthFormTwoFactor', 'AuthFormUndeliverable', 'AuthFormPasskeyOffer', 'AuthFormAgreement', 'AuthFormError',
     'WaitlistJoin', 'WaitlistCode', 'WaitlistPlace', 'WaitlistShare',
     'ReauthenticatePasskey', 'ReauthenticateCode',
     'ProfileIdentity', 'ProfileNameSection', 'ProfileEmailSection', 'ProfileLanguageSection', 'ProfilePreferencesSection',
-    'SecurityPasskeys', 'SecuritySessions', 'SecurityAlerts', 'AccountExport', 'AccountDeletion',
+    'SecurityPasskeys', 'SecurityTwoFactor', 'SecuritySessions', 'SecurityAlerts', 'AccountExport', 'AccountDeletion',
     'WorkspaceList', 'WorkspaceBilling', 'WorkspaceCredits', 'AcceptInvitationActions', 'AuditLogEvent',
     'PricingPeriodSwitch', 'PricingCurrencySelect', 'PricingPlanCard', 'PricingPackCard', 'PricingCancelConfirm', 'PricingChangeConfirm', 'PricingEmailOptOut',
     'BillingHistoryOrder', 'UsageHistoryEvent',

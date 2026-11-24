@@ -104,7 +104,7 @@ export const COMPONENT_CONTRACT = {
     family: 'security',
     labels: 'security',
     slots: ['passkeys', 'passkey', 'sessions', 'session', 'alerts', 'danger', 'footer'],
-    emits: ['passkey-added', 'passkey-removed', 'session-revoked', 'sessions-revoked', 'signed-out', 'error'],
+    emits: ['passkey-added', 'passkey-removed', 'two-factor-enabled', 'two-factor-disabled', 'session-revoked', 'sessions-revoked', 'signed-out', 'error'],
     states: ['ready', 'loading', 'pending', 'error'],
     a11y: 'Each row\'s buttons are named after the passkey or the session they act on; the rename field is named and takes focus when the person starts a rename; a busy button keeps focus (`aria-disabled`) and says what it waits for; when the button pressed goes with its action (a revoked session, a removed passkey, no other session left), focus moves to the outcome or the next button of its section; the session list\'s loading note is a polite status and its failure an alert; each alert is one sentence naming the device and the time, and its sign-out button names the device it signs out.',
   },

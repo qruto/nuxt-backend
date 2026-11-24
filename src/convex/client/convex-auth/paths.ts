@@ -12,6 +12,9 @@ export const ENGINE_SIGN_IN_PATHS: ReadonlySet<string> = new Set([
   '/sign-in/recovery-code',
   // A recovery session's passkey, which makes it an ordinary session.
   '/passkey/verify-registration',
+  // The authenticator app's step after a code, and the session that turns it on.
+  '/two-factor/verify-totp',
+  '/two-factor/verify-backup-code',
   '/admin/impersonate-user',
   '/admin/stop-impersonating',
   // An app that turns passwords on.

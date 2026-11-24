@@ -5,6 +5,7 @@ import { useLabels, type BackendLabels, type LabelOverrides } from '../../compos
 import { type Passkey, usePasskeys } from '../../composables/use-passkeys'
 import { useReauthentication } from '../../composables/use-reauthentication'
 import { parseUserAgent, type SessionInfo, useSessions } from '../../composables/use-sessions'
+import { useTwoFactor } from '../../composables/use-two-factor'
 import { useAuthSession } from '../../utils/auth-session'
 import { useConfirmation } from '../../utils/confirmation'
 import { focusedIn, focusStranded, returnFocus } from '../../utils/focus-return'
@@ -23,11 +24,12 @@ import { provideSecurityView, type SecuritySection, type SecuritySettingsSlots, 
  * entirely on `useAuth`, `usePasskeys` and `useSessions`.
  *
  * Markup on `data-security` hooks, built from parts (`SecurityPasskeys`,
- * `SecuritySessions`); replace any region via its slot — each slot receives
+ * `SecurityTwoFactor`, `SecuritySessions`); replace any region via its slot — each slot receives
  * {@link SecuritySlotContext}. Destructive actions ask first, through the
  * `confirm` prop or, without one, the component's own confirmation dialog.
  *
- * Adding or removing a passkey takes a recent sign-in: when the session's
+ * Adding or removing a passkey, and turning the authenticator app on or
+ * off, takes a recent sign-in: when the session's
  * is older, `<ReauthenticateDialog>` (rendered here) asks the person to
  * confirm it is them, then the action runs again. Revoking a session never asks.
  */
@@ -39,11 +41,13 @@ const props = withDefaults(defineProps<{
   confirm?: (message: string) => boolean | Promise<boolean>
   /** Copy for this component, over `appConfig.backend.labels.security` and the translations. */
   labels?: LabelOverrides<BackendLabels['security']>
-}>(), { sections: () => ['passkeys', 'sessions', 'alerts', 'danger'], confirm: undefined, labels: undefined })
+}>(), { sections: () => ['passkeys', 'twoFactor', 'sessions', 'alerts', 'danger'], confirm: undefined, labels: undefined })
 
 const emit = defineEmits({
   'passkey-added': () => true,
   'passkey-removed': (_id: string) => true,
+  'two-factor-enabled': () => true,
+  'two-factor-disabled': () => true,
   'session-revoked': (_id: string) => true,
   'sessions-revoked': () => true,
   'signed-out': () => true,
@@ -54,6 +58,7 @@ const slots = defineSlots<SecuritySettingsSlots>()
 const auth = useAuthSession()
 const passkeys = usePasskeys()
 const sessions = useSessions()
+const twoFactor = useTwoFactor()
 const alerts = useSignInAlertsState()
 // A recent sign-in, asked for when an action needs one and the session's is older.
 const { withReauthentication } = useReauthentication()
@@ -140,6 +145,7 @@ const signOut = () => run('sign-out', async () => {
 const context = computed<SecuritySlotContext>(() => ({
   user: auth.user.value,
   passkeys,
+  twoFactor,
   sessions,
   alerts,
   message: message.value,
@@ -150,6 +156,9 @@ const context = computed<SecuritySlotContext>(() => ({
 
 // Passkey-only: the recovery code a switch answered, shown until the page goes.
 const recoveryCode = ref<string | null>(null)
+// The authenticator app: the first code typed, and the backup codes a setup answered, shown until the page goes.
+const twoFactorCode = ref('')
+const backupCodes = ref<string[] | null>(null)
 
 provideSecurityView({
   labels,
@@ -176,6 +185,30 @@ provideSecurityView({
   setPasskeyOnly: on => run('passkey-only', async () => {
     const answer = await withReauthentication(() => passkeys.setPasskeyOnly(on))
     recoveryCode.value = answer.recoveryCode
+  }),
+  twoFactorCode,
+  backupCodes,
+  startTwoFactor: () => run('two-factor:start', async () => {
+    const setup = await withReauthentication(() => twoFactor.start())
+    twoFactorCode.value = ''
+    backupCodes.value = setup.backupCodes
+  }),
+  confirmTwoFactor: () => run('two-factor:confirm', async () => {
+    await twoFactor.confirm(twoFactorCode.value)
+    twoFactorCode.value = ''
+    emit('two-factor-enabled')
+  }, () => t('twoFactorEnabled')),
+  disableTwoFactor: async () => {
+    const key = 'two-factor:disable'
+    if (!(await confirmed(key, t('twoFactorDisableConfirm')))) return
+    await run(key, async () => {
+      await withReauthentication(() => twoFactor.disable())
+      backupCodes.value = null
+      emit('two-factor-disabled')
+    }, () => t('twoFactorDisabled'))
+  },
+  regenerateBackupCodes: () => run('two-factor:backup-codes', async () => {
+    backupCodes.value = await withReauthentication(() => twoFactor.regenerateBackupCodes())
   }),
   saveRename: row => run(`passkey:rename:${row.id}`, async () => {
     const name = editName.value.trim()
@@ -221,6 +254,13 @@ provideSecurityView({
         v-bind="context"
       >
         <SecurityPasskeys :passkeys="passkeys" />
+      </slot>
+      <slot
+        v-else-if="section === 'twoFactor'"
+        name="twoFactor"
+        v-bind="context"
+      >
+        <SecurityTwoFactor :two-factor="twoFactor" />
       </slot>
       <slot
         v-else-if="section === 'sessions'"

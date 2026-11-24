@@ -4,6 +4,7 @@ import { componentsGeneric, defineSchema, makeFunctionReference, queryGeneric } 
 import { defineBackendTestApp } from '../../src/convex/test'
 import type { ComponentApi } from '../../src/convex/components/backend/_generated/component'
 import { setupAuth } from '../../src/convex/client'
+import { appCode, secretOf } from '../helpers/totp'
 
 // A Convex Auth app end to end: `setupAuth({ provider: 'convex-auth' })`
 // over the mounted `backend` component and Convex Auth's core at `auth`.
@@ -284,5 +285,73 @@ describe('sessions the engine replaces', () => {
     // And no new one opens.
     const again = await signInByCode('ada@example.com').catch(error => error as Error)
     expect(again instanceof Error ? again.message : (again.result as { status: string }).status).not.toBe('complete')
+  })
+})
+
+describe('the authenticator app, on a Convex Auth session', () => {
+  test('turns on after a recent sign-in, then asks for its code after every sign-in code, and opens the session on it', async () => {
+    const first = completed((await signInByCode('ada@example.com')).result)
+    const ada = t.withIdentity(identityOf(first.tokens.accessToken))
+    const enabled = await ada.action(refs.authRequest, { method: 'POST', path: '/two-factor/enable', body: {}, client: BROWSER }) as Answer
+    expect(enabled.status).toBe(200)
+    const { totpURI, backupCodes } = enabled.body as { totpURI: string, backupCodes: string[] }
+    expect(totpURI).toMatch(/^otpauth:\/\/totp\//)
+    expect(backupCodes.length).toBeGreaterThan(0)
+    const secret = secretOf(totpURI)
+
+    // The app's first code turns it on, in a new session that replaces the one that asked.
+    const on = completed(await ada.action(refs.signIn, { method: 'POST', path: '/two-factor/verify-totp', body: { code: appCode(secret) }, client: BROWSER }))
+    expect(decodeJwt(on.tokens.accessToken).twoFactorEnabled).not.toBe(false)
+    expect(await t.mutation(refs.refreshSession, { refreshToken: first.tokens.refreshToken })).toEqual({ kind: 'noSession' })
+
+    // A sign-in code now opens no session: the app's code is asked for.
+    const jar: Jar = {}
+    const pending = (await signInByCode('ada@example.com', jar)).result
+    expect(pending.status).toBe('error')
+    const asked = (pending as { userError: { response: Answer } }).userError.response
+    expect(asked.body).toMatchObject({ twoFactorRedirect: true, twoFactorMethods: ['totp'] })
+    keep(jar, asked)
+    expect(Object.keys(jar).some(name => name.endsWith('two_factor'))).toBe(true)
+
+    // A wrong code opens nothing; the right one opens the session the code began.
+    const wrong = await t.action(refs.signIn, { method: 'POST', path: '/two-factor/verify-totp', body: { code: '000000' }, jar, client: BROWSER }) as { status: string }
+    expect(wrong.status).toBe('error')
+    const signedIn = completed(await t.action(refs.signIn, { method: 'POST', path: '/two-factor/verify-totp', body: { code: appCode(secret) }, jar, client: BROWSER }))
+    const claims = decodeJwt(signedIn.tokens.accessToken)
+    expect(claims.sub).toBe(first.tokens.userId)
+    expect(claims.signInMethod).toBe('email-otp')
+    expect(await t.withIdentity(identityOf(signedIn.tokens.accessToken)).query(refs.isAuthenticated, {})).toBe(true)
+
+    // A backup code stands in for the app once.
+    const again: Jar = {}
+    const second = (await signInByCode('ada@example.com', again)).result as { userError: { response: Answer } }
+    keep(again, second.userError.response)
+    completed(await t.action(refs.signIn, { method: 'POST', path: '/two-factor/verify-backup-code', body: { code: backupCodes[0] }, jar: again, client: BROWSER }))
+    const third: Jar = {}
+    const reused = (await signInByCode('ada@example.com', third)).result as { userError: { response: Answer } }
+    keep(third, reused.userError.response)
+    const refused = await t.action(refs.signIn, { method: 'POST', path: '/two-factor/verify-backup-code', body: { code: backupCodes[0] }, jar: third, client: BROWSER }) as { status: string }
+    expect(refused.status).toBe('error')
+  })
+
+  test('turned off, a sign-in code opens the session on its own again', async () => {
+    const first = completed((await signInByCode('ada@example.com')).result)
+    const ada = t.withIdentity(identityOf(first.tokens.accessToken))
+    const enabled = await ada.action(refs.authRequest, { method: 'POST', path: '/two-factor/enable', body: {}, client: BROWSER }) as Answer
+    const secret = secretOf((enabled.body as { totpURI: string }).totpURI)
+    const on = completed(await ada.action(refs.signIn, { method: 'POST', path: '/two-factor/verify-totp', body: { code: appCode(secret) }, client: BROWSER }))
+    const off = await t.withIdentity(identityOf(on.tokens.accessToken)).action(refs.authRequest, { method: 'POST', path: '/two-factor/disable', body: {}, client: BROWSER }) as Answer
+    expect(off.status).toBe(200)
+    expect((await signInByCode('ada@example.com')).result.status).toBe('complete')
+  })
+
+  test('is never turned on by an administrator visiting the account', async () => {
+    const admin = completed((await signInByCode('root@example.com')).result)
+    await makeAdmin(admin.tokens.userId)
+    const ada = completed((await signInByCode('ada@example.com')).result)
+    const refreshed = await t.mutation(refs.refreshSession, { refreshToken: admin.tokens.refreshToken }) as { tokens: { accessToken: string } }
+    const visit = completed(await t.withIdentity(identityOf(refreshed.tokens.accessToken)).action(refs.signIn, { method: 'POST', path: '/admin/impersonate-user', body: { userId: ada.tokens.userId }, client: BROWSER }))
+    const refused = await t.withIdentity(identityOf(visit.tokens.accessToken)).action(refs.authRequest, { method: 'POST', path: '/two-factor/enable', body: {}, client: BROWSER }) as Answer
+    expect(refused.status).toBe(403)
   })
 })

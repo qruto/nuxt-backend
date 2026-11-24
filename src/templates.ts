@@ -497,7 +497,7 @@ const FEATURE_FILE_TEMPLATES: Record<string, string> = {
  * (`start_push 500`) when a `convex.config` import is reached through an
  * intermediate module or `app.use` runs in a loop. Mounts the all-in-one
  * `backend` component (auth + email + billing + gifts) plus the upstream
- * components its setup helpers use (persistent text streaming, Polar, rate
+ * components its setup helpers use (Convex Auth's core, persistent text streaming, Polar, rate
  * limiter, sharded counter for plan quotas, workflows, workpool),
  * declares the deployment env via `backendEnv`, and forwards the email env.
  */
@@ -505,6 +505,7 @@ const DEFAULT_CONVEX_CONFIG = dedent`
   import { defineApp } from 'convex/server'
   import { backendEnv } from 'nuxt-backend/app'
   import backend from 'nuxt-backend/convex.config'
+  import auth from '@convex-dev/auth/convex.config'
   import persistentTextStreaming from '@convex-dev/persistent-text-streaming/convex.config'
   import polar from '@convex-dev/polar/convex.config'
   import rateLimiter from '@convex-dev/rate-limiter/convex.config'
@@ -538,6 +539,9 @@ const DEFAULT_CONVEX_CONFIG = dedent`
       MONITORING_DSN: app.env.MONITORING_DSN,
     },
   })
+  // Convex Auth's core, at its default name: it holds the sessions and their
+  // refresh tokens, which makes this a Convex Auth app (backend/auth.ts).
+  app.use(auth)
   app.use(persistentTextStreaming)
   app.use(polar)
   app.use(rateLimiter)
@@ -582,7 +586,17 @@ export const BACKEND_FILE_TEMPLATES: Record<string, string> = {
       listSessions,
       revokeSession,
       listSignInAlerts,
+      refreshSession,
+      signOut,
+      isAuthenticated,
+      signIn,
+      authRequest,
     } = setupAuth(components, query, {
+      // Convex Auth holds the sessions (its core is mounted in
+      // convex.config.ts); the sign-in codes, passkeys, workspaces and the
+      // admin console run inside these functions, with no auth HTTP routes.
+      // \`'better-auth'\` serves Better Auth's routes instead.
+      provider: 'convex-auth',
       // App-wide roles (admin plugin) and workspaces
       // come built in, with a personal workspace per user and emailed
       // workspace invitations with an /accept-invitation page. Customize them

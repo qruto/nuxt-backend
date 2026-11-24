@@ -16,6 +16,12 @@ const client = {
     updatePasskey: vi.fn(async (): Promise<Answer> => ok()),
     deletePasskey: vi.fn(async (): Promise<Answer> => ok()),
   },
+  twoFactor: {
+    enable: vi.fn(async (_body: unknown): Promise<Answer> => ok({ totpURI: 'otpauth://totp/App:ada%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=App', backupCodes: ['AAAAA-11111', 'BBBBB-22222'] })),
+    verifyTotp: vi.fn(async (_body: unknown): Promise<Answer> => ok({ token: 't', user: {} })),
+    disable: vi.fn(async (_body: unknown): Promise<Answer> => ok()),
+    generateBackupCodes: vi.fn(async (_body: unknown): Promise<Answer> => ok({ status: true, backupCodes: ['CCCCC-33333'] })),
+  },
   revokeOtherSessions: vi.fn(async () => ({})),
   updateUser: vi.fn(async () => ({})),
   deleteUser: vi.fn(async () => ({})),
@@ -64,6 +70,7 @@ vi.mock('nuxt-convex-module/better-auth/client', () => ({
 const { useAuthSession: useAuth } = await import('../../src/runtime/vue/utils/auth-session')
 const { useEmailChange } = await import('../../src/runtime/vue/composables/use-email-change')
 const { usePasskeys } = await import('../../src/runtime/vue/composables/use-passkeys')
+const { useTwoFactor } = await import('../../src/runtime/vue/composables/use-two-factor')
 const { useSessions, describeUserAgent } = await import('../../src/runtime/vue/composables/use-sessions')
 const { unwrapAuth } = await import('../../src/runtime/vue/utils/auth-result')
 const { ConvexAuthStateKey } = await import('nuxt-convex-module/client')
@@ -164,6 +171,41 @@ describe('usePasskeys', () => {
     user.value = null
     await nextTick()
     expect(passkeys.error.value).toBeNull()
+  })
+})
+
+describe('useTwoFactor', () => {
+  it('reads whether the account has the app turned on', () => {
+    const twoFactor = inSetup(() => useTwoFactor())
+    expect(twoFactor.enabled.value).toBe(false)
+    user.value = { ...user.value, twoFactorEnabled: true }
+    expect(twoFactor.enabled.value).toBe(true)
+  })
+
+  it('starts with the link, its key and the backup codes, and confirms with the app\'s first code', async () => {
+    const twoFactor = inSetup(() => useTwoFactor())
+    const setup = await twoFactor.start()
+    expect(setup).toMatchObject({ secret: 'JBSWY3DPEHPK3PXP', backupCodes: ['AAAAA-11111', 'BBBBB-22222'] })
+    expect(twoFactor.pendingSetup.value?.totpURI).toMatch(/^otpauth:\/\/totp\//)
+    await twoFactor.confirm('123 456')
+    expect(client.twoFactor.verifyTotp).toHaveBeenCalledWith({ code: '123456' })
+    expect(twoFactor.pendingSetup.value).toBeNull()
+  })
+
+  it('rejects a wrong first code as an input on twoFactorCode, keeping the setup', async () => {
+    const twoFactor = inSetup(() => useTwoFactor())
+    await twoFactor.start()
+    client.twoFactor.verifyTotp.mockResolvedValueOnce({ data: null, error: { code: 'INVALID_CODE', message: 'Invalid code', status: 401, statusText: 'UNAUTHORIZED' } })
+    await expect(twoFactor.confirm('000000')).rejects.toThrow()
+    expect(twoFactor.error.value).toMatchObject({ code: 'invalid_input', data: { field: 'twoFactorCode' } })
+    expect(twoFactor.pendingSetup.value).not.toBeNull()
+  })
+
+  it('turns off, and answers new backup codes', async () => {
+    const twoFactor = inSetup(() => useTwoFactor())
+    await twoFactor.disable()
+    expect(client.twoFactor.disable).toHaveBeenCalled()
+    expect(await twoFactor.regenerateBackupCodes()).toEqual(['CCCCC-33333'])
   })
 })
 

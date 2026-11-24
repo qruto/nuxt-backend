@@ -40,6 +40,9 @@ export const tables = {
     // refuses sign-in codes, and the keyed hash of its recovery code.
     passkeyOnly: v.optional(v.union(v.null(), v.boolean())),
     recoveryCodeHash: v.optional(v.union(v.null(), v.string())),
+    // The authenticator app (client/two-factor.ts): whether a sign-in code
+    // is followed by the app's code.
+    twoFactorEnabled: v.optional(v.union(v.null(), v.boolean())),
     // The app shell's two marks (onboarding.ts): when the account finished
     // or skipped the first-run steps at /welcome, and when it dismissed the
     // activation checklist. Written only by the component's own functions.
@@ -131,6 +134,18 @@ export const tables = {
     aaguid: v.optional(v.union(v.null(), v.string())),
   })
     .index('credentialID', ['credentialID'])
+    .index('userId', ['userId']),
+  // The authenticator app's secret and backup codes, both encrypted under
+  // the auth secret (two-factor plugin), and the lockout after wrong codes.
+  twoFactor: defineTable({
+    secret: v.string(),
+    backupCodes: v.string(),
+    userId: v.string(),
+    verified: v.optional(v.union(v.null(), v.boolean())),
+    failedVerificationCount: v.optional(v.union(v.null(), v.number())),
+    lockedUntil: v.optional(v.union(v.null(), v.number())),
+  })
+    .index('secret', ['secret'])
     .index('userId', ['userId']),
   // JWKS table is required by the @convex-dev/better-auth convex plugin (always adds jwt plugin for Convex JWT issuance)
   jwks: defineTable({

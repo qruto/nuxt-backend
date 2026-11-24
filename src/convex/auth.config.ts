@@ -18,8 +18,10 @@ export interface DefineBackendAuthConfigOptions {
   /**
    * Which auth the app runs, as `setupAuth` takes it. `'convex-auth'`: the
    * access tokens of Convex Auth sessions, which the `backend` component
-   * signs with the deployment's own key. `'better-auth'`, the default:
-   * the session JWTs Better Auth signs.
+   * signs with the deployment's own key. `'better-auth'`: the session JWTs
+   * Better Auth signs. Left out, both: every Convex deployment holds the
+   * key the first is signed with, so trusting it costs an app on Better
+   * Auth nothing, and an app that moves to Convex Auth needs no change here.
    */
   provider?: 'better-auth' | 'convex-auth'
 }
@@ -56,22 +58,20 @@ function convexAuthProvider(): AuthConfig['providers'][number] {
  * export default defineBackendAuthConfig({ paths })
  * ```
  *
- * A Convex Auth app (`setupAuth({ provider: 'convex-auth' })`) trusts the
- * tokens of its sessions instead: `defineBackendAuthConfig({ provider: 'convex-auth' })`.
+ * Left out, `provider` trusts both kinds of token: Better Auth's and those
+ * of Convex Auth sessions (`setupAuth({ provider: 'convex-auth' })`).
  */
 export function defineBackendAuthConfig(options: DefineBackendAuthConfigOptions = {}): AuthConfig {
   if ('basePath' in options) {
     throw new TypeError('[nuxt-backend] defineBackendAuthConfig no longer takes `basePath`: set `backend.authRoute` in nuxt.config, and pass the `paths` of paths.generated.ts, which the Nuxt module writes from it.')
   }
   if (options.provider === 'convex-auth') return { providers: [convexAuthProvider()] }
-  return {
-    providers: [
-      getAuthConfigProvider({
-        basePath: resolveBackendPaths(options.paths, 'defineBackendAuthConfig').authRoute,
-        jwks: options.jwks,
-      }),
-    ],
-  }
+  const betterAuth = getAuthConfigProvider({
+    basePath: resolveBackendPaths(options.paths, 'defineBackendAuthConfig').authRoute,
+    jwks: options.jwks,
+  })
+  if (options.provider === 'better-auth' || !process.env.CONVEX_CLOUD_URL) return { providers: [betterAuth] }
+  return { providers: [betterAuth, convexAuthProvider()] }
 }
 
 export default defineBackendAuthConfig()

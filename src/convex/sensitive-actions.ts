@@ -135,6 +135,17 @@ const ROWS = {
   '/passkey/update-passkey': OWN,
   // Turning sign-in codes off (or on, or a new recovery code) changes how the account is defended.
   '/passkey-only/set': STEP_UP,
+  // The authenticator app: turning it on or off, its secret and its backup codes change how the account is defended.
+  '/two-factor/enable': STEP_UP,
+  '/two-factor/disable': STEP_UP,
+  '/two-factor/get-totp-uri': STEP_UP,
+  '/two-factor/generate-backup-codes': STEP_UP,
+  // The step after a code: the challenge it holds is the code's own, and the plugin locks the account after wrong codes.
+  '/two-factor/verify-totp': { ...OWN, limit: CHECKS_CODE },
+  '/two-factor/verify-backup-code': { ...OWN, limit: CHECKS_CODE },
+  // An emailed second code: off, since the first factor is one already; the routes answer that.
+  '/two-factor/send-otp': OWN,
+  '/two-factor/verify-otp': { ...OWN, limit: CHECKS_CODE },
 
   // ── Workspaces ─────────────────────────────────────────────────────────
   '/organization/list': VISIT,

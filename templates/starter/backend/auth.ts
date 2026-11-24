@@ -17,7 +17,17 @@ export const {
   listSessions,
   revokeSession,
   listSignInAlerts,
+  refreshSession,
+  signOut,
+  isAuthenticated,
+  signIn,
+  authRequest,
 } = setupAuth(components, query, {
+  // Convex Auth holds the sessions (its core is mounted in
+  // convex.config.ts); the sign-in codes, passkeys, workspaces and the
+  // admin console run inside these functions, with no auth HTTP routes.
+  // `'better-auth'` serves Better Auth's routes instead.
+  provider: 'convex-auth',
   // App-wide roles (admin plugin) and workspaces
   // come built in, with a personal workspace per user and emailed
   // workspace invitations with an /accept-invitation page. Customize them

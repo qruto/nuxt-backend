@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { adminClient as betterAuthAdminClient, organizationClient as betterAuthOrganizationClient } from 'better-auth/client/plugins'
+import { adminClient as betterAuthAdminClient, organizationClient as betterAuthOrganizationClient, twoFactorClient as betterAuthTwoFactorClient } from 'better-auth/client/plugins'
 import type { BetterAuthClientPlugin } from 'better-auth/client'
 import { adminClient } from '../../src/runtime/vue/admin-client'
 import { organizationClient } from '../../src/runtime/vue/organization-client'
+import { twoFactorClient } from '../../src/runtime/vue/two-factor-client'
 
 // The package's admin and organization client plugins are Better Auth's
 // without the error-code tables (src/runtime/vue/admin-client.ts,
@@ -16,7 +17,7 @@ const PATHS = [
   '/admin/impersonate-user', '/admin/stop-impersonating', '/admin/list-users', '/admin/set-role', '/admin/ban-user',
   '/organization/create', '/organization/delete', '/organization/update', '/organization/set-active', '/organization/set-active-team',
   '/organization/remove-member', '/organization/leave', '/organization/accept-invitation', '/organization/update-member-role',
-  '/organization/invite-member', '/organization/list', '/sign-out', '/sign-in/email-otp', '/get-session',
+  '/organization/invite-member', '/organization/list', '/two-factor/enable', '/two-factor/verify-totp', '/two-factor/verify-backup-code', '/sign-out', '/sign-in/email-otp', '/get-session',
 ]
 
 /** Which signal each listener raises for each path: what the client's proxy reads from `atomListeners`. */
@@ -93,5 +94,21 @@ describe('the organization client plugin', () => {
   it('checks a role\'s permissions as Better Auth\'s does', () => {
     const check = (plugin: typeof ours) => plugin.getActions!(undefined as never, undefined as never, undefined).organization.checkRolePermission
     for (const input of CHECKS) expect(check(ours)(input as never), JSON.stringify(input)).toBe(check(theirs)(input as never))
+  })
+})
+
+describe('the two-factor client plugin', () => {
+  const ours = twoFactorClient()
+  const theirs = betterAuthTwoFactorClient()
+
+  it('is Better Auth\'s at runtime, without the redirect the sign-in form handles itself', () => {
+    const { fetchPlugins: _redirect, ...rest } = runtimeShape(theirs)
+    expect(runtimeShape(ours)).toEqual(rest)
+    expect(signals(ours)).toEqual(signals(theirs))
+  })
+
+  it('leaves out the error-code table and the page redirect', () => {
+    expect(ours.$ERROR_CODES).toBeUndefined()
+    expect((ours as BetterAuthClientPlugin).fetchPlugins).toBeUndefined()
   })
 })

@@ -365,10 +365,12 @@ export function setupAuth<DM extends GenericDataModel>(
   queryBuilder: QueryBuilder<DM, 'public'>,
   options: SetupAuthOptions<DM>,
 ) {
-  if (options?.provider !== 'convex-auth') return setupAuthEngine(components, queryBuilder, options)
+  // Unset, the components say: an app that mounts Convex Auth's core runs on it, as the Nuxt module reads it too.
+  const provider = options?.provider ?? (components.auth ? 'convex-auth' : 'better-auth')
+  if (provider !== 'convex-auth') return setupAuthEngine(components, queryBuilder, options)
   const parts = convexAuthParts(components)
   const ttl = resolveCoreTtl(options.sessions)
-  const engine = setupAuthEngine(components, queryBuilder, options)
+  const engine = setupAuthEngine(components, queryBuilder, { ...options, provider })
   // Marked, so `registerBackendRoutes` mounts no auth routes for it.
   const authComponent = Object.assign(engine.authComponent, { provider: 'convex-auth' as const })
   return {

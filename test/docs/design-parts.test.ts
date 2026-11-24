@@ -291,7 +291,7 @@ const MODULE_PRIMARIES: Record<string, string[]> = {
   ReauthenticateDialog: ['ReauthenticateDialog.css'],
   // The `/r/:code` page's own panel: no playground page renders it.
   ReferralLanding: ['ReferralLanding.css'],
-  SecuritySettings: ['SecurityPasskeys.css'],
+  SecuritySettings: ['SecurityPasskeys.css', 'SecurityTwoFactor.css'],
   UpgradePrompt: ['UpgradePrompt.css'],
   // The `/waitlist` page's own panel: its ways on (the app, the sign-up, the invite page) fill with the accent. No playground page renders it.
   WaitlistStatus: ['WaitlistStatus.css'],

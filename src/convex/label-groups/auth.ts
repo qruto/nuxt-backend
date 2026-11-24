@@ -51,6 +51,16 @@ const AUTH_LABELS = {
   ageQuestion: 'How old are you?',
   ageSubmit: 'Continue',
   ageChecking: 'Checking…',
+  // The second step of a code sign-in, for an account with an authenticator app.
+  twoFactorIntro: 'Enter the 6-digit code from your authenticator app.',
+  twoFactorBackupIntro: 'Enter one of the backup codes you saved when you turned on the authenticator app. Each works once.',
+  twoFactorCode: 'Authentication code',
+  twoFactorBackupCode: 'Backup code',
+  twoFactorTrustDevice: 'Don\'t ask again on this device for 30 days',
+  twoFactorSubmit: 'Verify',
+  twoFactorChecking: 'Checking the code…',
+  twoFactorUseBackup: 'Use a backup code instead',
+  twoFactorUseApp: 'Use the authenticator app instead',
   haveInviteCode: 'I have an invite code',
   // An address the email provider stopped delivering to: the same words whether or not an account holds it.
   undeliverable: 'We can\'t send email to this address right now. Use another address, or contact us for help.',

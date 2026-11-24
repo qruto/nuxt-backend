@@ -19,6 +19,10 @@ const client = {
     passkey: vi.fn(async (): Promise<Answer> => ok({ session: { id: 's1' }, user: ada })),
   },
   passkey: { addPasskey: vi.fn(async (): Promise<Answer> => ok({ id: 'pk1', createdAt: '2026-10-01' })) },
+  twoFactor: {
+    verifyTotp: vi.fn(async (_body: unknown): Promise<Answer> => ok({ token: 't', user: ada })),
+    verifyBackupCode: vi.fn(async (_body: unknown): Promise<Answer> => ok({ token: 't', user: ada })),
+  },
   deleteUser: vi.fn(async (): Promise<Answer> => ok()),
   admin: { checkRolePermission: vi.fn(() => false) },
   // The package's own routes: the recovery sign-in.
@@ -448,7 +452,7 @@ describe('AuthForm', () => {
     vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {})
     const FLOW_KEYS = [
       'addPasskey', 'age', 'bind', 'email', 'emailValid', 'error', 'goTo', 'inviteCode', 'isPending', 'lastMethod', 'otp',
-      'passkeyRequired', 'recover', 'recoveryCode', 'redeemInviteCode', 'reset', 'retryAfter', 'sendCode', 'signInWithPasskey', 'skipPasskey', 'step', 'submitAge', 'verifyCode', 'waitlist', 'webAuthnSupported',
+      'passkeyRequired', 'recover', 'recoveryCode', 'redeemInviteCode', 'reset', 'retryAfter', 'sendCode', 'signInWithPasskey', 'skipPasskey', 'step', 'submitAge', 'trustDevice', 'twoFactorCode', 'useBackupCode', 'verifyCode', 'verifyTwoFactor', 'waitlist', 'webAuthnSupported',
     ]
     const seen = new Map<string, string[]>()
     let flow!: UseLoginFlowReturn
@@ -457,9 +461,9 @@ describe('AuthForm', () => {
       seen.set(name, Object.keys(props).sort())
       return h('i', { 'data-slot': name })
     }
-    const names = ['header', 'choose', 'request-code', 'verify-code', 'passkey-offer', 'recover', 'waitlisted', 'invite-code', 'age', 'undeliverable', 'error', 'footer'] as const
+    const names = ['header', 'choose', 'request-code', 'verify-code', 'passkey-offer', 'recover', 'waitlisted', 'invite-code', 'age', 'two-factor', 'undeliverable', 'error', 'footer'] as const
     const wrapper = mount(AuthForm, { slots: Object.fromEntries(names.map(name => [name, record(name)])) })
-    for (const step of ['request-code', 'verify-code', 'passkey-offer', 'recover', 'waitlisted', 'invite-code', 'age', 'undeliverable'] as const) {
+    for (const step of ['request-code', 'verify-code', 'passkey-offer', 'recover', 'waitlisted', 'invite-code', 'age', 'two-factor', 'undeliverable'] as const) {
       flow.goTo(step)
       await nextTick()
       expect(wrapper.find(`[data-slot="${step}"]`).exists()).toBe(true)
@@ -1289,5 +1293,89 @@ describe('useLoginFlow, the minimum age', () => {
     flow.reset()
     expect(flow.age.value).toBe('')
     expect(flow.step.value).toBe('choose')
+  })
+})
+
+describe('useLoginFlow, the authenticator app', () => {
+  // A code's answer for an account with the app turned on: no session yet.
+  const twoFactorRedirect = ok({ twoFactorRedirect: true, twoFactorMethods: ['totp'] })
+  const wrongCode = { data: null, error: { code: 'INVALID_CODE', message: 'Invalid code', status: 401, statusText: 'UNAUTHORIZED' } }
+  const expired = { data: null, error: { code: 'INVALID_TWO_FACTOR_COOKIE', message: 'Invalid two factor cookie', status: 401, statusText: 'UNAUTHORIZED' } }
+
+  async function atTwoFactor() {
+    vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {})
+    client.signIn.emailOtp.mockResolvedValueOnce(twoFactorRedirect)
+    const flow = inSetup(() => useLoginFlow())
+    flow.goTo('request-code')
+    flow.email.value = 'ada@example.com'
+    await flow.sendCode()
+    flow.otp.value = '123456'
+    await flow.verifyCode()
+    return flow
+  }
+
+  it('moves to two-factor after a code that checked, and signs in with the app\'s code', async () => {
+    const flow = await atTwoFactor()
+    expect(flow.step.value).toBe('two-factor')
+    expect(flow.error.value).toBeNull()
+    expect(sessionRefetch).not.toHaveBeenCalled()
+
+    flow.twoFactorCode.value = '123 456'
+    flow.trustDevice.value = true
+    await flow.verifyTwoFactor()
+    expect(client.twoFactor.verifyTotp).toHaveBeenCalledWith({ code: '123456', trustDevice: true })
+    expect(sessionRefetch).toHaveBeenCalled()
+    expect(flow.step.value).toBe('passkey-offer')
+  })
+
+  it('takes a backup code instead, through its own route', async () => {
+    const flow = await atTwoFactor()
+    flow.useBackupCode.value = true
+    flow.twoFactorCode.value = 'ABCDE-12345'
+    await flow.verifyTwoFactor()
+    expect(client.twoFactor.verifyBackupCode).toHaveBeenCalledWith({ code: 'ABCDE-12345', trustDevice: false })
+    expect(client.twoFactor.verifyTotp).not.toHaveBeenCalled()
+    expect(flow.step.value).toBe('passkey-offer')
+  })
+
+  it('stays on two-factor with the code refused as an input, and sends nothing for an empty one', async () => {
+    const flow = await atTwoFactor()
+    await flow.verifyTwoFactor()
+    expect(client.twoFactor.verifyTotp).not.toHaveBeenCalled()
+    expect(flow.error.value).toMatchObject({ code: 'invalid_input', data: { field: 'twoFactorCode', reason: 'required' } })
+
+    client.twoFactor.verifyTotp.mockResolvedValueOnce(wrongCode)
+    flow.twoFactorCode.value = '000000'
+    await flow.verifyTwoFactor()
+    expect(flow.step.value).toBe('two-factor')
+    expect(flow.error.value).toMatchObject({ code: 'invalid_input', data: { field: 'twoFactorCode' } })
+  })
+
+  it('says a challenge that ended asks for a new sign-in code, and going back clears the code', async () => {
+    const flow = await atTwoFactor()
+    client.twoFactor.verifyTotp.mockResolvedValueOnce(expired)
+    flow.twoFactorCode.value = '123456'
+    await flow.verifyTwoFactor()
+    expect(flow.error.value).toMatchObject({ code: 'invalid_input', data: { field: 'twoFactorCode', reason: 'two_factor_expired' } })
+    flow.goTo('request-code')
+    expect(flow.twoFactorCode.value).toBe('')
+    expect(flow.error.value).toBeNull()
+  })
+
+  it('renders the step in <AuthForm>, with the switch to a backup code', async () => {
+    vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {})
+    client.signIn.emailOtp.mockResolvedValueOnce(twoFactorRedirect)
+    const wrapper = mount(AuthForm)
+    await wrapper.find('[data-auth="otp-start"]').trigger('click')
+    await wrapper.find('[data-auth="input-email"]').setValue('ada@example.com')
+    await wrapper.find('[data-auth="step-request-code"]').trigger('submit')
+    await vi.waitFor(() => expect(wrapper.find('[data-auth="step-verify-code"]').exists()).toBe(true))
+    await wrapper.find('[data-auth="input-otp"]').setValue('123456')
+    await wrapper.find('[data-auth="step-verify-code"]').trigger('submit')
+    await vi.waitFor(() => expect(wrapper.find('[data-auth="step-two-factor"]').exists()).toBe(true))
+    expect(wrapper.find('[data-auth="input-two-factor-code"]').attributes('autocomplete')).toBe('one-time-code')
+    await wrapper.find('[data-auth="two-factor-switch"]').trigger('click')
+    expect(wrapper.find('[data-auth="input-two-factor-code"]').attributes('autocomplete')).toBe('off')
+    wrapper.unmount()
   })
 })

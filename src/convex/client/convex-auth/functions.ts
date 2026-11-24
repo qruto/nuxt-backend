@@ -325,8 +325,8 @@ async function signInWith<DM extends GenericDataModel>(ctx: Ctx<DM>, setup: Conv
   if (aside) await deleteRow(ctx, backend, 'verification', aside._id)
   const tokens = await openCoreSession(ctx, setup, response.sessionToken)
   if (!tokens) return await pendingSession(ctx, backend, answer, response.sessionToken)
-  // The session a re-authentication, a visit or its end replaced: its core session goes with it.
-  if (caller?.authSessionId && caller.token !== response.sessionToken && (call.reauthenticate || call.path.startsWith('/admin/'))) {
+  // The session a re-authentication, a visit or its end, or turning the authenticator app on replaced: its core session goes with it.
+  if (caller?.authSessionId && caller.token !== response.sessionToken && (call.reauthenticate || call.path.startsWith('/admin/') || call.path.startsWith('/two-factor/'))) {
     await ctx.runMutation(core.public.revokeSessions, { sessionIds: [caller.authSessionId] })
   }
   return { status: 'complete' as const, tokens, response: answer }

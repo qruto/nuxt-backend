@@ -343,6 +343,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "locale"
                     | "passkeyOnly"
                     | "recoveryCodeHash"
+                    | "twoFactorEnabled"
                     | "onboardedAt"
                     | "activationDismissedAt"
                     | "userId"
@@ -524,6 +525,40 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "transports"
                     | "createdAt"
                     | "aaguid"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "twoFactor";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "secret"
+                    | "backupCodes"
+                    | "userId"
+                    | "verified"
+                    | "failedVerificationCount"
+                    | "lockedUntil"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -699,6 +734,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   passkeyOnly?: null | boolean;
                   recoveryCodeHash?: null | string;
                   role?: null | string;
+                  twoFactorEnabled?: null | boolean;
                   updatedAt: number;
                   userId?: null | string;
                 };
@@ -766,6 +802,17 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   userId: string;
                 };
                 model: "passkey";
+              }
+            | {
+                data: {
+                  backupCodes: string;
+                  failedVerificationCount?: null | number;
+                  lockedUntil?: null | number;
+                  secret: string;
+                  userId: string;
+                  verified?: null | boolean;
+                };
+                model: "twoFactor";
               }
             | {
                 data: {
@@ -840,6 +887,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "locale"
                     | "passkeyOnly"
                     | "recoveryCodeHash"
+                    | "twoFactorEnabled"
                     | "onboardedAt"
                     | "activationDismissedAt"
                     | "userId"
@@ -1021,6 +1069,40 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "transports"
                     | "createdAt"
                     | "aaguid"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "twoFactor";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "secret"
+                    | "backupCodes"
+                    | "userId"
+                    | "verified"
+                    | "failedVerificationCount"
+                    | "lockedUntil"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -1206,6 +1288,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "locale"
                     | "passkeyOnly"
                     | "recoveryCodeHash"
+                    | "twoFactorEnabled"
                     | "onboardedAt"
                     | "activationDismissedAt"
                     | "userId"
@@ -1411,6 +1494,40 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 }>;
               }
             | {
+                model: "twoFactor";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "secret"
+                    | "backupCodes"
+                    | "userId"
+                    | "verified"
+                    | "failedVerificationCount"
+                    | "lockedUntil"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
                 model: "jwks";
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1553,6 +1670,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | "verification"
             | "rateLimit"
             | "passkey"
+            | "twoFactor"
             | "jwks"
             | "organization"
             | "member"
@@ -1603,6 +1721,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | "verification"
             | "rateLimit"
             | "passkey"
+            | "twoFactor"
             | "jwks"
             | "organization"
             | "member"
@@ -1655,6 +1774,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   passkeyOnly?: null | boolean;
                   recoveryCodeHash?: null | string;
                   role?: null | string;
+                  twoFactorEnabled?: null | boolean;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1675,6 +1795,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "locale"
                     | "passkeyOnly"
                     | "recoveryCodeHash"
+                    | "twoFactorEnabled"
                     | "onboardedAt"
                     | "activationDismissedAt"
                     | "userId"
@@ -1934,6 +2055,49 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               }
             | {
                 increment: Record<string, number>;
+                model: "twoFactor";
+                set?: {
+                  backupCodes?: string;
+                  failedVerificationCount?: null | number;
+                  lockedUntil?: null | number;
+                  secret?: string;
+                  userId?: string;
+                  verified?: null | boolean;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "secret"
+                    | "backupCodes"
+                    | "userId"
+                    | "verified"
+                    | "failedVerificationCount"
+                    | "lockedUntil"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                increment: Record<string, number>;
                 model: "jwks";
                 set?: {
                   alg?: null | string;
@@ -2119,6 +2283,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   passkeyOnly?: null | boolean;
                   recoveryCodeHash?: null | string;
                   role?: null | string;
+                  twoFactorEnabled?: null | boolean;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -2139,6 +2304,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "locale"
                     | "passkeyOnly"
                     | "recoveryCodeHash"
+                    | "twoFactorEnabled"
                     | "onboardedAt"
                     | "activationDismissedAt"
                     | "userId"
@@ -2368,6 +2534,48 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "transports"
                     | "createdAt"
                     | "aaguid"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "twoFactor";
+                update: {
+                  backupCodes?: string;
+                  failedVerificationCount?: null | number;
+                  lockedUntil?: null | number;
+                  secret?: string;
+                  userId?: string;
+                  verified?: null | boolean;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "secret"
+                    | "backupCodes"
+                    | "userId"
+                    | "verified"
+                    | "failedVerificationCount"
+                    | "lockedUntil"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -2582,6 +2790,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   passkeyOnly?: null | boolean;
                   recoveryCodeHash?: null | string;
                   role?: null | string;
+                  twoFactorEnabled?: null | boolean;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -2602,6 +2811,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "locale"
                     | "passkeyOnly"
                     | "recoveryCodeHash"
+                    | "twoFactorEnabled"
                     | "onboardedAt"
                     | "activationDismissedAt"
                     | "userId"
@@ -2831,6 +3041,48 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "transports"
                     | "createdAt"
                     | "aaguid"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "twoFactor";
+                update: {
+                  backupCodes?: string;
+                  failedVerificationCount?: null | number;
+                  lockedUntil?: null | number;
+                  secret?: string;
+                  userId?: string;
+                  verified?: null | boolean;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "secret"
+                    | "backupCodes"
+                    | "userId"
+                    | "verified"
+                    | "failedVerificationCount"
+                    | "lockedUntil"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:

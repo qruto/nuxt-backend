@@ -224,6 +224,13 @@ function textOf(code: string, node: Node): string {
   return code.slice(node.start as number, node.end as number)
 }
 
+/**
+ * Mounts of the scaffold that are a choice, never a fix: Convex Auth's core
+ * switches the app's auth to it (src/nuxt/convex-auth.ts), so an app on
+ * Better Auth without it is no app missing a mount.
+ */
+const CHOSEN_MOUNTS: ReadonlySet<string> = new Set(['@convex-dev/auth/convex.config'])
+
 /** The scaffold's mounts, read from its `convex.config.ts` template. */
 function scaffoldMounts(magicast: Magicast): ExpectedMount[] {
   const code = BACKEND_FILE_TEMPLATES['convex.config.ts']!
@@ -233,7 +240,7 @@ function scaffoldMounts(magicast: Magicast): ExpectedMount[] {
   for (const statement of program.body as Node[]) {
     const mount = mountOf(statement)
     const from = mount && sources.get(mount.local)
-    if (!mount || !from) continue
+    if (!mount || !from || CHOSEN_MOUNTS.has(from)) continue
     const argument = ((statement.expression as Node).arguments as Node[])[0]!
     const start = statement.start as number
     const range = { start: (argument.start as number) - start, end: (argument.end as number) - start }
