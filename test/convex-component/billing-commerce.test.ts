@@ -368,7 +368,9 @@ describe('the credit grant ledger of adapter mode', () => {
     await cycleGrant('basic:m1', month)
     expect(await balance('w6')).toBe(200)
     expect(await cycleGrant('pro:m1', month)).toEqual({ granted: false, balance: 200 })
-    // The next month lapses both of this one's.
+    // A spend comes out of the two months once.
+    await spend('w6', 50, 'w6-s1')
+    // The next month lapses all that is left of both of this one's.
     const next = ['basic:m2', 'pro:m2']
     await cycleGrant('basic:m2', next)
     await cycleGrant('pro:m2', next)

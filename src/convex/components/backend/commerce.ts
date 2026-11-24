@@ -160,11 +160,6 @@ export const setPlanState = mutation({
   },
 })
 
-/** What a plan grant that does not roll over still holds: its amount less what the meter consumed since. */
-function remainingOf(grant: Doc<'billingCreditGrants'>, consumed: number): number {
-  return Math.max(0, grant.amount - Math.max(0, consumed - grant.consumedAtGrant))
-}
-
 type MeterState = Doc<'billingEntitlements'>['meters'][number]
 
 /** The fields of `values` that are set. */
@@ -175,14 +170,21 @@ function pick<T extends Record<string, unknown>>(values: T): Partial<T> {
 /**
  * Close the meter's open plan grants that do not roll over, each with what
  * is left of it, as far as the balance still holds it, but those `keep`
- * names. Answers how many credits lapsed.
+ * names. What the meter consumed is taken from the oldest open grant first,
+ * once: what an earlier grant took since a later one landed is not taken
+ * from the later one again. Answers how many credits lapsed.
  */
 async function lapsePlanGrants(ctx: MutationCtx, userId: string, meter: MeterState, keep: readonly string[] = []): Promise<number> {
   let lapsed = 0
+  const earlier: Array<{ consumedAtGrant: number, used: number }> = []
   const grants = ctx.db.query('billingCreditGrants').withIndex('userId_meterId', q => q.eq('userId', userId).eq('meterId', meter.meterId))
   for await (const grant of grants) {
     if (grant.source !== 'plan' || grant.rollover || grant.closed !== undefined || keep.includes(grant.externalId)) continue
-    const closed = Math.min(remainingOf(grant, meter.consumedUnits), Math.max(0, meter.balance - lapsed))
+    const since = Math.max(0, meter.consumedUnits - grant.consumedAtGrant)
+    const takenSince = earlier.reduce((sum, prior) => sum + Math.max(0, prior.used - Math.max(0, grant.consumedAtGrant - prior.consumedAtGrant)), 0)
+    const used = Math.min(grant.amount, Math.max(0, since - takenSince))
+    earlier.push({ consumedAtGrant: grant.consumedAtGrant, used })
+    const closed = Math.min(grant.amount - used, Math.max(0, meter.balance - lapsed))
     lapsed += closed
     await ctx.db.patch('billingCreditGrants', grant._id, { closed })
   }
