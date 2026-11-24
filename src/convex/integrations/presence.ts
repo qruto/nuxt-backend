@@ -41,7 +41,9 @@ export interface SetupPresenceOptions {
    * Whether a signed-in account may join a room, with the mutation's `ctx` to read your tables by. Unset, every signed-in
    * account may join any room; refuse one by returning `false`, and the
    * heartbeat answers `forbidden`. Rooms are the app's own strings: a
-   * document's id, `workspace:<id>`.
+   * document's id, `workspace:<id>`. It runs on heartbeats only, so it lets
+   * people in but never takes anyone out: the mutation that takes access away
+   * (a member removed from a workspace) also calls `presence.removeRoomUser`.
    *
    * @example
    * ```ts
@@ -77,7 +79,7 @@ export interface PresenceSetup {
   disconnect: RegisteredMutation<'public', { sessionToken: string }, Promise<null>>
   /**
    * The component's client, for a room of your own (`listRoom`, `removeRoomUser`, `removeRoom`), which checks no sign-in.
-   * A room token stays valid once `canJoin` stops letting its holder in: `removeRoomUser` takes them out of the room, and `list` then refuses them.
+   * A refused heartbeat leaves the person in the room, with a room token that still lists it: `removeRoomUser`, called from the mutation that takes their access away, takes them out, and `list` then refuses them.
    */
   presence: Presence
 }
