@@ -35,6 +35,7 @@ type Env = {
   readonly BACKEND_ENVIRONMENT:
     "development" | "preview" | "sandbox" | "production" | undefined;
   readonly BILLING_ACCESS_TOKEN: string | undefined;
+  readonly BILLING_PROVIDER: "polar" | "stripe" | "dodo" | "creem" | undefined;
   readonly BILLING_WEBHOOK_SECRET: string | undefined;
   readonly CONTENT_SAFETY_ENDPOINT: string | undefined;
   readonly CONTENT_SAFETY_KEY: string | undefined;
