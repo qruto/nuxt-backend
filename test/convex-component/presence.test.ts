@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import { beforeEach, describe, expect, test } from 'vitest'
-import { componentsGeneric, defineSchema, makeFunctionReference } from 'convex/server'
+import { componentsGeneric, defineSchema, makeFunctionReference, mutationGeneric } from 'convex/server'
+import { v } from 'convex/values'
 import presenceTest from '@convex-dev/presence/test'
 import { asUser, defineBackendTestApp } from '../../src/convex/test'
 import { setupPresence } from '../../src/convex/integrations/presence'
@@ -14,16 +15,22 @@ const guarded = setupPresence(components, {
   canJoin: ({ roomId, claims }) => !roomId.startsWith('workspace:') || roomId === `workspace:${String(claims.activeOrganizationId)}`,
 })
 
+const small = setupPresence(components, { limit: 1 })
+
 const testApp = defineBackendTestApp(defineSchema({}), {
   './_generated/api.js': () => Promise.resolve({}),
   './presence.js': () => Promise.resolve({ list: open.list, heartbeat: open.heartbeat, disconnect: open.disconnect }),
   './guarded.js': () => Promise.resolve({ heartbeat: guarded.heartbeat }),
+  './small.js': () => Promise.resolve({ list: small.list }),
+  './rooms.js': () => Promise.resolve({ remove: mutationGeneric({ args: { roomId: v.string(), userId: v.string() }, handler: (ctx, { roomId, userId }) => open.presence.removeRoomUser(ctx, roomId, userId) }) }),
 }, { mounts: { presence: presenceTest } })
 
 const refs = {
   list: makeFunctionReference<'query', { roomToken: string }, Array<{ userId: string, online: boolean, name?: string }>>('presence:list'),
   heartbeat: makeFunctionReference<'mutation', { roomId: string, userId: string, sessionId: string, interval: number }, { roomToken: string, sessionToken: string }>('presence:heartbeat'),
   disconnect: makeFunctionReference<'mutation', { sessionToken: string }>('presence:disconnect'),
+  small: makeFunctionReference<'query', { roomToken: string }, Array<{ userId: string }>>('small:list'),
+  remove: makeFunctionReference<'mutation', { roomId: string, userId: string }>('rooms:remove'),
   guarded: makeFunctionReference<'mutation', { roomId: string, userId: string, sessionId: string, interval: number }, { roomToken: string, sessionToken: string }>('guarded:heartbeat'),
 }
 
@@ -53,6 +60,27 @@ describe('presence behind the sign-in', () => {
     const ada = await asUser(t, { name: 'Ada' })
     const { roomToken } = await ada.mutation(refs.heartbeat, { roomId: 'doc:1', userId: ada.userId, sessionId: 'tab-a', interval: 10_000 })
     await expect(t.query(refs.list, { roomToken })).rejects.toThrow(/unauthenticated|sign in/i)
+  })
+
+  test('refuses the room token to someone taken out of the room, and to someone never in it', async () => {
+    const ada = await asUser(t, { name: 'Ada' })
+    const grace = await asUser(t, { name: 'Grace' })
+    const { roomToken } = await ada.mutation(refs.heartbeat, { roomId: 'doc:1', userId: ada.userId, sessionId: 'tab-a', interval: 10_000 })
+    await grace.mutation(refs.heartbeat, { roomId: 'doc:1', userId: grace.userId, sessionId: 'tab-g', interval: 10_000 })
+    await t.mutation(refs.remove, { roomId: 'doc:1', userId: grace.userId })
+    await expect(grace.query(refs.list, { roomToken })).rejects.toThrow(/not in this room/)
+    const stranger = await asUser(t)
+    await expect(stranger.query(refs.list, { roomToken })).rejects.toThrow(/not in this room/)
+    expect((await ada.query(refs.list, { roomToken })).map(person => person.userId)).toEqual([ada.userId])
+  })
+
+  test('finds the caller in a room fuller than the list', async () => {
+    const ada = await asUser(t)
+    const grace = await asUser(t)
+    const { roomToken } = await ada.mutation(refs.heartbeat, { roomId: 'doc:1', userId: ada.userId, sessionId: 'a', interval: 10_000 })
+    await grace.mutation(refs.heartbeat, { roomId: 'doc:1', userId: grace.userId, sessionId: 'g', interval: 10_000 })
+    for (const person of [ada, grace]) expect(await person.query(refs.small, { roomToken })).toHaveLength(1)
+    await expect((await asUser(t)).query(refs.small, { roomToken })).rejects.toThrow(/not in this room/)
   })
 
   test('counts the signed-in account only, never an id the browser names', async () => {
@@ -89,6 +117,8 @@ describe('presence behind the sign-in', () => {
     await t.mutation(refs.disconnect, { sessionToken: theirs.sessionToken })
     const people = await ada.query(refs.list, { roomToken: mine.roomToken })
     expect(people.find(person => person.userId === grace.userId)).toMatchObject({ online: false, name: 'Grace' })
+    // Someone who left still reads the room they were in.
+    expect(await grace.query(refs.list, { roomToken: theirs.roomToken })).toHaveLength(2)
   })
 
   test('takes a limit from 1 to 200 only', () => {

@@ -68,7 +68,7 @@ export interface RoomMember {
 export interface PresenceSetup {
   /**
    * The room's people, by the room token a heartbeat handed back: who is online first, as the component orders them.
-   * Signed out, or as an administrator acting as someone, it lists nobody and refuses.
+   * Signed out, as an administrator acting as someone, or once `removeRoomUser` took the caller out of the room, it lists nobody and refuses.
    */
   list: RegisteredQuery<'public', { roomToken: string }, Promise<RoomMember[]>>
   /** Keep the signed-in account in a room. The browser's `userId` is checked against the account, never trusted. */
@@ -77,7 +77,7 @@ export interface PresenceSetup {
   disconnect: RegisteredMutation<'public', { sessionToken: string }, Promise<null>>
   /**
    * The component's client, for a room of your own (`listRoom`, `removeRoomUser`, `removeRoom`), which checks no sign-in.
-   * A room token stays valid once `canJoin` stops letting its holder in: `removeRoomUser` ends it at once.
+   * A room token stays valid once `canJoin` stops letting its holder in: `removeRoomUser` takes them out of the room, and `list` then refuses them.
    */
   presence: Presence
 }
@@ -86,6 +86,8 @@ export interface PresenceSetup {
 const INTERVAL = { min: 1_000, max: 5 * 60_000 }
 /** The longest room id: a document's id or a key of the app's own. */
 const ROOM_ID_MAX = 256
+/** The most people `list` reads to find the caller in a room fuller than its `limit`. */
+const MEMBER_CHECK_MAX = 1_000
 
 /**
  * Who is here, for a page, a document or a workspace: Convex's presence
@@ -127,8 +129,13 @@ export function setupPresence(components: PresenceComponents, options: SetupPres
     args: { roomToken: v.string() },
     handler: async (ctx, { roomToken }): Promise<RoomMember[]> => {
       // A token outlives the sign-in that earned it: names and pictures go to a signed-in caller only.
-      await ownCaller(ctx, 'presence:list')
+      const caller = await ownCaller(ctx, 'presence:list')
+      // The token is the room's, shared by everyone in it, and outlives a removal: the caller must still be in the room.
       const people = await presence.list(ctx, roomToken, limit)
+      const inRoom = (rows: typeof people) => rows.some(row => row.userId === caller)
+      if (!inRoom(people) && (people.length < limit || !inRoom(await presence.list(ctx, roomToken, MEMBER_CHECK_MAX)))) {
+        throw backendError('forbidden', { reason: 'presence_room' }, '[nuxt-backend] presence:list: the caller is not in this room.')
+      }
       return Promise.all(people.map(async ({ userId, online, lastDisconnected }) => {
         const user = await ctx.runQuery(findUser, { model: 'user', where: [{ field: '_id', value: userId }] }) as { name?: unknown, image?: unknown } | null
         return {
