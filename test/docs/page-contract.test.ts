@@ -50,6 +50,7 @@ const EXPERIMENTAL: Record<string, string[]> = {
   '`<Gate quota>`': ['/docs/build/billing/subscriptions/quotas'],
   '`nuxt-backend/presence`': ['/docs/build/data/read-write/presence'],
   '`createCommerceProvider`': ['/docs/services/merchants'],
+  '`backend.auth: \'convex-auth\'`': ['/docs/build/auth/convex-auth'],
 }
 
 describe('stability chips', () => {

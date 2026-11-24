@@ -20,6 +20,7 @@ import { configuredDeployment, deploymentEnvNames, deploymentFlags, deploymentFu
 import { projectEnvDefaultNames } from './env-defaults'
 import { BACKEND_ENV, OPTIONAL_DEPLOYMENT_ENV, REMOVED_DEPLOYMENT_ENV, REQUIRED_DEPLOYMENT_ENV } from './env-registry'
 import { billingEnvironment, parseBackendEnvironment } from './convex/environment'
+import { authProviderOf, CONVEX_AUTH_DOCS_URL, CONVEX_AUTH_NOTICE } from './nuxt/auth-provider'
 import { applyProductionPosture, deploymentEnvId, finding, type FindingGroup, type FindingId, type PreflightFinding } from './findings'
 import { GATEWAY_KEY_FIX, GATEWAY_ORDER_UNREAD, gatewayKeyIsTheFix } from './capabilities/gateway-route'
 import { capabilityOfGroup, type CapabilityName } from './capabilities'
@@ -81,7 +82,7 @@ async function readDeployment(rootDir: string, options: { prod: boolean, reachab
 
 /** What doctor reads of the app's nuxt.config: the module's pages, and whether it serves docs for agents. */
 interface AppConfig {
-  backend?: { pages?: ModulePagesOptions, authRoute?: string, installable?: InstallableOptions | false }
+  backend?: { auth?: unknown, pages?: ModulePagesOptions, authRoute?: string, installable?: InstallableOptions | false }
   /** nuxt-llms' options: set when the app (or a layer it extends, such as Docus) serves `llms.txt`. */
   llms?: unknown
   modules?: unknown[]
@@ -1119,9 +1120,21 @@ function aiGatewayBudgetFinding(rootDir: string, posture: ProductionPosture, { d
   )]
 }
 
+/**
+ * In Convex Auth mode, what runs and what is off: the checks of Better
+ * Auth's env and pages do not apply. Nothing for a Better Auth app, or when
+ * nuxt.config does not load.
+ */
+async function authProviderFindings(appConfig: () => Promise<AppConfig | null>): Promise<PreflightFinding[]> {
+  const options = await loadedBackendOptions(appConfig)
+  if (authProviderOf((options as { auth?: unknown } | null)?.auth) !== 'convex-auth') return []
+  return [finding('auth-provider', 'warn', `${CONVEX_AUTH_NOTICE} The checks of AUTH_SECRET, the sign-in pages and the features above do not apply.`, `What runs, and how to set it up: ${CONVEX_AUTH_DOCS_URL}`)]
+}
+
 /** The scaffold's own checks, on local files only: the generated files, the dev script, the mounts and routes, the agent files, `.env.example` and name collisions. */
 async function scaffoldFindings(rootDir: string, appConfig: () => Promise<AppConfig | null>): Promise<PreflightFinding[]> {
   return [
+    ...await authProviderFindings(appConfig),
     ...await generatedFileFindings(rootDir, appConfig),
     ...devScriptFinding(rootDir),
     await convexConfigFinding(rootDir),

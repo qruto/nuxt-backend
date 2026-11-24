@@ -54,7 +54,7 @@ Each feature has a task skill in `node_modules/nuxt-backend/skills/<name>/`, and
 `.agents/skills/<name>/` once `init` copies them. Read the one a task needs first.
 
 <!-- generated:router -->
-- `nuxt-backend-auth`: sign-in, sessions, passkeys, roles, user-scoped functions, workspaces and invitations, invite codes and the waitlist, the admin console with impersonation, the activity trail, consents, and account export and deletion. 22 tasks; reach for `useLoginFlow()`, `nuxt-backend/auth`, `useHumanCheck()`.
+- `nuxt-backend-auth`: sign-in, sessions, passkeys, roles, user-scoped functions, workspaces and invitations, invite codes and the waitlist, the admin console with impersonation, the activity trail, consents, and account export and deletion. 23 tasks; reach for `useLoginFlow()`, `nuxt-backend/auth`, `useHumanCheck()`.
 - `nuxt-backend-billing`: the catalog, plans, checkout, the portal, feature gates, plan quotas and credits. 11 tasks; reach for `nuxt-backend/billing`, `usePricing()`, `useBilling()`.
 - `nuxt-backend-growth`: launch phases, offers, referrals, gifts, lifecycle email and the funnel. 14 tasks; reach for `useBilling()`, `useCampaign()`, `useGifts()`.
 - `nuxt-backend-email`: transactional email, templates, delivery tracking, the dev inbox and notifications. 15 tasks; reach for `useSandboxInbox()`, `nuxt-backend/email`, `useEmailStatus()`.

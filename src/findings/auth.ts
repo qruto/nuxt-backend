@@ -20,4 +20,6 @@ export const AUTH_FINDINGS = {
   'admin-bootstrap': { title: 'First administrator', fixable: true },
   // The deployment's paths (auth:authConfig) against nuxt.config's: the auth route and the pages its emails link to.
   'page-paths': { title: 'Page paths' },
+  // `backend.auth: 'convex-auth'`: sign-in only, and what is off with it.
+  'auth-provider': { title: 'Auth provider' },
 } as const satisfies FindingEntries

@@ -148,6 +148,7 @@ Let addresses sign up while the app is closed: an invitation by address each, as
 | `consent-urls` | auth | Consent documents |
 | `admin-bootstrap` | auth | First administrator |
 | `page-paths` | auth | Page paths |
+| `auth-provider` | auth | Auth provider |
 | `bot-protection` | protection | Bot protection |
 | `protection-proof` | protection | Bot-check proof |
 | `protection-challenge-keys` | protection | Challenge keys |

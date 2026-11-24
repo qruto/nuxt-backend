@@ -110,6 +110,11 @@ export const FINDING_DOCS = {
     why: 'A different auth route sends the proxy to routes the deployment does not serve, so nobody signs in; a different page path sends the email that links to it to a 404.',
     fix: 'Pass the generated `paths` on as the scaffold does, then let `npx convex dev` push, or deploy.',
   },
+  'auth-provider': {
+    checks: 'Whether `nuxt.config` runs Convex Auth (`backend.auth: \'convex-auth\'`). Only then is there a finding: it warns that the app is sign-in only, with the package\'s pages, page guard, workspaces, billing, AI credits and account features off, and that the checks of `AUTH_SECRET`, the sign-in pages and those features do not apply. No finding for a Better Auth app, or when `nuxt.config` cannot be read.',
+    why: 'In this mode the package\'s account features do not run, so a failing check of one says nothing about the app.',
+    fix: 'Nothing to fix: it reports the mode. To run Better Auth again, remove `backend.auth` ([Sign in with Convex Auth](/docs/build/auth/convex-auth)).',
+  },
   'email-transport': {
     checks: '`EMAIL_API_KEY` is visible locally or set on the deployment.',
     why: 'Without it, email sends no-op and sign-in codes to real addresses are refused.',

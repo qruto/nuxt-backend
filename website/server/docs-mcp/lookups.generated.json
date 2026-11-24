@@ -61,6 +61,12 @@
       "url": "/docs/reference/cli/diagnostics#page-paths",
       "entry": "### `page-paths`\n\nThe paths the deployment serves on and links to (`paths` from the deployed `auth:authConfig`: the auth route, and the invitation, keep-account, security, waitlist, login, unsubscribe, report, settings and privacy pages) against the ones `nuxt.config` declares (`backend.authRoute` and `backend.pages`). They differ when the deployed code predates the generated `paths.generated.ts`, or does not pass its `paths` to `defineBackendAuthConfig`, `setupAuth` and `setupAccount`. No finding when the deployment or `nuxt.config` cannot be read.\n\n| Capability | Title | In dev | Under `--prod` | `--fix` |\n|---|---|---|---|---|\n| `auth` | Page paths | Fails when any path differs; otherwise warns | As in dev | No |\n\n**Why it matters:** A different auth route sends the proxy to routes the deployment does not serve, so nobody signs in; a different page path sends the email that links to it to a 404. **Fix:** Pass the generated `paths` on as the scaffold does, then let `npx convex dev` push, or deploy. Check it again with `npx nuxt-backend doctor --only auth`."
     },
+    "auth-provider": {
+      "capability": "auth",
+      "title": "Auth provider",
+      "url": "/docs/reference/cli/diagnostics#auth-provider",
+      "entry": "### `auth-provider`\n\nWhether `nuxt.config` runs Convex Auth (`backend.auth: 'convex-auth'`). Only then is there a finding: it warns that the app is sign-in only, with the package's pages, page guard, workspaces, billing, AI credits and account features off, and that the checks of `AUTH_SECRET`, the sign-in pages and those features do not apply. No finding for a Better Auth app, or when `nuxt.config` cannot be read.\n\n| Capability | Title | In dev | Under `--prod` | `--fix` |\n|---|---|---|---|---|\n| `auth` | Auth provider | Warns, never fails | Still a warning | No |\n\n**Why it matters:** In this mode the package's account features do not run, so a failing check of one says nothing about the app. **Fix:** Nothing to fix: it reports the mode. To run Better Auth again, remove `backend.auth` ([Sign in with Convex Auth](/docs/build/auth/convex-auth)). Check it again with `npx nuxt-backend doctor --only auth`."
+    },
     "backend-site-url": {
       "capability": "data",
       "title": "Backend site URL",

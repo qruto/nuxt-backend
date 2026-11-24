@@ -460,6 +460,10 @@
           "to": "/docs/reference/cli/diagnostics#page-paths"
         },
         {
+          "name": "auth-provider",
+          "to": "/docs/reference/cli/diagnostics#auth-provider"
+        },
+        {
           "name": "bot-protection",
           "to": "/docs/reference/cli/diagnostics#bot-protection"
         },
@@ -1689,9 +1693,9 @@
       "kind": "Findings",
       "items": [
         {
-          "name": "109 in all",
+          "name": "110 in all",
           "to": "/docs/reference/cli/diagnostics",
-          "label": "109 findings in all"
+          "label": "110 findings in all"
         }
       ]
     }
