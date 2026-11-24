@@ -183,6 +183,43 @@ describe('stripe managed payments', () => {
     expect(providerFailurePasses(markPassing(backendError('unavailable', { service: 'billing', reason: 'provider_refused' }), error))).toBe(true)
   })
 
+  it('drives the portal and each subscription endpoint, and links an invoice or a receipt', async () => {
+    const { impl, sent } = fakeFetch((r) => {
+      if (r.url.pathname.endsWith('/billing_portal/sessions')) return { url: 'https://billing.stripe.com/p/1' }
+      if (r.url.pathname.endsWith('/invoices/in_1')) return { id: 'in_1', hosted_invoice_url: 'https://invoice.stripe.com/i/1' }
+      if (r.url.pathname.endsWith('/invoices/in_draft')) return { id: 'in_draft' }
+      if (r.url.pathname.endsWith('/payment_intents/pi_1')) return { id: 'pi_1', latest_charge: { receipt_url: 'https://pay.stripe.com/r/1' } }
+      if (r.url.pathname.endsWith('/payment_intents/pi_link')) return { id: 'pi_link', latest_charge: {} }
+      if (r.url.pathname.endsWith('/promotion_codes')) return { data: [] }
+      return { id: 'sub_1', status: 'active', items: { data: [] } }
+    })
+    const stripe = createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: impl })
+    expect(await stripe.customerPortalUrl('cus_1', { returnUrl: 'https://comics.my/account' })).toBe('https://billing.stripe.com/p/1')
+    expect((await stripe.getSubscription('sub_1')).id).toBe('sub_1')
+    await stripe.cancelSubscription('sub_1')
+    await stripe.cancelSubscription('sub_1', { immediately: true })
+    await stripe.uncancelSubscription('sub_1')
+    expect(sent.map(r => `${r.method} ${r.url.pathname}`)).toEqual([
+      'POST /v1/billing_portal/sessions',
+      'GET /v1/subscriptions/sub_1',
+      'POST /v1/subscriptions/sub_1',
+      'DELETE /v1/subscriptions/sub_1',
+      'POST /v1/subscriptions/sub_1',
+    ])
+    expect(new URLSearchParams(sent[2]!.body).get('cancel_at_period_end')).toBe('true')
+    expect(new URLSearchParams(sent[4]!.body).get('cancel_at_period_end')).toBe('false')
+
+    expect(await stripe.invoice('in_1')).toEqual({ kind: 'url', url: 'https://invoice.stripe.com/i/1' })
+    expect(await stripe.invoice('pi_1')).toEqual({ kind: 'url', url: 'https://pay.stripe.com/r/1' })
+    await expect(stripe.invoice('in_draft')).rejects.toThrow(/not finalized/)
+    await expect(stripe.invoice('pi_link')).rejects.toThrow(/receipt/)
+    await expect(stripe.createCheckout({ productId: 'price_1', kind: 'one_time', customer: { entityId: 'ws_1' }, successUrl: 'https://comics.my/thanks', discountCode: 'NOPE' })).rejects.toThrow(/NOPE/)
+  })
+
+  it('reads a dispute without a PaymentIntent by its charge', () => {
+    expect(readStripeEvent({ type: 'charge.dispute.created', data: { object: { id: 'dp_1', charge: 'ch_1', payment_intent: null } } }))
+      .toMatchObject({ type: 'order.disputed', orderId: 'ch_1', subscriptionId: null })
+  })
   it('has no pause under Managed Payments', async () => {
     const stripe = createStripeProvider({ apiKey: 'sk_test_1', environment: 'sandbox', fetch: fakeFetch(() => ({})).impl })
     await expect(stripe.pauseSubscription('sub_1')).rejects.toBeInstanceOf(ProviderUnsupportedError)
@@ -253,6 +290,28 @@ describe('dodo payments', () => {
     await dodo.refundOrder({ orderId: 'pay_2', amount: 300 })
     expect(sent.some(r => r.url.pathname.startsWith('/subscriptions/'))).toBe(false)
     expect(JSON.parse(sent[2]!.body!)).toMatchObject({ items: [{ item_id: 'pdt_monthly', amount: 300 }], currency: 'USD' })
+  })
+
+  it('reads a subscription, takes a cancellation back, resumes, and defers a plan change', async () => {
+    const { impl, sent } = fakeFetch(r => r.method === 'GET' ? { subscription_id: 'sub_1', status: 'active', product_id: 'pdt_m', customer: { customer_id: 'cus_1' }, metadata: { entity_id: 'ws_1' } } : {})
+    const dodo = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: impl })
+    expect((await dodo.getSubscription('sub_1')).id).toBe('sub_1')
+    await dodo.uncancelSubscription('sub_1')
+    await dodo.resumeSubscription('sub_1')
+    await dodo.changePlan({ subscriptionId: 'sub_1', productId: 'pdt_y', proration: 'next_period' })
+    expect(JSON.parse(sent[1]!.body!)).toEqual({ cancel_at_next_billing_date: false })
+    expect(JSON.parse(sent[2]!.body!)).toEqual({ status: 'active' })
+    expect(JSON.parse(sent[3]!.body!)).toMatchObject({ proration_billing_mode: 'do_not_bill', effective_at: 'next_billing_date' })
+    await expect(dodo.verifyCheckoutRedirect('?payment_id=pay_1')).rejects.toBeInstanceOf(ProviderUnsupportedError)
+  })
+
+  it('refunds a whole payment with a reason long enough, and refuses a part of one with no line', async () => {
+    const { impl, sent } = fakeFetch(r => r.url.pathname.endsWith('/line-items') ? { items: [], currency: 'EUR' } : r.method === 'GET' ? { payment_id: 'pay_1', currency: 'EUR' } : { refund_id: 'ref_1', payment_id: 'pay_1', status: 'succeeded' })
+    const dodo = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: impl })
+    await dodo.refundOrder({ orderId: 'pay_1', reason: 'no' })
+    expect(JSON.parse(sent[0]!.body!)).toEqual({ payment_id: 'pay_1', reason: 'Refund requested by the customer' })
+    await expect(dodo.refundOrder({ orderId: 'pay_1', amount: 100 })).rejects.toThrow(/no line item/)
+    expect(readDodoEvent({ type: 'dispute.opened', data: { payment_id: 'pay_1' } })).toMatchObject({ type: 'order.disputed', orderId: 'pay_1', subscriptionId: null })
   })
 
   it('says where to go when an earlier refund left only the settlement currency', async () => {
@@ -329,6 +388,39 @@ describe('creem', () => {
     await expect(stripe.verifyCheckoutRedirect(search)).rejects.toBeInstanceOf(ProviderUnsupportedError)
   })
 
+  it('drives the portal and each subscription endpoint', async () => {
+    const { impl, sent } = fakeFetch(r => r.url.pathname.endsWith('/customers/billing') ? { customer_portal_link: 'https://creem.io/portal/1' } : r.method === 'GET' ? { id: 'sub_1', status: 'active', product: { id: 'prod_m' }, customer: { id: 'cust_1' } } : {})
+    const creem = createCreemProvider({ apiKey: 'creem_1', environment: 'production', fetch: impl })
+    expect(await creem.customerPortalUrl('cust_1')).toBe('https://creem.io/portal/1')
+    expect((await creem.getSubscription('sub_1')).id).toBe('sub_1')
+    await creem.changePlan({ subscriptionId: 'sub_1', productId: 'prod_y', proration: 'immediately' })
+    await creem.changePlan({ subscriptionId: 'sub_1', productId: 'prod_y', proration: 'next_period' })
+    await creem.cancelSubscription('sub_1')
+    await creem.cancelSubscription('sub_1', { immediately: true })
+    await creem.uncancelSubscription('sub_1')
+    await creem.pauseSubscription('sub_1')
+    await creem.resumeSubscription('sub_1')
+    expect(sent.map(r => `${r.method} ${r.url.pathname}`)).toEqual([
+      'POST /v1/customers/billing',
+      'GET /v1/subscriptions',
+      'POST /v1/subscriptions/sub_1/upgrade',
+      'POST /v1/subscriptions/sub_1/upgrade',
+      'POST /v1/subscriptions/sub_1/cancel',
+      'POST /v1/subscriptions/sub_1/cancel',
+      'POST /v1/subscriptions/sub_1/resume',
+      'POST /v1/subscriptions/sub_1/pause',
+      'POST /v1/subscriptions/sub_1/resume',
+    ])
+    expect(sent[1]!.url.searchParams.get('subscription_id')).toBe('sub_1')
+    expect(JSON.parse(sent[2]!.body!)).toMatchObject({ update_behavior: 'proration-charge-immediately' })
+    expect(JSON.parse(sent[3]!.body!)).toMatchObject({ update_behavior: 'proration-none' })
+    expect(JSON.parse(sent[4]!.body!)).toEqual({ mode: 'scheduled' })
+    expect(JSON.parse(sent[5]!.body!)).toEqual({ mode: 'immediate' })
+    expect(readCreemEvent({ eventType: 'dispute.created', object: { id: 'dis_1', transaction: { id: 'tran_1' }, subscription: { id: 'sub_1' } } }))
+      .toMatchObject({ type: 'order.disputed', orderId: 'tran_1', subscriptionId: 'sub_1' })
+    expect(await creem.verifyCheckoutRedirect('?checkout_id=ch_1')).toBe(false)
+  })
+
   it('has no refund or invoice API: it says where to go instead', async () => {
     const creem = createCreemProvider({ apiKey: 'creem_test_1', environment: 'sandbox', fetch: fakeFetch(() => ({})).impl })
     await expect(creem.refundOrder({ orderId: 'tran_1' })).rejects.toThrow(/dashboard/)
@@ -396,6 +488,33 @@ describe('the commerce webhook route', () => {
     expect((await handler(ctx, request('first'))).status).toBe(200)
     expect(rows.at(-1)).toMatchObject({ deliveryId: 'evt_creem' })
     expect(await (await handler(ctx, request('other'))).text()).toBe('Already processed')
+    expect(onEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('logs an event it does not use as ignored, and a signed body that is no JSON as unreadable', async () => {
+    const creem = createCreemProvider({ apiKey: 'creem_test_1', environment: 'sandbox', fetch: fakeFetch(() => ({})).impl })
+    const onEvent = vi.fn(async () => {})
+    const handler = createCommerceWebhookHandler({ provider: creem, secrets: [secret], webhookLog, onEvent })
+    const send = async (body: string) => new Request('https://x/billing/events', { method: 'POST', body, headers: { 'creem-signature': await hmacSha256Hex(secret, body) } })
+    const { ctx, rows } = logCtx()
+    expect((await handler(ctx, await send(JSON.stringify({ id: 'evt_ign', eventType: 'checkout.completed', object: { subscription: { id: 'sub_1' } } })))).status).toBe(200)
+    expect(rows.at(-1)).toMatchObject({ deliveryId: 'evt_ign', outcome: 'ok', note: 'ignored' })
+    expect((await handler(ctx, await send('not json'))).status).toBe(400)
+    expect(onEvent).not.toHaveBeenCalled()
+  })
+
+  it('dedupes Dodo by the webhook-id its signature covers', async () => {
+    const dodo = createDodoProvider({ apiKey: 'dodo_test_1', environment: 'sandbox', fetch: fakeFetch(() => ({})).impl })
+    const key = `whsec_${btoa('dodo-route-secret-0123456789abcd')}`
+    const onEvent = vi.fn(async () => {})
+    const handler = createCommerceWebhookHandler({ provider: dodo, secrets: [key], webhookLog, onEvent })
+    const body = JSON.stringify({ type: 'dispute.opened', data: { payment_id: 'pay_1' } })
+    const at = new Date()
+    const request = () => new Request('https://x/billing/events', { method: 'POST', body, headers: { 'webhook-id': 'msg_1', 'webhook-timestamp': String(Math.floor(at.getTime() / 1000)), 'webhook-signature': new Webhook(key).sign('msg_1', at, body) } })
+    const { ctx, rows } = logCtx()
+    expect((await handler(ctx, request())).status).toBe(200)
+    expect(rows.at(-1)).toMatchObject({ deliveryId: 'msg_1', outcome: 'ok' })
+    expect(await (await handler(ctx, request())).text()).toBe('Already processed')
     expect(onEvent).toHaveBeenCalledTimes(1)
   })
 
