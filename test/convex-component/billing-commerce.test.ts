@@ -511,6 +511,8 @@ describe('the credit grant ledger of adapter mode', () => {
     expect(await t.mutation(ledger.revokeOrderGrants, { userId: 'w8', orderId: 'o5' })).toBe(100)
     expect(await t.mutation(ledger.revokeOrderGrants, { userId: 'w8', orderId: 'o6' })).toBe(100)
     expect(await t.mutation(ledger.revokeOrderGrants, { userId: 'w8', orderId: 'o6' })).toBe(0)
+    // A grant is taken back only for the entity it was made to.
+    expect(await t.mutation(ledger.revokeGrant, { userId: 'w8', externalId: 'year:m2-other' })).toBe(0)
     expect(await balance('w8')).toBe(0)
     expect(await balance('w9')).toBe(100)
   })

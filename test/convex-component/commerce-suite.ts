@@ -198,6 +198,9 @@ export function commerceSuite(fixture: ProviderFixture, built: { billing: Billin
       expect(await credits(ada)).toBe(400)
       await deliver(events.charge(subscription, 'order_plan_1'))
       expect(await credits(ada)).toBe(400)
+      // A monthly plan's credits come with its invoices: the cycle grants it none.
+      expect(await t.action(internalFn('billing:startFreePlan'), { entityId: ada.workspaceId! })).toBe('subscribed')
+      expect(await credits(ada)).toBe(400)
       const orders = await ada.action(fn<'action'>('billing:getOrders'), {}) as { items: Array<{ id: string, totalAmount: number }> }
       expect(orders.items).toMatchObject([{ id: 'order_plan_1', totalAmount: 1200 }])
     })
@@ -292,6 +295,10 @@ export function commerceSuite(fixture: ProviderFixture, built: { billing: Billin
         await deliver(events.dispute('order_year_1'))
         expect(await credits(ada)).toBe(400)
         await deliver(events.dispute('order_year_2'))
+        expect(await credits(ada)).toBe(0)
+        // The disputed period grants no more months.
+        vi.setSystemTime(Date.UTC(2028, 1, 10, 12))
+        await t.action(internalFn('billing:startFreePlan'), { entityId: ada.workspaceId! })
         expect(await credits(ada)).toBe(0)
       }
       finally {
