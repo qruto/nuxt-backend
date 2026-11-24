@@ -69,6 +69,9 @@ commerceSuite({
       metadata: { entity_id: entityId },
       ...fields,
     }),
+    yearly(entityId) {
+      return this.subscription(entityId, { product: { id: fixture.ids['pro:year'] } })
+    },
     created: subscription => ({ type: 'subscription.active', object: subscription }),
     updated: subscription => ({ type: 'subscription.update', object: subscription }),
     ended: subscription => ({ type: 'subscription.canceled', object: { ...subscription, status: 'canceled' } }),

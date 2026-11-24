@@ -51,7 +51,8 @@ function keepPendingCredits(meters: Array<typeof vEntitlementMeter.type>, cached
   return kept
 }
 
-function activePendings(pendings: PendingSpend[] | undefined, now: number): PendingSpend[] {
+/** The reservations still in force: a held one until its time, else ten minutes. */
+export function activePendings(pendings: PendingSpend[] | undefined, now: number): PendingSpend[] {
   return (pendings ?? []).filter(pending => pending.until === undefined ? now - pending.at < PENDING_SPEND_TTL_MS : now < pending.until)
 }
 

@@ -2,6 +2,7 @@ import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 import type { Doc } from './_generated/dataModel.js'
 import { type MutationCtx, mutation, query, type QueryCtx } from './_generated/server.js'
+import { activePendings } from './billing.js'
 import { retierOwner } from './jobs.js'
 import { commerceOrderFields, vCommerceOrderStatus, vEntitlementBenefit } from './schema.js'
 
@@ -232,8 +233,12 @@ export const grantCredits = mutation({
 
 /**
  * Take a grant back, once: a refunded or disputed order's credits, as many
- * of them as the balance still holds (what was spent stays spent). Answers
- * how many left the balance; `0` for a grant never made or already closed.
+ * of them as the balance still holds, the meter's open reservations
+ * counted in (what was spent stays spent). A reservation held when the
+ * grant goes is reclaimed with it: released, it brings the balance back to
+ * where the grant left it; settled, the meter stays short by that spend
+ * until the next grant. Answers how many left the balance; `0` for a grant
+ * never made or already closed.
  */
 export const revokeGrant = mutation({
   args: { userId: v.string(), externalId: v.string() },
@@ -244,7 +249,8 @@ export const revokeGrant = mutation({
     const row = await ctx.db.query('billingEntitlements').withIndex('userId', q => q.eq('userId', userId)).unique()
     const index = row ? row.meters.findIndex(meter => meter.meterId === grant.meterId) : -1
     const meter = index === -1 ? undefined : row!.meters[index]!
-    const taken = meter ? Math.min(grant.amount, Math.max(0, meter.balance)) : 0
+    const held = activePendings(row?.pendingSpends, Date.now()).filter(entry => entry.meterId === grant.meterId).reduce((sum, entry) => sum + entry.amount, 0)
+    const taken = meter ? Math.min(grant.amount, Math.max(0, meter.balance + held)) : 0
     await ctx.db.patch('billingCreditGrants', grant._id, { closed: taken })
     if (meter && taken > 0) {
       const meters = row!.meters.map((entry, at) => at === index ? { ...entry, balance: entry.balance - taken, creditedUnits: entry.creditedUnits - taken } : entry)

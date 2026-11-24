@@ -164,12 +164,15 @@ export function createCredits(
    * was gone by the time the event landed (an earlier attempt whose ingest
    * failed released it, or it lapsed) is taken from the cached balance
    * again: the provider consumed the credits all the same, and the cache is
-   * the only spend guard.
+   * the only spend guard. On an adapter provider no provider took an event:
+   * a reservation already gone was settled before (the same spend, settled
+   * twice), released (nothing is charged twice), or lapsed (its debit stays
+   * spent), so nothing is taken again.
    */
   const closeSpent = async (ctx: RunWriteCtx, reservation: SpendReservation, value: number): Promise<void> => {
     const keys = { userId: reservation.entityId, externalId: reservation.externalId }
     const closed = await ctx.runMutation(cache.finalize, { ...keys, finalAmount: value })
-    if (closed.settled || !reservation.meterId) return
+    if (closed.settled || !reservation.meterId || commerce) return
     const taken = await ctx.runMutation(cache.debit, { ...keys, meterId: reservation.meterId, amount: value, allowOverage: true })
     if (taken.ok) await ctx.runMutation(cache.settle, { ...keys, finalAmount: value })
   }

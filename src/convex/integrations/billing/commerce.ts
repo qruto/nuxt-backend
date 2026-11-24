@@ -57,14 +57,19 @@ function localMeters(definition: BillingCatalog): Record<string, CreditMeterConf
   }]))
 }
 
-/** The fallback currency, written as billing sync writes it: for a catalog that prices more than one. */
-function currencyOf(definition: BillingCatalog): string | undefined {
+/** Whether the catalog prices its plans and packs in more than one currency. */
+export function pricesManyCurrencies(definition: BillingCatalog): boolean {
   const currency = definition.currency?.toLowerCase()
   const codes = new Set([
     ...Object.values(definition.plans ?? {}).flatMap(plan => planPricesByCurrency(plan, currency).map(([code]) => code)),
     ...Object.values(definition.packs ?? {}).flatMap(pack => packPricesByCurrency(pack, currency).map(([code]) => code)),
   ].filter(Boolean))
-  return codes.size > 1 ? currency : undefined
+  return codes.size > 1
+}
+
+/** The fallback currency, written as billing sync writes it: for a catalog that prices more than one. */
+function currencyOf(definition: BillingCatalog): string | undefined {
+  return pricesManyCurrencies(definition) ? definition.currency?.toLowerCase() : undefined
 }
 
 /**
@@ -308,6 +313,7 @@ interface LifecycleUpdate {
   revoke?: boolean | null
   pendingUpdate?: null
   pauseAtPeriodEnd?: boolean | null
+  resumesAt?: Date | string | null
   resume?: boolean | null
   discountId?: string | null
 }
@@ -317,13 +323,16 @@ interface LifecycleUpdate {
  * names it, and answer the subscription as the provider now has it, in the
  * shape a lifecycle caller reads (`endsAt`, `currentPeriodEnd` as dates).
  * An arm the adapters have no call for (a scheduled change's removal, a
- * discount) is refused as Polar's.
+ * discount, a pause that resumes on a date) is refused as Polar's. A plan
+ * change for the next period answers the change it scheduled, which the
+ * read back does not show.
  */
 export async function applyCommerceUpdate(mode: CommerceMode, subscriptionId: string, update: LifecycleUpdate, operation: string) {
   const client = mode.client()
   await commerceCall(operation, async () => {
     if ('pendingUpdate' in update) throw polarOnly(mode.name, 'taking back a scheduled plan change')
     if ('discountId' in update) throw polarOnly(mode.name, 'a discount on a subscription')
+    if (update.pauseAtPeriodEnd && update.resumesAt) throw polarOnly(mode.name, 'a pause that resumes on a date')
     if (update.productId) {
       await client.changePlan({ subscriptionId, productId: update.productId, proration: update.prorationBehavior === 'next_period' ? 'next_period' : 'immediately' })
     }
@@ -338,6 +347,7 @@ export async function applyCommerceUpdate(mode: CommerceMode, subscriptionId: st
   // Read back for the caller; the provider's webhook brings the same into the synced table.
   const read = await commerceCall(operation, () => client.getSubscription(subscriptionId))
   const periodEnd = read.currentPeriodEnd === null ? null : new Date(read.currentPeriodEnd)
+  const scheduled = update.productId && update.prorationBehavior === 'next_period' && read.productId !== update.productId && periodEnd
   return {
     id: read.id,
     productId: read.productId,
@@ -347,5 +357,6 @@ export async function applyCommerceUpdate(mode: CommerceMode, subscriptionId: st
     endsAt: read.status === 'ended' ? now : read.cancelAtPeriodEnd ? periodEnd : null,
     createdAt: now,
     modifiedAt: now,
+    ...(scheduled ? { pendingUpdate: { productId: update.productId, appliesAt: periodEnd, modifiedAt: now } } : {}),
   }
 }

@@ -353,8 +353,9 @@ export interface CommerceConfig {
   /** The catalog, as `billing.catalog.ts` defines it. */
   definition: BillingCatalog
   /**
-   * Catalog key → the provider's product (Dodo, Creem) or price (Stripe)
-   * id, per billing environment: packs by their key, a plan's monthly price
+   * Catalog key → the provider's id for what its checkout sells (a product
+   * id, or a price id where the provider sells prices), per billing
+   * environment: packs by their key, a plan's monthly price
    * by the plan's key and its yearly one as `<plan>:year`. The free plan
    * needs none: it is the app's own.
    */

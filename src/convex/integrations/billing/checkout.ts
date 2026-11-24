@@ -3,7 +3,7 @@ import { checkoutsCreate } from '@polar-sh/sdk/funcs/checkoutsCreate.js'
 import { actionGeneric, type Auth, type GenericActionCtx, type GenericDataModel } from 'convex/server'
 import { v } from 'convex/values'
 import { providerTrialOf } from '../../catalog.js'
-import { catalogProductOf, commerceCall, polarOnly } from './commerce.js'
+import { catalogProductOf, commerceCall, polarOnly, pricesManyCurrencies } from './commerce.js'
 import { BILLING_ACCESS, type BillingContext } from './context.js'
 import type { BillingCustomers } from './customers.js'
 import { type CatalogDiscounts, type KeyedDiscount, refusedDiscount } from './discounts.js'
@@ -378,12 +378,15 @@ export function createCheckout(
    * once it has one. The entity's id rides in the metadata, which every
    * delivery of the order and the subscription carries back. A plan change
    * goes through `updateSubscription`, never a checkout; a discount by key
-   * or id is Polar's for now, and a code is the provider's to check.
+   * or id, and a currency other than the product's own, are Polar's for
+   * now, and a code is the provider's to check.
    */
   const commerceCheckout = async (ctx: RunWriteCtx & { auth?: Auth }, entity: BillingEntity, options: ServerCheckoutOptions, discountCode: string | undefined): Promise<{ url: string }> => {
     const mode = commerce!
     const { userId } = entity
     if (options.discount !== undefined || options.discountId) throw polarOnly(mode.name, 'a discount of the catalog at checkout')
+    // One provider product per catalog product, priced in one currency there: a second one can't be picked here.
+    if (options.currency && pricesManyCurrencies(mode.config.definition)) throw polarOnly(mode.name, 'choosing the currency at checkout')
     if (options.subscriptionId) throw backendError('invalid_input', { field: 'subscriptionId' }, '[nuxt-backend] Billing: a checkout starts a subscription — switch a plan with updateSubscription (useBilling().changePlan).')
     const [productId, ...more] = options.productIds
     const product = catalogProductOf(mode.config.definition, mode.ids, productId)

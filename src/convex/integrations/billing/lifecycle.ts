@@ -103,7 +103,7 @@ function offerRuleProblem(rule: SaveOfferRule): string | undefined {
 
 /** The billing lifecycle of one `setupBilling` call. */
 export function createLifecycle(
-  { components, config, catalogIds, provider, requireEntity, allowedEntity, unwrapProvider, throttle, recordEvent, cache }: BillingContext,
+  { components, config, catalogIds, provider, requireEntity, allowedEntity, unwrapProvider, throttle, recordEvent, cache, commerce }: BillingContext,
   subscriptions: BillingSubscriptions,
   discounts: CatalogDiscounts,
   passes: Pick<BillingPasses, 'managersOf' | 'planName' | 'startTrialPass'>,
@@ -158,6 +158,8 @@ export function createLifecycle(
    */
   const termsOf = async (ctx: RunQueryCtx, subscription: SyncedSubscription, rule: SaveOfferRule) => {
     const periodEnd = epochOf(subscription.currentPeriodEnd)
+    // An adapter provider (Stripe, Dodo, Creem) pauses with no resume date and takes no catalog discount: neither offer is made there.
+    if (commerce && !('downgrade' in rule)) return null
     if ('pause' in rule) {
       if (periodEnd === null || subscription.status !== 'active') return null
       return { kind: 'pause' as const, months: rule.pause.months, resumesAt: addMonths(periodEnd, rule.pause.months) }
