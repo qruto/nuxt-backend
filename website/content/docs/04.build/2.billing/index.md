@@ -15,9 +15,9 @@ The billing capability lets your app charge for what it does.
 - **Polar does natively:** as the merchant of record, it sells to your customer, collects the tax, and handles refunds and chargebacks. It hosts checkout and the customer portal, grants benefits and credits each cycle, meters usage, and sends the lifecycle emails (checked on 2026-10-25).
 - **The package adds:** plans, credit packs, features and quotas in one TypeScript file, pushed to Polar with one command. It keeps a live copy of what each customer holds, the entitlement cache, in the package's `backend` Convex component. Your functions gate features and spend credits against that copy, and every page that reads it updates as soon as Polar reports a change.
 
-Polar's account, tokens and sandbox are on the [Polar](/docs/services/polar) page.
+Polar's account, tokens and sandbox are on the [Polar](/docs/services/polar) page. Stripe Managed Payments, Dodo Payments and Creem sell through the same API too, with `BILLING_PROVIDER` and the provider's product ids, as an experimental alternative: [Stripe, Dodo and Creem](/docs/services/merchants) says what works on each and what stays on Polar.
 
-Nothing is added to your schema, and the package keeps no ledger of its own: orders, invoices and usage stay with Polar and are read live. It covers what a client app charges for:
+Nothing is added to your schema. On Polar the package keeps no ledger of its own: orders, invoices and usage stay with Polar and are read live. On Stripe, Dodo and Creem, which have no credit meters, the `backend` component keeps the orders and a ledger of credit grants ([How credits work there](/docs/services/merchants#how-credits-work-here)). It covers what a client app charges for:
 
 - **Plans** with monthly and yearly prices, in one currency or several, and a free plan every workspace starts on.
 - **Credits**: prepaid packs, a monthly allowance per plan, and usage past the allowance.
@@ -228,10 +228,10 @@ The admin console reads Polar's live metrics: recurring revenue, new and churned
 ## Not included
 
 - **Per-seat pricing.** A subscription belongs to the workspace or the user as a whole, and a quota never counts people.
-- **A local ledger.** Orders, invoices and usage are read live from Polar. Credits, gifts and rewards are units of service on Polar's meters, never money the app holds.
+- **A money ledger.** On Polar, orders, invoices and usage are read live from Polar. Credits, gifts and rewards are units of service, never money the app holds, on any provider.
 - **Auto top-up.** A balance grows when someone buys a pack, never by the app charging a card on its own.
 - **Editing provider objects from code.** `billing sync` never deletes, and never rewrites a price or a credit grant a customer holds: it reports drift. To stop selling a plan, retire it.
-- **A second billing provider.** The catalog and the cache are built on Polar's products, benefits and meters.
+- **Gifts, plan passes, discounts and revenue metrics off Polar.** They are built on Polar's discounts, benefits and metrics, and refuse as `unavailable` on Stripe, Dodo and Creem ([What stays on Polar](/docs/services/merchants#what-stays-on-polar)).
 - **Workspace billing permissions.** The owner and admins manage billing; granting it to a custom role waits for a later release ([Roadmap](/docs/start/roadmap)).
 
 The reasons are on [Principles](/docs/start/concepts/principles#what-it-never-does), and the rules every growth feature follows are under [Guardrails on growth features](/docs/start/concepts/principles#guardrails-on-growth-features).
