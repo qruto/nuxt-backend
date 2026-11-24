@@ -99,7 +99,12 @@
     // the Vite alias targets that stand in for the base module's client entry
     // and the Better Auth client.
     "src/runtime/test-utils/client.ts",
-    "src/runtime/test-utils/auth-client.ts"
+    "src/runtime/test-utils/auth-client.ts",
+    // src/nuxt/convex-auth.ts: a Convex Auth app's stand-ins at the base
+    // module's Better Auth entries and its auth server, aliased by path.
+    "src/runtime/vue/convex-auth/better-auth-client.ts",
+    "src/runtime/server/convex-auth/better-auth-server.ts",
+    "src/runtime/server/convex-auth/auth-server.ts"
   ],
 
   // The website, the tests and the fixture import the package by its
@@ -116,6 +121,11 @@
     // of these two files; nothing here imports them by path.
     { "file": "src/runtime/vue/auth-client.ts", "exports": ["AuthClient"] },
     { "file": "src/runtime/vue/auth-client-solo.ts", "exports": ["AuthClient"] },
+    // A Convex Auth app's `#convex/auth-client`, and its stand-in at the base
+    // module's `nuxt-convex-module/better-auth/client` (src/nuxt/convex-auth.ts):
+    // the package's session layer imports them by those names.
+    { "file": "src/runtime/vue/convex-auth/auth-client.ts", "exports": ["AuthClient"] },
+    { "file": "src/runtime/vue/convex-auth/better-auth-client.ts", "exports": ["loadAuthClient", "authClient", "resolveAuthRedirect", "useBetterAuth", "BetterAuthSession", "BetterAuthUser", "UseBetterAuthReturn"] },
     // Auto-imports registered by name (addImports / addComponent in
     // src/nuxt/registry.ts, frozen by test/nuxt/public-surface.test.ts): the app
     // reaches them through the auto-import, never by importing the file.

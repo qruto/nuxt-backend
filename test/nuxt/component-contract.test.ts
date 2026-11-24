@@ -439,6 +439,10 @@ const loginFlow = {
   redeemInviteCode: vi.fn(never),
   age: ref(''),
   submitAge: vi.fn(never),
+  twoFactorCode: ref(''),
+  withBackupCode: ref(false),
+  trustDevice: ref(false),
+  verifyTwoFactor: vi.fn(never),
   goTo: vi.fn(),
   reset: vi.fn(),
 }
@@ -1047,6 +1051,7 @@ const STAGING: Record<ContractedComponent, Staging> = {
       'waitlisted': { before: () => (world.loginStep.value = 'waitlisted'), shows: '[data-auth="step-waitlisted"] [role="status"]' },
       'invite-code': { before: () => (world.loginStep.value = 'invite-code'), shows: '[data-auth="step-invite-code"] [data-auth="input-invite-code"]' },
       'age': { before: () => (world.loginStep.value = 'age'), shows: '[data-auth="step-age"] [data-auth="input-age"]' },
+      'two-factor': { before: () => (world.loginStep.value = 'two-factor'), shows: '[data-auth="step-two-factor"] [data-auth="input-two-factor-code"]' },
       'undeliverable': { before: () => (world.loginStep.value = 'undeliverable'), shows: '[data-auth="step-undeliverable"] [role="alert"]' },
       'pending': { before: () => (world.loginStep.value = 'passkey-offer'), busy: '[data-auth="passkey-add"]', shows: '[data-auth="form"][aria-busy="true"]' },
       'error': { before: () => (world.loginError.value = failure('rate_limited')), shows: '[data-auth="error"]' },

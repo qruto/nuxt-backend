@@ -162,6 +162,7 @@ function wantsServerContext(path: string, method: string): boolean {
 /** The proof and the signed client address the app's server gives one engine call, or nothing when it signs none. */
 async function serverContext(context: TransportContext, path: string, body: unknown, headers: Headers): Promise<{ proof?: string, address?: string }> {
   try {
+    // fallow-ignore-next-line security-sink -- the auth client's base URL (the app's own origin) and the module's fixed HUMAN_PROOF_ROUTE, never input; verified 2026-11-24
     const response = await fetch(`${context.baseURL.replace(/\/+$/, '')}${HUMAN_PROOF_ROUTE}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...(headers.get(CHALLENGE_HEADER) ? { [CHALLENGE_HEADER]: headers.get(CHALLENGE_HEADER)! } : {}) },
@@ -183,6 +184,48 @@ async function serverContext(context: TransportContext, path: string, body: unkn
   }
 }
 
+/** What the engine reads of the device: its browser, languages, and what the app's server signed for this call. */
+function deviceOf(headers: Headers, server: { proof?: string, address?: string }): Record<string, string> {
+  const language = headers.get('accept-language') ?? (typeof navigator === 'undefined' ? undefined : navigator.languages.join(','))
+  const challenge = headers.get(CHALLENGE_HEADER)
+  return {
+    ...(typeof navigator === 'undefined' ? {} : { userAgent: navigator.userAgent }),
+    ...(language ? { language } : {}),
+    ...(server.address ? { address: server.address } : {}),
+    ...(server.proof ? { proof: server.proof } : {}),
+    ...(challenge ? { challenge } : {}),
+  }
+}
+
+/** The engine call one request makes, with the device and the session's recovery token. */
+function engineCall(request: { url: URL, method: string, headers: Headers, body: unknown }, path: string, server: { proof?: string, address?: string }, recovery: string | undefined) {
+  const { url, method, headers, body } = request
+  return {
+    method: method as 'GET' | 'POST',
+    path,
+    ...(url.searchParams.size > 0 ? { query: Object.fromEntries(url.searchParams) } : {}),
+    ...(method === 'POST' ? { body: body ?? {} } : {}),
+    jar: readJar(),
+    client: deviceOf(headers, server),
+    ...(headers.get(REAUTHENTICATE_HEADER) ? { reauthenticate: true } : {}),
+    ...(recovery ? { recoveryToken: recovery } : {}),
+  }
+}
+
+/** A sign-in's answer: a complete one opens the session, a refusal keeps the engine's recovery token and cookies. */
+async function signInAnswer(context: TransportContext, result: SignInAnswer): Promise<Response> {
+  if (result.status === 'complete') {
+    setRecoveryToken(null)
+    keepCookies(result.response.cookies)
+    await context.setSession(result.tokens)
+    return json(result.response.status, result.response.body)
+  }
+  const answer = result.userError?.response
+  if (result.userError?.recoveryToken) setRecoveryToken(result.userError.recoveryToken)
+  if (answer) keepCookies(answer.cookies)
+  return answer ? json(answer.status, answer.body) : json(401, { code: 'UNAUTHORIZED', message: 'The sign-in did not open a session.' })
+}
+
 /**
  * The client's `fetchOptions.customFetchImpl` in a Convex Auth app: each
  * engine route as a call to the deployment, its answer as a `Response`.
@@ -193,6 +236,7 @@ export function createConvexAuthFetch(context: TransportContext): typeof fetch {
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
     const { url, method, headers, body } = await readRequest(input, init)
     const path = enginePath(url.pathname, CLIENT_BASE_PATH) ?? enginePath(url.pathname, context.authRoute)
+    // fallow-ignore-next-line security-sink -- the auth client's own request, passed through unchanged: one this transport does not answer; verified 2026-11-24
     if (path === null || (method !== 'GET' && method !== 'POST')) return fetch(input, init)
     // Convex Auth ends the session: the engine's row goes with the core's.
     if (path === '/sign-out') {
@@ -208,41 +252,13 @@ export function createConvexAuthFetch(context: TransportContext): typeof fetch {
       return (error as { response: Response }).response
     }
     const recovery = recoveryToken()
-    const call = {
-      method: method as 'GET' | 'POST',
-      path,
-      ...(url.searchParams.size > 0 ? { query: Object.fromEntries(url.searchParams) } : {}),
-      ...(method === 'POST' ? { body: body ?? {} } : {}),
-      jar: readJar(),
-      client: {
-        ...(typeof navigator === 'undefined' ? {} : { userAgent: navigator.userAgent }),
-        ...(headers.get('accept-language') ? { language: headers.get('accept-language')! } : typeof navigator === 'undefined' ? {} : { language: navigator.languages.join(',') }),
-        ...(server.address ? { address: server.address } : {}),
-        ...(server.proof ? { proof: server.proof } : {}),
-        ...(headers.get(CHALLENGE_HEADER) ? { challenge: headers.get(CHALLENGE_HEADER)! } : {}),
-      },
-      ...(headers.get(REAUTHENTICATE_HEADER) ? { reauthenticate: true } : {}),
-      ...(recovery ? { recoveryToken: recovery } : {}),
-    }
+    const call = engineCall({ url, method, headers, body }, path, server, recovery)
     const token = context.token()
     // A route that opens a session goes through the app's auth proxy, which keeps its refresh token in an HttpOnly cookie.
-    if (isEngineSignInPath(path) && (path !== '/passkey/verify-registration' || recovery)) {
-      const client = signInClient()
-      if (token) client.setAuth(token)
-      const result = await client.action(SIGN_IN, call) as SignInAnswer
-      if (result.status === 'complete') {
-        setRecoveryToken(null)
-        keepCookies(result.response.cookies)
-        await context.setSession(result.tokens)
-        return json(result.response.status, result.response.body)
-      }
-      const answer = result.userError?.response
-      if (result.userError?.recoveryToken) setRecoveryToken(result.userError.recoveryToken)
-      if (answer) keepCookies(answer.cookies)
-      return answer ? json(answer.status, answer.body) : json(401, { code: 'UNAUTHORIZED', message: 'The sign-in did not open a session.' })
-    }
-    const client = deployment()
+    const opensSession = isEngineSignInPath(path) && (path !== '/passkey/verify-registration' || recovery)
+    const client = opensSession ? signInClient() : deployment()
     if (token) client.setAuth(token)
+    if (opensSession) return signInAnswer(context, await client.action(SIGN_IN, call) as SignInAnswer)
     const answer = await client.action(AUTH_REQUEST, call) as EngineAnswer
     keepCookies(answer.cookies)
     return json(answer.status, answer.body)

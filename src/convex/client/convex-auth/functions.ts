@@ -379,6 +379,7 @@ export function convexAuthFunctions<DM extends GenericDataModel>(setup: ConvexAu
       },
     }),
     signIn: actionGeneric({ args: vEngineCall, handler: async (ctx, call) => await signInWith(ctx as Ctx<DM>, setup, call) }),
+    // fallow-ignore-next-line security-sink -- `request` is the in-process Better Auth engine call below, not an outbound request; verified 2026-11-24
     authRequest: actionGeneric({ args: vEngineCall, handler: async (ctx, call): Promise<EngineAnswer> => await request(ctx as Ctx<DM>, setup, call) }),
   }
 }
