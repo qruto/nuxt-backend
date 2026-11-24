@@ -317,13 +317,15 @@ export function createCommerceEvents(
   }
 
   /**
-   * The rest of a paid order's delivery once its grants landed: a refund or
-   * a dispute that came before it, applied as it was recorded, takes them
-   * back at once; then the plan is written again, and a first delivery
-   * goes on the activity trail.
+   * The rest of a paid order's delivery once its grants landed and its
+   * months were linked: a refund or a dispute that came before it (applied
+   * as it was recorded) or while they landed takes them back at once, the
+   * order read again for it; then the plan is written again, and a first
+   * delivery goes on the activity trail.
    */
-  const settleRecorded = async (ctx: RunWriteCtx, entityId: string, order: NeutralOrder, product: CatalogProduct, recorded: boolean, stored: { orderId: string, entityId: string, status: string, refundedAmount: number } | null): Promise<void> => {
-    if (stored && reversed(stored)) await takeBack(ctx, stored)
+  const settleRecorded = async (ctx: RunWriteCtx, entityId: string, order: NeutralOrder, product: CatalogProduct, recorded: boolean, stored: { refundedAmount: number } | null): Promise<void> => {
+    const now = await ctx.runQuery(refs.getOrder, { orderId: order.id })
+    if (now && reversed(now)) await takeBack(ctx, now)
     await refreshEntitlements(ctx, entityId)
     if (!recorded) return
     await recordEvent(ctx, entityId, { type: 'billing.order_paid', actor: null, targetId: order.id, data: { amount: order.amount, currency: order.currency, ...(product?.kind === 'plan' ? { interval: product.interval } : {}) } })
