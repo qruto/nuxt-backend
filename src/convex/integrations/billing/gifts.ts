@@ -9,6 +9,7 @@ import { v } from 'convex/values'
 import { BILLING_MANAGER_ROLES, RUN_GIFT_SWEEP_FUNCTION } from '../../constants.js'
 import { hasAnyRole } from '../access.js'
 import { mintClaimDiscount, voidClaimDiscount } from './claim-discount.js'
+import { polarOnly } from './commerce.js'
 import { type BillingContext, isProviderNotFound } from './context.js'
 import { readEnv, UNDELIVERABLE_CAUSES, undeliverableReason } from '../../delivery.js'
 import type { BillingCustomers } from './customers.js'
@@ -266,6 +267,7 @@ export function createGifts(
       const purchaser = await giftCaller(ctx, 'giftCheckout', GIFT_ACCESS.buy, account)
       await refusePaused(paused, ctx, 'checkout')
       requireLaunched('gift checkout')
+      if (context.commerce) throw polarOnly(context.commerce.name, 'a gift')
       const recipientEmail = requireRecipient(args.recipientEmail, purchaser.email)
       const message = giftMessage(args.message)
       const deliverAt = giftDeliverAt(args.deliverAt)

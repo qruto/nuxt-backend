@@ -654,7 +654,7 @@ const REGISTRY = {
 }
 
 /** The experimental tier, by the names STABILITY.md lists. */
-const EXPERIMENTAL = ['./ai', './monitoring', './presence', 'useRoomPresence', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_UNSAFE_CODE', 'TEST_FAINT', 'TEST_KNOWN_ABUSE', 'fileExists', 'stubBillingProvider', 'StubBillingProviderOptions', 'TestBillingProvider', 'TestUsageEvent', 'DrainOptions', 'ComponentTestKit', 'BackendTestAppOptions', 'BackendTestApp', 'TestFile', 'TestUploadOptions', 'StubStorageFetchOptions', 'TestTimers', 'TestBilling', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage', 'PricedPlanGift', 'PricedGiftLength', 'useGiftForm', 'DIGITAL_CONTENT_CONSENT_TEXT', 'DIGITAL_CONTENT_CONSENT_VERSION', 'PROVIDER_CAPABILITIES', 'ProviderHttpError', 'ProviderUnsupportedError', 'billingProviderName', 'commerceProviderFromEnv', 'consentFromMetadata', 'consentMetadata', 'createCommerceProvider', 'createCommerceWebhookHandler', 'recordDigitalContentConsent', 'webhookSecretsFromEnv']
+const EXPERIMENTAL = ['./ai', './monitoring', './presence', 'useRoomPresence', 'useAiStream', 'useJob', 'useInboxAdmin', 'useChat', 'useWorkflowStatus', 'useSandboxInbox', 'defineBackendTestApp', 'asUser', 'seedWorkspace', 'upload', 'drain', 'stubStorageFetch', 'seedBilling', 'seedCredits', 'TEST_PNG', 'TEST_STORAGE_URL', 'TEST_UNSAFE', 'TEST_UNSAFE_CODE', 'TEST_FAINT', 'TEST_KNOWN_ABUSE', 'fileExists', 'stubBillingProvider', 'StubBillingProviderOptions', 'TestBillingProvider', 'TestUsageEvent', 'DrainOptions', 'ComponentTestKit', 'BackendTestAppOptions', 'BackendTestApp', 'TestFile', 'TestUploadOptions', 'StubStorageFetchOptions', 'TestTimers', 'TestBilling', './test-utils', 'EmailPreview', 'forceColorScheme', 'CatalogQuota', 'QuotaUsage', 'PricedPlanGift', 'PricedGiftLength', 'useGiftForm', 'DIGITAL_CONTENT_CONSENT_TEXT', 'DIGITAL_CONTENT_CONSENT_VERSION', 'PROVIDER_CAPABILITIES', 'ProviderHttpError', 'ProviderUnsupportedError', 'billingProviderName', 'commerceProviderFromEnv', 'consentFromMetadata', 'consentMetadata', 'createCommerceProvider', 'createCommerceWebhookHandler', 'recordDigitalContentConsent', 'webhookSecretsFromEnv', 'CommerceConfig']
 
 /**
  * The experimental members of a stable type, by where the source tags them
@@ -666,6 +666,7 @@ const EXPERIMENTAL_MEMBERS: Record<string, string> = {
   'CatalogPlan.gift': 'CatalogPlan.gift',
   'BillingCatalogIds.quotas': 'BillingCatalogIds.quotas',
   'BillingComponents.shardedCounter': 'BillingComponents.shardedCounter',
+  'SetupBillingConfig.commerce': 'setupBilling({ commerce })',
   'PricedPlan.quotas': 'PricedPlan.quotas',
   'PricedPlan.gift': 'PricedPlan.gift',
   'Billing.getQuota': 'billing.getQuota',

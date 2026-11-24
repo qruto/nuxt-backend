@@ -3,6 +3,7 @@ import { discountsDelete } from '@polar-sh/sdk/funcs/discountsDelete.js'
 import { discountsList } from '@polar-sh/sdk/funcs/discountsList.js'
 import { subscriptionsUpdate } from '@polar-sh/sdk/funcs/subscriptionsUpdate.js'
 import type { Auth } from 'convex/server'
+import { applyCommerceUpdate } from './commerce.js'
 import { BILLING_ACCESS, type BillingContext, resolveLimit, resolvePage } from './context.js'
 import { logBackend } from '../../log.js'
 import { type CatalogDiscounts, refusedDiscount } from './discounts.js'
@@ -77,7 +78,7 @@ const PLAN_CHANGES: Readonly<Record<string, string>> = {
 }
 
 export function createSubscriptions(
-  { components, provider, cache, requireEntity, requireProviderAccess, requireLaunched, unwrapProvider, throttle, recordEvent }: BillingContext,
+  { components, provider, commerce, cache, requireEntity, requireProviderAccess, requireLaunched, unwrapProvider, throttle, recordEvent }: BillingContext,
   { requirePlan }: PurchaseRules,
   { isFreeProduct }: Pick<BillingFreePlan, 'isFreeProduct'>,
   catalogDiscounts: CatalogDiscounts,
@@ -267,11 +268,11 @@ export function createSubscriptions(
     const subscription = await resolveSubscription(ctx, userId, options.subscriptionId)
     await refuseFreePlan(ctx, operation, subscription)
     await refuse?.(subscription)
-    const result = await subscriptionsUpdate(provider.polar, {
-      id: subscription.id,
-      subscriptionUpdate: typeof update === 'function' ? update(subscription) : update,
-    })
-    const updated = unwrapProvider(result, operation)
+    const payload = typeof update === 'function' ? update(subscription) : update
+    // On an adapter provider the same change is the adapter's call, and the response its read back.
+    const updated = commerce
+      ? await applyCommerceUpdate(commerce, subscription.id, payload as Parameters<typeof applyCommerceUpdate>[2], operation) as unknown as ProviderSubscription
+      : unwrapProvider(await subscriptionsUpdate(provider.polar, { id: subscription.id, subscriptionUpdate: payload }), operation)
     // The response is the subscription as the change left it: a scheduled
     // plan change or a resume date reads back before its webhook lands.
     await recordApplied(ctx, userId, updated)

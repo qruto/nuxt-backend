@@ -120,8 +120,8 @@ export const ACCOUNT_DATA_SOURCES = {
   billing: {
     capability: 'billing',
     where: 'component',
-    tables: ['billingEntitlements', 'billingSubscriptionChanges', 'billingDiscountAttempts', 'billingQuotaKeys', 'billingTrials', 'billingDeletions', 'billingSaveOffers'],
-    holds: 'The cached plans, features and credit balances of the account\'s billing entities, their scheduled plan changes and quota keys, the save offers the cancel flow made them, and the trial the account used.',
+    tables: ['billingEntitlements', 'billingSubscriptionChanges', 'billingDiscountAttempts', 'billingQuotaKeys', 'billingTrials', 'billingDeletions', 'billingSaveOffers', 'billingCommerceCustomers', 'billingCommerceOrders', 'billingCreditGrants'],
+    holds: 'The cached plans, features and credit balances of the account\'s billing entities, their scheduled plan changes and quota keys, the save offers the cancel flow made them, and the trial the account used. On Stripe, Dodo or Creem also their customer ids at the provider, their paid orders (amounts, tax, currency and refunds, never a card) and the credit grants those orders made.',
     keyedBy: ['account', 'entity'],
     erasure: 'deleted',
     erasureNote: 'The cache of every billing entity deleted with the account is removed, and so is the record of its trial. Each entity is marked as deleting first, so no free plan starts for it again.',

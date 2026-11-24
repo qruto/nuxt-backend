@@ -258,6 +258,9 @@ export const ERASURE_PARTICIPANTS = {
       await budget.remove(ctx, 'billingDiscountAttempts', () => ctx.db.query('billingDiscountAttempts').withIndex('userId', q => q.eq('userId', entityId)).take(budget.left))
       await budget.remove(ctx, 'billingQuotaKeys', () => ctx.db.query('billingQuotaKeys').withIndex('userId_key', q => q.eq('userId', entityId)).take(budget.left))
       await budget.remove(ctx, 'billingSaveOffers', () => ctx.db.query('billingSaveOffers').withIndex('entityId_madeAt', q => q.eq('entityId', entityId)).take(budget.left))
+      await budget.remove(ctx, 'billingCommerceCustomers', () => ctx.db.query('billingCommerceCustomers').withIndex('entityId_provider', q => q.eq('entityId', entityId)).take(budget.left))
+      await budget.remove(ctx, 'billingCommerceOrders', () => ctx.db.query('billingCommerceOrders').withIndex('entityId_createdAt', q => q.eq('entityId', entityId)).take(budget.left))
+      await budget.remove(ctx, 'billingCreditGrants', () => ctx.db.query('billingCreditGrants').withIndex('userId_meterId', q => q.eq('userId', entityId)).take(budget.left))
     }
     const { userId } = erasure
     if (userId) await budget.remove(ctx, 'billingTrials', () => ctx.db.query('billingTrials').withIndex('ownerUserId', q => q.eq('ownerUserId', userId)).take(budget.left))

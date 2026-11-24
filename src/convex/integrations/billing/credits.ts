@@ -27,7 +27,7 @@ function holdArgs(hold: number | undefined): { hold?: number } {
 
 /** Prepaid credits: reserve, settle, release, spend and refund. */
 export function createCredits(
-  { provider, cache, resolveMeter, requireEntity, unwrapProvider }: BillingContext,
+  { provider, commerce, cache, resolveMeter, requireEntity, unwrapProvider }: BillingContext,
   { refreshEntitlements }: BillingEntitlements,
 ) {
   /**
@@ -100,6 +100,38 @@ export function createCredits(
     return { entityId, externalId, reserved: true, meter: meter.key, meterId: meter.meterId, value }
   }
 
+  /**
+   * Report a settled spend to the provider as its usage event, by the
+   * entity's id. A refused report releases the reservation (or keeps
+   * `value` held, with `keepReservation`) and throws.
+   */
+  const ingestSpend = async (ctx: Parameters<Billing['settleSpend']>[0], reservation: Parameters<Billing['settleSpend']>[1], { name, value, property }: { name: string, value: number, property?: string }, options: NonNullable<Parameters<Billing['settleSpend']>[2]>): Promise<void> => {
+    try {
+      if (!await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, reservation.entityId)) {
+        throw backendError('not_ready', { reason: 'no_customer' }, `[nuxt-backend] No billing customer for ${reservation.entityId}. Start a checkout first.`)
+      }
+      const metadata = property
+        ? { ...options.metadata, [property]: value }
+        : options.metadata
+      // By the entity's id, never a member's: usage counts against the customer.
+      const events: EventsIngestRequest['events'] = [{
+        name,
+        externalCustomerId: reservation.entityId,
+        metadata,
+        externalId: reservation.externalId,
+        timestamp: options.timestamp,
+      }]
+      unwrapProvider(await eventsIngest(provider.polar, { events }), 'usage report')
+    }
+    catch (error) {
+      // Kept, what it would charge stays held in the same transaction that
+      // lets the rest go: a release and a fresh hold would leave a moment in
+      // which another spend could take the credits a retry then bills.
+      if (reservation.reserved) await ctx.runMutation(cache.release, { userId: reservation.entityId, externalId: reservation.externalId, ...(options.keepReservation ? { keep: value } : {}) })
+      throw error
+    }
+  }
+
   const settleSpend: Billing['settleSpend'] = async (ctx, reservation, options = {}) => {
     // A reservation is plain data that crosses function boundaries, so it is
     // checked like any other input before an event is ingested on its word.
@@ -122,30 +154,8 @@ export function createCredits(
       if (reservation.reserved) await ctx.runMutation(cache.settle, { userId: reservation.entityId, externalId: reservation.externalId, finalAmount: 0 })
       return
     }
-    try {
-      if (!await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, reservation.entityId)) {
-        throw backendError('not_ready', { reason: 'no_customer' }, `[nuxt-backend] No billing customer for ${reservation.entityId}. Start a checkout first.`)
-      }
-      const metadata = meter?.property
-        ? { ...options.metadata, [meter.property]: value }
-        : options.metadata
-      // By the entity's id, never a member's: usage counts against the customer.
-      const events: EventsIngestRequest['events'] = [{
-        name,
-        externalCustomerId: reservation.entityId,
-        metadata,
-        externalId: reservation.externalId,
-        timestamp: options.timestamp,
-      }]
-      unwrapProvider(await eventsIngest(provider.polar, { events }), 'usage report')
-    }
-    catch (error) {
-      // Kept, what it would charge stays held in the same transaction that
-      // lets the rest go: a release and a fresh hold would leave a moment in
-      // which another spend could take the credits a retry then bills.
-      if (reservation.reserved) await ctx.runMutation(cache.release, { userId: reservation.entityId, externalId: reservation.externalId, ...(options.keepReservation ? { keep: value } : {}) })
-      throw error
-    }
+    // On an adapter provider the cache is the record: closing the reservation is the spend.
+    if (!commerce) await ingestSpend(ctx, reservation, { name, value, property: meter?.property }, options)
     if (reservation.reserved) await closeSpent(ctx, reservation, value)
   }
 
@@ -194,6 +204,11 @@ export function createCredits(
         `[nuxt-backend] refundCredits: meter '${event.meter}' has no \`property\` (count meter) — only sum meters can be refunded.`,
       )
     }
+    // On an adapter provider the credit is a grant of the ledger, once per key.
+    if (commerce) {
+      const granted = await ctx.runMutation(commerce.refs.grantCredits, { userId: entityId, meterId: meter.meterId, amount: value, externalId: `refund:${event.externalId ?? crypto.randomUUID()}`, source: 'grant', rollover: true })
+      return granted.granted
+    }
     if (!await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, entityId)) {
       throw backendError('not_ready', { reason: 'no_customer' }, `[nuxt-backend] No billing customer for ${entityId}.`)
     }
@@ -220,6 +235,8 @@ export function createCredits(
   }
 
   const reportCost: Billing['reportCost'] = async (ctx, report) => {
+    // Costs are reported to Polar's cost insights; an adapter provider has none.
+    if (commerce) return
     if (!await provider.getCustomerByUserId(ctx as unknown as ProviderCtx, report.userId)) return
     const llm = report.llm
     const metadata = {

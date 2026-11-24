@@ -5,7 +5,7 @@ import { ordersList } from '@polar-sh/sdk/funcs/ordersList.js'
 import { logBackend } from '../../log.js'
 import { type BillingContext, isProviderNotFound } from './context.js'
 import type { BillingCustomers } from './customers.js'
-import type { ProviderCtx, RunWriteCtx } from './types/base.js'
+import type { ProviderCtx, RunQueryCtx, RunWriteCtx } from './types/base.js'
 import type { AccountBillingErasure, AccountBillingExport } from './types/surface.js'
 
 // Billing's part of an account's export and erasure, in the app: the
@@ -20,7 +20,7 @@ const EXPORT_ORDERS_MAX = 100
 
 /** Export and erasure of one `setupBilling` call. */
 export function createBillingErasure(
-  { billTo, provider, accessToken, unwrapProvider }: BillingContext,
+  { billTo, provider, commerce, accessToken, unwrapProvider }: BillingContext,
   forgetEntity: (ctx: RunWriteCtx, entityId: string) => Promise<void>,
   { mappedCustomer }: Pick<BillingCustomers, 'mappedCustomer'>,
 ) {
@@ -55,17 +55,22 @@ export function createBillingErasure(
    */
   const forgetAccount: AccountBillingErasure = async (ctx, erasure) => {
     for (const entityId of entitiesOf(erasure)) {
-      if (accessToken) await deleteCustomer(ctx, entityId)
+      // An adapter provider, the merchant of record, keeps its customer for its books: it has no erasure call.
+      if (accessToken && !commerce) await deleteCustomer(ctx, entityId)
       await forgetEntity(ctx, entityId)
     }
-    if (billTo !== 'workspace' || !accessToken) return
+    if (billTo !== 'workspace' || !accessToken || commerce) return
     for (const workspaceId of erasure.left) {
       unlessGone(await customersMembersDeleteExternal(provider.polar, { externalId: workspaceId, memberExternalId: erasure.userId }), 'member erasure')
     }
   }
 
   /** The newest orders of one entity's customer, as an export lists them; `null` when the provider could not be read. */
-  const ordersOf = async (entityId: string) => {
+  const ordersOf = async (ctx: RunQueryCtx, entityId: string) => {
+    if (commerce) {
+      const read = await ctx.runQuery(commerce.refs.listOrders, { entityId, paginationOpts: { cursor: null, numItems: EXPORT_ORDERS_MAX } })
+      return read.page.map(order => ({ id: order.orderId, createdAt: new Date(order.createdAt).toISOString(), status: order.status, productId: order.productId ?? null, amount: order.amount, currency: order.currency, billingReason: order.subscriptionId ? 'subscription' : 'purchase' }))
+    }
     if (!accessToken) return []
     const result = await ordersList(provider.polar, { externalCustomerId: entityId, limit: EXPORT_ORDERS_MAX, sorting: ['-created_at'] })
     if (!result.ok) {
@@ -92,7 +97,7 @@ export function createBillingErasure(
   const exportAccount: AccountBillingExport = async (ctx, account) => Promise.all(entitiesOf(account).map(async entityId => ({
     entityId,
     subscriptions: await provider.listAllUserSubscriptions(ctx as unknown as ProviderCtx, { userId: entityId }),
-    orders: await ordersOf(entityId),
+    orders: await ordersOf(ctx, entityId),
   })))
 
   return { forgetAccount, exportAccount }

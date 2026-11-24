@@ -112,9 +112,12 @@ export async function pageBillingEntities(ctx: RunQueryCtx, { components, billTo
   return { ids: read.page.flatMap(row => row._id ?? row.id ?? []), isDone: read.isDone, continueCursor: read.continueCursor }
 }
 
+/** A billing entity the free plan starts for, with its profile and the account behind it. */
+interface FoundEntity { entity: BillingEntity, profile: EntityProfile | null, account?: Caller }
+
 /** The free plan of one `setupBilling` call: started, recognised, and restarted when a paid plan ends. */
 export function createFreePlan(
-  { freePlan, billTo, provider, components, accessToken, unwrapProvider, entityDeleting: deleting, catalogIds }: BillingContext,
+  { freePlan, billTo, provider, components, accessToken, unwrapProvider, entityDeleting: deleting, catalogIds, commerce }: BillingContext,
   { ensureCustomer, profileOf }: Pick<BillingCustomers, 'ensureCustomer' | 'profileOf'>,
 ) {
   // The scaffold's `startFreePlan` (`billing.api.startFreePlan`), by the
@@ -151,6 +154,11 @@ export function createFreePlan(
      * `firstStart`, and on its own for a first start whose answer was lost.
      */
     queueWelcome?: (ctx: RunWriteCtx, entityId: string, owner: { userId: string, email: string }) => Promise<void>
+    /**
+     * The start on an adapter provider, which holds no free plan: the app's
+     * own credit cycle, `first` run for an entity that never had billing.
+     */
+    localStart?: (ctx: RunWriteCtx, entityId: string, first: () => Promise<void>) => Promise<FreePlanStart>
   } = {}
 
   /**
@@ -212,7 +220,7 @@ export function createFreePlan(
    * exists: a workspace by its profile (its owner's email), a user by their
    * account. A workspace whose owner left can't own a customer: `null` too.
    */
-  const entityOf = async (ctx: RunQueryCtx, entityId: string): Promise<{ entity: BillingEntity, profile: EntityProfile | null, account?: Caller } | null> => {
+  const entityOf = async (ctx: RunQueryCtx, entityId: string): Promise<FoundEntity | null> => {
     if (billTo === 'workspace') {
       const profile = await profileOf(ctx, entityId)
       return profile?.owner ? { entity: { userId: entityId, email: profile.owner.email }, profile } : null
@@ -268,12 +276,29 @@ export function createFreePlan(
    * subscribed.
    */
   const start = async (ctx: RunWriteCtx, entityId: string, kind?: CreatedEntityKind): Promise<FreePlanStart> => {
-    if (!freePlan) return 'no_plan'
+    // On an adapter provider a paid plan's monthly credit cycle runs here too, free plan or not.
+    if (!freePlan && !commerce) return 'no_plan'
     // A workspace with `billTo: 'user'`, an account without: queued by name, never billed.
     if (kind && kind !== billedKind) return 'not_billed'
-    if (!accessToken) return 'not_configured'
+    if (!accessToken && !commerce) return 'not_configured'
     const found = await deleting(ctx, entityId) ? null : await entityOf(ctx, entityId)
     if (!found) return 'gone'
+    // The free plan is the app's own on an adapter provider: no subscription, its credits a cycle of grants.
+    if (commerce) return await localStart(ctx, entityId, found)
+    return freePlan ? await providerStart(ctx, entityId, found, freePlan.productId) : 'no_plan'
+  }
+
+  /** The start on an adapter provider: the app's own credit cycle, the welcome credits queued the first time. */
+  const localStart = async (ctx: RunWriteCtx, entityId: string, found: FoundEntity): Promise<FreePlanStart> => {
+    if (!hooks.localStart) return 'no_plan'
+    const owner = found.profile?.owner ?? found.account
+    return await hooks.localStart(ctx, entityId, async () => {
+      if (owner && hooks.queueWelcome) await hooks.queueWelcome(ctx, entityId, { userId: owner.userId, email: owner.email })
+    })
+  }
+
+  /** The start on Polar: the free plan's subscription at the provider, once. */
+  const providerStart = async (ctx: RunWriteCtx, entityId: string, found: FoundEntity, productId: string): Promise<FreePlanStart> => {
     try {
       await ensureCustomer(ctx, found.entity, found.profile, 'free plan', found.account)
     }
@@ -286,7 +311,7 @@ export function createFreePlan(
     if (held.length > 0) return await subscribedAlready(ctx, entityId, held, found)
     // Its first subscription ever: none was synced for it, ended or not.
     const first = (await provider.listAllUserSubscriptions(ctx as unknown as ProviderCtx, { userId: entityId })).length === 0
-    const created = await subscriptionsCreate(provider.polar, { productId: freePlan.productId, externalCustomerId: entityId })
+    const created = await subscriptionsCreate(provider.polar, { productId, externalCustomerId: entityId })
     if (!created.ok) {
       const after = await providerSubscriptions(entityId)
       if (after.length > 0) return await subscribedAlready(ctx, entityId, after, found)

@@ -132,7 +132,7 @@ unless the user asks. Overrides, rollouts, key rules and the audit trail are in
 - [Vercel](https://nuxt-backend.dev/docs/services/vercel): Set up Vercel to host the Nuxt app: the account, the project, its environments, preview deployments, the function region and the env it needs from the backend.
 - [Sentry](https://nuxt-backend.dev/docs/services/sentry): Set up Sentry for errors, logs, replays, feedback, alerts and uptime: the account and its data region, the project, the DSN for the app and the deployment, source maps, cron monitors, the alert rules and the health monitor.
 - [Bot protection](https://nuxt-backend.dev/docs/services/bot-protection): Set up the bot check that guards sign-in and sign-up: Vercel BotID on Vercel, or a Cloudflare Turnstile challenge on any other host, with its keys.
-- [Stripe, Dodo and Creem](https://nuxt-backend.dev/docs/services/merchants): Sell through Stripe Managed Payments, Dodo Payments or Creem instead of Polar: what each merchant of record does, what its API offers, the keys, the webhook, and the account review. Reach for `billingProviderName()` from `nuxt-backend/billing`, `commerceProviderFromEnv()` from `nuxt-backend/billing`.
+- [Stripe, Dodo and Creem](https://nuxt-backend.dev/docs/services/merchants): Sell through Stripe Managed Payments, Dodo Payments or Creem instead of Polar: what each merchant of record offers, the keys, the product ids setupBilling maps, how credits work, the webhook, what stays on Polar, and the account review. Reach for `billingProviderName()` from `nuxt-backend/billing`, `commerceProviderFromEnv()` from `nuxt-backend/billing`.
 
 **Develop**
 

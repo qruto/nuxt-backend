@@ -137,7 +137,7 @@ export const BACKEND_ENV = {
     side: 'deployment',
     whenFlagged: true,
     without: 'billing sells through Polar, on the Convex component setupBilling is built on',
-    values: '`polar`, `stripe` (Stripe Managed Payments), `dodo` (Dodo Payments) or `creem`: the merchant of record the adapters in `nuxt-backend/billing` sell through. A name outside the four fails the deploy',
+    values: '`polar`, `stripe` (Stripe Managed Payments), `dodo` (Dodo Payments) or `creem`: the merchant of record `setupBilling` sells through. Any other needs `setupBilling({ commerce })`, with the catalog and the provider\'s product ids. A name outside the four fails the deploy',
     example: 'polar',
     dotenv: true,
     findings: [],

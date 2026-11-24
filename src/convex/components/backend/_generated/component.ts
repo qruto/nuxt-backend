@@ -3993,6 +3993,196 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
     };
+    commerce: {
+      customerOf: FunctionReference<
+        "query",
+        "internal",
+        { entityId: string; provider: string },
+        string | null,
+        Name
+      >;
+      disputeOrder: FunctionReference<
+        "mutation",
+        "internal",
+        { orderId: string },
+        null | {
+          amount: number;
+          createdAt: number;
+          currency: string;
+          entityId: string;
+          orderId: string;
+          productId?: string;
+          provider: string;
+          refundedAmount: number;
+          status: "paid" | "refunded" | "partially_refunded" | "disputed";
+          subscriptionId?: string;
+          taxAmount?: number;
+        },
+        Name
+      >;
+      entityOfCustomer: FunctionReference<
+        "query",
+        "internal",
+        { customerId: string; provider: string },
+        string | null,
+        Name
+      >;
+      forgetEntity: FunctionReference<
+        "mutation",
+        "internal",
+        { entityId: string },
+        null,
+        Name
+      >;
+      getOrder: FunctionReference<
+        "query",
+        "internal",
+        { orderId: string },
+        null | {
+          amount: number;
+          createdAt: number;
+          currency: string;
+          entityId: string;
+          orderId: string;
+          productId?: string;
+          provider: string;
+          refundedAmount: number;
+          status: "paid" | "refunded" | "partially_refunded" | "disputed";
+          subscriptionId?: string;
+          taxAmount?: number;
+        },
+        Name
+      >;
+      grantCredits: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          amount: number;
+          cycleEnd?: number;
+          cycleStart?: number;
+          externalId: string;
+          meterId: string;
+          rollover: boolean;
+          source: "plan" | "pack" | "grant";
+          userId: string;
+        },
+        { balance: number; granted: boolean },
+        Name
+      >;
+      hasGrant: FunctionReference<
+        "query",
+        "internal",
+        { externalId: string },
+        boolean,
+        Name
+      >;
+      linkCustomer: FunctionReference<
+        "mutation",
+        "internal",
+        { customerId: string; entityId: string; provider: string },
+        null,
+        Name
+      >;
+      listOrders: FunctionReference<
+        "query",
+        "internal",
+        {
+          entityId: string;
+          paginationOpts: {
+            cursor: string | null;
+            endCursor?: string | null;
+            id?: number;
+            maximumBytesRead?: number;
+            maximumRowsRead?: number;
+            numItems: number;
+          };
+        },
+        {
+          continueCursor: string;
+          isDone: boolean;
+          page: Array<{
+            amount: number;
+            createdAt: number;
+            currency: string;
+            entityId: string;
+            orderId: string;
+            productId?: string;
+            provider: string;
+            refundedAmount: number;
+            status: "paid" | "refunded" | "partially_refunded" | "disputed";
+            subscriptionId?: string;
+            taxAmount?: number;
+          }>;
+        },
+        Name
+      >;
+      recordOrder: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          amount: number;
+          currency: string;
+          entityId: string;
+          orderId: string;
+          productId?: string;
+          provider: string;
+          subscriptionId?: string;
+          taxAmount?: number;
+        },
+        boolean,
+        Name
+      >;
+      refundOrder: FunctionReference<
+        "mutation",
+        "internal",
+        { amount?: number; orderId: string; refundId: string },
+        null | {
+          counted: boolean;
+          order: {
+            amount: number;
+            createdAt: number;
+            currency: string;
+            entityId: string;
+            orderId: string;
+            productId?: string;
+            provider: string;
+            refundedAmount: number;
+            status: "paid" | "refunded" | "partially_refunded" | "disputed";
+            subscriptionId?: string;
+            taxAmount?: number;
+          };
+        },
+        Name
+      >;
+      revokeGrant: FunctionReference<
+        "mutation",
+        "internal",
+        { externalId: string; userId: string },
+        number,
+        Name
+      >;
+      setPlanState: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          activeProductIds: Array<string>;
+          benefits: Array<{
+            benefitId: string;
+            files?: number;
+            grantedAt?: number;
+            id: string;
+            licenseKey?: string;
+            metadata?: Record<string, string | number | boolean>;
+            repository?: string;
+            type: string;
+          }>;
+          customerId?: string;
+          userId: string;
+        },
+        null,
+        Name
+      >;
+    };
     consents: {
       history: FunctionReference<
         "query",

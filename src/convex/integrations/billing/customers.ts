@@ -6,6 +6,7 @@ import { customersList } from '@polar-sh/sdk/funcs/customersList.js'
 import { customersUpdate } from '@polar-sh/sdk/funcs/customersUpdate.js'
 import { membersListMembers } from '@polar-sh/sdk/funcs/membersListMembers.js'
 import type { Auth } from 'convex/server'
+import { commerceCall } from './commerce.js'
 import { BILLING_ACCESS, type BillingContext, isProviderNotFound } from './context.js'
 import type { PurchaseRules } from './purchase.js'
 import type { ProviderCtx, RunQueryCtx, RunWriteCtx } from './types/base.js'
@@ -99,7 +100,7 @@ async function callerOf(ctx: { auth?: Auth }): Promise<Caller | null> {
 
 /** Find, create and map the provider customer of each billing entity; open its portal. */
 export function createCustomers(
-  { billTo, provider, providerLib, cache, requireEntity, requireProviderAccess, unwrapProvider, throttle, customerOwner }: BillingContext,
+  { billTo, provider, commerce, providerLib, cache, requireEntity, requireProviderAccess, unwrapProvider, throttle, customerOwner }: BillingContext,
   { requireTrustedUrl }: PurchaseRules,
 ) {
   /** The provider customer the component maps this entity to, or `null`. */
@@ -275,6 +276,11 @@ export function createCustomers(
     operation: string,
     onBehalfOf?: Caller,
   ): Promise<string> => {
+    // An adapter provider makes its customer at checkout: the provider component maps the entity to itself.
+    if (commerce) {
+      await ctx.runMutation(providerLib.insertCustomer, { id: entity.userId, userId: entity.userId })
+      return entity.userId
+    }
     const mapped = await mappedCustomer(ctx, entity.userId)
     if (mapped) return await keyMapped(mapped, entity.userId, operation)
     const customerId = (await customerByExternalId(entity.userId, operation))?.id
@@ -349,6 +355,14 @@ export function createCustomers(
     requireProviderAccess('portal session')
     requireTrustedUrl(options.returnUrl, 'returnUrl')
     await throttle(ctx, userId, 'portal sessions')
+    // On an adapter provider the customer is the one its checkout made, and the portal is the provider's own.
+    if (commerce) {
+      const providerCustomerId = await ctx.runQuery(commerce.refs.customerOf, { entityId: userId, provider: commerce.name })
+      if (!providerCustomerId) {
+        throw backendError('not_ready', { reason: 'no_customer' }, '[nuxt-backend] No billing customer yet — the portal opens after a first checkout.')
+      }
+      return { url: await commerceCall('portal session', () => commerce.client().customerPortalUrl(providerCustomerId, options.returnUrl ? { returnUrl: options.returnUrl } : {})) }
+    }
     const customerId = await mappedCustomer(ctx, userId)
     if (!customerId) {
       throw backendError('not_ready', { reason: 'no_customer' }, '[nuxt-backend] No billing customer yet — the portal opens after a first checkout.')

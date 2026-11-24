@@ -210,6 +210,21 @@ export const tables = {
  * Intentionally NOT part of the auth-only `tables` export above, which is the
  * Better Auth adapter's schema — billing data is the component's own.
  */
+/** What a paid order on an adapter provider (Stripe, Dodo, Creem) records: `billingCommerceOrders`, and the order `commerce.recordOrder` takes. */
+export const commerceOrderFields = {
+  orderId: v.string(),
+  provider: v.string(),
+  entityId: v.string(),
+  productId: v.optional(v.string()),
+  subscriptionId: v.optional(v.string()),
+  amount: v.number(),
+  taxAmount: v.optional(v.number()),
+  currency: v.string(),
+}
+
+/** Where a recorded order stands: paid, refunded in part or in full, or disputed. */
+export const vCommerceOrderStatus = v.union(v.literal('paid'), v.literal('refunded'), v.literal('partially_refunded'), v.literal('disputed'))
+
 export const vEntitlementBenefit = v.object({
   id: v.string(),
   benefitId: v.string(),
@@ -481,6 +496,52 @@ export const billingTables = {
     at: v.number(),
   })
     .index('ownerUserId', ['ownerUserId']),
+  // A billing entity's customer at a provider on the neutral adapters
+  // (Stripe Managed Payments, Dodo, Creem), which makes one at the first
+  // checkout: the next checkout and the portal name it, and a delivery that
+  // names only the customer finds its entity by it. Polar's are the
+  // provider component's.
+  billingCommerceCustomers: defineTable({
+    entityId: v.string(),
+    provider: v.string(),
+    customerId: v.string(),
+  })
+    .index('entityId_provider', ['entityId', 'provider'])
+    .index('provider_customerId', ['provider', 'customerId']),
+  // The orders an adapter provider delivered as paid, one row per order:
+  // the order history, a refund's lookup, and what a refunded order's
+  // credits are taken back by. The provider, the merchant of record, keeps
+  // the invoice and the tax.
+  billingCommerceOrders: defineTable({
+    ...commerceOrderFields,
+    status: vCommerceOrderStatus,
+    refundedAmount: v.number(),
+    /** The refunds counted in `refundedAmount`, by id: a redelivered refund counts once. */
+    refundIds: v.array(v.string()),
+    createdAt: v.number(),
+  })
+    .index('orderId', ['orderId'])
+    .index('entityId_createdAt', ['entityId', 'createdAt']),
+  // Each credit grant on an adapter provider, where no provider meter keeps
+  // the balance: once per `externalId` (an order, a free plan's month, a
+  // welcome, a refund), so a redelivered event grants once. A plan's grant
+  // that does not roll over lapses with what is left of it when the next
+  // one lands: `consumedAtGrant` is the meter's consumption when it was
+  // granted, so what was spent since is taken from it first.
+  billingCreditGrants: defineTable({
+    userId: v.string(),
+    meterId: v.string(),
+    externalId: v.string(),
+    amount: v.number(),
+    source: v.union(v.literal('plan'), v.literal('pack'), v.literal('grant')),
+    rollover: v.boolean(),
+    consumedAtGrant: v.number(),
+    /** Set once the grant lapsed or was taken back: what of it left the balance. */
+    closed: v.optional(v.number()),
+    at: v.number(),
+  })
+    .index('externalId', ['externalId'])
+    .index('userId_meterId', ['userId', 'meterId']),
   // What the provider's subscription carries and the synced subscriptions
   // table does not: the plan change scheduled for the next period and when a
   // paused subscription resumes. One row per subscription, written from its

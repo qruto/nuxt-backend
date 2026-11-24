@@ -1,6 +1,8 @@
 import type { WebhookEventHandlers } from '@convex-dev/polar'
+import type { ComponentApi } from '../../../components/backend/_generated/component.js'
 import type { Auth, FunctionReference, GenericActionCtx, GenericDataModel } from 'convex/server'
-import type { CatalogInterval } from '../../../catalog.js'
+import type { BillingCatalog, CatalogInterval } from '../../../catalog.js'
+import type { NeutralBillingEvent } from '../providers/types.js'
 import type { CallerRule } from '../../access.js'
 import type { ShardedCounter } from '@convex-dev/sharded-counter'
 import type { Workpool } from '@convex-dev/workpool'
@@ -233,6 +235,12 @@ export interface BillingComponents {
       latest: FunctionReference<'query', 'internal', { userId: string, kind: string }, { kind: string, version: string, granted: boolean, at: number } | null>
     }
     /**
+     * The records of a provider on the neutral adapters (`BILLING_PROVIDER`
+     * stripe, dodo or creem): customers, orders and credit grants. Absent on
+     * a component built before them, which sells through Polar only.
+     */
+    commerce?: ComponentApi['commerce']
+    /**
      * What the storage module counts by billing quota key (a holder's files
      * and bytes): a quota read adds it to the count the app claims itself,
      * so a quota shows one number. Absent on a component built before it.
@@ -335,6 +343,31 @@ export interface BillingEntityCtx {
  * user (`billTo: 'user'`) — so {@link SetupBillingConfig.resolveEntity} is an
  * override, not required wiring.
  */
+/**
+ * What billing sells through a provider on the neutral adapters: see
+ * {@link SetupBillingConfig.commerce}.
+ *
+ * @experimental
+ */
+export interface CommerceConfig {
+  /** The catalog, as `billing.catalog.ts` defines it. */
+  definition: BillingCatalog
+  /**
+   * Catalog key → the provider's product (Dodo, Creem) or price (Stripe)
+   * id, per billing environment: packs by their key, a plan's monthly price
+   * by the plan's key and its yearly one as `<plan>:year`. The free plan
+   * needs none: it is the app's own.
+   */
+  products: Partial<Record<'sandbox' | 'production', Record<string, string>>>
+  /**
+   * What the app does with each verified event, in neutral words, after
+   * the package kept its records: the place for the app's own reaction to
+   * a paid order or a subscription's change. It must be idempotent: a
+   * provider sends an event again until it gets a 2xx.
+   */
+  onEvent?: (ctx: RunWriteCtx, event: NeutralBillingEvent, delivery: { id: string }) => Promise<void>
+}
+
 export interface SetupBillingConfig {
   /**
    * The app's `setupEmail` instance. A gift's recipient hears of it through
@@ -538,6 +571,34 @@ export interface SetupBillingConfig {
    * generated file. Explicit `products`/`credits` config wins.
    */
   catalog?: Partial<Record<'sandbox' | 'production', BillingCatalogIds | undefined>>
+  /**
+   * What billing sells through a provider on the neutral adapters, read
+   * when `BILLING_PROVIDER` is `stripe`, `dodo` or `creem` (and refused
+   * without it there): the catalog itself (`billing.catalog.ts`'s default
+   * export), whose plans, packs, features, quotas and credit grants the app
+   * keeps where no provider holds them, and the provider's id for each of
+   * its products, by catalog key and billing environment. `billing sync`
+   * writes Polar's ids only: create the products in the provider's
+   * dashboard and name them here.
+   *
+   * @example
+   * ```ts
+   * import definition from './billing.catalog'
+   *
+   * setupBilling(components, {
+   *   email,
+   *   commerce: {
+   *     definition,
+   *     products: {
+   *       sandbox: { 'studio': 'price_123', 'studio:year': 'price_456', 'credits100': 'price_789' },
+   *     },
+   *   },
+   * })
+   * ```
+   *
+   * @experimental
+   */
+  commerce?: CommerceConfig
   /**
    * The billing lifecycle beyond the provider's own: save offers
    * by cancellation reason for the cancel flow, the abandoned-checkout
