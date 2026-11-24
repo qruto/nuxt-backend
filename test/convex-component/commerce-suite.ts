@@ -288,6 +288,8 @@ export function commerceSuite(fixture: ProviderFixture, built: { billing: Billin
         expect((await deliver(events.updated(renewed))).status).toBe(200)
         await runScheduledNow()
         expect(await credits(ada)).toBe(400)
+        // Last year's order delivered again claims none of the new period's months.
+        expect((await deliver(events.charge(subscription, 'order_year_1'))).status).toBe(200)
         expect((await deliver(events.charge(renewed, 'order_year_2'))).status).toBe(200)
         await runScheduledNow()
         expect(await credits(ada)).toBe(400)

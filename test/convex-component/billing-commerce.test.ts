@@ -499,7 +499,25 @@ describe('the credit grant ledger of adapter mode', () => {
     await t.mutation(ledger.holdReversal, { orderId: 'o4', kind: 'dispute' })
     await t.mutation(ledger.holdReversal, { orderId: 'o4', kind: 'refund' })
     await t.mutation(ledger.recordOrder, { ...order, orderId: 'o4' })
-    expect(await t.query(ledger.getOrder, { orderId: 'o4' })).toMatchObject({ status: 'refunded', refundedAmount: 1000 })
+    expect(await t.query(ledger.getOrder, { orderId: 'o4' })).toMatchObject({ status: 'disputed', refundedAmount: 1000 })
+    // A refund alone, in part: the order lands part paid, its credits kept.
+    await t.mutation(ledger.holdReversal, { orderId: 'o9', kind: 'refund', refundId: 'r9', amount: 100 })
+    await t.mutation(ledger.recordOrder, { ...order, orderId: 'o9' })
+    expect(await t.query(ledger.getOrder, { orderId: 'o9' })).toMatchObject({ status: 'partially_refunded', refundedAmount: 100 })
+  })
+
+  test('grants a yearly plan\'s month to the order paying for its period, read as it lands, and none once that order is taken back', async () => {
+    const month = (externalId: string, since: number) =>
+      t.mutation(ledger.grantCredits, { userId: 'w10', meterId: 'credits', amount: 100, externalId, source: 'plan', rollover: true, paidBy: { subscriptionId: 'sub_y', since } })
+    // Before its order: granted, tied to none.
+    expect((await month('y:m1', 0)).granted).toBe(true)
+    await t.mutation(ledger.recordOrder, { orderId: 'oy', provider: 'dodo', entityId: 'w10', subscriptionId: 'sub_y', amount: 12000, currency: 'usd' })
+    expect((await month('y:m2', 0)).granted).toBe(true)
+    // An order recorded before the period began pays for none of it.
+    await month('y:m3', Date.now() + 60_000)
+    expect(await t.mutation(ledger.revokeOrderGrants, { userId: 'w10', orderId: 'oy' })).toBe(100)
+    await t.mutation(ledger.disputeOrder, { orderId: 'oy' })
+    expect(await month('y:m4', 0)).toMatchObject({ granted: false })
   })
 
   test('takes back every grant an order paid for, and ties to it only the grants no order paid for yet', async () => {

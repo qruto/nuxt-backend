@@ -4064,6 +4064,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           keep?: Array<string>;
           meterId: string;
           orderId?: string;
+          paidBy?: { since: number; subscriptionId: string };
           rollover: boolean;
           source: "plan" | "pack" | "grant";
           userId: string;

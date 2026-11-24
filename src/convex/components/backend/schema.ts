@@ -521,7 +521,8 @@ export const billingTables = {
     createdAt: v.number(),
   })
     .index('orderId', ['orderId'])
-    .index('entityId_createdAt', ['entityId', 'createdAt']),
+    .index('entityId_createdAt', ['entityId', 'createdAt'])
+    .index('subscriptionId_createdAt', ['subscriptionId', 'createdAt']),
   // A refund or a dispute that arrived before the order it names, held
   // until the order's own delivery records it: the order then lands
   // refunded or disputed, and its credits go back with it. One row per

@@ -77,7 +77,8 @@ function refunded(row: Pick<Doc<'billingCommerceOrders'>, 'amount' | 'refundedAm
 /**
  * Record a paid order once: `false` for one recorded before (a
  * redelivery). The refunds and the dispute held for it, which arrived
- * first, apply as it lands, in the order they came.
+ * first, apply as it lands, in the order they came: a dispute keeps the
+ * order disputed whatever is refunded with it, so its credits go back.
  */
 export const recordOrder = mutation({
   args: commerceOrderFields,
@@ -88,7 +89,10 @@ export const recordOrder = mutation({
     let row: Omit<Doc<'billingCommerceOrders'>, '_id' | '_creationTime'> = { ...order, status: 'paid', refundedAmount: 0, refundIds: [], createdAt: Date.now() }
     for await (const reversal of ctx.db.query('billingCommerceReversals').withIndex('orderId', q => q.eq('orderId', order.orderId))) {
       if (reversal.kind === 'dispute') row = { ...row, status: 'disputed' }
-      else if (!row.refundIds.includes(reversal.refundId)) row = { ...row, ...refunded(row, reversal.amount), refundIds: [...row.refundIds, reversal.refundId] }
+      else if (!row.refundIds.includes(reversal.refundId)) {
+        const next = refunded(row, reversal.amount)
+        row = { ...row, refundedAmount: next.refundedAmount, status: row.status === 'disputed' ? 'disputed' : next.status, refundIds: [...row.refundIds, reversal.refundId] }
+      }
       await ctx.db.delete('billingCommerceReversals', reversal._id)
     }
     await ctx.db.insert('billingCommerceOrders', row)
@@ -261,9 +265,17 @@ export const grantCredits = mutation({
     cycleEnd: v.optional(v.number()),
     keep: v.optional(v.array(v.string())),
     orderId: v.optional(v.string()),
+    /**
+     * A yearly plan's month: the subscription whose order pays for it, and
+     * since when that order can have been recorded (its period's start).
+     * Read in this same transaction, so a refund or an order landing
+     * meanwhile is never missed; a period whose order was taken back whole
+     * grants nothing.
+     */
+    paidBy: v.optional(v.object({ subscriptionId: v.string(), since: v.number() })),
   },
   returns: v.object({ granted: v.boolean(), balance: v.number() }),
-  handler: async (ctx, { userId, meterId, amount, externalId, source, rollover, cycleStart, cycleEnd, keep, orderId }) => {
+  handler: async (ctx, { userId, meterId, amount, externalId, source, rollover, cycleStart, cycleEnd, keep, orderId, paidBy }) => {
     if (!Number.isFinite(amount) || amount <= 0) throw new Error(`[nuxt-backend] commerce.grantCredits: \`amount\` must be a finite number above zero (got ${amount}).`)
     const row = await entitlementRow(ctx, userId)
     const index = row.meters.findIndex(meter => meter.meterId === meterId)
@@ -271,9 +283,11 @@ export const grantCredits = mutation({
     if (await ctx.db.query('billingCreditGrants').withIndex('externalId', q => q.eq('externalId', externalId)).first()) {
       return { granted: false, balance: meter.balance }
     }
+    const paying = paidBy ? await payingOrder(ctx, paidBy) : orderId === undefined ? null : { orderId, status: 'paid' as const }
+    if (paying && (paying.status === 'refunded' || paying.status === 'disputed')) return { granted: false, balance: meter.balance }
     const lapsed = source === 'plan' ? await lapsePlanGrants(ctx, userId, meter, keep) : 0
     const now = Date.now()
-    await ctx.db.insert('billingCreditGrants', { userId, meterId, externalId, amount, source, rollover, consumedAtGrant: meter.consumedUnits, ...(orderId === undefined ? {} : { orderId }), at: now })
+    await ctx.db.insert('billingCreditGrants', { userId, meterId, externalId, amount, source, rollover, consumedAtGrant: meter.consumedUnits, ...(paying ? { orderId: paying.orderId } : {}), at: now })
     const next = {
       ...meter,
       balance: meter.balance - lapsed + amount,
@@ -337,6 +351,11 @@ export const linkGrants = mutation({
     return null
   },
 })
+
+/** The latest order of a subscription recorded since `since`: the one paying for its period, `null` before it arrives. */
+function payingOrder(ctx: { db: QueryCtx['db'] }, { subscriptionId, since }: { subscriptionId: string, since: number }) {
+  return ctx.db.query('billingCommerceOrders').withIndex('subscriptionId_createdAt', q => q.eq('subscriptionId', subscriptionId).gte('createdAt', since)).order('desc').first()
+}
 
 /** Close one grant, as many of its credits as the balance still holds: `0` for one already closed. */
 async function revoke(ctx: MutationCtx, grant: Doc<'billingCreditGrants'>): Promise<number> {
