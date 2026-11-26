@@ -11,6 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@convex-dev/presence": "^0.4.1",
     "ai": "^7.0.129",
     "convex": "^1.48.0",
     "nuxt": "^4.6.2",

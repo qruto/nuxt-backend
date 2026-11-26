@@ -34,6 +34,7 @@ const demo = useQuery(api.demo.status, {})
       v-if="strip.status === 'ready'"
       :strip-id="strip._id"
     />
+    <StripViewers :strip-id="strip._id" />
     <ReportStrip :strip-id="strip._id" />
   </div>
   <div

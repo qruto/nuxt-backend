@@ -102,10 +102,10 @@ describe('website app', () => {
   it('mounts its backend with the exact default scaffold', () => {
     // The docs site's backend is the reference consumer: its convex.config.ts
     // is the default template verbatim, plus the two components it imports
-    // directly, so the template is proven against the live dev deployment by
-    // the `convex dev` watcher.
+    // directly and the presence component Panels mounts, so the template is
+    // proven against the live dev deployment by the `convex dev` watcher.
     const target = fileURLToPath(new URL('../../website/backend/convex.config.ts', import.meta.url))
-    const own = /^(?:import (?:aggregate|migrations) from .*|app\.use\((?:aggregate|migrations)\)|\/\/ The playground's own: .*|\/\/ backfills \(migrations\.ts\).*)\n/gm
+    const own = /^(?:import (?:aggregate|migrations|presence) from .*|app\.use\((?:aggregate|migrations|presence)\)|\/\/ The playground's own: .*|\/\/ backfills \(migrations\.ts\).*)\n/gm
     expect(readFileSync(target, 'utf-8').replace(own, '')).toBe(BACKEND_FILE_TEMPLATES['convex.config.ts'])
   })
 

@@ -332,6 +332,9 @@ importers:
       '@convex-dev/polar':
         specifier: ^0.9.2
         version: 0.9.2(@polar-sh/checkout@0.6.0(@stripe/react-stripe-js@5.6.1(@stripe/stripe-js@8.11.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@stripe/stripe-js@8.11.0)(react@19.3.0))(@polar-sh/sdk@0.49.0)(@standard-schema/spec@1.1.0)(convex@1.51.0(react@19.3.0))(hono@4.13.18)(prettier@3.9.10)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@6.0.3)(zod@4.6.7)
+      '@convex-dev/presence':
+        specifier: ^0.4.1
+        version: 0.4.1(convex@1.51.0(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@convex-dev/rate-limiter':
         specifier: ^0.4.3
         version: 0.4.3(@standard-schema/spec@1.1.0)(convex@1.51.0(react@19.3.0))(hono@4.13.18)(prettier@3.9.10)(react@19.3.0)(typescript@6.0.3)(zod@4.6.7)

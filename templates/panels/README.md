@@ -32,6 +32,7 @@ Yarn and Bun ignore it.
 | `backend/ai.ts`, `backend/admin.ts` | Moderation, content credentials and the Reports tab | 3, 4 |
 | `backend/jobs.ts` | The generation queue, with a head start for Studio | 4 |
 | `backend/email.ts`, `backend/notifications.ts` | The brand of every email, and the "strip ready" notification | 5 |
+| `backend/presence.ts`, `app/components/StripViewers.vue` | Who else in the workspace has a strip open | 5 |
 | `app/pages/strips/` | The list of strips, and one strip as it draws | 1, 3, 4, 5 |
 | `app/pages/s/[token].vue` | A shared strip, for anyone with the link | 5 |
 | `backend/routes.ts` | Panels' own paths, for the links the backend writes and for sign-in | |
