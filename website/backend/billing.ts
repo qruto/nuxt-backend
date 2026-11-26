@@ -23,10 +23,18 @@ import { paths } from './paths.generated'
 // functions.ts builds its withFeature tier on this instance, and ai.ts
 // spends credits through it; this file imports nothing from functions.ts.
 // `paths` (paths.generated.ts) is the settings page its emails link to.
-// `commerce` is what Stripe, Dodo and Creem sell from: the same catalog, and
-// each product's id there (billing.products.ts). Polar ignores it, so
-// `BILLING_PROVIDER` alone switches the provider once those ids are in.
-export const billing = setupBilling(components, { catalog, email, audit, paths, commerce: { definition, products } })
+// `commerce` is what Stripe, Dodo and Creem sell from: the catalog, and each
+// product's id there (billing.products.ts). Polar ignores it, so
+// `BILLING_PROVIDER` alone switches the provider once those ids are in. Each
+// of their products sells in one currency, so they get the US dollar prices
+// only, and the pricing page offers no euro price they would refuse.
+const { plans: { studio }, packs: { credits100, credits500 } } = definition
+const inDollars = {
+  ...definition,
+  plans: { ...definition.plans, studio: { ...studio, prices: { usd: studio.prices.usd } } },
+  packs: { credits100: { ...credits100, price: credits100.price.usd }, credits500: { ...credits500, price: credits500.price.usd } },
+}
+export const billing = setupBilling(components, { catalog, email, audit, paths, commerce: { definition: inDollars, products } })
 
 // Every function the billing composables call, by name: checkout, the
 // portal and the price list (the server sells only the catalog's plans and
