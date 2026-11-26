@@ -33,7 +33,7 @@ Brands stop at this tab: your code and env use the package's neutral names, so a
 
 1. **Convex,** first. `npx nuxt-backend dev` creates the dev deployment, and sign-in works at once: codes print in your terminal.
 2. **Resend,** when you want codes in a real inbox or start sending your own email. Add the sending domain early: DNS can take a day.
-3. **Polar,** when you add plans or credits. Work in its sandbox, and start the production account review a week or two before launch.
+3. **Polar,** when you add plans or credits. Work in its sandbox, and start the production account review a week or two before launch. [Stripe, Dodo or Creem](/docs/services/merchants) can take its place, with fewer features.
 4. **An AI gateway,** when you add an AI feature. Set its spend cap first.
 5. **Vercel,** or your own host, when you deploy. Pick the function region next to your Convex region.
 6. **Bot protection and Sentry,** before launch. `doctor --prod` warns until both are in place.
@@ -47,6 +47,10 @@ Each service has a test mode or a sandbox, and `BACKEND_ENVIRONMENT` decides whi
 
   :::card{icon="i-lucide-credit-card" title="Polar" to="/docs/services/polar"}
   Set up Polar, the billing provider and merchant of record: the sandbox organization, the access token, the webhook, and the move to production.
+  :::
+
+  :::card{icon="i-lucide-store" title="Stripe, Dodo and Creem" to="/docs/services/merchants"}
+  Sell through Stripe Managed Payments, Dodo Payments or Creem instead of Polar: what each merchant of record offers, the keys, the product ids setupBilling maps, how credits work, the webhook, what stays on Polar, and the account review.
   :::
 
   :::card{icon="i-lucide-mail" title="Resend" to="/docs/services/resend"}
