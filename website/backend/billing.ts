@@ -1,7 +1,9 @@
 import { setupBilling } from 'nuxt-backend/billing'
 import { components } from './_generated/api'
 import { audit } from './audit'
+import definition from './billing.catalog'
 import { catalog } from './billing.generated'
+import { products } from './billing.products'
 import { email } from './email'
 import { paths } from './paths.generated'
 
@@ -21,7 +23,10 @@ import { paths } from './paths.generated'
 // functions.ts builds its withFeature tier on this instance, and ai.ts
 // spends credits through it; this file imports nothing from functions.ts.
 // `paths` (paths.generated.ts) is the settings page its emails link to.
-export const billing = setupBilling(components, { catalog, email, audit, paths })
+// `commerce` is what Stripe, Dodo and Creem sell from: the same catalog, and
+// each product's id there (billing.products.ts). Polar ignores it, so
+// `BILLING_PROVIDER` alone switches the provider once those ids are in.
+export const billing = setupBilling(components, { catalog, email, audit, paths, commerce: { definition, products } })
 
 // Every function the billing composables call, by name: checkout, the
 // portal and the price list (the server sells only the catalog's plans and
