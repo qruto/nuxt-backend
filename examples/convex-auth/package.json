@@ -1,0 +1,19 @@
+{
+  "name": "example-convex-auth",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt-backend dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@convex-dev/auth": "^2.1.0",
+    "convex": "^1.48.0",
+    "nuxt": "^4.6.2",
+    "nuxt-backend": "latest",
+    "vue": "^3.5.42",
+    "vue-router": "^5.3.1"
+  }
+}

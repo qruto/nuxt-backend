@@ -701,6 +701,7 @@ jobs:
           start starter smoke_npm templates/starter 3000
           start panels smoke_npm templates/panels 3001
           start advanced smoke_npm examples/advanced 3002
+          start convex-auth smoke_npm examples/convex-auth 3004
           start floors smoke_floors
           start pnpm smoke_pnpm
           start strict-pnpm smoke_strict_pnpm

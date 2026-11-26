@@ -327,6 +327,7 @@ Each one is created with `create nuxt` (`pnpm create nuxt@latest my-app -t gh:qr
 - [`templates/starter`](./templates/starter) — the app to build on: the exact `nuxt-backend init` scaffold, zero custom backend code: passwordless auth, workspace invitations, billing, credits, and gifts out of the box
 - [`templates/panels`](./templates/panels) — Panels, the app the tutorial builds and the [live playground](https://nuxt-backend.dev/playground) runs: an idea and a photo become a three-panel comic strip, with credits, a generation queue, moderation, share links and notifications
 - [`examples/advanced`](./examples/advanced) — every customization point in one app: a customized `convex.config.ts` (extra env, an unmounted component), custom email templates, a custom invitation page, explicit billing config, custom webhook paths and hooks, a hand-rolled signup workflow and explicit gift claiming
+- [`examples/convex-auth`](./examples/convex-auth) — Convex Auth mode (`backend.auth: 'convex-auth'`): a username and password sign-in through `@convex-dev/auth`, cookie sessions and a guarded page, with the Better Auth features off
 
 ## Contributing
 
