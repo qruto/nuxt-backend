@@ -146,6 +146,13 @@ const EMAIL_LABELS = {
     note: 'We admit in waves and may also admit by other criteria. Your place can change. Use this link to check it any time. It needs no sign-in code, so keep the email to yourself.',
     action: 'See your place',
   },
+  // To a waiting person, at most once a day, when a friend joins with their link (`boost.notify`).
+  waitlistFriendJoined: {
+    subject: 'A friend joined with your link',
+    intro: 'A friend joined the waitlist with your link. {count} friend has joined so far. | A friend joined the waitlist with your link. {count} friends have joined so far.',
+    note: 'Every friend who joins with your link moves you up the line.',
+    action: 'See your place',
+  },
   topicConfirmation: {
     subject: 'Confirm: {topic}',
     intro: 'You asked to receive {topic}. Confirm with one press, and it starts.',

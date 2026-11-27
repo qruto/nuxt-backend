@@ -849,6 +849,25 @@ const BACKEND_EVENTS: {
      description: "An administrator (the actor) declined `count` waitlist entries; `abuse` that they were removed as abuse, which takes back what each gave the friend who shared with it.";
      recordedBy: "`waitlist:declineWaitlist` (`setupWaitlist`), from the admin console's Waitlist tab";
   };
+  "waitlist.friend_joined": {
+     scope: "account";
+     data: {
+        friends: "number";
+     };
+     channels: readonly [];
+     description: "A new waitlist entry came through a waiting person's share link and moved them up the line: `friends` is how many friends count for that person now. Never either address. Neither has an account, so there is no actor.";
+     recordedBy: "The code check of a new address in early access (`setupAccess`'s sign-in hooks)";
+  };
+  "waitlist.wave_planned": {
+     scope: "account";
+     data: {
+        size: "number?";
+        opensAt: "number?";
+     };
+     channels: readonly [];
+     description: "An administrator (the actor) planned the next wave: `size` people from the front of the line, opening at `opensAt` (epoch ms) when a date was set. No `size` means the plan was cleared.";
+     recordedBy: "`waitlist:planWaitlistWave` (`setupWaitlist`), from the admin console's Waitlist tab";
+  };
   "report.decided": {
      scope: "account";
      data: {
@@ -1566,6 +1585,21 @@ derives and what records it.
 | `waitlist.declined.channels` | readonly \[\] | `[]` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
 | `waitlist.declined.description` | `` "An administrator (the actor) declined `count` waitlist entries; `abuse` that they were removed as abuse, which takes back what each gave the friend who shared with it." `` | `` 'An administrator (the actor) declined `count` waitlist entries; `abuse` that they were removed as abuse, which takes back what each gave the friend who shared with it.' `` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
 | `waitlist.declined.recordedBy` | `` "`waitlist:declineWaitlist` (`setupWaitlist`), from the admin console's Waitlist tab" `` | '\`waitlist:declineWaitlist\` (\`setupWaitlist\`), from the admin console\\'s Waitlist tab' | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| <a id="property-waitlistfriend_joined"></a> `waitlist.friend_joined` | \{ `scope`: `"account"`; `data`: \{ `friends`: `"number"`; \}; `channels`: readonly \[\]; `description`: `` "A new waitlist entry came through a waiting person's share link and moved them up the line: `friends` is how many friends count for that person now. Never either address. Neither has an account, so there is no actor." ``; `recordedBy`: `` "The code check of a new address in early access (`setupAccess`'s sign-in hooks)" ``; \} | - | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.friend_joined.scope` | `"account"` | `'account'` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.friend_joined.data` | \{ `friends`: `"number"`; \} | - | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.friend_joined.data.friends` | `"number"` | `NUMBER` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.friend_joined.channels` | readonly \[\] | `[]` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.friend_joined.description` | `` "A new waitlist entry came through a waiting person's share link and moved them up the line: `friends` is how many friends count for that person now. Never either address. Neither has an account, so there is no actor." `` | 'A new waitlist entry came through a waiting person\\'s share link and moved them up the line: \`friends\` is how many friends count for that person now. Never either address. Neither has an account, so there is no actor.' | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.friend_joined.recordedBy` | `` "The code check of a new address in early access (`setupAccess`'s sign-in hooks)" `` | 'The code check of a new address in early access (\`setupAccess\`\\'s sign-in hooks)' | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| <a id="property-waitlistwave_planned"></a> `waitlist.wave_planned` | \{ `scope`: `"account"`; `data`: \{ `size`: `"number?"`; `opensAt`: `"number?"`; \}; `channels`: readonly \[\]; `description`: `` "An administrator (the actor) planned the next wave: `size` people from the front of the line, opening at `opensAt` (epoch ms) when a date was set. No `size` means the plan was cleared." ``; `recordedBy`: `` "`waitlist:planWaitlistWave` (`setupWaitlist`), from the admin console's Waitlist tab" ``; \} | - | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.wave_planned.scope` | `"account"` | `'account'` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.wave_planned.data` | \{ `size`: `"number?"`; `opensAt`: `"number?"`; \} | - | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.wave_planned.data.size` | `"number?"` | `OPTIONAL_NUMBER` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.wave_planned.data.opensAt` | `"number?"` | `OPTIONAL_NUMBER` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.wave_planned.channels` | readonly \[\] | `[]` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.wave_planned.description` | `` "An administrator (the actor) planned the next wave: `size` people from the front of the line, opening at `opensAt` (epoch ms) when a date was set. No `size` means the plan was cleared." `` | `` 'An administrator (the actor) planned the next wave: `size` people from the front of the line, opening at `opensAt` (epoch ms) when a date was set. No `size` means the plan was cleared.' `` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
+| `waitlist.wave_planned.recordedBy` | `` "`waitlist:planWaitlistWave` (`setupWaitlist`), from the admin console's Waitlist tab" `` | '\`waitlist:planWaitlistWave\` (\`setupWaitlist\`), from the admin console\\'s Waitlist tab' | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
 | <a id="property-reportdecided"></a> `report.decided` | \{ `scope`: `"account"`; `data`: \{ `action`: `"string"`; `ground`: `"string"`; `reports`: `"number"`; `reason`: `"string"`; `table`: `"string?"`; \}; `channels`: readonly \[\]; `description`: `` "An administrator (the actor) decided reported content (`targetId`, a row of `table`): `action` is `hidden` or `dismissed`, `ground` `illegal` or `terms`, `reports` how many open reports and notices it closed, `reason` the start of the reason given. About its author, when `reports.describe` names one. Never who reported it." ``; `recordedBy`: `` "`admin:decideReport` (`setupAdmin({ reports })`), from the admin console's Reports tab" ``; \} | - | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
 | `report.decided.scope` | `"account"` | `'account'` | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |
 | `report.decided.data` | \{ `action`: `"string"`; `ground`: `"string"`; `reports`: `"number"`; `reason`: `"string"`; `table`: `"string?"`; \} | - | [src/convex/events.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/events.ts) |

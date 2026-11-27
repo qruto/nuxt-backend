@@ -86,6 +86,7 @@ export type {
   TrustedHtml,
   WaitlistAdmittedEmailData,
   WaitlistConfirmationEmailData,
+  WaitlistFriendJoinedEmailData,
   WelcomeEmailData,
   NoticeReceivedEmailData,
   NoticeDecidedEmailData,

@@ -359,6 +359,23 @@ Data for the `waitlistConfirmation` template.
 
 ***
 
+### WaitlistFriendJoinedEmailData
+
+Defined in: [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts)
+
+Data for the `waitlistFriendJoined` template.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="email-12"></a> `email` | `string` | - | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="statusurl-1"></a> `statusUrl` | `string` | The person's status page, with its signed token in the fragment. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="friends"></a> `friends` | `number` | How many friends have joined with their link so far. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="days"></a> `days` | `number` | How far up the line their friends moved them, in whole days. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+
+***
+
 ### TopicConfirmationEmailData
 
 Defined in: [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts)
@@ -369,7 +386,7 @@ Data for the `topicConfirmation` template.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="email-12"></a> `email` | `string` | - | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="email-13"></a> `email` | `string` | - | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="topic"></a> `topic` | `string` | The topic's name, as `setupEmail({ topics })` declares it. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="confirmurl"></a> `confirmUrl` | `string` | The confirmation link: it joins the topic, once, within 7 days. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 
@@ -385,7 +402,7 @@ Data for the `waitlistAdmitted` template.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="email-13"></a> `email` | `string` | - | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="email-14"></a> `email` | `string` | - | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="signinurl"></a> `signInUrl` | `string` | Where the person signs up, with the address they joined with. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 
 ***
@@ -400,7 +417,7 @@ Data for the `noticeReceived` template.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="email-14"></a> `email` | `string` | The notifier's address. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="email-15"></a> `email` | `string` | The notifier's address. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="url-4"></a> `url?` | `string` | The link to the content, as the notifier gave it; absent for one outside the app, which the email never repeats. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="intimate"></a> `intimate?` | `boolean` | A request to remove an intimate image shared without consent: decided within 48 hours. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 
@@ -416,7 +433,7 @@ Data for the `noticeDecided` template.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="email-15"></a> `email` | `string` | The notifier's address. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="email-16"></a> `email` | `string` | The notifier's address. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="url-5"></a> `url?` | `string` | The link to the content: the notifier's, when it is into the app, else where `describe` says it is shown; absent without either. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="outcome"></a> `outcome` | `"kept"` \| `"removed"` \| `"handled"` | `removed` when the content was hidden, `kept` when the notice was dismissed, `handled` when an administrator marked a notice the app could not place handled: nothing of the app's was hidden for it. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="reason-1"></a> `reason` | `string` | Why, as the administrator wrote it. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
@@ -433,7 +450,7 @@ Data for the `contentRestricted` template: a statement of reasons.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="email-16"></a> `email` | `string` | The author's address. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="email-17"></a> `email` | `string` | The author's address. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="title"></a> `title` | `string` | What was hidden, as `reports.describe` names it. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="reason-2"></a> `reason` | `string` | The facts and the term or law the decision rests on, as the administrator wrote them. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="ground"></a> `ground` | `"terms"` \| `"illegal"` | Whether the content was found illegal or against the app's terms. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
@@ -453,7 +470,7 @@ Data for the `appealDecided` template.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="email-17"></a> `email` | `string` | The author's address. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="email-18"></a> `email` | `string` | The author's address. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="title-1"></a> `title` | `string` | What the appeal was about, as `reports.describe` names it. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="outcome-1"></a> `outcome` | `"upheld"` \| `"reversed"` | `upheld` when the decision stands, `reversed` when it was undone. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="reason-3"></a> `reason` | `string` | Why, as the administrator wrote it. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
@@ -472,7 +489,7 @@ its own email and leave the rest to the default.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="email-18"></a> `email` | `string` | The person notified: the email goes to their account's address. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="email-19"></a> `email` | `string` | The person notified: the email goes to their account's address. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="type-1"></a> `type` | `string` | The kind: an event type of the package's catalog (`auth.passkey_added`), or one of yours under `app.` (`app.strip_shared`). | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="words"></a> `words` | \{ `title`: `string`; `body?`: `string`; \} | The kind's words in the reader's language, as the inbox shows them: its `title`, and its `body` when it has one. The kind's own fields, the actor and the workspace are filled in. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | `words.title` | `string` | - | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
@@ -507,6 +524,7 @@ message or a promise of it, so an async renderer (`@vue-email/render`,
 | <a id="renewalreminder"></a> `renewalReminder` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | The yearly reminder of a renewing subscription's terms, where the billing provider sends none. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="withdrawalreceipt"></a> `withdrawalReceipt` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | The receipt of an EU withdrawal, with its date and time. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="waitlistconfirmation"></a> `waitlistConfirmation` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | Sent once to a person whose sign-in code checked while the app is in early access: their place, and the link that shows it again. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
+| <a id="waitlistfriendjoined"></a> `waitlistFriendJoined` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | Sent to a waiting person, at most once a day, when a friend joins with their link (`setupAccess({ waitlist: { boost: { notify: true } } })`). | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="waitlistadmitted"></a> `waitlistAdmitted` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | Sent once when an administrator admits a waitlist entry: a plain "You're in", with no token and no promotion. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="topicconfirmation"></a> `topicConfirmation` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | A double opt-in's confirmation: one button that joins the topic the person asked for. | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
 | <a id="noticereceived"></a> `noticeReceived` | (`data`, `context`) => \| [`EmailMessage`](#emailmessage) \| `Promise`\<[`EmailMessage`](#emailmessage)\> | Confirms to a notifier that their notice through the `report` page arrived (DSA Art. 16(4)). | [src/convex/email-templates.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/email-templates.ts) |
@@ -760,7 +778,7 @@ One flow's options: the topic a lifecycle or marketing flow goes under, the app'
 | <a id="topic-1"></a> `topic?` | `string` | The topic (`setupEmail({ topics })`) a lifecycle or marketing flow goes under: required for them. | [src/convex/integrations/email-lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-lifecycle.ts) |
 | <a id="event"></a> `event?` | `string` | The app's own event that starts it (`firstResult`, `reviewAsk`), as `email.automations.track` sends it: `app.strip_ready`. `reviewAsk` starts on the account's activation without one. | [src/convex/integrations/email-lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-lifecycle.ts) |
 | <a id="until"></a> `until?` | `string` | For `activationNudge`: the app's event that says the person created something, which stops the nudge. Default: `firstResult`'s event. | [src/convex/integrations/email-lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-lifecycle.ts) |
-| <a id="days"></a> `days?` | `number`[] | For `winBack`: the days after the plan ended each email goes, 1 to 3 of them. Default `[7, 30]`. | [src/convex/integrations/email-lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-lifecycle.ts) |
+| <a id="days-1"></a> `days?` | `number`[] | For `winBack`: the days after the plan ended each email goes, 1 to 3 of them. Default `[7, 30]`. | [src/convex/integrations/email-lifecycle.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-lifecycle.ts) |
 
 ***
 
@@ -842,7 +860,7 @@ One suppressed address, as the admin console lists it.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="email-19"></a> `email` | `string` | - | [src/convex/integrations/email-suppressions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-suppressions.ts) |
+| <a id="email-20"></a> `email` | `string` | - | [src/convex/integrations/email-suppressions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-suppressions.ts) |
 | <a id="origin"></a> `origin` | [`SuppressionOrigin`](#suppressionorigin) | - | [src/convex/integrations/email-suppressions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-suppressions.ts) |
 | <a id="suppressedat"></a> `suppressedAt` | `number` | When the provider suppressed it, epoch ms. | [src/convex/integrations/email-suppressions.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email-suppressions.ts) |
 
@@ -1124,7 +1142,7 @@ the provider's API.
 | `thread.subject?` | `string` \| `null` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | `thread.folder?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | `thread.read?` | `boolean` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
-| <a id="email-20"></a> `email?` | \{ `id?`: `string`; `direction?`: `string`; `from?`: `string`; `to?`: `string`[]; `subject?`: `string` \| `null`; `received_at?`: `string`; \} | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
+| <a id="email-21"></a> `email?` | \{ `id?`: `string`; `direction?`: `string`; `from?`: `string`; `to?`: `string`[]; `subject?`: `string` \| `null`; `received_at?`: `string`; \} | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | `email.id?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | `email.direction?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | `email.from?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
@@ -1153,7 +1171,7 @@ Defined in: [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-bac
 | <a id="id-3"></a> `id?` | `string` | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="segment_ids"></a> `segment_ids?` | `string`[] | The segments the contact belongs to. | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="audience_id"></a> ~~`audience_id?`~~ | `string` | **Deprecated** The provider still sends it; read `segment_ids`. | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
-| <a id="email-21"></a> `email?` | `string` | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
+| <a id="email-22"></a> `email?` | `string` | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="first_name"></a> `first_name?` | `string` | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="last_name"></a> `last_name?` | `string` | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="unsubscribed"></a> `unsubscribed?` | `boolean` | - | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
@@ -1176,7 +1194,7 @@ Defined in: [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-bac
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="email-22"></a> `email?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
+| <a id="email-23"></a> `email?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="topics-2"></a> `topics?` | \{ `id`: `string`; `subscription`: `"opt_in"` \| `"opt_out"`; \}[] | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 
 ***
@@ -1198,7 +1216,7 @@ Defined in: [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-bac
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
 | <a id="id-4"></a> `id?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
-| <a id="email-23"></a> `email?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
+| <a id="email-24"></a> `email?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="origin-1"></a> `origin?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="source_id"></a> `source_id?` | `string` \| `null` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
 | <a id="created_at-1"></a> `created_at?` | `string` | [src/convex/integrations/email.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/email.ts) |
@@ -2275,7 +2293,7 @@ mid-configuration preview), transactional `send` logs instead of delivering.
 
 #### Returns
 
-[`Email`](#email-24)
+[`Email`](#email-25)
 
 #### Example
 

@@ -27,6 +27,8 @@ const SIGN_IN_PATH = '/sign-in/email-otp'
 const ADMIN_CREATE_PATH = '/admin/create-user'
 /** The emailOTP plugin's attempt limit, as the package sets it. */
 const ALLOWED_ATTEMPTS = 3
+/** A day, for the one "a friend joined" email a day a sharer gets. */
+const DAY_MS = 24 * 60 * 60 * 1000
 
 /** The body field an invite code or an access link's token rides in, on the code check. */
 export const INVITE_FIELD = 'inviteCode'
@@ -62,8 +64,31 @@ function ticketRequired(phase: AccessPhase, invite: string | null, waitlist?: Wa
     reason: 'ticket_required',
     phase,
     ...(invite ? { invite } : {}),
-    ...(waitlist?.position ? { waitlist: { position: waitlist.position, total: waitlist.total, token: waitlist.token } } : {}),
+    // The place only where the waitlist shows rank; the status link always, while the entry waits.
+    ...(waitlist?.waiting ? { waitlist: { token: waitlist.token, ...(waitlist.position ? { position: waitlist.position, total: waitlist.total } : {}) } } : {}),
   })
+}
+
+/**
+ * Tell the friend whose link a new entry came through that it worked: one
+ * email a day at most, whoever else joins that day. It cannot fail the code
+ * check.
+ */
+async function tellSharer<DM extends GenericDataModel>(runtime: AuthRuntime<DM> | undefined, ctx: AuthMutationCtx, sharer: NonNullable<WaitlistRecord['sharer']>, site: string | undefined): Promise<void> {
+  try {
+    if (!runtime?.email || !site) throw new Error(site ? 'no email instance is wired into setupAuth' : 'SITE_URL is not set')
+    const day = Math.floor(Date.now() / DAY_MS)
+    const entry = sharer.token.slice(0, sharer.token.indexOf('.'))
+    await runtime.email.sendTemplate(ctx, 'waitlistFriendJoined', {
+      email: sharer.email,
+      statusUrl: `${site}${runtime?.paths?.waitlist ?? DEFAULT_WAITLIST_PATH}#${sharer.token}`,
+      friends: sharer.friends,
+      days: Math.floor(sharer.credit / DAY_MS),
+    }, { ...(sharer.locale ? { fallbackLocale: sharer.locale } : {}), idempotencyKey: `nuxt-backend:waitlist-friend:${entry}:${day}` })
+  }
+  catch (error) {
+    logBackend('warn', 'waitlist.friend_unsent', 'A friend joined through a waitlist link, but the sharer was not emailed; the credit stands.', error)
+  }
 }
 
 /**
@@ -79,11 +104,13 @@ async function recordWaitlistEntry<DM extends GenericDataModel>(runtime: AuthRun
   if (!entry.created) return entry
   try {
     await runtime?.audit?.recordBackendEvent(ctx as never, { type: 'waitlist.joined', actor: null, data: { source: entry.source, referred: entry.referred, news: entry.news } })
+    if (entry.sharer) await runtime?.audit?.recordBackendEvent(ctx as never, { type: 'waitlist.friend_joined', actor: null, data: { friends: entry.sharer.friends } })
   }
   catch (error) {
     logBackend('warn', 'waitlist.confirmation_unsent', 'A new waitlist entry was recorded, but its join event did not reach the activity trail; the entry stands.', error)
   }
   const site = readEnv('SITE_URL')?.replace(/\/+$/, '')
+  if (entry.sharer?.notify) await tellSharer(runtime, ctx, entry.sharer, site)
   try {
     if (!runtime?.email || !site) throw new Error(site ? 'no email instance is wired into setupAuth' : 'SITE_URL is not set')
     await runtime.email.sendTemplate(ctx, 'waitlistConfirmation', {

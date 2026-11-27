@@ -60,6 +60,7 @@ Defined in: [src/runtime/vue/composables/use-waitlist-admin.ts](https://github.c
 | <a id="decline"></a> `decline` | (`ids`, `options?`) => `Promise`\<`number`\> | Decline entries; `abuse` removes them as abuse and takes back what they gave friends. Takes a recent sign-in. Rejects on failure. | [src/runtime/vue/composables/use-waitlist-admin.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist-admin.ts) |
 | <a id="note"></a> `note` | (`id`, `note`) => `Promise`\<`void`\> | Keep a note on an entry. Takes a recent sign-in. Rejects on failure. | [src/runtime/vue/composables/use-waitlist-admin.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist-admin.ts) |
 | <a id="caps"></a> `caps` | () => `Promise`\<[`WaitlistCaps`](/docs/reference/api/use-waitlist#waitlistcaps) \| `null`\> | The room a wave has: the sign-in codes left this hour and the email plan's quota today. `null` for no administrator. Rejects on failure. | [src/runtime/vue/composables/use-waitlist-admin.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist-admin.ts) |
+| <a id="plan"></a> `plan` | (`wave`) => `Promise`\<`void`\> | Plan the next wave (`size` from the front of the line, opening at `opensAt`), or clear it with `null`. Takes a recent sign-in. Rejects on failure. | [src/runtime/vue/composables/use-waitlist-admin.ts](https://github.com/qruto/nuxt-backend/blob/main/src/runtime/vue/composables/use-waitlist-admin.ts) |
 
 ## Functions
 

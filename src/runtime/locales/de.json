@@ -545,7 +545,9 @@
           "joined": "{actor}: auf die Warteliste gesetzt",
           "admitted": "{actor}: Personen von der Warteliste zugelassen",
           "declined": "{actor}: Wartelisteneinträge abgelehnt",
-          "left": "{actor}: Warteliste verlassen"
+          "left": "{actor}: Warteliste verlassen",
+          "friend_joined": "{actor}: über den Link einer Person auf die Warteliste gesetzt",
+          "wave_planned": "{actor}: nächste Wartelisten-Welle geplant"
         },
         "report": {
           "decided": "{actor}: über gemeldete Inhalte entschieden",
@@ -1342,6 +1344,15 @@
         "declineConfirm": "{count} Eintrag ablehnen? Sein Ticket wird entzogen. | {count} Einträge ablehnen? Ihre Tickets werden entzogen.",
         "abuseConfirm": "{count} Eintrag als Missbrauch entfernen? Was er der Person, die ihn geworben hat, eingebracht hat, wird zurückgenommen. | {count} Einträge als Missbrauch entfernen? Was jeder Eintrag der Person, die ihn geworben hat, eingebracht hat, wird zurückgenommen.",
         "noEntries": "Noch niemand hier.",
+        "planTitle": "Die nächste Welle",
+        "planHint": "Wartende sehen nur, ob sie dabei sind und wie viele Personen ihnen fehlen, nie die Größe der Welle.",
+        "planSize": "Personen darin",
+        "planOpensAt": "Öffnet am (optional)",
+        "plan": "Planen",
+        "planning": "Wird geplant…",
+        "planned": "Die nächste Welle ist geplant.",
+        "planCleared": "Der Plan ist gelöscht.",
+        "planClear": "Plan löschen",
         "capsTitle": "Platz für eine Welle",
         "capsHint": "Eine Welle ist begrenzt durch die Anmeldecodes, die das Deployment erlaubt, und das Tageskontingent des E-Mail-Tarifs.",
         "capCodes": "Verbleibende Anmeldecodes in dieser Stunde: {left} von {limit}",
@@ -1726,6 +1737,13 @@
       "back": "Andere Adresse verwenden",
       "placed": "Sie sind Nr. {position} von {total}",
       "placedUnknown": "Sie stehen auf der Warteliste.",
+      "joinedOn": "Sie haben sich am {date} eingetragen.",
+      "credit": "Ihre Freunde haben Sie {count} Tag nach vorn gebracht. | Ihre Freunde haben Sie {count} Tage nach vorn gebracht.",
+      "creditHours": "Ihre Freunde haben Sie {count} Stunde nach vorn gebracht. | Ihre Freunde haben Sie {count} Stunden nach vorn gebracht.",
+      "creditMinutes": "Ihre Freunde haben Sie {count} Minute nach vorn gebracht. | Ihre Freunde haben Sie {count} Minuten nach vorn gebracht.",
+      "waveIn": "Sie sind in der nächsten Welle, Stand jetzt.",
+      "waveShort": "Noch {count} Person, und Sie sind in der nächsten Welle. | Noch {count} Personen, und Sie sind in der nächsten Welle.",
+      "waveOpens": "Die nächste Welle öffnet am {date}.",
       "disclosure": "Wir lassen in Wellen zu und können auch nach anderen Kriterien zulassen. Ihre Position kann sich ändern.",
       "admitted": "Sie sind dabei. Registrieren Sie sich mit der Adresse, mit der Sie sich eingetragen haben.",
       "signUp": "Registrieren",
@@ -1735,6 +1753,7 @@
       "dropReferral": "Nicht über eine Einladung",
       "shareTitle": "Auf der Liste aufrücken",
       "shareIntro": "Jede Person, die sich über Ihren Link einträgt, bringt Sie nach oben – bis zu {cap} Personen.",
+      "shareIntroOpen": "Jede Person, die sich über Ihren Link einträgt, bringt Sie nach oben – ohne Grenze.",
       "shareLink": "Ihr Link",
       "copy": "Kopieren",
       "copied": "Kopiert",
@@ -2898,6 +2917,12 @@
         "intro": "Sie sind Nr. {position} von {total} auf der Warteliste.",
         "introUnplaced": "Sie stehen auf der Warteliste.",
         "note": "Wir lassen in Wellen zu und können auch nach anderen Kriterien zulassen. Ihr Platz kann sich ändern. Über diesen Link können Sie ihn jederzeit prüfen. Er braucht keinen Anmeldecode, also geben Sie diese E-Mail nicht weiter.",
+        "action": "Ihren Platz ansehen"
+      },
+      "waitlistFriendJoined": {
+        "subject": "Jemand hat sich über Ihren Link eingetragen",
+        "intro": "Jemand hat sich über Ihren Link auf die Warteliste gesetzt. Bisher {count} Person. | Jemand hat sich über Ihren Link auf die Warteliste gesetzt. Bisher {count} Personen.",
+        "note": "Jede Person, die sich über Ihren Link einträgt, bringt Sie auf der Warteliste nach vorn.",
         "action": "Ihren Platz ansehen"
       },
       "topicConfirmation": {

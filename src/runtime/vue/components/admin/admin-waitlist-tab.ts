@@ -11,6 +11,8 @@ import type { ConfirmFn } from '../../utils/confirmation'
 
 /** The most "next N" asks for at once (the same cap the server holds). */
 const WAVE_MAX = 200
+/** The largest wave a plan names (the same cap the server holds). */
+const PLAN_MAX = 10_000
 
 /**
  * The Waitlist tab, as state and actions. `confirm` asks before entries are
@@ -86,6 +88,37 @@ export function useWaitlistTab(confirm?: () => ConfirmFn | undefined) {
     caps.value = await waitlist.caps().catch(() => null)
   }
 
+  // The next wave's plan, as the form edits it: filled from the saved plan
+  // whenever that changes (another administrator's included).
+  const plan = reactive({ size: '', opensAt: '' })
+  /** A time as the date field holds it: its UTC day. */
+  const dateField = (at: number) => new Date(at).toISOString().slice(0, 10)
+  const savedPlan = computed(() => {
+    const wave = waitlist.console.value?.wave
+    return wave === undefined ? undefined : JSON.stringify(wave)
+  })
+  watch(savedPlan, () => {
+    const wave = waitlist.console.value?.wave
+    if (wave === undefined) return
+    plan.size = wave ? String(wave.size) : ''
+    plan.opensAt = wave?.opensAt ? dateField(wave.opensAt) : ''
+  }, { immediate: true })
+
+  async function planWave(clear = false) {
+    const size = clear ? 0 : Math.min(PLAN_MAX, Math.trunc(Number(plan.size)) || 0)
+    // A date left as it was keeps the saved time; a new one opens at midnight UTC.
+    const kept = waitlist.console.value?.wave?.opensAt
+    const opensAt = !plan.opensAt ? null : kept && dateField(kept) === plan.opensAt ? kept : Date.parse(`${plan.opensAt}T00:00:00Z`)
+    // Only Clear clears: a Save without a size saves nothing.
+    if (!clear && size < 1) return
+    const wave = clear ? null : { size, opensAt: Number.isFinite(opensAt) ? opensAt : null }
+    const saved = await change('plan', async () => {
+      await waitlist.plan(wave)
+      return true
+    }, () => t(wave ? 'waitlist.planned' : 'waitlist.planCleared'))
+    if (saved && !wave) Object.assign(plan, { size: '', opensAt: '' })
+  }
+
   return {
     id,
     t,
@@ -116,6 +149,9 @@ export function useWaitlistTab(confirm?: () => ConfirmFn | undefined) {
     saveNote,
     caps,
     loadCaps,
+    plan,
+    planMax: PLAN_MAX,
+    planWave,
     statuses: ['waiting', 'admitted', 'declined', 'joined'] as const,
   }
 }

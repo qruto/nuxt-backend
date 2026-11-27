@@ -116,9 +116,10 @@ export interface UseLoginFlowReturn {
   /**
    * Where the address stands on the waitlist, once its code checked while
    * the app is in early access (the `waitlisted` step shows it); `null`
-   * otherwise.
+   * otherwise. `position` and `total` only where the waitlist shows rank
+   * (`setupAccess({ waitlist: { place: { rank: false } } })` leaves the token alone).
    */
-  waitlist: Ref<{ position: number, total: number, token: string } | null>
+  waitlist: Ref<{ position?: number, total?: number, token: string } | null>
   /** The code from the authenticator app (or, with `withBackupCode`, a backup code) an account with one types on `two-factor`. */
   twoFactorCode: Ref<string>
   /** Whether `two-factor` takes a backup code instead of the app's code. Switching clears the field and `error`. */
@@ -258,7 +259,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
   let twoFactorPassed = false
   const withBackupCode = ref(false)
   const trustDevice = ref(false)
-  const waitlist = ref<{ position: number, total: number, token: string } | null>(null)
+  const waitlist = ref<{ position?: number, total?: number, token: string } | null>(null)
   const access = useApiNamespace<AccessApiRefs>('access')
   const checkInvite = access?.checkInvite ? useMutation(access.checkInvite) : null
   const recovering = ref(false)
@@ -450,7 +451,7 @@ export function useLoginFlow(options: UseLoginFlowOptions = {}): UseLoginFlowRet
       if (failure.code !== 'forbidden' || failure.data.reason !== 'ticket_required') throw cause
       const phase = failure.data.phase as keyof typeof TICKET_STEPS | undefined
       step.value = phase && phase in TICKET_STEPS ? TICKET_STEPS[phase] : 'invite-code'
-      waitlist.value = (failure.data.waitlist as { position: number, total: number, token: string } | undefined) ?? null
+      waitlist.value = (failure.data.waitlist as { position?: number, total?: number, token: string } | undefined) ?? null
       return false
     }
     forgetInvite()

@@ -393,6 +393,7 @@
         "TrustedHtml",
         "WaitlistAdmittedEmailData",
         "WaitlistConfirmationEmailData",
+        "WaitlistFriendJoinedEmailData",
         "WelcomeEmailData",
         "WithdrawalReceiptEmailData"
       ]
@@ -505,13 +506,18 @@
         "SetupWaitlistOptions",
         "Waitlist",
         "WaitlistApi",
+        "WaitlistBoostOptions",
+        "WaitlistBoostRule",
         "WaitlistCaps",
         "WaitlistConsole",
         "WaitlistEntryRow",
+        "WaitlistOptions",
         "WaitlistPlace",
         "WaitlistQuestions",
+        "WaitlistRule",
         "WaitlistStatus",
-        "WaitlistStatusView"
+        "WaitlistStatusView",
+        "WaitlistWaveStanding"
       ]
     },
     "nuxt-backend/account": {

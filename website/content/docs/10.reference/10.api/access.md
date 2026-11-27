@@ -278,6 +278,7 @@ Defined in: [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-ba
 | <a id="adminuserids"></a> `adminUserIds?` | readonly `string`[] | Accounts that run the Access tab whatever their role, by id. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="email-2"></a> `email?` | [`AccessEmail`](#accessemail) | The email instance (`setupEmail`), for "Email them": the invitation is rendered in its layout, with the brand and a one-click unsubscribe, under the weekly cap and quiet hours. Without it, invitations by address send no email. Re-export `emailInvitations` with it. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 | <a id="paths"></a> `paths?` | `Partial`\<[`BackendPaths`](/docs/reference/api/auth#backendpaths)\> | The paths the Nuxt module writes to `paths.generated.ts`: an invitation email links to the sign-in page and the privacy policy there. | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
+| <a id="waitlist"></a> `waitlist?` | [`WaitlistOptions`](#waitlistoptions) | The rule the waitlist's line runs on, in early access. It lives here, not on `setupWaitlist`, because the sign-in page records entries through this access, in code that never loads `backend/waitlist.ts`. - `boost`: how sharing moves people. Each friend who joins through a person's link moves them `perFriend` up the line (ms, a day by default), for up to `cap` friends (10 by default, `null` for no limit); the friend starts `welcome` up (0 by default); `notify` emails the person when a friend joins, at most once a day. `false` turns sharing off. - `place`: `{ rank: false }` keeps a person's position and the size of the list to the administrators: the status page, the sign-in page and the confirmation email show the day they joined, the credit their friends earned and the next wave instead. **Example** `import { DAY } from 'nuxt-backend/rate-limit' waitlist: { boost: { perFriend: 7 * DAY, cap: null, welcome: 7 * DAY, notify: true }, place: { rank: false } }` | [src/convex/integrations/launch.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/launch.ts) |
 
 ***
 
@@ -310,6 +311,22 @@ The `backend` component (and the rate limiter) as access reads them.
 
 ***
 
+### WaitlistWaveStanding
+
+Defined in: [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts)
+
+Where a waiting person stands against the next wave an administrator planned: in it or not, never its size.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="opensat"></a> `opensAt` | `number` \| `null` | When the wave opens, epoch ms; `null` when no date is set. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
+| <a id="included"></a> `included` | `boolean` | Whether the person is in it now (a later friend of someone else may still move them out). | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
+| <a id="friendsshort"></a> `friendsShort` | `number` \| `null` | How many more friends would put them in it: 0 when in it, `null` when sharing is off or the friend cap leaves no room for that many. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
+
+***
+
 ### WaitlistApi
 
 Defined in: [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts)
@@ -329,6 +346,7 @@ The public functions `backend/waitlist.ts` re-exports.
 | <a id="declinewaitlist"></a> `declineWaitlist` | `RegisteredMutation`\<`"public"`, \{ `ids`: `string`[]; `abuse?`: `boolean`; \}, `Promise`\<\{ `declined`: `number`; \}\>\> | Decline entries, or remove them as abuse (which takes back what they gave the friends who shared with them). An administrator's, in person, with a recent sign-in. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | <a id="notewaitlist"></a> `noteWaitlist` | `RegisteredMutation`\<`"public"`, \{ `id`: `string`; `note`: `string`; \}, `Promise`\<`null`\>\> | Keep a note on an entry. An administrator's, in person, with a recent sign-in. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | <a id="getwaitlistcaps"></a> `getWaitlistCaps` | `RegisteredAction`\<`"public"`, `Record`\<`string`, `never`\>, `Promise`\< \| [`WaitlistCaps`](/docs/reference/api/use-waitlist#waitlistcaps) \| `null`\>\> | The room a wave has. `null` for anyone who is not an administrator now. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
+| <a id="planwaitlistwave"></a> `planWaitlistWave` | `RegisteredMutation`\<`"public"`, \{ `size`: `number` \| `null`; `opensAt?`: `number` \| `null`; \}, `Promise`\<`null`\>\> | Plan the next wave: `size` people from the front of the line, opening at `opensAt` (epoch ms) if a date is set; `size: null` clears the plan. Each waiting person then reads whether they are in it, never its size. An administrator's, in person, with a recent sign-in. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 
 ***
 
@@ -343,6 +361,7 @@ The app's waitlist, from [setupWaitlist](#setupwaitlist).
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="questions"></a> `questions` | [`WaitlistQuestions`](#waitlistquestions-1) | The questions asked beside the address. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
+| <a id="rule"></a> `rule` | [`WaitlistRule`](#waitlistrule-1) | The rule the line runs on, from `setupAccess({ waitlist })`: how sharing moves people, and whether a person reads their rank. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | <a id="api-2"></a> `api` | [`WaitlistApi`](#waitlistapi) | The public functions `backend/waitlist.ts` re-exports. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | <a id="launchaudience"></a> `launchAudience` | (`ctx`) => `Promise`\< \| \{ `segmentId`: `string`; `topicId`: `string`; \} \| `null`\> | The people who asked for launch news, as the email provider holds them: the ids of the segment and the topic the mirror writes to, for a launch announcement. `null` before the first contact is written. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 
@@ -357,11 +376,80 @@ Defined in: [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
 | <a id="access-1"></a> `access` | [`Access`](#access) | The `setupAccess` instance the waitlist is built on: its phases, its administrators and its tickets. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
-| <a id="email-3"></a> `email` | `Pick`\<[`Email`](/docs/reference/api/email#email-24), `"sendTemplate"`\> | The app's `setupEmail` instance: the "You're in" email goes through it, so its overrides restyle it. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
+| <a id="email-3"></a> `email` | `Pick`\<[`Email`](/docs/reference/api/email#email-25), `"sendTemplate"`\> | The app's `setupEmail` instance: the "You're in" email goes through it, so its overrides restyle it. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | <a id="questions-1"></a> `questions?` | `Readonly`\<`Record`\<`string`, readonly `string`[]\>\> | Questions asked beside the address: each key holds the choices an answer must be one of (at most 5 questions of 20 choices). | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | <a id="ratelimiter-2"></a> `rateLimiter?` | \{ `limit`: (`ctx`, `name`, `options?`) => `Promise`\<\{ `ok`: `boolean`; `retryAfter?`: `number`; \}\>; \} | Your `setupRateLimiter` instance, for the join's limits (`waitlistJoin`, `waitlistJoinGlobal`). Default: the rate limiter component mounted as `rateLimiter`, with the package's limits. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | `rateLimiter.limit` | (`ctx`, `name`, `options?`) => `Promise`\<\{ `ok`: `boolean`; `retryAfter?`: `number`; \}\> | - | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | <a id="paths-1"></a> `paths?` | `Partial`\<[`BackendPaths`](/docs/reference/api/auth#backendpaths)\> | The app's paths, from the `paths.generated.ts` the Nuxt module writes from nuxt.config: the "You're in" email links an admitted person to `{SITE_URL}{paths.login}` (`pages.login`, `/login` by default). | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
+
+***
+
+### WaitlistBoostRule
+
+Defined in: [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts)
+
+How the line rewards sharing, as the component applies it: how far each
+friend moves the sharer up, how many friends count, and how far a friend
+who came through a link starts up the line themselves. Durations in ms.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="perfriend"></a> `perFriend` | `number` | How far each friend moves the sharer up the line. | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
+| <a id="cap"></a> `cap` | `number` \| `null` | The most friends that count for one person; `null` for no limit, 0 when sharing is off. | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
+| <a id="welcome"></a> `welcome` | `number` | How far a friend who came through a link starts up the line. | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
+
+***
+
+### WaitlistRule
+
+Defined in: [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts)
+
+The waitlist's rule, checked, as the sign-in gate and `setupWaitlist`
+read it: how sharing moves people, whether a person may read their place
+and the size of the list, and whether a sharer hears of a friend.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="boost"></a> `boost` | [`WaitlistBoostRule`](#waitlistboostrule) | - | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
+| <a id="rank"></a> `rank` | `boolean` | Whether a person reads their place and how many wait. | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
+| <a id="notify"></a> `notify` | `boolean` | Whether a sharer is emailed when a friend joins with their link. | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
+
+***
+
+### WaitlistBoostOptions
+
+Defined in: [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts)
+
+How sharing moves people up the line, as `setupAccess({ waitlist: { boost } })` takes it. Durations in milliseconds.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="perfriend-1"></a> `perFriend?` | `number` | How far each friend who joins through a person's link moves them up the line. Default a day; at most a year. | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
+| <a id="cap-1"></a> `cap?` | `number` \| `null` | The most friends that count for one person. Default 10; `null` for no limit. | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
+| <a id="welcome-1"></a> `welcome?` | `number` | How far the friend starts up the line themselves, for coming through a link. Default 0. | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
+| <a id="notify-1"></a> `notify?` | `boolean` | Email the person, at most once a day, when a friend joins with their link (`waitlistFriendJoined`). Default false. | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
+
+***
+
+### WaitlistOptions
+
+Defined in: [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts)
+
+The waitlist's rule as `setupAccess({ waitlist })` takes it.
+
+#### Properties
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="boost-1"></a> `boost?` | `false` \| [`WaitlistBoostOptions`](#waitlistboostoptions) | How sharing moves people; `false` turns it off. Default: a day a friend, up to ten, nothing for the friend. | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
+| <a id="place"></a> `place?` | \{ `rank?`: `boolean`; \} | What a person reads of their standing; `{ rank: false }` keeps their position and the list's size to the administrators. | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
+| `place.rank?` | `boolean` | - | [src/convex/waitlist-rules.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/waitlist-rules.ts) |
 
 ## Type Aliases
 
@@ -531,7 +619,7 @@ checks, and an admitted entry is a ticket.
 
 #### Returns
 
-[`Waitlist`](#waitlist)
+[`Waitlist`](#waitlist-1)
 
 #### Example
 
@@ -549,7 +637,7 @@ export const waitlist = setupWaitlist(components, {
   questions: { role: ['Writer', 'Illustrator', 'Reader'] },
 })
 
-export const { getWaitlistQuestions, joinWaitlist, waitlistStatus, leaveWaitlist, getWaitlistConsole, admitWaitlist, declineWaitlist, noteWaitlist, getWaitlistCaps } = waitlist.api
+export const { getWaitlistQuestions, joinWaitlist, waitlistStatus, leaveWaitlist, getWaitlistConsole, admitWaitlist, declineWaitlist, noteWaitlist, getWaitlistCaps, planWaitlistWave } = waitlist.api
 ```
 
 ## References

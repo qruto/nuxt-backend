@@ -183,6 +183,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         note: 'Мы допускаем людей волнами и можем допускать и по другим критериям. Ваше место может меняться. По этой ссылке его можно проверить в любой момент. Код для входа ей не нужен, поэтому никому не пересылайте это письмо.',
         action: 'Посмотреть своё место',
       },
+      waitlistFriendJoined: {
+        subject: 'По вашей ссылке записался друг',
+        intro: 'По вашей ссылке в список ожидания записался друг. Пока это {count} друг. | По вашей ссылке в список ожидания записался друг. Друзей пока: {count}.',
+        note: 'Каждый друг, записавшийся по вашей ссылке, поднимает вас выше в очереди.',
+        action: 'Посмотреть своё место',
+      },
       topicConfirmation: {
         subject: 'Подтвердите: {topic}',
         intro: 'Вы попросили присылать вам {topic}. Подтвердите одним нажатием — и рассылка начнётся.',
@@ -653,6 +659,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         intro: 'Sie sind Nr. {position} von {total} auf der Warteliste.',
         introUnplaced: 'Sie stehen auf der Warteliste.',
         note: 'Wir lassen in Wellen zu und können auch nach anderen Kriterien zulassen. Ihr Platz kann sich ändern. Über diesen Link können Sie ihn jederzeit prüfen. Er braucht keinen Anmeldecode, also geben Sie diese E-Mail nicht weiter.',
+        action: 'Ihren Platz ansehen',
+      },
+      waitlistFriendJoined: {
+        subject: 'Jemand hat sich über Ihren Link eingetragen',
+        intro: 'Jemand hat sich über Ihren Link auf die Warteliste gesetzt. Bisher {count} Person. | Jemand hat sich über Ihren Link auf die Warteliste gesetzt. Bisher {count} Personen.',
+        note: 'Jede Person, die sich über Ihren Link einträgt, bringt Sie auf der Warteliste nach vorn.',
         action: 'Ihren Platz ansehen',
       },
       topicConfirmation: {
@@ -1127,6 +1139,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         note: 'Admitimos por tandas y también podemos admitir según otros criterios. Tu puesto puede cambiar. Usa este enlace para consultarlo cuando quieras. No necesita código de inicio de sesión, así que no compartas este correo.',
         action: 'Ver tu puesto',
       },
+      waitlistFriendJoined: {
+        subject: 'Un amigo se unió con tu enlace',
+        intro: 'Un amigo se unió a la lista de espera con tu enlace. Llevas {count} amigo. | Un amigo se unió a la lista de espera con tu enlace. Llevas {count} amigos.',
+        note: 'Cada amigo que se una con tu enlace te hace subir en la fila.',
+        action: 'Ver tu puesto',
+      },
       topicConfirmation: {
         subject: 'Confirma: {topic}',
         intro: 'Pediste recibir {topic}. Confirma con un clic y empezará.',
@@ -1597,6 +1615,12 @@ export const LABEL_TRANSLATIONS: Record<string, LabelTree> = {
         intro: 'Vous êtes n° {position} sur {total} sur la liste d’attente.',
         introUnplaced: 'Vous êtes sur la liste d’attente.',
         note: 'Nous admettons les personnes par vagues et pouvons aussi les admettre selon d’autres critères. Votre place peut changer. Utilisez ce lien pour la consulter à tout moment. Il ne nécessite aucun code de connexion : gardez cet e-mail pour vous.',
+        action: 'Voir votre place',
+      },
+      waitlistFriendJoined: {
+        subject: 'Un ami s’est inscrit avec votre lien',
+        intro: 'Un ami s’est inscrit sur la liste d’attente avec votre lien. {count} ami inscrit jusqu’ici. | Un ami s’est inscrit sur la liste d’attente avec votre lien. Amis inscrits jusqu’ici : {count}.',
+        note: 'Chaque ami qui s’inscrit avec votre lien vous fait avancer dans la file.',
         action: 'Voir votre place',
       },
       topicConfirmation: {

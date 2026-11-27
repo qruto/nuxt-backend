@@ -6,8 +6,10 @@ import type { WaitlistPlaceProps } from '../../parts'
 import { useWaitlistFormView } from './waitlist-form'
 
 /**
- * A person's place on the waitlist: "You're #48 of 1,204", the honest
- * words about how people are admitted, what their link does for them
+ * A person's place on the waitlist: "You're #48 of 1,204", or, where the
+ * waitlist keeps rank private, the day they joined, how far their friends
+ * moved them and the next wave; the honest words about how people are
+ * admitted, what their link does for them
  * (`WaitlistShare`), and Leave. It follows the list live. No names and no
  * leaderboards are ever shown. `<WaitlistForm>`'s last step, and the body of
  * the `/waitlist` page.
@@ -20,6 +22,37 @@ const { t, errorMessage, locale } = useLabels('waitlist', view.labels)
 const loginPath = useBackendPagePath('login')
 const place = computed(() => props.waitlist.place.value)
 const number = (value: number) => value.toLocaleString(locale.value)
+const day = (at: number) => new Date(at).toLocaleDateString(locale.value, { dateStyle: 'long' })
+// A wave opens on the UTC day the administrator picked, wherever the person reads it.
+const utcDay = (at: number) => new Date(at).toLocaleDateString(locale.value, { dateStyle: 'long', timeZone: 'UTC' })
+const MINUTE_MS = 60 * 1000
+const HOUR_MS = 60 * MINUTE_MS
+const DAY_MS = 24 * HOUR_MS
+
+/** The credit in the largest unit it fills: days, else hours, else minutes (a rule may give less than a day a friend). */
+function creditLine(credit: number): string | null {
+  if (credit >= DAY_MS) return t('credit', { count: Math.floor(credit / DAY_MS) })
+  if (credit >= HOUR_MS) return t('creditHours', { count: Math.floor(credit / HOUR_MS) })
+  if (credit >= MINUTE_MS) return t('creditMinutes', { count: Math.floor(credit / MINUTE_MS) })
+  return null
+}
+
+/**
+ * Where rank is private, the person's own facts instead of a place: the
+ * day they joined, how far friends moved them, and the planned wave.
+ */
+const facts = computed(() => {
+  const standing = place.value
+  if (standing?.status !== 'waiting' || standing.position || !standing.joinedAt) return []
+  const lines = [t('joinedOn', { date: day(standing.joinedAt) })]
+  const credit = creditLine(standing.credit ?? 0)
+  if (credit) lines.push(credit)
+  const wave = standing.wave
+  if (wave?.included) lines.push(t('waveIn'))
+  else if (wave?.friendsShort) lines.push(t('waveShort', { count: wave.friendsShort }))
+  if (wave?.opensAt) lines.push(t('waveOpens', { date: utcDay(wave.opensAt) }))
+  return lines
+})
 
 /** What the person reads first, by where they stand. */
 const headline = computed(() => {
@@ -52,6 +85,20 @@ const headline = computed(() => {
     >
       {{ t('signUp') }}
     </a>
+    <!-- Mounted, empty, before the facts arrive, so the first ones are heard too. -->
+    <div
+      data-waitlist="facts"
+      role="status"
+      aria-live="polite"
+    >
+      <p
+        v-for="line in facts"
+        :key="line"
+        data-waitlist="fact"
+      >
+        {{ line }}
+      </p>
+    </div>
     <template v-if="place?.status === 'waiting'">
       <p data-waitlist="disclosure">
         {{ t('disclosure') }}

@@ -545,7 +545,9 @@
           "joined": "{actor} se unió a la lista de espera",
           "admitted": "{actor} admitió a personas de la lista de espera",
           "declined": "{actor} rechazó entradas de la lista de espera",
-          "left": "{actor} salió de la lista de espera"
+          "left": "{actor} salió de la lista de espera",
+          "friend_joined": "{actor} se unió a la lista de espera con el enlace de un amigo",
+          "wave_planned": "{actor} planificó la próxima tanda de la lista de espera"
         },
         "report": {
           "decided": "{actor} resolvió sobre un contenido denunciado",
@@ -1342,6 +1344,15 @@
         "declineConfirm": "¿Rechazar {count} entrada? Se retira su pase. | ¿Rechazar {count} entradas? Se retiran sus pases.",
         "abuseConfirm": "¿Eliminar {count} entrada por abuso? Se retira lo que le dio a la persona amiga que la compartió. | ¿Eliminar {count} entradas por abuso? Se retira lo que cada una le dio a la persona amiga que la compartió.",
         "noEntries": "Aún no hay nadie aquí.",
+        "planTitle": "La próxima tanda",
+        "planHint": "Quien espera solo ve si está dentro y cuántos amigos le faltan, nunca su tamaño.",
+        "planSize": "Personas en ella",
+        "planOpensAt": "Se abre el (opcional)",
+        "plan": "Planificar",
+        "planning": "Planificando…",
+        "planned": "La próxima tanda está planificada.",
+        "planCleared": "El plan se ha borrado.",
+        "planClear": "Borrar el plan",
         "capsTitle": "Capacidad para una tanda",
         "capsHint": "Una tanda está limitada por los códigos de inicio de sesión que permite el despliegue y la cuota diaria del plan de correo.",
         "capCodes": "Códigos de inicio de sesión restantes esta hora: {left} de {limit}",
@@ -1726,6 +1737,13 @@
       "back": "Usar otra dirección",
       "placed": "Eres el n.º {position} de {total}",
       "placedUnknown": "Estás en la lista de espera.",
+      "joinedOn": "Te uniste el {date}.",
+      "credit": "Tus amigos te han hecho subir {count} día en la fila. | Tus amigos te han hecho subir {count} días en la fila.",
+      "creditHours": "Tus amigos te han hecho subir {count} hora en la fila. | Tus amigos te han hecho subir {count} horas en la fila.",
+      "creditMinutes": "Tus amigos te han hecho subir {count} minuto en la fila. | Tus amigos te han hecho subir {count} minutos en la fila.",
+      "waveIn": "Estás en la próxima tanda, por ahora.",
+      "waveShort": "{count} amigo más te mete en la próxima tanda. | {count} amigos más te meten en la próxima tanda.",
+      "waveOpens": "La próxima tanda se abre el {date}.",
       "disclosure": "Damos acceso por tandas y también podemos hacerlo según otros criterios. Tu posición puede cambiar.",
       "admitted": "Ya tienes acceso. Regístrate con la dirección con la que te uniste.",
       "signUp": "Registrarse",
@@ -1735,6 +1753,7 @@
       "dropReferral": "No vengo de parte de nadie",
       "shareTitle": "Sube en la lista",
       "shareIntro": "Cada amigo que se una con tu enlace te hace subir, hasta un máximo de {cap} amigos.",
+      "shareIntroOpen": "Cada amigo que se una con tu enlace te hace subir, sin límite.",
       "shareLink": "Tu enlace",
       "copy": "Copiar",
       "copied": "Copiado",
@@ -2898,6 +2917,12 @@
         "intro": "Ocupas el puesto {position} de {total} en la lista de espera.",
         "introUnplaced": "Estás en la lista de espera.",
         "note": "Admitimos por tandas y también podemos admitir según otros criterios. Tu puesto puede cambiar. Usa este enlace para consultarlo cuando quieras. No necesita código de inicio de sesión, así que no compartas este correo.",
+        "action": "Ver tu puesto"
+      },
+      "waitlistFriendJoined": {
+        "subject": "Un amigo se unió con tu enlace",
+        "intro": "Un amigo se unió a la lista de espera con tu enlace. Llevas {count} amigo. | Un amigo se unió a la lista de espera con tu enlace. Llevas {count} amigos.",
+        "note": "Cada amigo que se una con tu enlace te hace subir en la fila.",
         "action": "Ver tu puesto"
       },
       "topicConfirmation": {

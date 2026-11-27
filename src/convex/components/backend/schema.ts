@@ -1823,10 +1823,18 @@ export const waitlistTables = {
     mirrorAt: v.optional(v.number()),
     /** The entry whose link this one joined through. */
     referredBy: v.optional(v.id('waitlistEntries')),
+    /**
+     * The mailbox behind the address (`mailboxOf`: no `+label`, no dots), so
+     * a second address of one mailbox earns its sharer nothing. Absent on
+     * entries made before it was kept.
+     */
+    mailbox: v.optional(v.string()),
     /** Friends that count for it, up to the cap. */
     boost: v.number(),
     /** How far it moved the entry it came through up the line, in the queue key's milliseconds; taken back with it. */
     creditedMs: v.optional(v.number()),
+    /** How far up the line it started, for coming through a friend's link, in the queue key's milliseconds. */
+    welcomeMs: v.optional(v.number()),
     /** The key it holds in the rank aggregate while it waits. */
     rankKey: v.optional(v.number()),
     admittedAt: v.optional(v.number()),
@@ -1835,6 +1843,7 @@ export const waitlistTables = {
     joinedAt: v.optional(v.number()),
   })
     .index('email', ['email'])
+    .index('mailbox', ['mailbox'])
     .index('status_verifiedAt', ['status', 'verifiedAt'])
     .index('mirror_mirrorAt', ['mirror', 'mirrorAt']),
   waitlistJoins: defineTable({
@@ -1859,6 +1868,12 @@ export const waitlistTables = {
     /** The provider's segment and topic for launch news, found or made on the first mirror. */
     segmentId: v.optional(v.string()),
     topicId: v.optional(v.string()),
+    /**
+     * The next wave an administrator planned: how many people it takes from
+     * the front of the line, and when it opens if a date is set. Each
+     * waiting person reads only whether they are in it, never its size.
+     */
+    wave: v.optional(v.object({ size: v.number(), opensAt: v.optional(v.number()) })),
     updatedAt: v.number(),
   }),
 }

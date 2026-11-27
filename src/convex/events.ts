@@ -318,6 +318,20 @@ export const BACKEND_EVENTS = {
     description: 'An administrator (the actor) declined `count` waitlist entries; `abuse` that they were removed as abuse, which takes back what each gave the friend who shared with it.',
     recordedBy: '`waitlist:declineWaitlist` (`setupWaitlist`), from the admin console\'s Waitlist tab',
   },
+  'waitlist.friend_joined': {
+    scope: 'account',
+    data: { friends: NUMBER },
+    channels: [],
+    description: 'A new waitlist entry came through a waiting person\'s share link and moved them up the line: `friends` is how many friends count for that person now. Never either address. Neither has an account, so there is no actor.',
+    recordedBy: 'The code check of a new address in early access (`setupAccess`\'s sign-in hooks)',
+  },
+  'waitlist.wave_planned': {
+    scope: 'account',
+    data: { size: OPTIONAL_NUMBER, opensAt: OPTIONAL_NUMBER },
+    channels: [],
+    description: 'An administrator (the actor) planned the next wave: `size` people from the front of the line, opening at `opensAt` (epoch ms) when a date was set. No `size` means the plan was cleared.',
+    recordedBy: '`waitlist:planWaitlistWave` (`setupWaitlist`), from the admin console\'s Waitlist tab',
+  },
   'report.decided': {
     scope: 'account',
     data: { action: STRING, ground: STRING, reports: NUMBER, reason: STRING, table: OPTIONAL_STRING },

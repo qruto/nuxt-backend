@@ -393,6 +393,8 @@ const ARGS: Record<string, (owned: Owned, input?: InputRule) => Record<string, u
   'waitlist:declineWaitlist': () => ({ ids: [] }),
   // An id nothing has: past every gate, nothing is noted.
   'waitlist:noteWaitlist': () => ({ id: 'entry_probe', note: 'Probe.' }),
+  // Clearing a plan nobody made: past every gate, nothing changes.
+  'waitlist:planWaitlistWave': () => ({ size: null }),
   'files:getFileUrl': owned => ({ storageId: owned.optIn!.storageId }),
   'files:getShareLink': owned => ({ table: 'strips', id: owned.optIn!.stripId }),
   'files:enableShareLink': owned => ({ table: 'strips', id: owned.optIn!.stripId }),

@@ -340,6 +340,7 @@ export const OPT_IN_POLICIES: Record<string, Policy> = {
   'waitlist:admitWaitlist': { access: 'admin', impersonation: 'refused', recentSignIn: true },
   'waitlist:declineWaitlist': { access: 'admin', impersonation: 'refused', recentSignIn: true },
   'waitlist:noteWaitlist': { access: 'admin', impersonation: 'refused', recentSignIn: true },
+  'waitlist:planWaitlistWave': { access: 'admin', impersonation: 'refused', recentSignIn: true },
 
   // files.ts (setupStorage): uploads are a signed-in account's; a file's URL
   // and a row's share link answer only whoever `canShare` lets share the row.

@@ -104,6 +104,8 @@ const AUDIT_LABELS = {
       admitted: '{actor} admitted people from the waitlist',
       declined: '{actor} declined waitlist entries',
       left: '{actor} left the waitlist',
+      friend_joined: '{actor} joined the waitlist through a friend\'s link',
+      wave_planned: '{actor} planned the next waitlist wave',
     },
     report: {
       decided: '{actor} decided reported content',

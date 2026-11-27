@@ -27,6 +27,7 @@ export const LOG_CODES = {
   'waitlist.mirror_drift': 'A launch-news contact could not be written to the email provider after its retries; its waitlist entry is flagged and the next maintenance pass tries again.',
   'waitlist.admitted_unsent': 'A waitlist entry was admitted, but its "You\'re in" email was not sent; the ticket stands.',
   'waitlist.confirmation_unsent': 'A new waitlist entry was recorded, but its confirmation email (the status link) or its join event was not sent; the entry stands.',
+  'waitlist.friend_unsent': 'A friend joined through a waiting person\'s share link, but the "A friend joined" email to that person was not sent; the credit stands.',
   'waitlist.caps_unread': 'The Waitlist tab could not read the sign-in code budget or the email provider\'s usage; the tab shows it as not known.',
   'email.inbound_rejected': 'Inbound mail was dropped before it reached the app\'s hooks. The `reason` says why: `dmarc` (the sender failed DMARC, or a reply\'s sender did not pass it), `rate_limited` (past the inbound rate limit), `sender_mismatch` (a reply address answered by someone else) or `unknown_recipient` (no reply address, workspace or support address claims it).',
   'email.contact_held': 'A contact message was stored but not sent to the team: EMAIL_API_KEY is not set, or the deployment is in test mode and the address is not one of the provider\'s test addresses. It stays in the admin console\'s Inbox tab.',

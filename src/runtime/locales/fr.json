@@ -545,7 +545,9 @@
           "joined": "{actor} : inscription sur la liste d’attente",
           "admitted": "{actor} : admission de personnes de la liste d’attente",
           "declined": "{actor} : refus d’inscriptions sur la liste d’attente",
-          "left": "{actor} : départ de la liste d’attente"
+          "left": "{actor} : départ de la liste d’attente",
+          "friend_joined": "{actor} : inscription sur la liste d’attente avec le lien d’un ami",
+          "wave_planned": "{actor} : prochaine vague de la liste d’attente planifiée"
         },
         "report": {
           "decided": "{actor} : décision sur un contenu signalé",
@@ -1342,6 +1344,15 @@
         "declineConfirm": "Refuser {count} inscription ? Son ticket est retiré. | Refuser {count} inscriptions ? Leurs tickets sont retirés.",
         "abuseConfirm": "Retirer {count} inscription pour abus ? Ce qu’elle a apporté à l’ami qui l’a partagée lui est repris. | Retirer {count} inscriptions pour abus ? Ce que chacune a apporté à l’ami qui l’a partagée lui est repris.",
         "noEntries": "Personne pour l’instant.",
+        "planTitle": "La prochaine vague",
+        "planHint": "Les personnes en attente voient seulement si elles en font partie et combien d’amis il leur manque, jamais sa taille.",
+        "planSize": "Personnes",
+        "planOpensAt": "Ouverture le (facultatif)",
+        "plan": "Planifier",
+        "planning": "Planification…",
+        "planned": "La prochaine vague est planifiée.",
+        "planCleared": "Le plan est effacé.",
+        "planClear": "Effacer le plan",
         "capsTitle": "Capacité d’une vague",
         "capsHint": "Une vague est limitée par les codes de connexion autorisés par le déploiement et le quota quotidien du forfait d’e-mail.",
         "capCodes": "Codes de connexion restants cette heure-ci : {left} sur {limit}",
@@ -1726,6 +1737,13 @@
       "back": "Utiliser une autre adresse",
       "placed": "Votre position : {position} sur {total}",
       "placedUnknown": "Vous êtes sur la liste d’attente.",
+      "joinedOn": "Vous vous êtes inscrit le {date}.",
+      "credit": "Vos amis vous ont fait avancer de {count} jour dans la file. | Vos amis vous ont fait avancer de {count} jours dans la file.",
+      "creditHours": "Vos amis vous ont fait avancer de {count} heure dans la file. | Vos amis vous ont fait avancer de {count} heures dans la file.",
+      "creditMinutes": "Vos amis vous ont fait avancer de {count} minute dans la file. | Vos amis vous ont fait avancer de {count} minutes dans la file.",
+      "waveIn": "Vous êtes dans la prochaine vague, pour l’instant.",
+      "waveShort": "Encore {count} ami et vous êtes dans la prochaine vague. | Encore {count} amis et vous êtes dans la prochaine vague.",
+      "waveOpens": "La prochaine vague ouvre le {date}.",
       "disclosure": "Nous ouvrons l’accès par vagues, et parfois selon d’autres critères. Votre position peut changer.",
       "admitted": "Vous avez accès. Inscrivez-vous avec l’adresse utilisée pour la liste d’attente.",
       "signUp": "S’inscrire",
@@ -1735,6 +1753,7 @@
       "dropReferral": "Je ne viens pas de la part d’un ami",
       "shareTitle": "Avancez dans la liste",
       "shareIntro": "Chaque ami qui s’inscrit avec votre lien vous fait avancer, jusqu’à {cap} amis.",
+      "shareIntroOpen": "Chaque ami qui s’inscrit avec votre lien vous fait avancer, sans limite.",
       "shareLink": "Votre lien",
       "copy": "Copier",
       "copied": "Copié",
@@ -2898,6 +2917,12 @@
         "intro": "Vous êtes n° {position} sur {total} sur la liste d’attente.",
         "introUnplaced": "Vous êtes sur la liste d’attente.",
         "note": "Nous admettons les personnes par vagues et pouvons aussi les admettre selon d’autres critères. Votre place peut changer. Utilisez ce lien pour la consulter à tout moment. Il ne nécessite aucun code de connexion : gardez cet e-mail pour vous.",
+        "action": "Voir votre place"
+      },
+      "waitlistFriendJoined": {
+        "subject": "Un ami s’est inscrit avec votre lien",
+        "intro": "Un ami s’est inscrit sur la liste d’attente avec votre lien. {count} ami inscrit jusqu’ici. | Un ami s’est inscrit sur la liste d’attente avec votre lien. Amis inscrits jusqu’ici : {count}.",
+        "note": "Chaque ami qui s’inscrit avec votre lien vous fait avancer dans la file.",
         "action": "Voir votre place"
       },
       "topicConfirmation": {

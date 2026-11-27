@@ -182,9 +182,11 @@ export interface WaitlistRecord {
   id: string
   /** `true` the first time the address's code checked: the entry was made now. */
   created: boolean
-  /** The place among the people waiting, 1-based; `null` when the entry is not waiting. */
+  /** Whether it still waits: only a waiting entry learns its place. */
+  waiting: boolean
+  /** The place among the people waiting, 1-based; `null` when the entry is not waiting, or the waitlist keeps rank private. */
   position: number | null
-  /** How many people wait. */
+  /** How many people wait; 0 when rank is private. */
   total: number
   /** The signed token of the status link, `/waitlist#<token>`. */
   token: string
@@ -192,6 +194,12 @@ export interface WaitlistRecord {
   source: string
   referred: boolean
   news: boolean
+  /**
+   * The friend whose link the new entry came through, while they wait:
+   * where they stand now (the `waitlist.friend_joined` event), and whom to
+   * email when the waitlist tells sharers (`notify`, from `boost.notify`).
+   */
+  sharer?: { email: string, locale: string | null, friends: number, credit: number, token: string, notify: boolean }
 }
 
 /**
