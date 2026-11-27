@@ -195,11 +195,11 @@ export interface WaitlistRecord {
   referred: boolean
   news: boolean
   /**
-   * The friend whose link the new entry came through, while they wait and
-   * the waitlist tells sharers (`boost.notify`): whom to email, and where
-   * they stand now.
+   * The friend whose link the new entry came through, while they wait:
+   * where they stand now (the `waitlist.friend_joined` event), and whom to
+   * email when the waitlist tells sharers (`notify`, from `boost.notify`).
    */
-  sharer?: { email: string, locale: string | null, friends: number, credit: number, token: string }
+  sharer?: { email: string, locale: string | null, friends: number, credit: number, token: string, notify: boolean }
 }
 
 /**

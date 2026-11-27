@@ -1050,6 +1050,8 @@
   "waitlist.placedUnknown": [],
   "waitlist.joinedOn": ["date"],
   "waitlist.credit": ["count"],
+  "waitlist.creditHours": ["count"],
+  "waitlist.creditMinutes": ["count"],
   "waitlist.waveIn": [],
   "waitlist.waveShort": ["count"],
   "waitlist.waveOpens": ["date"],

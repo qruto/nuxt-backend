@@ -110,7 +110,7 @@ async function recordWaitlistEntry<DM extends GenericDataModel>(runtime: AuthRun
     logBackend('warn', 'waitlist.confirmation_unsent', 'A new waitlist entry was recorded, but its join event did not reach the activity trail; the entry stands.', error)
   }
   const site = readEnv('SITE_URL')?.replace(/\/+$/, '')
-  if (entry.sharer) await tellSharer(runtime, ctx, entry.sharer, site)
+  if (entry.sharer?.notify) await tellSharer(runtime, ctx, entry.sharer, site)
   try {
     if (!runtime?.email || !site) throw new Error(site ? 'no email instance is wired into setupAuth' : 'SITE_URL is not set')
     await runtime.email.sendTemplate(ctx, 'waitlistConfirmation', {

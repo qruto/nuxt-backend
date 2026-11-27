@@ -91,6 +91,8 @@ export function useWaitlistTab(confirm?: () => ConfirmFn | undefined) {
   // The next wave's plan, as the form edits it: filled from the saved plan
   // whenever that changes (another administrator's included).
   const plan = reactive({ size: '', opensAt: '' })
+  /** A time as the date field holds it: its UTC day. */
+  const dateField = (at: number) => new Date(at).toISOString().slice(0, 10)
   const savedPlan = computed(() => {
     const wave = waitlist.console.value?.wave
     return wave === undefined ? undefined : JSON.stringify(wave)
@@ -99,12 +101,14 @@ export function useWaitlistTab(confirm?: () => ConfirmFn | undefined) {
     const wave = waitlist.console.value?.wave
     if (wave === undefined) return
     plan.size = wave ? String(wave.size) : ''
-    plan.opensAt = wave?.opensAt ? new Date(wave.opensAt).toISOString().slice(0, 10) : ''
+    plan.opensAt = wave?.opensAt ? dateField(wave.opensAt) : ''
   }, { immediate: true })
 
   async function planWave(clear = false) {
     const size = clear ? 0 : Math.min(PLAN_MAX, Math.trunc(Number(plan.size)) || 0)
-    const opensAt = plan.opensAt ? Date.parse(`${plan.opensAt}T00:00:00Z`) : null
+    // A date left as it was keeps the saved time; a new one opens at midnight UTC.
+    const kept = waitlist.console.value?.wave?.opensAt
+    const opensAt = !plan.opensAt ? null : kept && dateField(kept) === plan.opensAt ? kept : Date.parse(`${plan.opensAt}T00:00:00Z`)
     // Only Clear clears: a Save without a size saves nothing.
     if (!clear && size < 1) return
     const wave = clear ? null : { size, opensAt: Number.isFinite(opensAt) ? opensAt : null }

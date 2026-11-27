@@ -926,7 +926,7 @@ describe('the Waitlist tab', () => {
 
   it('plans the next wave from the saved plan, and clears it, each behind a recent sign-in', async () => {
     setFlagCall.mockResolvedValueOnce(null as never).mockResolvedValueOnce(null as never)
-    const wrapper = waitlistTab({}, { status: 'waiting' }, { wave: { size: 40, opensAt: Date.UTC(2026, 11, 15) } })
+    const wrapper = waitlistTab({}, { status: 'waiting' }, { wave: { size: 40, opensAt: Date.UTC(2026, 11, 15, 18) } })
     await flushPromises()
     const plan = wrapper.find('[data-admin="waitlist-plan"]')
     expect((plan.find('input[type="number"]').element as HTMLInputElement).value).toBe('40')
@@ -934,7 +934,8 @@ describe('the Waitlist tab', () => {
     await plan.find('input[type="number"]').setValue('60')
     await plan.trigger('submit')
     await flushPromises()
-    expect(setFlagCall).toHaveBeenLastCalledWith({ size: 60, opensAt: Date.UTC(2026, 11, 15) })
+    // The date left as it was keeps the saved time of day.
+    expect(setFlagCall).toHaveBeenLastCalledWith({ size: 60, opensAt: Date.UTC(2026, 11, 15, 18) })
     expect(wrapper.find('[data-admin="message"]').text()).toBe('The next wave is planned.')
     await wrapper.find('[data-admin="waitlist-plan-clear"]').trigger('click')
     await flushPromises()

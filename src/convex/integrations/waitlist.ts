@@ -41,7 +41,7 @@ export interface WaitlistWaveStanding {
   opensAt: number | null
   /** Whether the person is in it now (a later friend of someone else may still move them out). */
   included: boolean
-  /** How many more friends would put them in it: 0 when in it, `null` when sharing is off. */
+  /** How many more friends would put them in it: 0 when in it, `null` when sharing is off or the friend cap leaves no room for that many. */
   friendsShort: number | null
 }
 
@@ -52,7 +52,7 @@ export interface WaitlistStatusView {
   position: number | null
   /** How many people wait; 0 where rank is private. */
   total: number
-  /** When the code proved the address, epoch ms: the date the line goes by. Friends never move it; they move the place. */
+  /** When the code proved the address, epoch ms: the date the line goes by. Friends never move it; they move the place. 0 on `useWaitlist`'s stand-in before the live status answers. */
   joinedAt: number
   /** The friends who joined through their link and count. */
   friends: number
@@ -288,6 +288,10 @@ export function setupWaitlist(components: AccessComponents, options: SetupWaitli
 
   const sharing = rule.boost.cap === null || rule.boost.cap > 0
 
+  /** A wave's friends-short count only where the cap leaves room for that many more friends. */
+  const reachable = (wave: WaitlistWaveStanding, friends: number): WaitlistWaveStanding =>
+    wave.friendsShort !== null && rule.boost.cap !== null && wave.friendsShort > rule.boost.cap - friends ? { ...wave, friendsShort: null } : wave
+
   /** An entry's standing, as its status page reads it: the place and the count only where rank is shown. */
   async function placeFor(ctx: Pick<AccessCtx, 'runQuery'>, id: string): Promise<WaitlistStatusView | null> {
     const place = await ctx.runQuery(refs.waitlist.place, { id, rank: rule.rank, perFriend: sharing ? rule.boost.perFriend : null })
@@ -301,7 +305,7 @@ export function setupWaitlist(components: AccessComponents, options: SetupWaitli
       cap: rule.boost.cap,
       credit: place.credit,
       perFriend: sharing ? rule.boost.perFriend : 0,
-      wave: place.wave,
+      wave: place.wave && reachable(place.wave, place.boost),
       shareCode: place.shareCode,
       launchNews: place.launchNews,
     }

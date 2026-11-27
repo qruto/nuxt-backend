@@ -1739,6 +1739,8 @@
       "placedUnknown": "Vous êtes sur la liste d’attente.",
       "joinedOn": "Vous vous êtes inscrit le {date}.",
       "credit": "Vos amis vous ont fait avancer de {count} jour dans la file. | Vos amis vous ont fait avancer de {count} jours dans la file.",
+      "creditHours": "Vos amis vous ont fait avancer de {count} heure dans la file. | Vos amis vous ont fait avancer de {count} heures dans la file.",
+      "creditMinutes": "Vos amis vous ont fait avancer de {count} minute dans la file. | Vos amis vous ont fait avancer de {count} minutes dans la file.",
       "waveIn": "Vous êtes dans la prochaine vague, pour l’instant.",
       "waveShort": "Encore {count} ami et vous êtes dans la prochaine vague. | Encore {count} amis et vous êtes dans la prochaine vague.",
       "waveOpens": "La prochaine vague ouvre le {date}.",

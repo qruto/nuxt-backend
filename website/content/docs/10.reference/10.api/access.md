@@ -323,7 +323,7 @@ Where a waiting person stands against the next wave an administrator planned: in
 | ------ | ------ | ------ | ------ |
 | <a id="opensat"></a> `opensAt` | `number` \| `null` | When the wave opens, epoch ms; `null` when no date is set. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 | <a id="included"></a> `included` | `boolean` | Whether the person is in it now (a later friend of someone else may still move them out). | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
-| <a id="friendsshort"></a> `friendsShort` | `number` \| `null` | How many more friends would put them in it: 0 when in it, `null` when sharing is off. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
+| <a id="friendsshort"></a> `friendsShort` | `number` \| `null` | How many more friends would put them in it: 0 when in it, `null` when sharing is off or the friend cap leaves no room for that many. | [src/convex/integrations/waitlist.ts](https://github.com/qruto/nuxt-backend/blob/main/src/convex/integrations/waitlist.ts) |
 
 ***
 

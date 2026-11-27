@@ -1739,6 +1739,8 @@
       "placedUnknown": "Sie stehen auf der Warteliste.",
       "joinedOn": "Sie haben sich am {date} eingetragen.",
       "credit": "Ihre Freunde haben Sie {count} Tag nach vorn gebracht. | Ihre Freunde haben Sie {count} Tage nach vorn gebracht.",
+      "creditHours": "Ihre Freunde haben Sie {count} Stunde nach vorn gebracht. | Ihre Freunde haben Sie {count} Stunden nach vorn gebracht.",
+      "creditMinutes": "Ihre Freunde haben Sie {count} Minute nach vorn gebracht. | Ihre Freunde haben Sie {count} Minuten nach vorn gebracht.",
       "waveIn": "Sie sind in der nächsten Welle, Stand jetzt.",
       "waveShort": "Noch {count} Person, und Sie sind in der nächsten Welle. | Noch {count} Personen, und Sie sind in der nächsten Welle.",
       "waveOpens": "Die nächste Welle öffnet am {date}.",

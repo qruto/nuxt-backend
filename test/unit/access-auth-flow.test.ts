@@ -219,13 +219,23 @@ describe('early access', () => {
   it('tells the friend whose link a new entry came through, once a day, and records it without either address', async () => {
     vi.stubEnv('SITE_URL', 'https://panels.example')
     const flow = await launch('early-access')
-    flow.state.sharer = { email: 'sharer@resend.dev', locale: null, friends: 3, credit: 21 * 24 * 60 * 60 * 1000, token: 'entry_9.signature' }
+    flow.state.sharer = { email: 'sharer@resend.dev', locale: null, friends: 3, credit: 21 * 24 * 60 * 60 * 1000, token: 'entry_9.signature', notify: true }
     const { code } = await flow.sendCode('new@resend.dev')
     await flow.post('/sign-in/email-otp', { email: 'new@resend.dev', otp: code })
     const told = flow.sent.filter(entry => entry.name === 'waitlistFriendJoined')
     expect(told).toHaveLength(1)
     expect(told[0]!.data).toEqual({ email: 'sharer@resend.dev', statusUrl: 'https://panels.example/waitlist#entry_9.signature', friends: 3, days: 21 })
     expect(flow.audit.recordBackendEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: 'waitlist.friend_joined', data: { friends: 3 } }))
+  })
+
+  it('records a friend who joined even where the waitlist sends the sharer no email', async () => {
+    vi.stubEnv('SITE_URL', 'https://panels.example')
+    const flow = await launch('early-access')
+    flow.state.sharer = { email: 'sharer@resend.dev', locale: null, friends: 1, credit: 24 * 60 * 60 * 1000, token: 'entry_9.signature', notify: false }
+    const { code } = await flow.sendCode('new@resend.dev')
+    await flow.post('/sign-in/email-otp', { email: 'new@resend.dev', otp: code })
+    expect(flow.sent.filter(entry => entry.name === 'waitlistFriendJoined')).toHaveLength(0)
+    expect(flow.audit.recordBackendEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: 'waitlist.friend_joined', data: { friends: 1 } }))
   })
 })
 

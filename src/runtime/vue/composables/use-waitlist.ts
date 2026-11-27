@@ -306,8 +306,8 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
         token.value = waiting?.token ?? null
         if (token.value) kept?.keep(token.value)
         left.value = false
-        // A stand-in until the live place answers: no rank unless the waitlist shows it, joined just now.
-        result = { status: 'waiting', position: waiting?.position ?? null, total: waiting?.total ?? 0, joinedAt: Date.now(), friends: 0, cap: 0, credit: 0, perFriend: 0, wave: null, shareCode: '', launchNews: launchNews.value, token: waiting?.token ?? '' }
+        // A stand-in until the live place answers: no rank unless the waitlist shows it, and no join date (0) until the status says it.
+        result = { status: 'waiting', position: waiting?.position ?? null, total: waiting?.total ?? 0, joinedAt: 0, friends: 0, cap: 0, credit: 0, perFriend: 0, wave: null, shareCode: '', launchNews: launchNews.value, token: waiting?.token ?? '' }
         joined.value = result
         step.value = 'status'
         return

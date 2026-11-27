@@ -23,6 +23,8 @@ const WAITLIST_LABELS = {
   // Where rank is private (`place: { rank: false }`): the person's own facts, never the list's size.
   joinedOn: 'You joined on {date}.',
   credit: 'Your friends moved you {count} day up the line. | Your friends moved you {count} days up the line.',
+  creditHours: 'Your friends moved you {count} hour up the line. | Your friends moved you {count} hours up the line.',
+  creditMinutes: 'Your friends moved you {count} minute up the line. | Your friends moved you {count} minutes up the line.',
   waveIn: 'You\'re in the next wave, for now.',
   waveShort: '{count} more friend puts you in the next wave. | {count} more friends put you in the next wave.',
   waveOpens: 'The next wave opens on {date}.',

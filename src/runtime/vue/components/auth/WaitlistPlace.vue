@@ -23,7 +23,19 @@ const loginPath = useBackendPagePath('login')
 const place = computed(() => props.waitlist.place.value)
 const number = (value: number) => value.toLocaleString(locale.value)
 const day = (at: number) => new Date(at).toLocaleDateString(locale.value, { dateStyle: 'long' })
-const DAY_MS = 24 * 60 * 60 * 1000
+// A wave opens on the UTC day the administrator picked, wherever the person reads it.
+const utcDay = (at: number) => new Date(at).toLocaleDateString(locale.value, { dateStyle: 'long', timeZone: 'UTC' })
+const MINUTE_MS = 60 * 1000
+const HOUR_MS = 60 * MINUTE_MS
+const DAY_MS = 24 * HOUR_MS
+
+/** The credit in the largest unit it fills: days, else hours, else minutes (a rule may give less than a day a friend). */
+function creditLine(credit: number): string | null {
+  if (credit >= DAY_MS) return t('credit', { count: Math.floor(credit / DAY_MS) })
+  if (credit >= HOUR_MS) return t('creditHours', { count: Math.floor(credit / HOUR_MS) })
+  if (credit >= MINUTE_MS) return t('creditMinutes', { count: Math.floor(credit / MINUTE_MS) })
+  return null
+}
 
 /**
  * Where rank is private, the person's own facts instead of a place: the
@@ -33,12 +45,12 @@ const facts = computed(() => {
   const standing = place.value
   if (standing?.status !== 'waiting' || standing.position || !standing.joinedAt) return []
   const lines = [t('joinedOn', { date: day(standing.joinedAt) })]
-  const days = Math.floor((standing.credit ?? 0) / DAY_MS)
-  if (days > 0) lines.push(t('credit', { count: days }))
+  const credit = creditLine(standing.credit ?? 0)
+  if (credit) lines.push(credit)
   const wave = standing.wave
   if (wave?.included) lines.push(t('waveIn'))
   else if (wave?.friendsShort) lines.push(t('waveShort', { count: wave.friendsShort }))
-  if (wave?.opensAt) lines.push(t('waveOpens', { date: day(wave.opensAt) }))
+  if (wave?.opensAt) lines.push(t('waveOpens', { date: utcDay(wave.opensAt) }))
   return lines
 })
 
@@ -73,21 +85,21 @@ const headline = computed(() => {
     >
       {{ t('signUp') }}
     </a>
-    <template v-if="place?.status === 'waiting'">
-      <div
-        v-if="facts.length"
-        data-waitlist="facts"
-        role="status"
-        aria-live="polite"
+    <!-- Mounted, empty, before the facts arrive, so the first ones are heard too. -->
+    <div
+      data-waitlist="facts"
+      role="status"
+      aria-live="polite"
+    >
+      <p
+        v-for="line in facts"
+        :key="line"
+        data-waitlist="fact"
       >
-        <p
-          v-for="line in facts"
-          :key="line"
-          data-waitlist="fact"
-        >
-          {{ line }}
-        </p>
-      </div>
+        {{ line }}
+      </p>
+    </div>
+    <template v-if="place?.status === 'waiting'">
       <p data-waitlist="disclosure">
         {{ t('disclosure') }}
       </p>

@@ -535,11 +535,24 @@ describe('the /waitlist page', () => {
       `You joined on ${new Date(VIEW.joinedAt).toLocaleDateString('en', { dateStyle: 'long' })}.`,
       'Your friends moved you 21 days up the line.',
       '2 more friends put you in the next wave.',
-      `The next wave opens on ${new Date(Date.UTC(2026, 11, 15)).toLocaleDateString('en', { dateStyle: 'long' })}.`,
+      // The UTC day the administrator picked, in any time zone.
+      'The next wave opens on December 15, 2026.',
     ])
     expect(wrapper.text()).not.toMatch(/#|1,204/)
     expect(wrapper.find('[data-waitlist="share-intro"]').text()).toContain('with no limit')
     wrapper.unmount()
+  })
+
+  it('shows a credit of less than a day in hours or minutes', async () => {
+    const hour = 60 * 60 * 1000
+    for (const [credit, line] of [[5 * hour, 'Your friends moved you 5 hours up the line.'], [30 * 60 * 1000, 'Your friends moved you 30 minutes up the line.']] as const) {
+      answers.set(key('waitlist:waitlistStatus', { token: 'private.signature' }), { ...VIEW, position: null, total: 0, cap: null, credit, perFriend: hour, wave: null })
+      window.location.hash = '#private.signature'
+      const wrapper = render(WaitlistStatus)
+      await flushPromises()
+      expect(wrapper.findAll('[data-waitlist="fact"]').map(fact => fact.text())).toContain(line)
+      wrapper.unmount()
+    }
   })
 
   it('says a link that names nobody does not work', async () => {

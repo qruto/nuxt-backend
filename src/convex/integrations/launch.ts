@@ -669,8 +669,9 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
       const waiting = entry.status === 'waiting'
       // A private rank is never read, so nothing about the list's size leaves here.
       const place = waiting && rule.rank ? await ctx.runQuery(refs.waitlist.place, { id: entry.id }) : null
-      const sharer = rule.notify && entry.sharer
-        ? { email: entry.sharer.email, locale: entry.sharer.locale, friends: entry.sharer.friends, credit: entry.sharer.credit, token: await statusToken(secret(), entry.sharer.id) }
+      // The event records every credited friend; `notify` decides only the email.
+      const sharer = entry.sharer
+        ? { email: entry.sharer.email, locale: entry.sharer.locale, friends: entry.sharer.friends, credit: entry.sharer.credit, token: await statusToken(secret(), entry.sharer.id), notify: rule.notify }
         : undefined
       return {
         id: entry.id,

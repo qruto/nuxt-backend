@@ -1739,6 +1739,8 @@
       "placedUnknown": "Estás en la lista de espera.",
       "joinedOn": "Te uniste el {date}.",
       "credit": "Tus amigos te han hecho subir {count} día en la fila. | Tus amigos te han hecho subir {count} días en la fila.",
+      "creditHours": "Tus amigos te han hecho subir {count} hora en la fila. | Tus amigos te han hecho subir {count} horas en la fila.",
+      "creditMinutes": "Tus amigos te han hecho subir {count} minuto en la fila. | Tus amigos te han hecho subir {count} minutos en la fila.",
       "waveIn": "Estás en la próxima tanda, por ahora.",
       "waveShort": "{count} amigo más te mete en la próxima tanda. | {count} amigos más te meten en la próxima tanda.",
       "waveOpens": "La próxima tanda se abre el {date}.",
