@@ -190,6 +190,9 @@ async function withCredits(email: string, options: Parameters<typeof asUser>[1] 
 const refusal = async (call: Promise<unknown>) => getBackendError(await call.then(() => null, (error: unknown) => error))
 const strip = (caller: Caller, id: string) => caller.query(fn<'query'>('strips:get'), { id }) as Promise<Strip | null>
 
+/** The auth tables' adapter in the package's component. */
+const adapter = () => (componentsGeneric() as unknown as { backend: { adapter: { deleteOne: FunctionReference<'mutation', 'internal'> } } }).backend.adapter
+
 /** The package's component, as the suite reaches into it. */
 const backend = () => (componentsGeneric() as unknown as { backend: {
   testing: { upload: FunctionReference<'action', 'internal'>, exists: FunctionReference<'query', 'internal'>, events: FunctionReference<'query', 'internal'> }
@@ -478,22 +481,31 @@ describe('templates/panels/backend', () => {
     expect(await grace.query(fn<'query'>('storage:getFileUrl'), { storageId: photoId })).toBeNull()
   })
 
-  test('a strip\'s room lets in its workspace, and a member removed from the workspace leaves its rooms only', async () => {
+  test('a strip\'s room lets in its workspace\'s members, read fresh, and a removed member leaves its rooms only', async () => {
     const ada = await asUser(t, { name: 'Ada' })
-    const grace = await asUser(t, { name: 'Grace' })
+    const grace = await asUser(t, { name: 'Grace', workspace: ada.workspaceId! })
+    const alan = await asUser(t, { name: 'Alan' })
     const own = await ada.mutation(fn<'mutation'>('strips:create'), { idea: 'A cat learns to surf' }) as string
-    const theirs = await grace.mutation(fn<'mutation'>('strips:create'), { idea: 'A dog learns to ski' }) as string
+    const theirs = await alan.mutation(fn<'mutation'>('strips:create'), { idea: 'A dog learns to ski' }) as string
     const join = async (caller: Caller, id: string) => (await caller.mutation(fn<'mutation'>('presence:heartbeat'), { roomId: `strip:${id}`, userId: caller.userId, sessionId: `tab-${caller.userId}`, interval: 10_000 }) as { roomToken: string }).roomToken
-    const people = async (caller: Caller, roomToken: string) => (await caller.query(fn<'query'>('presence:list'), { roomToken }) as Array<{ userId: string }>).map(person => person.userId)
+    const people = async (caller: Caller, roomToken: string) => (await caller.query(fn<'query'>('presence:list'), { roomToken }) as Array<{ userId: string }>).map(person => person.userId).sort()
     const leave = (workspaceId: string, userId: string) => t.mutation(makeFunctionReference<'mutation'>('presence:leaveWorkspace') as unknown as FunctionReference<'mutation', 'internal'>, { workspaceId, userId })
-    expect(await refusal(join(ada, theirs))).toMatchObject({ code: 'forbidden' })
-    const adas = await join(ada, own)
-    const graces = await join(grace, theirs)
-    await leave(grace.workspaceId!, ada.userId)
-    expect(await people(ada, adas)).toEqual([ada.userId])
-    await leave(ada.workspaceId!, ada.userId)
-    await expect(ada.query(fn<'query'>('presence:list'), { roomToken: adas })).rejects.toThrow(/not in this room/)
-    expect(await people(grace, graces)).toEqual([grace.userId])
+    expect(await refusal(join(alan, own))).toMatchObject({ code: 'forbidden' })
+    const room = await join(ada, own)
+    await join(grace, own)
+    const alans = await join(alan, theirs)
+    expect(await people(ada, room)).toEqual([ada.userId, grace.userId].sort())
+    // Grace is removed from the workspace: her member row goes, and
+    // onMemberRemoved (auth.ts) runs leaveWorkspace.
+    await t.mutation(adapter().deleteOne, { input: { model: 'member', where: [{ field: 'organizationId', value: ada.workspaceId! }, { field: 'userId', value: grace.userId }] } })
+    await leave(ada.workspaceId!, grace.userId)
+    expect(await people(ada, room)).toEqual([ada.userId])
+    await expect(grace.query(fn<'query'>('presence:list'), { roomToken: room })).rejects.toThrow(/not in this room/)
+    // Her sign-in still names the workspace, but the member table does not.
+    expect(await refusal(join(grace, own))).toMatchObject({ code: 'forbidden' })
+    // Leaving one workspace leaves another workspace's rooms alone.
+    await leave(ada.workspaceId!, alan.userId)
+    expect(await people(alan, alans)).toEqual([alan.userId])
   })
 
   test('a drawn strip ends ready: its panels stored, the author notified, the email queued', async () => {
