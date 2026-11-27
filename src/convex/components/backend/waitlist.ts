@@ -8,13 +8,16 @@ import { LAUNCH_NEWS_KIND, LAUNCH_NEWS_VERSION } from '../../consent-rules.js'
 import { logBackend } from '../../log.js'
 import {
   domainOf,
+  friendsShortOf,
   mailboxOf,
   queueKey,
+  type WaitlistBoostRule,
   SOURCE_SIGN_IN,
   WAITLIST_CONSOLE_ROWS,
   WAITLIST_FILTER_SCAN,
   WAITLIST_NOTE_MAX,
   WAITLIST_STATUSES,
+  WAITLIST_WAVE_PLAN_MAX,
   type WaitlistStatus,
   waitlistEmail,
 } from '../../waitlist-rules.js'
@@ -170,15 +173,20 @@ export const stage = mutation({
 /**
  * The sharer a staged `ref` names, when sharing is allowed: the program's
  * code of an entry (referral codes are program-wide, and the same mailbox
- * rule refuses a person's own), waiting or admitted, under its cap. A code
- * that is an account's moves nobody up the line.
+ * rule refuses a person's own), waiting or admitted, under its cap if it
+ * has one. A code that is an account's moves nobody up the line, and
+ * neither does a second address of a mailbox already on the list.
  */
-async function sharerFor(ctx: MutationCtx, ref: string | undefined, email: string, boost: { cap: number, days: number }): Promise<Entry | null> {
-  const owner = ref && boost.cap >= 1 ? await ownerOfCode(ctx, ref) : null
+async function sharerFor(ctx: MutationCtx, ref: string | undefined, email: string, boost: WaitlistBoostRule): Promise<Entry | null> {
+  const sharing = boost.cap === null || boost.cap >= 1
+  const owner = ref && sharing ? await ownerOfCode(ctx, ref) : null
   const entryId = owner?.ownerKind === 'entry' ? ctx.db.normalizeId('waitlistEntries', owner.ownerId) : null
   const sharer = entryId ? await ctx.db.get('waitlistEntries', entryId) : null
   if (!sharer || (sharer.status !== 'waiting' && sharer.status !== 'admitted')) return null
-  if (mailboxOf(sharer.email) === mailboxOf(email) || sharer.boost >= boost.cap) return null
+  if (mailboxOf(sharer.email) === mailboxOf(email)) return null
+  if (boost.cap !== null && sharer.boost >= boost.cap) return null
+  // One mailbox counts once: `me+2@` after `me@` brings its sharer nothing.
+  if (await ctx.db.query('waitlistEntries').withIndex('mailbox', q => q.eq('mailbox', mailboxOf(email))).first()) return null
   return sharer
 }
 
@@ -188,10 +196,15 @@ async function enqueueMirror(ctx: MutationCtx, entry: Entry): Promise<void> {
   await pool.enqueueAction(ctx, internal.waitlist.mirrorOne, { entryId: entry._id }, { onComplete: internal.waitlist.mirrored, context: { entryId: entry._id } })
 }
 
-const vEntryRef = v.object({ id: v.string(), created: v.boolean(), status: vStatus, source: v.string(), referred: v.boolean(), news: v.boolean() })
+/** The sharer a new entry credited, while they wait: whom to tell, and where they stand now. */
+const vCredited = v.object({ id: v.string(), email: v.string(), locale: v.union(v.null(), v.string()), friends: v.number(), credit: v.number() })
+
+const vEntryRef = v.object({ id: v.string(), created: v.boolean(), status: vStatus, source: v.string(), referred: v.boolean(), news: v.boolean(), sharer: v.optional(vCredited) })
+
+/** The rule as the access layer hands it over. */
+const vBoost = v.object({ perFriend: v.number(), cap: v.union(v.null(), v.number()), welcome: v.number() })
 
 type Join = Doc<'waitlistJoins'>
-type Boost = { cap: number, days: number }
 
 /**
  * The launch-news box ticked: a consent, kept on the ledger alone (by a
@@ -212,37 +225,49 @@ async function addToEntry(ctx: MutationCtx, existing: Entry, join: Join | undefi
   if (join?.launchNews && !wantsNews(existing)) await wantNews(ctx, (await ctx.db.get('waitlistEntries', existing._id))!, join.launchNews.text)
 }
 
-/** A friend joined through the sharer's link: the sharer moves up, and the friend remembers by how much. */
-async function creditSharer(ctx: MutationCtx, friendId: Entry['_id'], sharer: Entry, boost: Boost): Promise<void> {
-  const credited = boost.days * DAY_MS
+/**
+ * A friend joined through the sharer's link: the sharer moves up, and the
+ * friend remembers by how much. Answers the sharer as they stand now, for
+ * the app to tell them, while they still wait.
+ */
+async function creditSharer(ctx: MutationCtx, friendId: Entry['_id'], sharer: Entry, boost: WaitlistBoostRule): Promise<typeof vCredited.type | undefined> {
+  const credited = boost.perFriend
   await ctx.db.patch('waitlistEntries', friendId, { referredBy: sharer._id, creditedMs: credited })
   await ctx.db.patch('waitlistEntries', sharer._id, { boost: sharer.boost + 1 })
-  if (sharer.rankKey === undefined) return
-  if (sharer.status === 'waiting') await enterQueue(ctx, sharer, sharer.rankKey - credited)
-  else await ctx.db.patch('waitlistEntries', sharer._id, { rankKey: sharer.rankKey - credited })
+  if (sharer.rankKey === undefined) return undefined
+  if (sharer.status !== 'waiting') {
+    await ctx.db.patch('waitlistEntries', sharer._id, { rankKey: sharer.rankKey - credited })
+    return undefined
+  }
+  await enterQueue(ctx, sharer, sharer.rankKey - credited)
+  return { id: sharer._id as string, email: sharer.email, locale: sharer.locale ?? null, friends: sharer.boost + 1, credit: sharer.verifiedAt - (sharer.rankKey - credited) }
 }
 
 /** A new entry: its row, its place in line, the friend credit and the contact for launch news. */
-async function createEntry(ctx: MutationCtx, input: { address: string, join: Join | undefined, source: string | undefined, locale: string | undefined, now: number, boost: Boost }): Promise<Entry['_id']> {
+async function createEntry(ctx: MutationCtx, input: { address: string, join: Join | undefined, source: string | undefined, locale: string | undefined, now: number, boost: WaitlistBoostRule }): Promise<{ id: Entry['_id'], sharer?: typeof vCredited.type }> {
   const { address, join, source, locale, now, boost } = input
+  // Read before the insert: the new entry's own mailbox must not count against it.
   const sharer = await sharerFor(ctx, join?.ref, address, boost)
+  const welcome = sharer ? boost.welcome : 0
   const entryLocale = join?.locale ?? locale
   const id = await ctx.db.insert('waitlistEntries', {
     email: address,
     domain: domainOf(address),
+    mailbox: mailboxOf(address),
     status: 'waiting',
     source: join?.source ?? source ?? SOURCE_SIGN_IN,
     ...(join?.answers ? { answers: join.answers } : {}),
     ...(entryLocale ? { locale: entryLocale } : {}),
     verifiedAt: now,
     boost: 0,
+    ...(welcome ? { welcomeMs: welcome } : {}),
   })
   await ensureCode(ctx, 'entry', id)
   await adjust(ctx, 'waiting', 1)
-  await enterQueue(ctx, (await ctx.db.get('waitlistEntries', id))!, queueKey(now, 0, boost.days))
-  if (sharer) await creditSharer(ctx, id, sharer, boost)
+  await enterQueue(ctx, (await ctx.db.get('waitlistEntries', id))!, queueKey(now, welcome))
+  const told = sharer ? await creditSharer(ctx, id, sharer, boost) : undefined
   if (join?.launchNews) await wantNews(ctx, (await ctx.db.get('waitlistEntries', id))!, join.launchNews.text)
-  return id
+  return { id, ...(told ? { sharer: told } : {}) }
 }
 
 /**
@@ -255,7 +280,7 @@ async function createEntry(ctx: MutationCtx, input: { address: string, join: Joi
  * (a later join may add launch news or answers).
  */
 export const verify = mutation({
-  args: { email: v.string(), join: v.optional(v.string()), source: v.optional(v.string()), locale: v.optional(v.string()), boost: v.object({ cap: v.number(), days: v.number() }) },
+  args: { email: v.string(), join: v.optional(v.string()), source: v.optional(v.string()), locale: v.optional(v.string()), boost: vBoost },
   returns: vEntryRef,
   handler: async (ctx, { email, join, source, locale, boost }) => {
     const address = waitlistEmail(email)
@@ -266,55 +291,122 @@ export const verify = mutation({
       : []
     const existing = await ctx.db.query('waitlistEntries').withIndex('email', q => q.eq('email', address)).first()
     if (existing) await addToEntry(ctx, existing, staged[0])
-    const entryId = existing?._id ?? await createEntry(ctx, { address, join: staged[0], source, locale, now, boost })
+    const made = existing ? undefined : await createEntry(ctx, { address, join: staged[0], source, locale, now, boost })
     for (const row of staged) await ctx.db.delete('waitlistJoins', row._id)
-    const row = (await ctx.db.get('waitlistEntries', entryId))!
-    return { id: row._id as string, created: !existing, status: row.status, source: row.source, referred: row.referredBy !== undefined, news: wantsNews(row) }
+    const row = (await ctx.db.get('waitlistEntries', existing?._id ?? made!.id))!
+    return { id: row._id as string, created: !existing, status: row.status, source: row.source, referred: row.referredBy !== undefined, news: wantsNews(row), ...(made?.sharer ? { sharer: made.sharer } : {}) }
   },
 })
 
 // ── Reading ─────────────────────────────────────────────────────────────
 
+/** Where a waiting person stands against the planned wave: in it or not, never its size. */
+const vWaveStanding = v.object({
+  opensAt: v.union(v.null(), v.number()),
+  included: v.boolean(),
+  /** Friends short of it; 0 inside it, `null` when friends cannot move anyone. */
+  friendsShort: v.union(v.null(), v.number()),
+})
+
 const vPlace = v.object({
   status: vStatus,
-  /** 1-based place among the people waiting; `null` once the person is not waiting. */
+  /** 1-based place among the people waiting; `null` once the person is not waiting, or when rank is not read. */
   position: v.union(v.null(), v.number()),
+  /** How many wait; 0 when rank is not read. */
   total: v.number(),
   boost: v.number(),
+  /** How far up the line friends (and a welcome) moved the entry, in ms; 0 once it stops waiting. */
+  credit: v.number(),
   shareCode: v.string(),
   launchNews: v.boolean(),
   verifiedAt: v.number(),
+  wave: v.union(v.null(), vWaveStanding),
 })
 
-/** An entry's standing, from the (stale) queue. `null` for an id that is no entry. */
-async function placeOf(ctx: QueryCtx, entry: Entry): Promise<typeof vPlace.type> {
+/** The planned wave, if an administrator set one. */
+async function plannedWave(ctx: QueryCtx): Promise<{ size: number, opensAt?: number } | null> {
+  return (await ctx.db.query('waitlistSettings').first())?.wave ?? null
+}
+
+/**
+ * A waiting entry against the planned wave: inside it when fewer than its
+ * size stand ahead, else how many friends would carry it past the last
+ * person inside. Read from the stale queue, like the place.
+ */
+async function waveStanding(ctx: QueryCtx, entry: Entry, perFriend: number | null): Promise<typeof vWaveStanding.type | null> {
+  if (entry.status !== 'waiting' || entry.rankKey === undefined) return null
+  const wave = await plannedWave(ctx)
+  if (!wave) return null
+  const opensAt = wave.opensAt ?? null
+  const ahead = await rank.indexOf(ctx, entry.rankKey, { id: entry._id, stale: true })
+  if (ahead < wave.size) return { opensAt, included: true, friendsShort: 0 }
+  if (!perFriend) return { opensAt, included: false, friendsShort: null }
+  const last = await rank.at(ctx, wave.size - 1, { stale: true })
+  return { opensAt, included: false, friendsShort: Math.max(1, friendsShortOf(entry.rankKey, last.key, perFriend)) }
+}
+
+/**
+ * An entry's standing, from the (stale) queue. `rank: false` reads no
+ * place and no count, so nothing about the size of the list comes back.
+ */
+async function placeOf(ctx: QueryCtx, entry: Entry, options: { rank: boolean, perFriend: number | null }): Promise<typeof vPlace.type> {
   const code = await peekOwnerCode(ctx, 'entry', entry._id)
-  const total = await rank.count(ctx, { stale: true })
+  const waiting = entry.status === 'waiting' && entry.rankKey !== undefined
   let position: number | null = null
-  if (entry.status === 'waiting' && entry.rankKey !== undefined) {
+  let total = 0
+  if (options.rank) {
+    total = await rank.count(ctx, { stale: true })
     // The count of people ahead needs no row for this entry: a join still
     // in the queue's backlog is placed where it will land.
-    position = (await rank.indexOf(ctx, entry.rankKey, { id: entry._id, stale: true })) + 1
+    if (waiting) position = (await rank.indexOf(ctx, entry.rankKey!, { id: entry._id, stale: true })) + 1
+    total = Math.max(total, position ?? 0)
   }
   return {
     status: entry.status,
     position,
-    total: Math.max(total, position ?? 0),
+    total,
     boost: entry.boost,
+    credit: waiting ? Math.max(0, entry.verifiedAt - entry.rankKey!) : 0,
     shareCode: code?.code ?? '',
     launchNews: wantsNews(entry),
     verifiedAt: entry.verifiedAt,
+    wave: await waveStanding(ctx, entry, options.perFriend),
   }
 }
 
-/** An entry's place in line, by its id (the app checked the signed link that names it). */
+/**
+ * An entry's place in line, by its id (the app checked the signed link that
+ * names it). `rank: false` leaves the place and the count out; `perFriend`
+ * is the app's rule, for how many friends short of the wave it stands.
+ */
 export const place = query({
-  args: { id: v.string() },
+  args: { id: v.string(), rank: v.optional(v.boolean()), perFriend: v.optional(v.union(v.null(), v.number())) },
   returns: v.union(v.null(), vPlace),
-  handler: async (ctx, { id }) => {
+  handler: async (ctx, { id, rank: withRank, perFriend }) => {
     const entryId = ctx.db.normalizeId('waitlistEntries', id)
     const entry = entryId ? await ctx.db.get('waitlistEntries', entryId) : null
-    return entry ? await placeOf(ctx, entry) : null
+    return entry ? await placeOf(ctx, entry, { rank: withRank !== false, perFriend: perFriend ?? null }) : null
+  },
+})
+
+/**
+ * Plan the next wave: how many people it takes from the front of the line,
+ * and when it opens, if a date is set. `null` clears the plan. Waiting
+ * people read only whether they are in it.
+ */
+export const planWave = mutation({
+  args: { wave: v.union(v.null(), v.object({ size: v.number(), opensAt: v.optional(v.number()) })) },
+  returns: v.null(),
+  handler: async (ctx, { wave }) => {
+    if (wave && (!Number.isInteger(wave.size) || wave.size < 1 || wave.size > WAITLIST_WAVE_PLAN_MAX)) {
+      throw backendError('invalid_input', { field: 'size' }, `[nuxt-backend] planWaitlistWave: the size is a whole number from 1 to ${WAITLIST_WAVE_PLAN_MAX}.`)
+    }
+    if (wave?.opensAt !== undefined && !Number.isFinite(wave.opensAt)) throw backendError('invalid_input', { field: 'opensAt' }, '[nuxt-backend] planWaitlistWave: the opening date is a time in epoch ms.')
+    const row = await ctx.db.query('waitlistSettings').first()
+    const fields = { wave: wave ? { size: wave.size, ...(wave.opensAt !== undefined ? { opensAt: wave.opensAt } : {}) } : undefined, updatedAt: Date.now() }
+    if (row) await ctx.db.patch('waitlistSettings', row._id, fields)
+    else await ctx.db.insert('waitlistSettings', fields)
+    return null
   },
 })
 
@@ -385,6 +477,12 @@ async function filteredEntries(ctx: QueryCtx, { status, domain, source, question
   const wanted = domain?.trim().toLowerCase().replace(/^@/, '')
   const byAnswer = question && answer ? { question, answer } : null
   const filtered = Boolean(wanted || source || byAnswer)
+  // The waiting, unfiltered, in the order of the line: who the next wave takes.
+  if (!filtered && (status ?? 'waiting') === 'waiting') {
+    const page = await rank.paginate(ctx, { pageSize: WAITLIST_CONSOLE_ROWS, stale: true })
+    const rows = await Promise.all(page.page.map(item => ctx.db.get('waitlistEntries', item.id as Entry['_id'])))
+    return rows.filter((entry): entry is Entry => entry?.status === 'waiting')
+  }
   const scanned = await ctx.db.query('waitlistEntries').withIndex('status_verifiedAt', q => q.eq('status', status ?? 'waiting')).take(filtered ? WAITLIST_FILTER_SCAN : WAITLIST_CONSOLE_ROWS)
   return scanned
     .filter(entry => (!wanted || entry.domain === wanted) && (!source || entry.source === source) && (!byAnswer || entry.answers?.[byAnswer.question] === byAnswer.answer))
@@ -414,9 +512,10 @@ async function mirrorBacklog(ctx: QueryCtx): Promise<{ pending: number, drift: n
 }
 
 /**
- * The Waitlist tab's rows: the oldest entries of a status first, narrowed
- * by domain, source or an answer (a filter looks through the oldest
- * {@link WAITLIST_FILTER_SCAN} of the status), and a count per status.
+ * The Waitlist tab's rows: the people waiting in the order of the line, or
+ * the oldest entries of another status first, narrowed by domain, source or
+ * an answer (a filter looks through the oldest {@link WAITLIST_FILTER_SCAN}
+ * of the status), a count per status and the planned wave.
  */
 export const consoleRows = query({
   args: { status: v.optional(vStatus), domain: v.optional(v.string()), source: v.optional(v.string()), question: v.optional(v.string()), answer: v.optional(v.string()) },
@@ -424,12 +523,17 @@ export const consoleRows = query({
     counts: v.object({ waiting: v.number(), admitted: v.number(), declined: v.number(), joined: v.number() }),
     mirror: v.object({ pending: v.number(), drift: v.number() }),
     entries: v.array(vConsoleEntry),
+    wave: v.union(v.null(), v.object({ size: v.number(), opensAt: v.union(v.null(), v.number()) })),
   }),
-  handler: async (ctx, filter) => ({
-    counts: await statusCounts(ctx),
-    mirror: await mirrorBacklog(ctx),
-    entries: (await filteredEntries(ctx, filter)).map(consoleEntry),
-  }),
+  handler: async (ctx, filter) => {
+    const wave = await plannedWave(ctx)
+    return {
+      counts: await statusCounts(ctx),
+      mirror: await mirrorBacklog(ctx),
+      entries: (await filteredEntries(ctx, filter)).map(consoleEntry),
+      wave: wave ? { size: wave.size, opensAt: wave.opensAt ?? null } : null,
+    }
+  },
 })
 
 // ── Leaving, admitting, declining ───────────────────────────────────────

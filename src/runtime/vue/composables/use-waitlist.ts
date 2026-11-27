@@ -32,6 +32,7 @@ export interface WaitlistApiRefs {
   declineWaitlist?: FunctionReference<'mutation', 'public', { ids: string[], abuse?: boolean }, { declined: number }>
   noteWaitlist?: FunctionReference<'mutation', 'public', { id: string, note: string }, null>
   getWaitlistCaps?: FunctionReference<'action', 'public', Record<string, never>, WaitlistCaps | null>
+  planWaitlistWave?: FunctionReference<'mutation', 'public', { size: number | null, opensAt?: number | null }, null>
 }
 
 /** Where a person is in joining: asking for the code, entering it, or reading their place. */
@@ -299,13 +300,14 @@ export function useWaitlist(options: UseWaitlistOptions = {}): UseWaitlistReturn
       }
       catch (cause) {
         const failure = failureOf(cause)
-        const waiting = (failure.data as { waitlist?: { position: number, total: number, token: string } }).waitlist
+        const waiting = (failure.data as { waitlist?: { position?: number, total?: number, token: string } }).waitlist
         if (failure.code !== 'forbidden' || failure.data.reason !== 'ticket_required' || failure.data.phase !== 'early-access') throw cause
         // The code checked: the address is on the list.
         token.value = waiting?.token ?? null
         if (token.value) kept?.keep(token.value)
         left.value = false
-        result = { status: 'waiting', position: waiting?.position ?? null, total: waiting?.total ?? 0, friends: 0, cap: 0, shareCode: '', launchNews: launchNews.value, token: waiting?.token ?? '' }
+        // A stand-in until the live place answers: no rank unless the waitlist shows it, joined just now.
+        result = { status: 'waiting', position: waiting?.position ?? null, total: waiting?.total ?? 0, joinedAt: Date.now(), friends: 0, cap: 0, credit: 0, perFriend: 0, wave: null, shareCode: '', launchNews: launchNews.value, token: waiting?.token ?? '' }
         joined.value = result
         step.value = 'status'
         return

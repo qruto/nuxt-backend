@@ -545,7 +545,9 @@
           "joined": "{actor} joined the waitlist",
           "admitted": "{actor} admitted people from the waitlist",
           "declined": "{actor} declined waitlist entries",
-          "left": "{actor} left the waitlist"
+          "left": "{actor} left the waitlist",
+          "friend_joined": "{actor} joined the waitlist through a friend's link",
+          "wave_planned": "{actor} planned the next waitlist wave"
         },
         "report": {
           "decided": "{actor} decided reported content",
@@ -1342,6 +1344,15 @@
         "declineConfirm": "Decline {count} entry? Its ticket is withdrawn. | Decline {count} entries? Their tickets are withdrawn.",
         "abuseConfirm": "Remove {count} entry as abuse? What it gave the friend who shared with it is taken back. | Remove {count} entries as abuse? What each gave the friend who shared with it is taken back.",
         "noEntries": "Nobody here yet.",
+        "planTitle": "The next wave",
+        "planHint": "People waiting see whether they are in it, and how many friends would put them in it, never its size.",
+        "planSize": "People in it",
+        "planOpensAt": "Opens on (optional)",
+        "plan": "Plan",
+        "planning": "Planning…",
+        "planned": "The next wave is planned.",
+        "planCleared": "The plan is cleared.",
+        "planClear": "Clear the plan",
         "capsTitle": "Room for a wave",
         "capsHint": "A wave is bounded by the sign-in codes the deployment allows and the email plan's daily quota.",
         "capCodes": "Sign-in codes left this hour: {left} of {limit}",
@@ -1726,6 +1737,11 @@
       "back": "Use another address",
       "placed": "You're #{position} of {total}",
       "placedUnknown": "You're on the waitlist.",
+      "joinedOn": "You joined on {date}.",
+      "credit": "Your friends moved you {count} day up the line. | Your friends moved you {count} days up the line.",
+      "waveIn": "You're in the next wave, for now.",
+      "waveShort": "{count} more friend puts you in the next wave. | {count} more friends put you in the next wave.",
+      "waveOpens": "The next wave opens on {date}.",
       "disclosure": "We admit in waves and may also admit by other criteria. Your position can change.",
       "admitted": "You're in. Sign up with the address you joined with.",
       "signUp": "Sign up",
@@ -1735,6 +1751,7 @@
       "dropReferral": "Not from a friend",
       "shareTitle": "Move up the list",
       "shareIntro": "Each friend who joins with your link moves you up, up to {cap} friends.",
+      "shareIntroOpen": "Each friend who joins with your link moves you up, with no limit.",
       "shareLink": "Your link",
       "copy": "Copy",
       "copied": "Copied",
@@ -2898,6 +2915,12 @@
         "intro": "You're #{position} of {total} on the waitlist.",
         "introUnplaced": "You're on the waitlist.",
         "note": "We admit in waves and may also admit by other criteria. Your place can change. Use this link to check it any time. It needs no sign-in code, so keep the email to yourself.",
+        "action": "See your place"
+      },
+      "waitlistFriendJoined": {
+        "subject": "A friend joined with your link",
+        "intro": "A friend joined the waitlist with your link. {count} friend has joined so far. | A friend joined the waitlist with your link. {count} friends have joined so far.",
+        "note": "Every friend who joins with your link moves you up the line.",
         "action": "See your place"
       },
       "topicConfirmation": {

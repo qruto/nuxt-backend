@@ -29,6 +29,7 @@
 
   [data-admin='waitlist-filter'],
   [data-admin='waitlist-wave'],
+  [data-admin='waitlist-plan'],
   [data-admin='waitlist-actions'],
   [data-admin='waitlist-note'] {
     display: flex;

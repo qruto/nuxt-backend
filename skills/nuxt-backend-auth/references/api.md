@@ -85,7 +85,7 @@ Types: `BackendPaths`, `DefineBackendAuthConfigOptions`.
 | `setupWaitlist()` | Run a waitlist for early access: joins proven by the sign-in code (the double opt-in), a place for everyone waiting, a boost for each friend who joins through their link, waves an administrator admits from the console's Waitlist tab, and a mirror of the people who asked for launch news to the email provider. |
 | `ACCESS_PHASES` | Every launch phase, in order: an app lists the ones it goes through. |
 
-Types: `AccessCtx`, `AccessWriteCtx`, `AccessPhaseState`, `AccessInvite`, `AccessMemberTicket`, `AccessAdmission`, `AccessConsole`, `AdmitResult`, `AccessApi`, `MemberTicket`, `MemberTicketsOptions`, `MemberTicketsApi`, `MemberTickets`, `Access`, `SetupAccessOptions`, `AccessEmail`, `AccessComponents`, `SetupWaitlistOptions`, `Waitlist`, `WaitlistApi`, `WaitlistCaps`, `WaitlistConsole`, `WaitlistEntryRow`, `WaitlistPlace`, `WaitlistStatusView`, `WaitlistQuestions`, `WaitlistStatus`, `AccessPhase`, `AccessTicket`, `InviteKind`, `InviteStatus`.
+Types: `AccessCtx`, `AccessWriteCtx`, `AccessPhaseState`, `AccessInvite`, `AccessMemberTicket`, `AccessAdmission`, `AccessConsole`, `AdmitResult`, `AccessApi`, `MemberTicket`, `MemberTicketsOptions`, `MemberTicketsApi`, `MemberTickets`, `Access`, `SetupAccessOptions`, `AccessEmail`, `AccessComponents`, `SetupWaitlistOptions`, `Waitlist`, `WaitlistApi`, `WaitlistCaps`, `WaitlistConsole`, `WaitlistEntryRow`, `WaitlistPlace`, `WaitlistStatusView`, `WaitlistWaveStanding`, `WaitlistBoostOptions`, `WaitlistBoostRule`, `WaitlistOptions`, `WaitlistQuestions`, `WaitlistRule`, `WaitlistStatus`, `AccessPhase`, `AccessTicket`, `InviteKind`, `InviteStatus`.
 
 ### `nuxt-backend/audit`
 

@@ -72,7 +72,7 @@ const personMessage = v.optional(v.string())
  */
 export const BACKEND_ERRORS = {
   unauthenticated: { status: 401, data: v.object({ message: personMessage }) },
-  forbidden: { status: 403, data: v.object({ reason: v.string(), message: personMessage, phase: v.optional(v.string()), invite: v.optional(v.string()), kind: v.optional(v.string()), until: v.optional(v.number()), waitlist: v.optional(v.object({ position: v.number(), total: v.number(), token: v.string() })) }) },
+  forbidden: { status: 403, data: v.object({ reason: v.string(), message: personMessage, phase: v.optional(v.string()), invite: v.optional(v.string()), kind: v.optional(v.string()), until: v.optional(v.number()), waitlist: v.optional(v.object({ position: v.optional(v.number()), total: v.optional(v.number()), token: v.string() })) }) },
   reauthentication_required: { status: 403, data: v.object({ message: personMessage }) },
   no_workspace: { status: 409, data: v.object({ message: personMessage }) },
   rate_limited: {

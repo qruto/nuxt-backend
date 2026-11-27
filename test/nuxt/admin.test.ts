@@ -878,12 +878,13 @@ describe('the Waitlist tab', () => {
       { id: 'e2', email: 'kai@panels.example', status: 'waiting', source: 'sign-in', answers: {}, locale: null, note: 'press', verifiedAt: AT + 1000, boost: 0, launchNews: false, mirror: null, declinedFor: null },
     ],
     questions: { role: ['Writer', 'Illustrator'] },
+    wave: null,
     ...fields,
   })
-  const apis = { getWaitlistConsole: 'waitlist:getWaitlistConsole', admitWaitlist: 'waitlist:admitWaitlist', declineWaitlist: 'waitlist:declineWaitlist', noteWaitlist: 'waitlist:noteWaitlist' }
+  const apis = { getWaitlistConsole: 'waitlist:getWaitlistConsole', admitWaitlist: 'waitlist:admitWaitlist', declineWaitlist: 'waitlist:declineWaitlist', noteWaitlist: 'waitlist:noteWaitlist', planWaitlistWave: 'waitlist:planWaitlistWave' }
 
-  function waitlistTab(props: Record<string, unknown> = {}, filter: Record<string, unknown> = {}) {
-    answers.set(key('waitlist:getWaitlistConsole', filter), waitlistConsole())
+  function waitlistTab(props: Record<string, unknown> = {}, filter: Record<string, unknown> = {}, fields: Partial<WaitlistConsole> = {}) {
+    answers.set(key('waitlist:getWaitlistConsole', filter), waitlistConsole(fields))
     return mount(AdminWaitlist as never, {
       props: { confirm: () => true, ...props } as never,
       attachTo: document.body,
@@ -919,6 +920,26 @@ describe('the Waitlist tab', () => {
     await wrapper.find('[data-admin="waitlist-wave"]').trigger('submit')
     await flushPromises()
     expect(setFlagCall).toHaveBeenLastCalledWith({ next: 50 })
+    expect(reauthenticated).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('plans the next wave from the saved plan, and clears it, each behind a recent sign-in', async () => {
+    setFlagCall.mockResolvedValueOnce(null as never).mockResolvedValueOnce(null as never)
+    const wrapper = waitlistTab({}, { status: 'waiting' }, { wave: { size: 40, opensAt: Date.UTC(2026, 11, 15) } })
+    await flushPromises()
+    const plan = wrapper.find('[data-admin="waitlist-plan"]')
+    expect((plan.find('input[type="number"]').element as HTMLInputElement).value).toBe('40')
+    expect((plan.find('input[type="date"]').element as HTMLInputElement).value).toBe('2026-12-15')
+    await plan.find('input[type="number"]').setValue('60')
+    await plan.trigger('submit')
+    await flushPromises()
+    expect(setFlagCall).toHaveBeenLastCalledWith({ size: 60, opensAt: Date.UTC(2026, 11, 15) })
+    expect(wrapper.find('[data-admin="message"]').text()).toBe('The next wave is planned.')
+    await wrapper.find('[data-admin="waitlist-plan-clear"]').trigger('click')
+    await flushPromises()
+    expect(setFlagCall).toHaveBeenLastCalledWith({ size: null })
+    expect(wrapper.find('[data-admin="message"]').text()).toBe('The plan is cleared.')
     expect(reauthenticated).toHaveBeenCalledTimes(2)
     wrapper.unmount()
   })

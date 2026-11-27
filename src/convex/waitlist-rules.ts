@@ -25,6 +25,8 @@ export const WAITLIST_SOURCE_MAX = 64
 export const WAITLIST_NOTE_MAX = 500
 /** The most entries one admission takes (the tab's "next N"). */
 export const WAITLIST_WAVE_MAX = 200
+/** The largest wave an administrator may plan; it is admitted 200 at a time. */
+export const WAITLIST_WAVE_PLAN_MAX = 10_000
 /** The most entries a console read lists. */
 export const WAITLIST_CONSOLE_ROWS = 200
 /** How many of a status's oldest entries a filtered console read looks through. */
@@ -38,18 +40,92 @@ export const SOURCE_SIGN_IN = 'sign-in'
 /** The source of an entry made on a form, when the app names none. */
 export const SOURCE_FORM = 'form'
 
-/** How many friends move a person up, by default, and how far each moves them. */
-export const DEFAULT_BOOST = { cap: 10, days: 1 } as const
-
 const DAY_MS = 24 * 60 * 60 * 1000
 
 /**
- * The key people queue by: when they were verified, moved up by their
- * boost. A friend is worth `days` days, up to the cap, so one sharer never
- * jumps a whole list and a long wait still counts. Ties break by entry id.
+ * How the line rewards sharing, as the component applies it: how far each
+ * friend moves the sharer up, how many friends count, and how far a friend
+ * who came through a link starts up the line themselves. Durations in ms.
  */
-export function queueKey(verifiedAt: number, boost: number, days: number = DEFAULT_BOOST.days): number {
-  return verifiedAt - boost * days * DAY_MS
+export interface WaitlistBoostRule {
+  /** How far each friend moves the sharer up the line. */
+  perFriend: number
+  /** The most friends that count for one person; `null` for no limit, 0 when sharing is off. */
+  cap: number | null
+  /** How far a friend who came through a link starts up the line. */
+  welcome: number
+}
+
+/** The package's rule: a day for each friend, up to ten, and nothing for the friend. */
+export const DEFAULT_BOOST: WaitlistBoostRule = { perFriend: DAY_MS, cap: 10, welcome: 0 }
+
+/** The most a single friend, or a welcome, may be worth: a year. */
+export const WAITLIST_BOOST_MAX_MS = 365 * DAY_MS
+
+/**
+ * The waitlist's rule, checked, as the sign-in gate and `setupWaitlist`
+ * read it: how sharing moves people, whether a person may read their place
+ * and the size of the list, and whether a sharer hears of a friend.
+ */
+export interface WaitlistRule {
+  boost: WaitlistBoostRule
+  /** Whether a person reads their place and how many wait. */
+  rank: boolean
+  /** Whether a sharer is emailed when a friend joins with their link. */
+  notify: boolean
+}
+
+/** How sharing moves people up the line, as `setupAccess({ waitlist: { boost } })` takes it. Durations in milliseconds. */
+export interface WaitlistBoostOptions {
+  /** How far each friend who joins through a person's link moves them up the line. Default a day; at most a year. */
+  perFriend?: number
+  /** The most friends that count for one person. Default 10; `null` for no limit. */
+  cap?: number | null
+  /** How far the friend starts up the line themselves, for coming through a link. Default 0. */
+  welcome?: number
+  /** Email the person, at most once a day, when a friend joins with their link (`waitlistFriendJoined`). Default false. */
+  notify?: boolean
+}
+
+/** The waitlist's rule as `setupAccess({ waitlist })` takes it. */
+export interface WaitlistOptions {
+  /** How sharing moves people; `false` turns it off. Default: a day a friend, up to ten, nothing for the friend. */
+  boost?: WaitlistBoostOptions | false
+  /** What a person reads of their standing; `{ rank: false }` keeps their position and the list's size to the administrators. */
+  place?: { rank?: boolean }
+}
+
+/** The rule `setupAccess({ waitlist })` names, checked: whole milliseconds, a positive step, a cap of at least one friend or none. */
+export function checkedWaitlistRule(options: WaitlistOptions | undefined): WaitlistRule {
+  const rank = options?.place?.rank !== false
+  const boost = options?.boost
+  if (boost === false) return { boost: { ...DEFAULT_BOOST, cap: 0, welcome: 0 }, rank, notify: false }
+  const perFriend = boost?.perFriend ?? DEFAULT_BOOST.perFriend
+  const cap = boost?.cap === undefined ? DEFAULT_BOOST.cap : boost.cap
+  const welcome = boost?.welcome ?? DEFAULT_BOOST.welcome
+  if (!Number.isInteger(perFriend) || perFriend < 60_000 || perFriend > WAITLIST_BOOST_MAX_MS) throw new TypeError('[nuxt-backend] setupAccess: `waitlist.boost.perFriend` is a whole number of milliseconds, from a minute to a year.')
+  if (cap !== null && (!Number.isInteger(cap) || cap < 1)) throw new TypeError('[nuxt-backend] setupAccess: `waitlist.boost.cap` is a whole number of friends, at least 1, or `null` for no limit. To turn sharing off, pass `boost: false`.')
+  if (!Number.isInteger(welcome) || welcome < 0 || welcome > WAITLIST_BOOST_MAX_MS) throw new TypeError('[nuxt-backend] setupAccess: `waitlist.boost.welcome` is a whole number of milliseconds, from 0 to a year.')
+  return { boost: { perFriend, cap, welcome }, rank, notify: boost?.notify === true }
+}
+
+/**
+ * The key people queue by: when they were verified, moved up by the credit
+ * their friends earned them (and the welcome a link gave them). The date
+ * itself is never rewritten: only the key moves. Ties break by entry id.
+ */
+export function queueKey(verifiedAt: number, credit = 0): number {
+  return verifiedAt - credit
+}
+
+/**
+ * How many more friends put a person ahead of a cutoff key, each friend
+ * moving them `perFriend` up: 0 when they stand ahead of it already. A key
+ * equal to the cutoff counts as behind it, as a tie may break either way.
+ */
+export function friendsShortOf(key: number, cutoff: number, perFriend: number): number {
+  if (key < cutoff) return 0
+  return Math.floor((key - cutoff) / perFriend) + 1
 }
 
 /** An address as the waitlist keeps it: trimmed, lower-cased. */

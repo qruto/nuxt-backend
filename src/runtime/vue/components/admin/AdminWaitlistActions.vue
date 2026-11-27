@@ -1,7 +1,9 @@
 <script setup lang="ts">
 /**
  * What an administrator does with the waiting people: admit the next N in
- * line, or approve, decline or remove as abuse the entries ticked.
+ * line, plan the next wave (which each waiting person reads only as "in it"
+ * or "N friends short"), or approve, decline or remove as abuse the entries
+ * ticked.
  *
  * Internal: a part of `AdminWaitlist.vue`.
  *
@@ -10,7 +12,7 @@
 import type { WaitlistTab } from './admin-waitlist-tab'
 
 const props = defineProps<{ tab: WaitlistTab }>()
-const { t, running, selected, next } = props.tab
+const { t, running, selected, next, plan } = props.tab
 
 /** A button's `aria-disabled`: busy while its change runs, and unavailable until something is ticked. */
 const state = (key: string) => props.tab.busy(key) ?? (selected.value.length ? undefined : 'true')
@@ -38,6 +40,45 @@ const state = (key: string) => props.tab.busy(key) ?? (selected.value.length ? u
     >
       {{ running === 'next' ? t('waitlist.approving') : t('waitlist.approveNext') }}
     </button>
+  </form>
+  <form
+    data-admin="waitlist-plan"
+    :aria-label="t('waitlist.planTitle')"
+    @submit.prevent="tab.planWave()"
+  >
+    <label>
+      {{ t('waitlist.planSize') }}
+      <input
+        v-model="plan.size"
+        type="number"
+        min="1"
+        :max="tab.planMax"
+        inputmode="numeric"
+      >
+    </label>
+    <label>
+      {{ t('waitlist.planOpensAt') }}
+      <input
+        v-model="plan.opensAt"
+        type="date"
+      >
+    </label>
+    <button
+      type="submit"
+      data-admin="waitlist-plan-save"
+      :aria-disabled="tab.busy('plan')"
+    >
+      {{ running === 'plan' ? t('waitlist.planning') : t('waitlist.plan') }}
+    </button>
+    <button
+      type="button"
+      data-admin="waitlist-plan-clear"
+      :aria-disabled="tab.busy('plan')"
+      @click="tab.planWave(true)"
+    >
+      {{ t('waitlist.planClear') }}
+    </button>
+    <p>{{ t('waitlist.planHint') }}</p>
   </form>
   <div data-admin="waitlist-actions">
     <button

@@ -6,7 +6,8 @@ import { useWaitlistFormView } from './waitlist-form'
 
 /**
  * A waiting person's share link, inside `WaitlistPlace`: what it does for
- * them (with the cap), the incentive disclosed in the words they share, a
+ * them (with the cap, or that there is none; nothing at all when sharing is
+ * off), the incentive disclosed in the words they share, a
  * read-only field with the link, a button that copies the message and the
  * link, and the friends who joined through it. No names, no leaderboards.
  */
@@ -34,14 +35,14 @@ async function copy() {
 
 <template>
   <section
-    v-if="link"
+    v-if="link && place?.cap !== 0"
     data-waitlist="share"
   >
     <h3 data-waitlist="share-title">
       {{ t('shareTitle') }}
     </h3>
     <p data-waitlist="share-intro">
-      {{ t('shareIntro', { cap: place?.cap ?? 0 }) }} {{ t('shareText') }}
+      {{ place?.cap === null ? t('shareIntroOpen') : t('shareIntro', { cap: place?.cap ?? 0 }) }} {{ t('shareText') }}
     </p>
     <label data-waitlist="share-label">
       {{ t('shareLink') }}

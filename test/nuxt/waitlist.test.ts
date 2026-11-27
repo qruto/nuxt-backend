@@ -81,7 +81,7 @@ const { ConvexAuthStateKey } = await import('nuxt-convex-module/client')
 const api = { getWaitlistQuestions: 'waitlist:getWaitlistQuestions', joinWaitlist: 'waitlist:joinWaitlist', waitlistStatus: 'waitlist:waitlistStatus', leaveWaitlist: 'waitlist:leaveWaitlist' }
 const provide = { [BackendApiKey as symbol]: { waitlist: api } }
 const QUESTIONS = { role: ['Writer', 'Illustrator'] }
-const VIEW: WaitlistStatusView = { status: 'waiting', position: 48, total: 1204, friends: 2, cap: 10, shareCode: 'ABCD2345', launchNews: true }
+const VIEW: WaitlistStatusView = { status: 'waiting', position: 48, total: 1204, joinedAt: Date.UTC(2026, 10, 12), friends: 2, cap: 10, credit: 2 * 24 * 60 * 60 * 1000, perFriend: 24 * 60 * 60 * 1000, wave: null, shareCode: 'ABCD2345', launchNews: true }
 
 const mounted: VueWrapper[] = []
 function inSetup<T>(runner: () => T): T {
@@ -520,6 +520,25 @@ describe('the /waitlist page', () => {
     await flushPromises()
     expect(reloaded.find('[data-waitlist="page"]').attributes('data-state')).toBe('ready')
     expect(reloaded.find('[data-waitlist="position"]').text()).toBe('You\'re #48 of 1,204')
+  })
+
+  it('shows the day a person joined, their friends\' credit and the next wave where rank is private, never a place or a count', async () => {
+    const day = 24 * 60 * 60 * 1000
+    answers.set(key('waitlist:waitlistStatus', { token: 'private.signature' }), { ...VIEW, position: null, total: 0, cap: null, credit: 21 * day, perFriend: 7 * day, wave: { opensAt: Date.UTC(2026, 11, 15), included: false, friendsShort: 2 } })
+    window.location.hash = '#private.signature'
+    const wrapper = render(WaitlistStatus)
+    await flushPromises()
+    expect(wrapper.find('[data-waitlist="position"]').text()).toBe('You\'re on the waitlist.')
+    const facts = wrapper.findAll('[data-waitlist="fact"]').map(fact => fact.text())
+    expect(facts).toEqual([
+      `You joined on ${new Date(VIEW.joinedAt).toLocaleDateString('en', { dateStyle: 'long' })}.`,
+      'Your friends moved you 21 days up the line.',
+      '2 more friends put you in the next wave.',
+      `The next wave opens on ${new Date(Date.UTC(2026, 11, 15)).toLocaleDateString('en', { dateStyle: 'long' })}.`,
+    ])
+    expect(wrapper.text()).not.toMatch(/#|1,204/)
+    expect(wrapper.find('[data-waitlist="share-intro"]').text()).toContain('with no limit')
+    wrapper.unmount()
   })
 
   it('says a link that names nobody does not work', async () => {

@@ -7174,6 +7174,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             verifiedAt: number;
           }>;
           mirror: { drift: number; pending: number };
+          wave: null | { opensAt: null | number; size: number };
         },
         Name
       >;
@@ -7211,16 +7212,29 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       place: FunctionReference<
         "query",
         "internal",
-        { id: string },
+        { id: string; perFriend?: null | number; rank?: boolean },
         null | {
           boost: number;
+          credit: number;
           launchNews: boolean;
           position: null | number;
           shareCode: string;
           status: "waiting" | "admitted" | "declined" | "joined";
           total: number;
           verifiedAt: number;
+          wave: null | {
+            friendsShort: null | number;
+            included: boolean;
+            opensAt: null | number;
+          };
         },
+        Name
+      >;
+      planWave: FunctionReference<
+        "mutation",
+        "internal",
+        { wave: null | { opensAt?: number; size: number } },
+        null,
         Name
       >;
       queue: FunctionReference<
@@ -7249,7 +7263,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
-          boost: { cap: number; days: number };
+          boost: { cap: null | number; perFriend: number; welcome: number };
           email: string;
           join?: string;
           locale?: string;
@@ -7260,6 +7274,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           id: string;
           news: boolean;
           referred: boolean;
+          sharer?: {
+            credit: number;
+            email: string;
+            friends: number;
+            id: string;
+            locale: null | string;
+          };
           source: string;
           status: "waiting" | "admitted" | "declined" | "joined";
         },

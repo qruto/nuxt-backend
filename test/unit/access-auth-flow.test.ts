@@ -25,6 +25,10 @@ function memoryGate(phase: AccessPhase) {
     invites: new Map<string, Invite>(),
     ledger: [] as Array<{ email: string, userId?: string, ticket: AccessTicket }>,
     waitlisted: new Map<string, WaitlistRecord>(),
+    /** Whether the waitlist shows rank (`setupWaitlist({ place })`). */
+    rank: true,
+    /** The waiting friend a new entry credits, when the waitlist tells sharers. */
+    sharer: undefined as WaitlistRecord['sharer'],
   }
   const inviteStatus = (code?: string): InviteStatus | null => {
     if (!code) return null
@@ -57,7 +61,8 @@ function memoryGate(phase: AccessPhase) {
     waitlist: async (_ctx, { email }) => {
       const found = state.waitlisted.get(email)
       if (found) return { ...found, created: false }
-      const entry: WaitlistRecord = { id: `entry_${state.waitlisted.size + 1}`, created: true, position: state.waitlisted.size + 1, total: state.waitlisted.size + 1, token: `entry_${state.waitlisted.size + 1}.signature`, source: 'sign-in', referred: false, news: false }
+      const place = state.rank ? { position: state.waitlisted.size + 1, total: state.waitlisted.size + 1 } : { position: null, total: 0 }
+      const entry: WaitlistRecord = { id: `entry_${state.waitlisted.size + 1}`, created: true, waiting: true, ...place, token: `entry_${state.waitlisted.size + 1}.signature`, source: 'sign-in', referred: Boolean(state.sharer), news: false, ...(state.sharer ? { sharer: state.sharer } : {}) }
       state.waitlisted.set(email, entry)
       return entry
     },
@@ -198,6 +203,29 @@ describe('early access', () => {
     expect(refused).toMatchObject({ status: 403, reason: 'ticket_required', waitlist: { position: 1 } })
     expect(flow.state.waitlisted.size).toBe(1)
     expect(flow.sent.filter(entry => entry.name === 'waitlistConfirmation')).toHaveLength(0)
+  })
+
+  it('keeps rank to itself where the waitlist does: the refusal and the confirmation carry no place and no count', async () => {
+    vi.stubEnv('SITE_URL', 'https://panels.example')
+    const flow = await launch('early-access')
+    flow.state.rank = false
+    const { code } = await flow.sendCode('new@resend.dev')
+    const refused = await body(await flow.post('/sign-in/email-otp', { email: 'new@resend.dev', otp: code })) as Record<string, unknown>
+    expect(refused).toMatchObject({ status: 403, reason: 'ticket_required', waitlist: { token: 'entry_1.signature' } })
+    expect(refused.waitlist).toEqual({ token: 'entry_1.signature' })
+    expect(flow.sent.find(entry => entry.name === 'waitlistConfirmation')!.data).toEqual({ email: 'new@resend.dev', statusUrl: 'https://panels.example/waitlist#entry_1.signature' })
+  })
+
+  it('tells the friend whose link a new entry came through, once a day, and records it without either address', async () => {
+    vi.stubEnv('SITE_URL', 'https://panels.example')
+    const flow = await launch('early-access')
+    flow.state.sharer = { email: 'sharer@resend.dev', locale: null, friends: 3, credit: 21 * 24 * 60 * 60 * 1000, token: 'entry_9.signature' }
+    const { code } = await flow.sendCode('new@resend.dev')
+    await flow.post('/sign-in/email-otp', { email: 'new@resend.dev', otp: code })
+    const told = flow.sent.filter(entry => entry.name === 'waitlistFriendJoined')
+    expect(told).toHaveLength(1)
+    expect(told[0]!.data).toEqual({ email: 'sharer@resend.dev', statusUrl: 'https://panels.example/waitlist#entry_9.signature', friends: 3, days: 21 })
+    expect(flow.audit.recordBackendEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: 'waitlist.friend_joined', data: { friends: 3 } }))
   })
 })
 

@@ -20,6 +20,7 @@ import { noticeDecided } from './emails/notice-decided.js'
 import { contentRestricted } from './emails/content-restricted.js'
 import { appealDecided } from './emails/appeal-decided.js'
 import { waitlistConfirmation } from './emails/waitlist-confirmation.js'
+import { waitlistFriendJoined } from './emails/waitlist-friend-joined.js'
 import { welcome } from './emails/welcome.js'
 import { withdrawalReceipt } from './emails/withdrawal-receipt.js'
 import { TRANSLATED_LOCALES } from './label-format.js'
@@ -308,6 +309,17 @@ export interface WaitlistConfirmationEmailData {
   total?: number
 }
 
+/** Data for the `waitlistFriendJoined` template. */
+export interface WaitlistFriendJoinedEmailData {
+  email: string
+  /** The person's status page, with its signed token in the fragment. */
+  statusUrl: string
+  /** How many friends have joined with their link so far. */
+  friends: number
+  /** How far up the line their friends moved them, in whole days. */
+  days: number
+}
+
 /** Data for the `topicConfirmation` template. */
 export interface TopicConfirmationEmailData {
   email: string
@@ -459,6 +471,8 @@ export interface EmailTemplates {
   withdrawalReceipt: (data: WithdrawalReceiptEmailData, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>
   /** Sent once to a person whose sign-in code checked while the app is in early access: their place, and the link that shows it again. */
   waitlistConfirmation: (data: WaitlistConfirmationEmailData, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>
+  /** Sent to a waiting person, at most once a day, when a friend joins with their link (`setupAccess({ waitlist: { boost: { notify: true } } })`). */
+  waitlistFriendJoined: (data: WaitlistFriendJoinedEmailData, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>
   /** Sent once when an administrator admits a waitlist entry: a plain "You're in", with no token and no promotion. */
   waitlistAdmitted: (data: WaitlistAdmittedEmailData, context: EmailRenderContext) => EmailMessage | Promise<EmailMessage>
   /** A double opt-in's confirmation: one button that joins the topic the person asked for. */
@@ -725,6 +739,7 @@ export const PACKAGED_EMAIL_TEMPLATES: { [Name in EmailTemplateName]: (data: Ema
   gift: inLayout(gift),
   giftPassEnding: inLayout(giftPassEnding),
   waitlistConfirmation: inLayout(waitlistConfirmation),
+  waitlistFriendJoined: inLayout(waitlistFriendJoined),
   waitlistAdmitted: inLayout(waitlistAdmitted),
   topicConfirmation: inLayout(topicConfirmation),
   noticeReceived: inLayout(noticeReceived),
@@ -1001,6 +1016,7 @@ export const EMAIL_PREVIEW_SAMPLES: readonly PreviewSample[] = [
   { key: 'welcome', template: 'welcome', note: 'Once, right after an account is created.', data: () => ({ email: SAMPLE_EMAIL, name: SAMPLE_NAME }) } satisfies PreviewSample<'welcome'>,
   { key: 'invite', template: 'invite', note: 'A workspace invitation, with its accept link.', data: site => ({ email: 'grace@example.com', url: `${site}/accept-invitation?id=sample`, inviterName: SAMPLE_NAME, inviterEmail: SAMPLE_EMAIL, workspaceName: 'Analytical Engines', role: 'member' }) } satisfies PreviewSample<'invite'>,
   { key: 'waitlistConfirmation', template: 'waitlistConfirmation', note: 'Once, to a person whose sign-in code checked while the app is in early access.', data: site => ({ email: SAMPLE_EMAIL, statusUrl: `${site}/waitlist#sample`, position: 48, total: 1204 }) } satisfies PreviewSample<'waitlistConfirmation'>,
+  { key: 'waitlistFriendJoined', template: 'waitlistFriendJoined', note: 'At most once a day, to a waiting person whose link a friend joined with, when the waitlist tells sharers.', data: site => ({ email: SAMPLE_EMAIL, statusUrl: `${site}/waitlist#sample`, friends: 3, days: 3 }) } satisfies PreviewSample<'waitlistFriendJoined'>,
   { key: 'waitlistAdmitted', template: 'waitlistAdmitted', note: 'Once, when an administrator admits a waitlist entry.', data: site => ({ email: SAMPLE_EMAIL, signInUrl: `${site}/login` }) } satisfies PreviewSample<'waitlistAdmitted'>,
   { key: 'topicConfirmation', template: 'topicConfirmation', note: 'When a person asks to join a topic with double opt-in.', data: site => ({ email: SAMPLE_EMAIL, topic: 'Product news', confirmUrl: `${site}/unsubscribe?confirm=c1.sample` }) } satisfies PreviewSample<'topicConfirmation'>,
   { key: 'noticeReceived', template: 'noticeReceived', note: 'To a person who sent a notice through the report page, as it arrives.', data: site => ({ email: SAMPLE_EMAIL, url: `${site}/strips/sample`, intimate: false }) } satisfies PreviewSample<'noticeReceived'>,

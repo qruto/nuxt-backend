@@ -12,13 +12,14 @@ import {
   addressDigest,
   answersProblem,
   checkedQuestions,
-  DEFAULT_BOOST,
   readStatusToken,
   SOURCE_FORM,
   WAITLIST_SOURCE_MAX,
   WAITLIST_STATUSES,
   WAITLIST_WAVE_MAX,
+  WAITLIST_WAVE_PLAN_MAX,
   type WaitlistQuestions,
+  type WaitlistRule,
   type WaitlistStatus,
 } from '../waitlist-rules.js'
 import type { Email } from './email.js'
@@ -34,17 +35,35 @@ import { DEFAULT_LIMITS } from './rate-limit.js'
 // what the app serves: the join, a place by its signed link, leaving, and
 // the Waitlist tab's functions.
 
+/** Where a waiting person stands against the next wave an administrator planned: in it or not, never its size. */
+export interface WaitlistWaveStanding {
+  /** When the wave opens, epoch ms; `null` when no date is set. */
+  opensAt: number | null
+  /** Whether the person is in it now (a later friend of someone else may still move them out). */
+  included: boolean
+  /** How many more friends would put them in it: 0 when in it, `null` when sharing is off. */
+  friendsShort: number | null
+}
+
 /** One person's standing, as their status page reads it. */
 export interface WaitlistStatusView {
   status: WaitlistStatus
-  /** The place among the people waiting, 1-based; `null` once the person is no longer waiting. */
+  /** The place among the people waiting, 1-based; `null` once the person is no longer waiting, and always where rank is private (`place: { rank: false }`). */
   position: number | null
-  /** How many people wait. */
+  /** How many people wait; 0 where rank is private. */
   total: number
-  /** The friends who joined through their link and count, up to `cap`. */
+  /** When the code proved the address, epoch ms: the date the line goes by. Friends never move it; they move the place. */
+  joinedAt: number
+  /** The friends who joined through their link and count. */
   friends: number
-  /** The most friends that count for one person. */
-  cap: number
+  /** The most friends that count for one person; `null` for no limit, 0 when sharing is off. */
+  cap: number | null
+  /** How far up the line friends (and a friend's welcome) moved them, in ms; 0 once they stop waiting. */
+  credit: number
+  /** How far each friend moves them, in ms; 0 when sharing is off. */
+  perFriend: number
+  /** Where they stand against the planned wave; `null` when none is planned or they no longer wait. */
+  wave: WaitlistWaveStanding | null
   /** The code of their share link: `?ref=<shareCode>` on the page that holds the form. */
   shareCode: string
   /** Whether they asked for launch news. */
@@ -87,6 +106,8 @@ export interface WaitlistConsole {
   entries: WaitlistEntryRow[]
   /** The questions the app asks, with their choices: the filter's. */
   questions: WaitlistQuestions
+  /** The next wave as planned: how many from the front of the line, and when it opens; `null` when none is planned. */
+  wave: { size: number, opensAt: number | null } | null
 }
 
 /** The room a wave has, read from the services that bound it. */
@@ -124,12 +145,21 @@ export interface WaitlistApi {
   noteWaitlist: RegisteredMutation<'public', { id: string, note: string }, Promise<null>>
   /** The room a wave has. `null` for anyone who is not an administrator now. */
   getWaitlistCaps: RegisteredAction<'public', Record<string, never>, Promise<WaitlistCaps | null>>
+  /**
+   * Plan the next wave: `size` people from the front of the line, opening at
+   * `opensAt` (epoch ms) if a date is set; `size: null` clears the plan.
+   * Each waiting person then reads whether they are in it, never its size.
+   * An administrator's, in person, with a recent sign-in.
+   */
+  planWaitlistWave: RegisteredMutation<'public', { size: number | null, opensAt?: number | null }, Promise<null>>
 }
 
 /** The app's waitlist, from {@link setupWaitlist}. */
 export interface Waitlist {
   /** The questions asked beside the address. */
   questions: WaitlistQuestions
+  /** The rule the line runs on, from `setupAccess({ waitlist })`: how sharing moves people, and whether a person reads their rank. */
+  rule: WaitlistRule
   /** The public functions `backend/waitlist.ts` re-exports. */
   api: WaitlistApi
   /**
@@ -164,7 +194,8 @@ export interface SetupWaitlistOptions {
 interface WaitlistRefs {
   waitlist: {
     stage: FunctionReference<'mutation', 'internal', { email: string, key: string, answers?: Record<string, string>, launchNews?: { text: string }, source: string, ref?: string, locale?: string }, null>
-    place: FunctionReference<'query', 'internal', { id: string }, { status: WaitlistStatus, position: number | null, total: number, boost: number, shareCode: string, launchNews: boolean } | null>
+    place: FunctionReference<'query', 'internal', { id: string, rank?: boolean, perFriend?: number | null }, { status: WaitlistStatus, position: number | null, total: number, boost: number, credit: number, shareCode: string, launchNews: boolean, verifiedAt: number, wave: WaitlistWaveStanding | null } | null>
+    planWave: FunctionReference<'mutation', 'internal', { wave: { size: number, opensAt?: number } | null }, null>
     leave: FunctionReference<'mutation', 'internal', { id: string }, null>
     queue: FunctionReference<'query', 'internal', { limit: number }, string[]>
     admit: FunctionReference<'mutation', 'internal', { ids: string[], max?: number, label?: string, createdBy?: string }, Array<{ id: string, email: string, locale: string | null }>>
@@ -182,6 +213,14 @@ function checkedWave(ids: string[] | undefined, next: number | undefined): void 
   }
   if (ids && ids.length > WAITLIST_WAVE_MAX) throw backendError('invalid_input', { field: 'ids', reason: 'too_many' }, `[nuxt-backend] admitWaitlist: at most ${WAITLIST_WAVE_MAX} entries at a time.`)
   if (!ids && next === undefined) throw backendError('invalid_input', { field: 'ids' }, '[nuxt-backend] admitWaitlist: pass the entries (`ids`) or how many are next (`next`).')
+}
+
+/** The plan `planWaitlistWave` takes, checked: a size within a planned wave's bounds, and a date that is a time. */
+function checkedPlan(size: number | null, opensAt: number | null | undefined): { size: number, opensAt?: number } | null {
+  if (size === null) return null
+  if (!Number.isInteger(size) || size < 1 || size > WAITLIST_WAVE_PLAN_MAX) throw backendError('invalid_input', { field: 'size' }, `[nuxt-backend] planWaitlistWave: the size is a whole number from 1 to ${WAITLIST_WAVE_PLAN_MAX}.`)
+  if (opensAt !== undefined && opensAt !== null && !Number.isFinite(opensAt)) throw backendError('invalid_input', { field: 'opensAt' }, '[nuxt-backend] planWaitlistWave: the opening date is a time in epoch milliseconds.')
+  return { size, ...(typeof opensAt === 'number' ? { opensAt } : {}) }
 }
 
 /** The words of the launch-news box the person agreed to, kept with the time as the record of consent: the form sends the ones it showed, else these. */
@@ -220,7 +259,7 @@ const siteUrl = (): string | undefined => readEnv('SITE_URL')?.replace(/\/+$/, '
  *   questions: { role: ['Writer', 'Illustrator', 'Reader'] },
  * })
  *
- * export const { getWaitlistQuestions, joinWaitlist, waitlistStatus, leaveWaitlist, getWaitlistConsole, admitWaitlist, declineWaitlist, noteWaitlist, getWaitlistCaps } = waitlist.api
+ * export const { getWaitlistQuestions, joinWaitlist, waitlistStatus, leaveWaitlist, getWaitlistConsole, admitWaitlist, declineWaitlist, noteWaitlist, getWaitlistCaps, planWaitlistWave } = waitlist.api
  * ```
  */
 export function setupWaitlist(components: AccessComponents, options: SetupWaitlistOptions): Waitlist {
@@ -232,6 +271,8 @@ export function setupWaitlist(components: AccessComponents, options: SetupWaitli
   }
   const { access, email } = options
   const questions = checkedQuestions(options.questions)
+  // The rule is the access's (setupAccess({ waitlist })): the sign-in page records entries by it too.
+  const rule: WaitlistRule = access.internals.waitlistRule
   // Where an admitted person signs up: the sign-in page, wherever nuxt.config moves it.
   const signInPath = resolveBackendPaths(options.paths, 'setupWaitlist').login
   const refs = access.internals.refs as WaitlistRefs & Record<string, unknown>
@@ -245,11 +286,25 @@ export function setupWaitlist(components: AccessComponents, options: SetupWaitli
   /** The entry a status token names, if the token was signed here. */
   const entryOf = async (token: string): Promise<string | null> => firstVerified(secrets(), value => readStatusToken(value, token))
 
-  /** An entry's standing, as its status page reads it. */
+  const sharing = rule.boost.cap === null || rule.boost.cap > 0
+
+  /** An entry's standing, as its status page reads it: the place and the count only where rank is shown. */
   async function placeFor(ctx: Pick<AccessCtx, 'runQuery'>, id: string): Promise<WaitlistStatusView | null> {
-    const place = await ctx.runQuery(refs.waitlist.place, { id })
+    const place = await ctx.runQuery(refs.waitlist.place, { id, rank: rule.rank, perFriend: sharing ? rule.boost.perFriend : null })
     if (!place) return null
-    return { status: place.status, position: place.position, total: place.total, friends: place.boost, cap: DEFAULT_BOOST.cap, shareCode: place.shareCode, launchNews: place.launchNews }
+    return {
+      status: place.status,
+      position: place.position,
+      total: place.total,
+      joinedAt: place.verifiedAt,
+      friends: place.boost,
+      cap: rule.boost.cap,
+      credit: place.credit,
+      perFriend: sharing ? rule.boost.perFriend : 0,
+      wave: place.wave,
+      shareCode: place.shareCode,
+      launchNews: place.launchNews,
+    }
   }
 
   const getWaitlistQuestions = queryGeneric({ args: {}, handler: async (): Promise<WaitlistQuestions> => questions })
@@ -388,10 +443,23 @@ export function setupWaitlist(components: AccessComponents, options: SetupWaitli
     },
   })
 
+  const planWaitlistWave = mutationGeneric({
+    args: { size: v.union(v.null(), v.number()), opensAt: v.optional(v.union(v.null(), v.number())) },
+    returns: v.null(),
+    handler: async (ctx, { size, opensAt }) => {
+      await administrators.require(ctx, 'planWaitlistWave')
+      const wave = checkedPlan(size, opensAt)
+      await ctx.runMutation(refs.waitlist.planWave, { wave })
+      await audit.recordBackendEvent(ctx, { type: 'waitlist.wave_planned', data: wave ? { size: wave.size, ...(wave.opensAt !== undefined ? { opensAt: wave.opensAt } : {}) } : {} })
+      return null
+    },
+  })
+
   return {
     questions,
+    rule,
     launchAudience: ctx => ctx.runQuery(refs.waitlist.audience, {}),
-    api: { getWaitlistQuestions, joinWaitlist, waitlistStatus, leaveWaitlist, getWaitlistConsole, admitWaitlist, declineWaitlist, noteWaitlist, getWaitlistCaps } as unknown as WaitlistApi,
+    api: { getWaitlistQuestions, joinWaitlist, waitlistStatus, leaveWaitlist, getWaitlistConsole, admitWaitlist, declineWaitlist, noteWaitlist, getWaitlistCaps, planWaitlistWave } as unknown as WaitlistApi,
   }
 }
 

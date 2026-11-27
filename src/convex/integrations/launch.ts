@@ -22,7 +22,7 @@ import {
   newLinkToken,
 } from '../access-tickets.js'
 import { DEFAULT_ADMIN_ROLES, IMPERSONATED_BY_CLAIM } from '../constants.js'
-import { DEFAULT_BOOST, statusToken } from '../waitlist-rules.js'
+import { checkedWaitlistRule, statusToken, type WaitlistBoostRule, type WaitlistOptions, type WaitlistRule } from '../waitlist-rules.js'
 import { readEnv } from '../delivery.js'
 import { authSecrets, liveSecrets } from '../auth-secrets.js'
 import { backendError } from '../errors.js'
@@ -296,6 +296,8 @@ export interface Access {
       /** Whether the caller is an administrator now (a read: no recent sign-in asked). */
       is: (ctx: AccessCtx, what: string) => Promise<boolean>
     }
+    /** The waitlist's rule, checked (`setupAccess({ waitlist })`): the sign-in gate and setupWaitlist read it. */
+    waitlistRule: WaitlistRule
   }
 }
 
@@ -347,6 +349,30 @@ export interface SetupAccessOptions {
   email?: AccessEmail
   /** The paths the Nuxt module writes to `paths.generated.ts`: an invitation email links to the sign-in page and the privacy policy there. */
   paths?: Partial<BackendPaths>
+  /**
+   * The rule the waitlist's line runs on, in early access. It lives here,
+   * not on `setupWaitlist`, because the sign-in page records entries
+   * through this access, in code that never loads `backend/waitlist.ts`.
+   *
+   * - `boost`: how sharing moves people. Each friend who joins through a
+   *   person's link moves them `perFriend` up the line (ms, a day by
+   *   default), for up to `cap` friends (10 by default, `null` for no
+   *   limit); the friend starts `welcome` up (0 by default); `notify` emails
+   *   the person when a friend joins, at most once a day. `false` turns
+   *   sharing off.
+   * - `place`: `{ rank: false }` keeps a person's position and the size of
+   *   the list to the administrators: the status page, the sign-in page and
+   *   the confirmation email show the day they joined, the credit their
+   *   friends earned and the next wave instead.
+   *
+   * @example
+   * ```ts
+   * import { DAY } from 'nuxt-backend/rate-limit'
+   *
+   * waitlist: { boost: { perFriend: 7 * DAY, cap: null, welcome: 7 * DAY, notify: true }, place: { rank: false } }
+   * ```
+   */
+  waitlist?: WaitlistOptions
 }
 
 /** What "Email them" needs of `setupEmail`'s instance: the layout and words, and the sending rules. */
@@ -388,8 +414,8 @@ interface AccessRefs {
     consoleRows: FunctionReference<'query', 'internal', Record<string, never>, { invites: AccessInvite[], memberTickets: AccessMemberTicket[], admissions: AccessAdmission[] }>
   }
   waitlist: {
-    verify: FunctionReference<'mutation', 'internal', { email: string, join?: string, locale?: string, boost: { cap: number, days: number } }, { id: string, created: boolean, source: string, referred: boolean, news: boolean }>
-    place: FunctionReference<'query', 'internal', { id: string }, { position: number | null, total: number, shareCode: string } | null>
+    verify: FunctionReference<'mutation', 'internal', { email: string, join?: string, locale?: string, boost: WaitlistBoostRule }, { id: string, created: boolean, status: string, source: string, referred: boolean, news: boolean, sharer?: { id: string, email: string, locale: string | null, friends: number, credit: number } }>
+    place: FunctionReference<'query', 'internal', { id: string, rank?: boolean }, { position: number | null, total: number, shareCode: string } | null>
   }
   adapter: { findOne: AdapterFindOne }
   email: { send: FunctionReference<'mutation', 'internal', Record<string, unknown>, string | null> }
@@ -482,6 +508,8 @@ const usedTicket = (row: { ticket: string, label?: string }): { ticket: AccessTi
 export function setupAccess(components: AccessComponents, options: SetupAccessOptions): Access {
   const refs = components.backend as AccessRefs
   const phases = [...(options.phases ?? ACCESS_PHASES)]
+  // Checked once, here: the sign-in gate and setupWaitlist both read it.
+  const waitlistRule = checkedWaitlistRule(options.waitlist)
   const domains = options.domains ?? []
   // A workspace invitation's share of sign-ups per inviter; 0 turns them off as tickets.
   const perInviter = options.workspaceInvitations === false ? 0 : (options.workspaceInvitations ?? WORKSPACE_INVITATIONS)
@@ -636,17 +664,25 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
 
   const waitlist: AccessGate['waitlist'] = phases.includes('early-access')
     ? async (ctx, { email, locale, join }) => {
-      const entry = await ctx.runMutation(refs.waitlist.verify, { email: admissionEmail(email), ...(join ? { join } : {}), ...(locale ? { locale } : {}), boost: DEFAULT_BOOST })
-      const place = await ctx.runQuery(refs.waitlist.place, { id: entry.id })
+      const rule = waitlistRule
+      const entry = await ctx.runMutation(refs.waitlist.verify, { email: admissionEmail(email), ...(join ? { join } : {}), ...(locale ? { locale } : {}), boost: rule.boost })
+      const waiting = entry.status === 'waiting'
+      // A private rank is never read, so nothing about the list's size leaves here.
+      const place = waiting && rule.rank ? await ctx.runQuery(refs.waitlist.place, { id: entry.id }) : null
+      const sharer = rule.notify && entry.sharer
+        ? { email: entry.sharer.email, locale: entry.sharer.locale, friends: entry.sharer.friends, credit: entry.sharer.credit, token: await statusToken(secret(), entry.sharer.id) }
+        : undefined
       return {
         id: entry.id,
         created: entry.created,
+        waiting,
         position: place?.position ?? null,
         total: place?.total ?? 0,
         token: await statusToken(secret(), entry.id),
         source: entry.source,
         referred: entry.referred,
         news: entry.news,
+        ...(sharer ? { sharer } : {}),
       }
     }
     : undefined
@@ -869,12 +905,13 @@ export function setupAccess(components: AccessComponents, options: SetupAccessOp
         require: requireAdministrator,
         is: (ctx, what) => isAdministratorNow(ctx, reads, administrators, what),
       },
+      waitlistRule,
     },
   }
 }
 
 export { setupWaitlist } from './waitlist.js'
-export type { SetupWaitlistOptions, Waitlist, WaitlistApi, WaitlistCaps, WaitlistConsole, WaitlistEntryRow, WaitlistPlace, WaitlistStatusView } from './waitlist.js'
-export type { WaitlistQuestions, WaitlistStatus } from '../waitlist-rules.js'
+export type { SetupWaitlistOptions, Waitlist, WaitlistApi, WaitlistCaps, WaitlistConsole, WaitlistEntryRow, WaitlistPlace, WaitlistStatusView, WaitlistWaveStanding } from './waitlist.js'
+export type { WaitlistBoostOptions, WaitlistBoostRule, WaitlistOptions, WaitlistQuestions, WaitlistRule, WaitlistStatus } from '../waitlist-rules.js'
 export { ACCESS_PHASES } from '../access-tickets.js'
 export type { AccessPhase, AccessTicket, InviteKind, InviteStatus } from '../access-tickets.js'

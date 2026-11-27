@@ -48,6 +48,8 @@ export interface UseWaitlistAdminReturn {
   note: (id: string, note: string) => Promise<void>
   /** The room a wave has: the sign-in codes left this hour and the email plan's quota today. `null` for no administrator. Rejects on failure. */
   caps: () => Promise<WaitlistCaps | null>
+  /** Plan the next wave (`size` from the front of the line, opening at `opensAt`), or clear it with `null`. Takes a recent sign-in. Rejects on failure. */
+  plan: (wave: { size: number, opensAt?: number | null } | null) => Promise<void>
 }
 
 /**
@@ -76,6 +78,7 @@ export function useWaitlistAdmin(options: UseWaitlistAdminOptions = {}): UseWait
   const admit = call(api.admitWaitlist, 'admitWaitlist')
   const decline = call(api.declineWaitlist, 'declineWaitlist')
   const note = call(api.noteWaitlist, 'noteWaitlist')
+  const planWave = call(api.planWaitlistWave, 'planWaitlistWave')
   const readCaps = api.getWaitlistCaps ? useAction(api.getWaitlistCaps) : null
 
   return {
@@ -94,5 +97,8 @@ export function useWaitlistAdmin(options: UseWaitlistAdminOptions = {}): UseWait
       await note({ id, note: text })
     },
     caps: () => run(async () => (readCaps ? await readCaps({}) : null), { silent: true }),
+    plan: async (wave) => {
+      await planWave(wave ? { size: wave.size, ...(wave.opensAt != null ? { opensAt: wave.opensAt } : {}) } : { size: null })
+    },
   }
 }
