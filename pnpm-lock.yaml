@@ -63,7 +63,7 @@ importers:
         specifier: ^0.4.15
         version: 0.4.15(@standard-schema/spec@1.1.0)(convex-helpers@0.1.136(@standard-schema/spec@1.1.0)(convex@1.51.0(react@19.3.0))(hono@4.13.18)(prettier@3.9.10)(react@19.3.0)(typescript@6.0.3)(zod@4.6.7))(convex@1.51.0(react@19.3.0))(hono@4.13.18)(prettier@3.9.10)(react@19.3.0)(typescript@6.0.3)(zod@4.6.7)
       '@nuxt/kit':
-        specifier: ^4.6.3
+        specifier: ^4.7.0
         version: 4.7.0(@nuxt/schema@4.7.0)(confbox@0.2.4)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.4.5)(mlly@1.8.2)(oxc-parser@0.157.0)(rolldown@1.2.19)(unplugin@3.7.0(esbuild@0.28.2)(rolldown@1.2.19)(rollup@4.68.8)(vite@8.4.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(webpack@5.111.0(cssnano@9.9.0(postcss@8.5.33))(csso@5.0.5)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.33)(sharp@0.35.5(@types/node@26.6.6))(svgo@4.1.0)))
       '@polar-sh/checkout':
         specifier: ^0.6.0
@@ -178,7 +178,7 @@ importers:
         specifier: ^1.0.3
         version: 1.0.3(@nuxt/cli@3.37.0(@nuxt/schema@4.7.0)(commander@14.0.3)(magicast@0.5.5)(supports-color@10.2.2))(@volar/typescript@2.4.30(typescript@6.0.3))(@vue/compiler-core@3.5.46)(@vue/language-core@3.3.14)(esbuild@0.28.2)(rolldown@1.2.19)(rollup@4.68.8)(typescript@6.0.3)(vite@8.4.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(vue-tsc@3.3.14(typescript@6.0.3))(vue@3.5.46(typescript@6.0.3))(webpack@5.111.0(cssnano@9.9.0(postcss@8.5.33))(csso@5.0.5)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.33)(sharp@0.35.5(@types/node@26.6.6))(svgo@4.1.0))
       '@nuxt/schema':
-        specifier: ^4.6.3
+        specifier: ^4.7.0
         version: 4.7.0
       '@nuxt/test-utils':
         specifier: ^4.3.4

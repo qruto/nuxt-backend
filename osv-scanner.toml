@@ -78,12 +78,12 @@ ignoreUntil = 2027-01-09
 reason = "fallow 3.33.1: needs a hostile analyzed repository; fallow only reads this one"
 
 # Nuxt's case-variant route rules — fixed in 4.6.2, and the lockfile resolves
-# 4.6.3. The advisory also lists the 3.x line with no fix, which is what the
-# scanner matches on 4.6.3.
+# 4.7.0. The advisory also lists the 3.x line with no fix, which is what the
+# scanner matches on 4.7.0.
 [[IgnoredVulns]]
 id = "GHSA-vjh5-4x84-xrqp"
 ignoreUntil = 2027-01-09
-reason = "nuxt and @nuxt/nitro-server 4.6.3: fixed in 4.6.2; the unfixed range is 3.x"
+reason = "nuxt and @nuxt/nitro-server 4.7.0: fixed in 4.6.2; the unfixed range is 3.x"
 
 # zod 3.25.76 — fixed only in 4.6.6. Nuxt Content's own schema code in the docs
 # site validates the site's committed content with it at build time; the
