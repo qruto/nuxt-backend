@@ -23,7 +23,7 @@ signs everybody out. `npx nuxt-backend dev` generates it on a dev deployment; le
    `npx nuxt-backend` below is the project's own copy. Run it as that column says, not with
    `dlx`, which fetches a separate one.
 
-2. **Versions.** The package needs Nuxt 4 from 4.6.2 (not Nuxt 5 yet) and Node ≥ 24.11.0. Check
+2. **Versions.** The package needs Nuxt 4 from 4.7.0 (not Nuxt 5 yet) and Node ≥ 24.11.0. Check
    `node -v` and the `nuxt` version in `package.json`. If either is out of range, stop and tell
    the user; don't upgrade or downgrade Nuxt on your own.
 

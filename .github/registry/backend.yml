@@ -12,4 +12,4 @@ maintainers:
   - name: Slava Razum
     github: slavarazum
 compatibility:
-  nuxt: '^4.6.2'
+  nuxt: '^4.7.0'

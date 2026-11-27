@@ -32,4 +32,4 @@ https://www.npmjs.com/package/nuxt-backend
 
 ### Nuxt Compatibility
 
-Nuxt 4 (`^4.6.2`), Node >= 24.11, Convex >= 1.46.
+Nuxt 4 (`^4.7.0`), Node >= 24.11, Convex >= 1.46.

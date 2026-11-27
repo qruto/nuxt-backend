@@ -14,7 +14,7 @@
     "@convex-dev/presence": "^0.4.1",
     "ai": "^7.0.129",
     "convex": "^1.48.0",
-    "nuxt": "^4.6.2",
+    "nuxt": "^4.7.0",
     "nuxt-backend": "latest",
     "vue": "^3.5.42",
     "vue-router": "^5.3.1"

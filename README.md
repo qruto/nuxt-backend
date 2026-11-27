@@ -43,7 +43,7 @@ The generic Convex ⇄ Nuxt integration underneath (live queries, mutations, SSR
 
 > 📖 **Full documentation:** **[nuxt-backend.dev](https://nuxt-backend.dev)** (docs · playground) — start with the [Introduction](https://nuxt-backend.dev/docs/start), then the [Quickstart](https://nuxt-backend.dev/docs/start/quickstart).
 
-**Requirements:** Nuxt ≥ 4.6.2 (Nuxt 4; not yet Nuxt 5) and Node ≥ 24.11.
+**Requirements:** Nuxt ≥ 4.7.0 (Nuxt 4; not yet Nuxt 5) and Node ≥ 24.11.
 
 **Stability:** [STABILITY.md](./STABILITY.md) — what the 0.x line promises, the experimental tier, and how upstream releases map to this package's versions. **Release notes:** [CHANGELOG.md](./CHANGELOG.md).
 
