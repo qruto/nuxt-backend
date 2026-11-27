@@ -838,7 +838,7 @@ jobs:
           if [ "$attested" = 200 ]; then
             echo "::warning::npm now serves unimport@7.0.2's attestation — remove the pin in this step (unjs/unimport#568)."
           fi
-          for app in starter panels advanced test-utils; do
+          for app in starter panels advanced convex-auth test-utils; do
             (
               cd "$RUNNER_TEMP/smoke-$app"
               if [ "$attested" != 200 ]; then
