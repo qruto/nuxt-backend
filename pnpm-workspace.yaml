@@ -145,6 +145,10 @@ overrides:
   # 1.4.3 (GHSA-j8rw-jp99-435v, GHSA-w4xr-hqv8-ch44, GHSA-6889-vf6x-f3g5). A
   # patch on the line listhen already takes. Remove when listhen requires ^1.4.3.
   'listhen>node-forge': ^1.4.3
+  # vue-router 5.5.2 reads a bare `__VUE_OPTIONS_API__` from its Node entry, so
+  # every server render throws (fixed in 5.5.3, inside the cooldown when this
+  # was written). Remove once the lockfile holds 5.5.3 or later.
+  vue-router: '>=5.5.1 <5.5.2 || >=5.5.3'
 
 # better-auth declares an optional vitest ^4 peer (for its test utils, which this
 # repository never imports). Unmatched, pnpm auto-installed a second vitest 4.1.11
