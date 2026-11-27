@@ -17,12 +17,6 @@ has the reasons and every step. The core skill's `references/renames.json`, in
 After it, run `npx nuxt-backend doctor`, and `npx nuxt-backend init --agents` to refresh the app's
 agent files and skills.
 
-## [The module requires Nuxt 4.7.0](https://nuxt-backend.dev/docs/ship/releases/upgrade#the-module-requires-nuxt-470)
-
-| Was | Now | Change | Note |
-|---|---|---|---|
-| `^4.6.2` | `^4.7.0` | reshaped | the module's Nuxt compatibility: Nuxt 4.6 no longer builds with Vite 8.4, so move the app to Nuxt 4.7.0 or later |
-
 ## [A composable falls back when the app lacks its backend file](https://nuxt-backend.dev/docs/ship/releases/upgrade#a-composable-falls-back-when-the-app-lacks-its-backend-file)
 
 | Was | Now | Change | Note |

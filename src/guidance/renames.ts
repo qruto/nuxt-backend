@@ -57,7 +57,6 @@ export function sectionUrl(section: string): string {
   return `${UPGRADE_PAGE}#${headingAnchor(section)}`
 }
 
-const NUXT_FLOOR = 'The module requires Nuxt 4.7.0'
 const FALLBACK_FILE = 'A composable falls back when the app lacks its backend file'
 const DOCTOR_FIX = '`doctor --fix` asks before it syncs email, and a deploy runs the package\'s migrations'
 const PAGE_SHAPE = 'A replaced page follows its shape, and `nuxt dev` serves its modules from a path of their own'
@@ -85,9 +84,6 @@ const BETTER_AUTH_17 = 'Better Auth 1.7, and a deploy for the backend\'s schema'
  * `const` per section heading above the list, and its entries in it.
  */
 export const RENAMES: readonly Rename[] = [
-  // 0.6: the module requires Nuxt 4.7.0.
-  { from: '^4.6.2', to: '^4.7.0', change: 'reshaped', section: NUXT_FLOOR, note: 'the module\'s Nuxt compatibility: Nuxt 4.6 no longer builds with Vite 8.4, so move the app to Nuxt 4.7.0 or later' },
-
   // 0.5: a composable falls back when the app lacks its backend file.
   { from: 'api', to: '_generated/api.d.ts', change: 'reshaped', section: FALLBACK_FILE, note: 'the packaged plugin provides only the modules `_generated/api.d.ts` lists, so a namespace it doesn\'t list reads as absent and its composable falls back; an app that commits `_generated/` commits it again after adding a backend file' },
 
