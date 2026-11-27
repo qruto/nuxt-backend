@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi 
 import { actionGeneric, componentsGeneric, queryGeneric, type FunctionReference, makeFunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 import type { TestConvex } from 'convex-test'
+import presenceTest from '@convex-dev/presence/test'
 import { syncBillingCatalog } from '../../src/cli/billing/sync'
 import { getBackendError } from '../../src/convex/errors'
 import backendTest, { asUser, defineBackendTestApp } from '../../src/convex/test'
@@ -64,7 +65,7 @@ const testApp = defineBackendTestApp(schema, {
   ...modules,
   // convex-test finds the functions' root by its `_generated` directory.
   [`${PANELS}_generated/api.js`]: () => Promise.resolve({}),
-})
+}, { mounts: { presence: presenceTest } })
 
 const fn = <Kind extends 'query' | 'mutation' | 'action'>(path: string) => makeFunctionReference<Kind>(path) as FunctionReference<Kind, 'public'>
 
@@ -475,6 +476,24 @@ describe('templates/panels/backend', () => {
     expect(await strip(ada, id)).toMatchObject({ photoId })
     expect(await ada.query(fn<'query'>('storage:getFileUrl'), { storageId: photoId })).toEqual(expect.any(String))
     expect(await grace.query(fn<'query'>('storage:getFileUrl'), { storageId: photoId })).toBeNull()
+  })
+
+  test('a strip\'s room lets in its workspace, and a member removed from the workspace leaves its rooms only', async () => {
+    const ada = await asUser(t, { name: 'Ada' })
+    const grace = await asUser(t, { name: 'Grace' })
+    const own = await ada.mutation(fn<'mutation'>('strips:create'), { idea: 'A cat learns to surf' }) as string
+    const theirs = await grace.mutation(fn<'mutation'>('strips:create'), { idea: 'A dog learns to ski' }) as string
+    const join = async (caller: Caller, id: string) => (await caller.mutation(fn<'mutation'>('presence:heartbeat'), { roomId: `strip:${id}`, userId: caller.userId, sessionId: `tab-${caller.userId}`, interval: 10_000 }) as { roomToken: string }).roomToken
+    const people = async (caller: Caller, roomToken: string) => (await caller.query(fn<'query'>('presence:list'), { roomToken }) as Array<{ userId: string }>).map(person => person.userId)
+    const leave = (workspaceId: string, userId: string) => t.mutation(makeFunctionReference<'mutation'>('presence:leaveWorkspace') as unknown as FunctionReference<'mutation', 'internal'>, { workspaceId, userId })
+    expect(await refusal(join(ada, theirs))).toMatchObject({ code: 'forbidden' })
+    const adas = await join(ada, own)
+    const graces = await join(grace, theirs)
+    await leave(grace.workspaceId!, ada.userId)
+    expect(await people(ada, adas)).toEqual([ada.userId])
+    await leave(ada.workspaceId!, ada.userId)
+    await expect(ada.query(fn<'query'>('presence:list'), { roomToken: adas })).rejects.toThrow(/not in this room/)
+    expect(await people(grace, graces)).toEqual([grace.userId])
   })
 
   test('a drawn strip ends ready: its panels stored, the author notified, the email queued', async () => {

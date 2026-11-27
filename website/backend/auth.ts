@@ -62,6 +62,10 @@ export const {
   canSignIn: async (_ctx, { email }) => admitsAddress(email) || { allowed: false, message: SANDBOX_IDENTITY_HELP },
   workspaces: {
     canInvite: async (_ctx, { email }) => admitsAddress(email) || { allowed: false, message: SANDBOX_IDENTITY_HELP },
+    // A removed member stops showing up on the workspace's strips (presence.ts).
+    onMemberRemoved: async (ctx, { workspace, userId }) => {
+      await ctx.runMutation(internal.presence.leaveWorkspace, { workspaceId: workspace.id, userId })
+    },
   },
   authOptions: {
     databaseHooks: {
