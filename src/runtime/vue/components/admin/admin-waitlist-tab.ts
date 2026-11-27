@@ -105,7 +105,9 @@ export function useWaitlistTab(confirm?: () => ConfirmFn | undefined) {
   async function planWave(clear = false) {
     const size = clear ? 0 : Math.min(PLAN_MAX, Math.trunc(Number(plan.size)) || 0)
     const opensAt = plan.opensAt ? Date.parse(`${plan.opensAt}T00:00:00Z`) : null
-    const wave = size >= 1 ? { size, opensAt: Number.isFinite(opensAt) ? opensAt : null } : null
+    // Only Clear clears: a Save without a size saves nothing.
+    if (!clear && size < 1) return
+    const wave = clear ? null : { size, opensAt: Number.isFinite(opensAt) ? opensAt : null }
     const saved = await change('plan', async () => {
       await waitlist.plan(wave)
       return true

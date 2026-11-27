@@ -51,6 +51,7 @@ const state = (key: string) => props.tab.busy(key) ?? (selected.value.length ? u
       <input
         v-model="plan.size"
         type="number"
+        required
         min="1"
         :max="tab.planMax"
         inputmode="numeric"

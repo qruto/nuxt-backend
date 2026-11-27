@@ -529,6 +529,7 @@ describe('the /waitlist page', () => {
     const wrapper = render(WaitlistStatus)
     await flushPromises()
     expect(wrapper.find('[data-waitlist="position"]').text()).toBe('You\'re on the waitlist.')
+    expect(wrapper.find('[data-waitlist="facts"]').attributes('role')).toBe('status')
     const facts = wrapper.findAll('[data-waitlist="fact"]').map(fact => fact.text())
     expect(facts).toEqual([
       `You joined on ${new Date(VIEW.joinedAt).toLocaleDateString('en', { dateStyle: 'long' })}.`,

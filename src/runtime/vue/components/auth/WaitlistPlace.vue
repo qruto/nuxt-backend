@@ -74,13 +74,20 @@ const headline = computed(() => {
       {{ t('signUp') }}
     </a>
     <template v-if="place?.status === 'waiting'">
-      <p
-        v-for="line in facts"
-        :key="line"
-        data-waitlist="fact"
+      <div
+        v-if="facts.length"
+        data-waitlist="facts"
+        role="status"
+        aria-live="polite"
       >
-        {{ line }}
-      </p>
+        <p
+          v-for="line in facts"
+          :key="line"
+          data-waitlist="fact"
+        >
+          {{ line }}
+        </p>
+      </div>
       <p data-waitlist="disclosure">
         {{ t('disclosure') }}
       </p>

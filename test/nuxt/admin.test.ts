@@ -940,6 +940,11 @@ describe('the Waitlist tab', () => {
     await flushPromises()
     expect(setFlagCall).toHaveBeenLastCalledWith({ size: null })
     expect(wrapper.find('[data-admin="message"]').text()).toBe('The plan is cleared.')
+    // A Save with the size erased saves nothing; only Clear clears.
+    await plan.find('input[type="number"]').setValue('')
+    await plan.trigger('submit')
+    await flushPromises()
+    expect(setFlagCall).toHaveBeenCalledTimes(2)
     expect(reauthenticated).toHaveBeenCalledTimes(2)
     wrapper.unmount()
   })

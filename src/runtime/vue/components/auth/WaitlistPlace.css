@@ -24,6 +24,17 @@
     font-weight: 600;
   }
 
+  /* The person's own facts, where rank is private: one live region, so a new friend's credit is heard. */
+  [data-waitlist='facts'] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  [data-waitlist='fact'] {
+    margin: 0;
+  }
+
   [data-waitlist='sign-up'] {
     align-self: flex-start;
     padding: 0.5rem 0.9rem;
