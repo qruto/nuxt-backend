@@ -3,6 +3,7 @@ import { backendEnv } from 'nuxt-backend/app'
 import backend from 'nuxt-backend/convex.config'
 import persistentTextStreaming from '@convex-dev/persistent-text-streaming/convex.config'
 import polar from '@convex-dev/polar/convex.config'
+import presence from '@convex-dev/presence/convex.config'
 import rateLimiter from '@convex-dev/rate-limiter/convex.config'
 import shardedCounter from '@convex-dev/sharded-counter/convex.config'
 import workflow from '@convex-dev/workflow/convex.config'
@@ -36,6 +37,7 @@ app.use(backend, {
 })
 app.use(persistentTextStreaming)
 app.use(polar)
+app.use(presence)
 app.use(rateLimiter)
 app.use(shardedCounter)
 app.use(workflow)

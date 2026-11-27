@@ -52,7 +52,9 @@ done
 if grep -q 'AnyApi' backend/_generated/api.d.ts; then
   echo "::error::backend/_generated/api.d.ts is the untyped placeholder — the component-aware codegen phase did not run"; exit 1
 fi
-if ! grep -q 'nuxt-backend/_generated/component' backend/_generated/api.d.ts; then
+# An app on Convex Auth (examples/convex-auth) mounts no `backend` component.
+if grep -q 'nuxt-backend/convex.config' backend/convex.config.ts \
+  && ! grep -q 'nuxt-backend/_generated/component' backend/_generated/api.d.ts; then
   echo "::error::backend/_generated/api.d.ts does not type components.backend against the package's ComponentApi"; exit 1
 fi
 # A new file codegen wrote counts as a difference too: `git diff` alone only

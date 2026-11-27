@@ -121,6 +121,7 @@ updates:
       - /templates/starter
       - /templates/panels
       - /examples/advanced
+      - /examples/convex-auth
     schedule:
       interval: weekly
       day: monday

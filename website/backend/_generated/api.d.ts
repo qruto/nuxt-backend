@@ -24,6 +24,7 @@ import type * as http from "../http.js";
 import type * as jobs from "../jobs.js";
 import type * as notifications from "../notifications.js";
 import type * as personas from "../personas.js";
+import type * as presence from "../presence.js";
 import type * as rateLimiter from "../rateLimiter.js";
 import type * as routes from "../routes.js";
 import type * as storage from "../storage.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   jobs: typeof jobs;
   notifications: typeof notifications;
   personas: typeof personas;
+  presence: typeof presence;
   rateLimiter: typeof rateLimiter;
   routes: typeof routes;
   storage: typeof storage;
@@ -92,6 +94,7 @@ export declare const components: {
   backend: import("nuxt-backend/_generated/component.js").ComponentApi<"backend">;
   persistentTextStreaming: import("@convex-dev/persistent-text-streaming/_generated/component.js").ComponentApi<"persistentTextStreaming">;
   polar: import("@convex-dev/polar/_generated/component.js").ComponentApi<"polar">;
+  presence: import("@convex-dev/presence/_generated/component.js").ComponentApi<"presence">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   shardedCounter: import("@convex-dev/sharded-counter/_generated/component.js").ComponentApi<"shardedCounter">;
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;

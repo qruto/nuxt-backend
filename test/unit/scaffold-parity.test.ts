@@ -18,6 +18,7 @@ const panelsBackend = join(rootDir, 'templates/panels/backend')
  * template agree file by file.
  */
 const PANELS_CUSTOMIZED: Record<string, string> = {
+  'convex.config.ts': 'part 5: the presence component, for who else is looking at a strip',
   'billing.catalog.ts': 'part 2: the credits meter, the Free and Studio plans and two packs',
   'ai.ts': 'parts 3 and 4: moderation and content credentials; the demo\'s smaller spend limit',
   'admin.ts': 'part 3: the Reports tab for strips',
@@ -27,10 +28,11 @@ const PANELS_CUSTOMIZED: Record<string, string> = {
   'notifications.ts': 'part 5: the strip_ready notification',
   'flags.ts': 'the ideaExamples experiment on the strips page',
   'auth.ts': 'the public demo: a sandbox deployment admits generated sandbox identities only',
+  'billing.ts': '`commerce`, so `BILLING_PROVIDER` alone moves Panels to Stripe, Dodo or Creem',
 }
 
 /** The tutorial's own backend files, beyond the scaffold. */
-const PANELS_EXTRA = ['schema.ts', 'strips.ts', 'strips.test.ts', 'storage.ts', 'jobs.ts', 'routes.ts', 'demo.ts', 'crons.ts']
+const PANELS_EXTRA = ['schema.ts', 'strips.ts', 'strips.test.ts', 'storage.ts', 'jobs.ts', 'routes.ts', 'demo.ts', 'crons.ts', 'billing.products.ts', 'presence.ts']
 
 /**
  * Files of examples/advanced/backend that deliberately differ from the

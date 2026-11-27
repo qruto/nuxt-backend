@@ -149,12 +149,13 @@ export default defineNuxtModule<ModuleOptions>({
     // Surfaced by Nuxt DevTools and the nuxt/modules registry (which reads it
     // from dist/module.json and uses it as the listing's website).
     docs: 'https://nuxt-backend.dev',
-    // From 4.6.2: the server code is written against `nuxt/server`, which
-    // ships in 4.6, and nuxt-convex-module 0.12 needs 4.6 too. Not Nuxt 5
+    // From 4.7.0: the server code is written against `nuxt/server`, which
+    // ships in 4.6, and nuxt-convex-module 0.12 needs 4.6 too, but 4.6 no
+    // longer builds with Vite 8.4 (rolldown refuses Nuxt's `unctx` import). Not Nuxt 5
     // yet: the package's server code and nuxt-security still run on h3 1, and on Nuxt 5 Nuxt disables
     // the module with its own incompatibility warning instead of letting it
     // fail at runtime.
-    compatibility: { nuxt: '^4.6.2' },
+    compatibility: { nuxt: '^4.7.0' },
   },
   defaults: {
     devtools: true,

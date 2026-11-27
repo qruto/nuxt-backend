@@ -2,6 +2,7 @@ import { setupAdmin } from 'nuxt-backend/admin'
 import { components } from './_generated/api'
 import type { DataModel } from './_generated/dataModel'
 import { email } from './email'
+import { presence } from './presence'
 import { routes } from './routes'
 
 // The admin console (/admin): every account and every workspace, for the
@@ -23,7 +24,10 @@ export const admin = setupAdmin<DataModel>(components, {
       return strip && { title: strip.idea, url: routes.strip(id), authorId: strip.authorId, files: strip.photoId ? [strip.photoId] : [] }
     },
     hide: async (ctx, { table, id }) => {
-      if (table === 'strips') await ctx.db.patch('strips', id, { hidden: true })
+      if (table !== 'strips') return
+      await ctx.db.patch('strips', id, { hidden: true })
+      // Nobody may open a hidden strip, so nobody is still looking at it.
+      await presence.removeRoom(ctx, `strip:${id}`)
     },
   },
 })

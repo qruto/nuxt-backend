@@ -52,7 +52,7 @@ export function lastCommitDates(dir: string): Map<string, string> {
     // NUL-separated and unquoted, so any file name reads back as written. A
     // header starts with a NUL of its own, so it follows an empty field,
     // which no file name can be.
-    log = execFileSync('git', ['-c', 'core.quotePath=false', 'log', '-z', '--format=%x00%H %cI', '--name-only', '--relative', '--', '.'], { cwd: dir, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+    log = execFileSync('git', ['-c', 'core.quotePath=false', 'log', '-z', '--format=%x00%H %ct', '--name-only', '--relative', '--', '.'], { cwd: dir, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
     // Where the clone records its boundary: the common git dir, which a
     // linked worktree shares, not the worktree's own.
     shallow = resolve(dir, execFileSync('git', ['rev-parse', '--git-path', 'shallow'], { cwd: dir, env, encoding: 'utf8' }).trim())
@@ -68,8 +68,10 @@ export function lastCommitDates(dir: string): Map<string, string> {
     if (fields[i] === '') {
       const header = fields[++i]
       if (!header) continue
+      // The commit time as seconds, written in UTC: `%cI` prints a UTC offset
+      // as `Z` or as `+00:00`, depending on the git version.
       const [hash, committed] = header.split(' ')
-      date = boundaries.has(hash!) ? undefined : committed
+      date = boundaries.has(hash!) ? undefined : new Date(Number(committed) * 1000).toISOString().replace('.000Z', 'Z')
       first = true
       continue
     }

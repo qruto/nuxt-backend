@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 // Nuxt 5: the module on `compatibilityVersion: 5` and the Vite server builder
 // (test/fixtures/nuxt5). Skipped, with the blocker named: the module declares
-// `compatibility: { nuxt: '^4.6.2' }` because nuxt-security 2.6, which it
+// `compatibility: { nuxt: '^4.7.0' }` because nuxt-security 2.6, which it
 // installs for the security headers and the Convex-aware CSP, imports h3 1,
 // while Nuxt 5's server runs on h3 2 (Nitro v3). Unskip once nuxt-security
 // ships an h3 2 release, widen the compatibility range, and let these run.

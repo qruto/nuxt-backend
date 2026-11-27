@@ -4,7 +4,9 @@
  * (node_modules/docus ships .ts/.vue app code that typechecks against ITS
  * peer set — e.g. `$config.public.i18n` is only typed when @nuxtjs/i18n's
  * augmentation resolves, which shifts with pnpm peer hashing and is not ours
- * to fix). Diagnostics in our own files still fail the check.
+ * to fix), and from `.nuxt/content/`, which @nuxt/content generates (its
+ * component loader has untyped parameters that Nuxt 4.7's generated tsconfig
+ * now checks). Diagnostics in our own files still fail the check.
  */
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -21,11 +23,11 @@ catch (error) {
 }
 
 const errors = output.split('\n').filter(line => line.includes('error TS'))
-const ours = errors.filter(line => !line.includes('node_modules/'))
+const ours = errors.filter(line => !line.includes('node_modules/') && !line.startsWith('.nuxt/content/'))
 const upstream = errors.length - ours.length
 
 if (upstream > 0) {
-  console.warn(`[typecheck-website] Ignored ${upstream} diagnostic(s) from upstream layer sources in node_modules.`)
+  console.warn(`[typecheck-website] Ignored ${upstream} diagnostic(s) from upstream layer sources and generated @nuxt/content code.`)
 }
 if (ours.length > 0) {
   console.error(ours.join('\n'))

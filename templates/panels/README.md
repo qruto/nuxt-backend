@@ -27,10 +27,12 @@ Yarn and Bun ignore it.
 | `backend/schema.ts` | The `strips` table, one row per strip, per workspace | 1 |
 | `backend/strips.ts` | The strip functions: list, create, the photo, the drawing job, the share page | 1, 3, 4, 5 |
 | `backend/billing.catalog.ts` | The credit meter, the Free and Studio plans, two packs | 2 |
+| `backend/billing.ts`, `backend/billing.products.ts` | Billing on Polar, and the product ids for Stripe, Dodo or Creem | |
 | `backend/storage.ts` | Checked photo uploads and share links | 3, 5 |
 | `backend/ai.ts`, `backend/admin.ts` | Moderation, content credentials and the Reports tab | 3, 4 |
 | `backend/jobs.ts` | The generation queue, with a head start for Studio | 4 |
 | `backend/email.ts`, `backend/notifications.ts` | The brand of every email, and the "strip ready" notification | 5 |
+| `backend/presence.ts`, `app/components/StripViewers.vue` | Who else in the workspace has a strip open | 5 |
 | `app/pages/strips/` | The list of strips, and one strip as it draws | 1, 3, 4, 5 |
 | `app/pages/s/[token].vue` | A shared strip, for anyone with the link | 5 |
 | `backend/routes.ts` | Panels' own paths, for the links the backend writes and for sign-in | |
@@ -52,6 +54,16 @@ npx nuxt-backend email sync     # the email topics and the webhook
 ```
 
 `npx nuxt-backend doctor` checks the whole setup and says what is missing.
+
+### Sell through Stripe, Dodo or Creem
+
+Panels sells through Polar until `BILLING_PROVIDER` names another merchant of record. To try one:
+
+1. Create Studio (a monthly and a yearly price) and the two packs in the provider's test mode, and put their ids in `backend/billing.products.ts`.
+2. Set `BILLING_PROVIDER` (`stripe`, `dodo` or `creem`), `BILLING_ACCESS_TOKEN` (its test-mode secret key) and `BILLING_WEBHOOK_SECRET` in `.env.local`, then `npx nuxt-backend env push`.
+3. Point the provider's webhook at `https://<your deployment>.convex.site/billing/events`, with the events [the merchants page](https://nuxt-backend.dev/docs/services/merchants#the-webhook) lists.
+
+Plans, packs, credits, the plan's head start, checkout and the portal then run on that provider. Gifts, discounts and the admin console's Revenue view are Polar's alone: on another provider they refuse as `unavailable`.
 
 ## Test
 
