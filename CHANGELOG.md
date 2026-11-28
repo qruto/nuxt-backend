@@ -34,21 +34,11 @@
 
 - Name Stripe, Dodo and Creem where billing still read Polar-only ([#270](https://github.com/qruto/nuxt-backend/pull/270))
 
-### 🏡 Chore
-
-#### Release
-
-- V0.6.0 ([#274](https://github.com/qruto/nuxt-backend/pull/274))
-
 ### 🤖 CI
 
 #### Deps
 
 - Bump the actions group across 2 directories with 7 updates ([#273](https://github.com/qruto/nuxt-backend/pull/273))
-
-### ⏪ Reverts
-
-- Chore(release): v0.6.0 ([#274](https://github.com/qruto/nuxt-backend/pull/274), [#276](https://github.com/qruto/nuxt-backend/pull/276))
 
 #### ⚠️ Breaking Changes
 
